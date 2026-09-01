@@ -1,0 +1,17 @@
+{
+  "ast_diff_engine": {
+    "iterations": 1000,
+    "mean_ms": 0.056,
+    "p50_ms": 0.046,
+    "p95_ms": 0.105,
+    "p99_ms": 0.157
+  },
+  "spatial_audio_synthesizer": {
+    "iterations": 1000,
+    "mean_ms": 3.028,
+    "p50_ms": 2.403,
+    "p95_ms": 5.172,
+    "p99_ms": 6.663
+  },
+  "security_catch_rate_pct": 100.0
+}
