@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP Spec](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Amazon Alexa+](https://img.shields.io/badge/Alexa%2B-Streamable%20HTTP-orange.svg)](https://developer.amazon.com)
-[![Tests: 26 Passed](https://img.shields.io/badge/Tests-26%20Passed-brightgreen.svg)](tests/)
+[![Tests: 36 Passed](https://img.shields.io/badge/Tests-36%20Passed-brightgreen.svg)](tests/)
 
 ---
 
@@ -150,7 +150,7 @@ export AWS_BEDROCK_MODEL_ID="anthropic.claude-3-5-sonnet-20241022-v2:0"
 ### 3. Run the automated test suite
 ```bash
 pytest tests/
-# Output: 26 passed in <3.0s
+# Output: 36 passed in <3.0s
 ```
 
 ### 4. Start the FastMCP Streamable HTTP Server

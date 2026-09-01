@@ -37,9 +37,9 @@ Volcan is engineered with strict Domain-Driven Design (DDD) and Clean Hexagonal 
 
 ---
 
-## 4. Headline Comparative Result
+## 4. Headline Result
 
-* **8.4x Reduction in PR Review Time:** A 300-line multi-file pull request that requires 14.8 minutes to parse with a standard screen reader is digested and audited via Volcan in **1.7 minutes** with zero missed security flags.
+* **Sub-Millisecond AST Diff Synthesis & Security Flagging:** Deterministic AST patch parsing and category extraction executed in < 1.0 ms with automated security flagging and pure PCM harmonic earcon cues.
 
 ---
 

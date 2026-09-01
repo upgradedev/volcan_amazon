@@ -1,10 +1,10 @@
-"""High-Concurrency Load & Stress Testing Benchmark Runner for Volcan.
+"""In-Process Concurrency & Thread Pool Stress Test Runner for Volcan.
 
 Executes:
-- 1,000 asynchronous AST diff requests
-- 1,000 PCM 22.05kHz audio syntheses
-- 500 concurrent lease transactions
-- Outputs P50, P90, P99 latency percentiles and throughput RPS
+- 1,000 in-process AST diff parsing iterations
+- 500 PCM 22.05kHz audio waveform syntheses
+- 500 in-process governance lease creations
+- Measures in-process function execution latency percentiles (P50, P90, P99)
 
 Usage:
     python scripts/load_test_suite.py
@@ -23,7 +23,7 @@ from src.domain.sonification import AudioTone, WaveformSynthesizer
 
 def run_load_stress_suite():
     print("================================================================")
-    print("        VOLCAN HIGH-CONCURRENCY LOAD & STRESS BENCHMARK         ")
+    print("   VOLCAN IN-PROCESS CONCURRENCY & LATENCY BENCHMARK            ")
     print("================================================================")
 
     # 1. AST Diff Throughput
