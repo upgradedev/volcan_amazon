@@ -23,7 +23,7 @@ Volcan introduces an accessible, voice-first intelligence layer between the deve
 1. **Semantic Diff Sonification:** Converts complex git diffs into concise hierarchical spoken digests (Level 0: Executive summary, Level 1: File impact, Level 2: Line & symbol drill-down) paired with harmonic acoustic earcons (PCM WAV waveforms).
 2. **Deterministic Security Scanning:** Scans diffs at the AST level for authentication, cryptographic, or database changes and announces critical alerts before deployment.
 3. **Dual-Custody Governed Execution:** Implements a time-leased, cryptographically signed SHA-256 voice authorization protocol for terminal and deployment actions.
-4. **FastMCP Streamable HTTP Server:** Fully compliant with the open Model Context Protocol (Spec 2025-11-25+), connecting Amazon Alexa+ directly to local coding workspaces.
+4. **FastMCP Streamable HTTP Server:** Built to the open Model Context Protocol (Spec 2025-11-25+), connecting Amazon Alexa+ directly to local coding workspaces.
 
 ---
 
