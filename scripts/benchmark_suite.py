@@ -19,7 +19,6 @@ sys.path.insert(0, os.path.abspath("."))
 from src.domain.semantic_diff import UnifiedDiffParser
 from src.domain.sonification import AudioTone, WaveformSynthesizer
 
-
 SAMPLE_DIFF = """diff --git a/src/auth/service.py b/src/auth/service.py
 index a1b2c3d..e5f6a7b 100644
 --- a/src/auth/service.py
