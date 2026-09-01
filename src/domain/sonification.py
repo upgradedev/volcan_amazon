@@ -4,7 +4,6 @@ import math
 import struct
 from dataclasses import dataclass
 from enum import Enum
-from typing import List
 
 
 class EarconType(str, Enum):
@@ -28,7 +27,7 @@ class AudioTone:
 @dataclass(frozen=True)
 class AudioCue:
     earcon_type: EarconType
-    tones: List[AudioTone]
+    tones: list[AudioTone]
     spoken_fallback: str
 
 
@@ -38,7 +37,7 @@ class WaveformSynthesizer:
     SAMPLE_RATE = 22050
 
     @classmethod
-    def generate_wav_bytes(cls, tones: List[AudioTone]) -> bytes:
+    def generate_wav_bytes(cls, tones: list[AudioTone]) -> bytes:
         total_samples = []
         for tone in tones:
             num_samples = int((tone.duration_ms / 1000.0) * cls.SAMPLE_RATE)

@@ -1,6 +1,7 @@
 """Use Case: Voice-Governed Action Execution and Audit Persistence."""
 import time
-from typing import Dict, List, Optional, Protocol
+from typing import Protocol
+
 from src.domain.governed_action import ActionState, AuditLogRecord, GovernedAction
 
 
@@ -13,15 +14,15 @@ class AuditRepositoryPort(Protocol):
     def append_audit_record(self, record: AuditLogRecord) -> None:
         ...
 
-    def list_records(self) -> List[AuditLogRecord]:
+    def list_records(self) -> list[AuditLogRecord]:
         ...
 
 
 class GovernedExecutionUseCase:
-    def __init__(self, executor: CommandExecutionPort, audit_repo: Optional[AuditRepositoryPort] = None):
+    def __init__(self, executor: CommandExecutionPort, audit_repo: AuditRepositoryPort | None = None):
         self._executor = executor
         self._audit_repo = audit_repo
-        self._actions: Dict[str, GovernedAction] = {}
+        self._actions: dict[str, GovernedAction] = {}
 
     def stage_action(
         self, action_id: str, action_type: str, command: str, summary_spoken: str, lease_sec: float = 300.0
@@ -30,10 +31,10 @@ class GovernedExecutionUseCase:
         self._actions[action_id] = action
         return action
 
-    def get_action(self, action_id: str) -> Optional[GovernedAction]:
+    def get_action(self, action_id: str) -> GovernedAction | None:
         return self._actions.get(action_id)
 
-    async def confirm_and_execute(self, action_id: str, voice_token: str) -> Optional[str]:
+    async def confirm_and_execute(self, action_id: str, voice_token: str) -> str | None:
         action = self._actions.get(action_id)
         if not action or action.state != ActionState.PENDING_APPROVAL:
             return None

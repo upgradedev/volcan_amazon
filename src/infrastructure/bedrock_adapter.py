@@ -1,7 +1,7 @@
 """Infrastructure Adapter: Amazon Bedrock Multimodal Synthesis."""
 import json
 import os
-from typing import List
+
 from src.domain.semantic_diff import DiffSectionDigest, SemanticDiffReport
 
 
@@ -14,7 +14,7 @@ class BedrockSynthesisAdapter:
         self.region_name = os.getenv("AWS_REGION", region_name)
         self.model_id = os.getenv("AWS_BEDROCK_MODEL_ID", model_id)
 
-    async def summarize_diff(self, raw_diff: str, sections: List[DiffSectionDigest]) -> SemanticDiffReport:
+    async def summarize_diff(self, raw_diff: str, sections: list[DiffSectionDigest]) -> SemanticDiffReport:
         # Check for AWS credentials in environment
         if not os.getenv("AWS_ACCESS_KEY_ID") and not os.getenv("AWS_SESSION_TOKEN"):
             return self._heuristic_fallback(raw_diff, sections)
@@ -49,7 +49,7 @@ class BedrockSynthesisAdapter:
         except Exception:
             return self._heuristic_fallback(raw_diff, sections)
 
-    def _heuristic_fallback(self, raw_diff: str, sections: List[DiffSectionDigest]) -> SemanticDiffReport:
+    def _heuristic_fallback(self, raw_diff: str, sections: list[DiffSectionDigest]) -> SemanticDiffReport:
         files_count = len(sections)
         total_add = sum(s.added_count for s in sections)
         total_del = sum(s.removed_count for s in sections)

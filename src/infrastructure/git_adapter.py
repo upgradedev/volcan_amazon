@@ -1,6 +1,5 @@
 """Infrastructure Adapter: Local Git Repository Interface."""
 import subprocess
-from typing import Tuple
 
 
 class LocalGitAdapter:
@@ -20,7 +19,7 @@ class LocalGitAdapter:
         except Exception:
             return ""
 
-    def run_tests(self) -> Tuple[bool, str]:
+    def run_tests(self) -> tuple[bool, str]:
         try:
             res = subprocess.run(
                 ["pytest", "tests/unit"],

@@ -1,5 +1,6 @@
 """Unit tests for AST-aware Semantic Diff Synthesis."""
 import asyncio
+
 from src.application.digest_diff_use_case import DigestDiffUseCase
 from src.domain.semantic_diff import (
     ChangeCategory,
@@ -8,7 +9,6 @@ from src.domain.semantic_diff import (
     SemanticDiffReport,
     UnifiedDiffParser,
 )
-
 
 SAMPLE_DIFF = """diff --git a/src/auth/jwt_handler.py b/src/auth/jwt_handler.py
 index 83a1b2..94c3d4 100644

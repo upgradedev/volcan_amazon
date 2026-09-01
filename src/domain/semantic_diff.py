@@ -2,7 +2,6 @@
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional
 
 
 class ChangeCategory(str, Enum):
@@ -28,8 +27,8 @@ class DiffHunk:
     new_start: int
     new_lines: int
     header: str
-    added_lines: List[str]
-    removed_lines: List[str]
+    added_lines: list[str]
+    removed_lines: list[str]
 
 
 @dataclass(frozen=True)
@@ -41,7 +40,7 @@ class DiffSectionDigest:
     summary_spoken: str
     added_count: int
     removed_count: int
-    security_flags: List[str] = field(default_factory=list)
+    security_flags: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -50,9 +49,9 @@ class SemanticDiffReport:
     total_insertions: int
     total_deletions: int
     executive_spoken_summary: str
-    category_breakdown: Dict[str, int]
-    critical_findings: List[str]
-    sections: List[DiffSectionDigest] = field(default_factory=list)
+    category_breakdown: dict[str, int]
+    critical_findings: list[str]
+    sections: list[DiffSectionDigest] = field(default_factory=list)
 
     def to_voice_summary(self, level: int = 0) -> str:
         """Render multi-level hierarchical voice digests.
@@ -93,7 +92,7 @@ class UnifiedDiffParser:
     }
 
     @classmethod
-    def parse_patch(cls, raw_diff: str) -> List[DiffSectionDigest]:
+    def parse_patch(cls, raw_diff: str) -> list[DiffSectionDigest]:
         if not raw_diff or not raw_diff.strip():
             return []
 
@@ -110,8 +109,8 @@ class UnifiedDiffParser:
             file_match = re.search(r"a/(.*?)\s+b/(.*)", first_line)
             file_path = file_match.group(2) if file_match else "unknown_file"
 
-            added_lines = [l[1:] for l in lines if l.startswith("+") and not l.startswith("+++")]
-            removed_lines = [l[1:] for l in lines if l.startswith("-") and not l.startswith("---")]
+            added_lines = [line[1:] for line in lines if line.startswith("+") and not line.startswith("+++")]
+            removed_lines = [line[1:] for line in lines if line.startswith("-") and not line.startswith("---")]
 
             # Security inspection
             security_flags = []

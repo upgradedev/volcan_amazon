@@ -1,11 +1,11 @@
 """Use Case: Dispatch Audio Earcons and Generate PCM WAV Waveforms."""
-from typing import Dict, Tuple
+
 from src.domain.sonification import AudioCue, AudioTone, EarconType, WaveformSynthesizer
 
 
 class SonifyEventUseCase:
     def __init__(self):
-        self._cue_catalog: Dict[EarconType, AudioCue] = {
+        self._cue_catalog: dict[EarconType, AudioCue] = {
             EarconType.AGENT_THINKING: AudioCue(
                 EarconType.AGENT_THINKING,
                 [AudioTone(440.0, 150, 0.4), AudioTone(554.37, 150, 0.4)],
@@ -48,7 +48,7 @@ class SonifyEventUseCase:
             ),
         }
 
-    def execute(self, earcon_type: EarconType) -> Tuple[AudioCue, bytes]:
+    def execute(self, earcon_type: EarconType) -> tuple[AudioCue, bytes]:
         cue = self._cue_catalog.get(
             earcon_type,
             AudioCue(earcon_type, [AudioTone(440.0, 100, 0.3)], "Notification")

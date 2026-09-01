@@ -1,9 +1,11 @@
 """Interfaces Layer: FastMCP / Streamable HTTP Server for Amazon Alexa+ and MCP Clients."""
 import base64
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
+
 from src.application.digest_diff_use_case import DigestDiffUseCase
 from src.application.governed_execution_use_case import GovernedExecutionUseCase
 from src.application.sonify_event_use_case import SonifyEventUseCase
@@ -13,7 +15,6 @@ from src.infrastructure.audit_repository import InMemoryAuditRepository
 from src.infrastructure.bedrock_adapter import BedrockSynthesisAdapter
 from src.infrastructure.git_adapter import LocalGitAdapter
 from src.interfaces.web_companion import COMPANION_HTML
-
 
 app = FastAPI(
     title="Volcan Accessible AI Agent Forge",
@@ -70,7 +71,7 @@ class VoiceTurnRequest(BaseModel):
     user_id: str
     repository: str
     intent: str
-    params: Dict[str, Any] = Field(default_factory=dict)
+    params: dict[str, Any] = Field(default_factory=dict)
 
 
 class PlayEarconRequest(BaseModel):
@@ -87,7 +88,7 @@ async def demo_ui() -> str:
 
 
 @app.get("/health")
-async def health_check() -> Dict[str, Any]:
+async def health_check() -> dict[str, Any]:
     return {
         "status": "ok",
         "service": "volcan-accessible-forge",
@@ -98,7 +99,7 @@ async def health_check() -> Dict[str, Any]:
 
 
 @app.get("/mcp/resources/audit_log")
-async def get_audit_log_resource() -> Dict[str, Any]:
+async def get_audit_log_resource() -> dict[str, Any]:
     """MCP Resource: Immutable audit trail of voice-governed actions."""
     records = audit_repo.list_records()
     return {
@@ -120,7 +121,7 @@ async def get_audit_log_resource() -> Dict[str, Any]:
 
 
 @app.post("/mcp/tools/digest_semantic_diff")
-async def digest_semantic_diff(req: DigestRequest) -> Dict[str, Any]:
+async def digest_semantic_diff(req: DigestRequest) -> dict[str, Any]:
     """MCP Tool: Convert raw git diff into multi-level spoken semantic summaries."""
     report = await digest_use_case.execute(req.raw_diff)
     cue, wav_bytes = sonify_use_case.execute(EarconType.DIFF_READY)
@@ -140,7 +141,7 @@ async def digest_semantic_diff(req: DigestRequest) -> Dict[str, Any]:
 
 
 @app.post("/mcp/tools/drill_down_section")
-async def drill_down_section(req: DrillDownRequest) -> Dict[str, Any]:
+async def drill_down_section(req: DrillDownRequest) -> dict[str, Any]:
     """MCP Tool: Deep drill-down into a specific file section of the patch."""
     report = await digest_use_case.execute(req.raw_diff)
     if req.section_index < 0 or req.section_index >= len(report.sections):
@@ -170,7 +171,7 @@ async def drill_down_section(req: DrillDownRequest) -> Dict[str, Any]:
 
 
 @app.post("/mcp/tools/stage_governed_action")
-async def stage_governed_action(req: StageActionRequest) -> Dict[str, Any]:
+async def stage_governed_action(req: StageActionRequest) -> dict[str, Any]:
     """MCP Tool: Stage a voice-governed action requiring dual-custody confirmation."""
     action = governed_use_case.stage_action(
         req.action_id, req.action_type, req.command, req.summary_spoken, req.lease_sec
@@ -192,7 +193,7 @@ async def stage_governed_action(req: StageActionRequest) -> Dict[str, Any]:
 
 
 @app.post("/mcp/tools/confirm_action")
-async def confirm_action(req: ConfirmActionRequest) -> Dict[str, Any]:
+async def confirm_action(req: ConfirmActionRequest) -> dict[str, Any]:
     """MCP Tool: Confirm and execute a staged action with cryptographic token."""
     result = await governed_use_case.confirm_and_execute(req.action_id, req.voice_token)
     if result is None:
@@ -221,7 +222,7 @@ async def play_earcon(req: PlayEarconRequest):
 
 
 @app.post("/mcp/tools/voice_turn")
-async def handle_voice_turn(req: VoiceTurnRequest) -> Dict[str, Any]:
+async def handle_voice_turn(req: VoiceTurnRequest) -> dict[str, Any]:
     """MCP Tool: Process full conversational turn for Alexa+ multi-modal skill."""
     return await voice_turn_use_case.handle_turn(
         session_id=req.session_id,
@@ -233,7 +234,7 @@ async def handle_voice_turn(req: VoiceTurnRequest) -> Dict[str, Any]:
 
 
 @app.post("/mcp/tools/run_accessible_tests")
-async def run_accessible_tests() -> Dict[str, Any]:
+async def run_accessible_tests() -> dict[str, Any]:
     """MCP Tool: Run local test suite and convert terminal output to spoken digest."""
     passed, output = git_adapter.run_tests()
     cue_type = EarconType.TEST_PASSED if passed else EarconType.TEST_FAILED

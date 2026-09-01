@@ -1,8 +1,8 @@
 """Use Case: Digest Raw Code Diffs into Multi-Level Spoken Summaries."""
 from collections import Counter
 from typing import Protocol
+
 from src.domain.semantic_diff import (
-    ChangeCategory,
     DiffSectionDigest,
     SemanticDiffReport,
     UnifiedDiffParser,

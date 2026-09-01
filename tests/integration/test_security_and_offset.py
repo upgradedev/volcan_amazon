@@ -1,8 +1,8 @@
 """Security DAST & Parameterized Offset Tests for Volcan."""
 import pytest
 from fastapi.testclient import TestClient
-from src.interfaces.mcp_server import app
 
+from src.interfaces.mcp_server import app
 
 client = TestClient(app)
 

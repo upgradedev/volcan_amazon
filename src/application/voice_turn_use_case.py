@@ -1,5 +1,6 @@
 """Use Case: Conversational Turn Orchestrator for Alexa+."""
-from typing import Any, Dict, Optional
+from typing import Any
+
 from src.application.digest_diff_use_case import DigestDiffUseCase
 from src.application.governed_execution_use_case import GovernedExecutionUseCase
 from src.application.sonify_event_use_case import SonifyEventUseCase
@@ -17,7 +18,7 @@ class VoiceTurnUseCase:
         self._digest = digest_use_case
         self._governed = governed_use_case
         self._sonify = sonify_use_case
-        self._sessions: Dict[str, VoiceSessionContext] = {}
+        self._sessions: dict[str, VoiceSessionContext] = {}
 
     def get_or_create_session(self, session_id: str, user_id: str, repo: str) -> VoiceSessionContext:
         if session_id not in self._sessions:
@@ -25,8 +26,8 @@ class VoiceTurnUseCase:
         return self._sessions[session_id]
 
     async def handle_turn(
-        self, session_id: str, user_id: str, repo: str, intent: str, params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, session_id: str, user_id: str, repo: str, intent: str, params: dict[str, Any]
+    ) -> dict[str, Any]:
         session = self.get_or_create_session(session_id, user_id, repo)
         session.record_turn("user", f"Intent: {intent}, Params: {params}")
 

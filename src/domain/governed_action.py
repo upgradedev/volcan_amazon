@@ -4,7 +4,6 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 
 class ActionState(str, Enum):
@@ -39,14 +38,14 @@ class GovernedAction:
     state: ActionState = ActionState.PENDING_APPROVAL
     created_at_epoch: float = field(default_factory=time.time)
     lease_duration_sec: float = 300.0
-    approval_token: Optional[str] = None
-    execution_result: Optional[str] = None
+    approval_token: str | None = None
+    execution_result: str | None = None
 
     @classmethod
     def create(
         cls, action_id: str, action_type: str, command_or_path: str, summary_spoken: str, lease_sec: float = 300.0
     ) -> "GovernedAction":
-        content = f"{action_type}:{command_or_path}".encode("utf-8")
+        content = f"{action_type}:{command_or_path}".encode()
         payload_hash = hashlib.sha256(content).hexdigest()
         return cls(
             action_id=action_id,
@@ -59,11 +58,11 @@ class GovernedAction:
             lease_duration_sec=lease_sec,
         )
 
-    def is_expired(self, current_time: Optional[float] = None) -> bool:
+    def is_expired(self, current_time: float | None = None) -> bool:
         now = current_time or time.time()
         return (now - self.created_at_epoch) > self.lease_duration_sec
 
-    def approve(self, token: str, current_time: Optional[float] = None) -> bool:
+    def approve(self, token: str, current_time: float | None = None) -> bool:
         if self.is_expired(current_time):
             self.state = ActionState.EXPIRED
             return False

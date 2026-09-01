@@ -1,7 +1,7 @@
 """End-to-End User Journey Test: Visually Impaired Developer Workflow."""
 from fastapi.testclient import TestClient
-from src.interfaces.mcp_server import app
 
+from src.interfaces.mcp_server import app
 
 client = TestClient(app)
 

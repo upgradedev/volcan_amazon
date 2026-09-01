@@ -1,5 +1,5 @@
 """Infrastructure Adapter: Audio Earcon Generator & Sound Player."""
-from src.domain.sonification import EarconType, AudioCue
+from src.domain.sonification import AudioCue, EarconType
 
 
 class AudioEarconAdapter:
