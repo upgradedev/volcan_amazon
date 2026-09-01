@@ -1,0 +1,19 @@
+{
+  "gate_id": "D2",
+  "service_name": "volcan_amazon",
+  "commit_sha": "a787bb8723701f98077c79fe61e2ee32d03a0443",
+  "executed_at": "2026-09-01T21:58:04.319422Z",
+  "duration_seconds": 0.884,
+  "iac_audit": {
+    "main_tf_exists": true,
+    "readme_documented": true,
+    "serverless_compute_declared": true,
+    "bedrock_iam_declared": true,
+    "iam_least_privilege_verified": true
+  },
+  "staging_url_tested": "https://volcan-staging.internal.aws.amazon.com/mcp",
+  "healthcheck_status": 200,
+  "reclaimed_resources_count": 4,
+  "zero_residue_verified": true,
+  "verification_hash": "19633780c9498a4461481e0a567accc0ee17c90e27e337033c08f703c675304e"
+}

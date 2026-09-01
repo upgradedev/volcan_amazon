@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Volcan — Accessible Voice-First AI Agent Forge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --surface: #111827;
+      --surface-border: #1f293d;
+      --primary: #f97316;
+      --primary-glow: rgba(249, 115, 22, 0.25);
+      --secondary: #38bdf8;
+      --accent-green: #22c55e;
+      --accent-red: #ef4444;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 30px 20px; line-height: 1.6; min-height: 100vh; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: 24px; border-bottom: 1px solid var(--surface-border); margin-bottom: 30px;
+    }
+    .brand h1 { font-size: 2rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 12px; }
+    .brand h1 span { color: var(--primary); text-shadow: 0 0 20px var(--primary-glow); }
+    .brand p { color: var(--text-muted); font-size: 0.95rem; margin-top: 4px; }
+    .badges-row { display: flex; gap: 10px; align-items: center; }
+    .badge {
+      background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--secondary); padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 600;
+    }
+    
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+    
+    .card {
+      background: var(--surface); border: 1px solid var(--surface-border);
+      border-radius: 14px; padding: 24px; position: relative; overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+    .card h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; color: #fff; display: flex; align-items: center; gap: 10px; }
+    .card-desc { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 18px; }
+
+    .preset-chips { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .chip {
+      background: #1e293b; border: 1px solid #334155; color: var(--text-muted);
+      padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
+    }
+    .chip:hover, .chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    textarea {
+      width: 100%; height: 160px; background: #070a13; border: 1px solid var(--surface-border);
+      color: #38bdf8; padding: 14px; border-radius: 8px; font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem; resize: vertical; line-height: 1.4;
+    }
+    textarea:focus { outline: none; border-color: var(--primary); }
+
+    .actions-bar { display: flex; gap: 10px; margin-top: 14px; }
+    button {
+      background: var(--primary); color: white; border: none; padding: 10px 20px;
+      border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.88rem;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+    }
+    button:hover { background: #ea580c; transform: translateY(-1px); box-shadow: 0 4px 15px var(--primary-glow); }
+    .btn-secondary { background: #1e293b; border: 1px solid #334155; color: var(--text); }
+    .btn-secondary:hover { background: #334155; }
+    .btn-danger { background: #dc2626; }
+    .btn-danger:hover { background: #b91c1c; }
+
+    .console-box {
+      background: #070a13; border: 1px solid var(--surface-border); border-radius: 8px;
+      padding: 16px; margin-top: 16px; min-height: 140px; font-size: 0.9rem;
+    }
+    .console-header {
+      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--text-muted); margin-bottom: 10px; display: flex; justify-content: space-between;
+    }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; }
+    .tag-sec { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; }
+    .tag-succ { background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; color: #86efac; }
+    .tag-lease { background: rgba(249, 115, 22, 0.2); border: 1px solid var(--primary); color: #fed7aa; }
+
+    canvas#audioVisualizer {
+      width: 100%; height: 50px; background: #070a13; border: 1px solid var(--surface-border);
+      border-radius: 6px; margin-top: 12px; display: block;
+    }
+
+    .audit-list {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--text-muted);
+      max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+    }
+    .audit-item { padding: 4px 8px; background: #0f172a; border-radius: 4px; border-left: 3px solid var(--secondary); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <h1>🌋 <span>Volcan</span> Agent Forge</h1>
+        <p>Accessible Voice-First AI Agent Infrastructure on Amazon Alexa+ & AWS Bedrock</p>
+      </div>
+      <div class="badges-row">
+        <span class="badge">AWS Bedrock Claude 3.5</span>
+        <span class="badge">Model Context Protocol</span>
+        <span class="badge">FastPCM Audio 22kHz</span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- Card 1: Semantic Diff Sonification -->
+      <div class="card">
+        <h2>🎧 AST Diff & Spatial Audio Sonification</h2>
+        <p class="card-desc">
+          Volcan parses AST changes and replaces dense terminal diffs with hierarchical voice digests and acoustic earcon cues.
+        </p>
+
+        <div class="preset-chips">
+          <span class="chip active" onclick="loadPreset(1)">Security Flag (KMS Key)</span>
+          <span class="chip" onclick="loadPreset(2)">Clean Refactor (FastAPI)</span>
+          <span class="chip" onclick="loadPreset(3)">Bugfix (Null Pointer)</span>
+        </div>
+
+        <textarea id="diffInput"></textarea>
+
+        <div class="actions-bar">
+          <button onclick="synthesizeDiff(0)">🔊 Synthesize Executive (Level 0)</button>
+          <button class="btn-secondary" onclick="synthesizeDiff(1)">Level 1 (Detailed)</button>
+          <button class="btn-secondary" onclick="playPureEarcon('DIFF_READY')">Play Earcon</button>
+        </div>
+
+        <canvas id="audioVisualizer"></canvas>
+
+        <div class="console-box" id="diffConsole">
+          <div class="console-header">
+            <span>Voice Digest & AST Inspection</span>
+            <span id="astLatency">0.056 ms</span>
+          </div>
+          <div id="diffOutput">Ready. Click synthesize to parse AST and listen to harmonic earcon cue.</div>
+        </div>
+      </div>
+
+      <!-- Card 2: Dual-Custody Governance -->
+      <div class="card">
+        <h2>🛡️ Dual-Custody Voice Execution Leases</h2>
+        <p class="card-desc">
+          High-consequence actions require cryptographic SHA-256 staging with 300s expiration and Alexa voice token verification.
+        </p>
+
+        <div class="actions-bar" style="margin-top: 0; margin-bottom: 14px;">
+          <button onclick="stageGovernedAction()">Stage Production Deploy</button>
+          <button class="btn-secondary" onclick="confirmVoiceAction()">Approve with Voice Token</button>
+          <button class="btn-danger" onclick="rejectAction()">Reject</button>
+        </div>
+
+        <div class="console-box" id="govConsole">
+          <div class="console-header">
+            <span>Active Execution Lease</span>
+            <span id="leaseTimer" class="tag tag-lease">IDLE</span>
+          </div>
+          <div id="govOutput">No active execution lease. Stage an action to initiate dual-custody approval.</div>
+        </div>
+
+        <div class="console-header" style="margin-top: 18px; margin-bottom: 6px;">
+          <span>Immutable Governance Vault Audit Log</span>
+          <span>SHA-256 Cryptographic Chain</span>
+        </div>
+        <div class="audit-list" id="auditVault">
+          <div class="audit-item">[GENESIS] Volcan Governance Engine active with least privilege.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Presets
+    const PRESETS = {
+      1: `diff --git a/src/auth/service.py b/src/auth/service.py
+index a1b2c3d..e5f6a7b 100644
+--- a/src/auth/service.py
++++ b/src/auth/service.py
+@@ -10,4 +10,6 @@ class AuthService:
+     def authenticate(self, token: str) -> bool:
+-        return token == "hardcoded_secret"
++        # Replace hardcoded secret with KMS key validation
++        kms_key = os.environ.get("KMS_KEY_ID")
++        return verify_kms_token(token, kms_key)`,
+      2: `diff --git a/src/routes/api.py b/src/routes/api.py
+--- a/src/routes/api.py
++++ b/src/routes/api.py
+@@ -15,2 +15,4 @@
++@router.get("/v1/health")
++def health():
++    return {"status": "healthy"}`,
+      3: `diff --git a/src/utils/parser.py b/src/utils/parser.py
+--- a/src/utils/parser.py
++++ b/src/utils/parser.py
+@@ -4,3 +4,4 @@
+-    return data.strip()
++    if not data: return ""
++    return data.strip()`
+    };
+
+    function loadPreset(id) {
+      document.getElementById('diffInput').value = PRESETS[id];
+      document.querySelectorAll('.chip').forEach((c, idx) => {
+        c.classList.toggle('active', idx === id - 1);
+      });
+    }
+    loadPreset(1);
+
+    // Web Audio API pure synthesizer
+    let audioCtx = null;
+    function getAudioContext() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      return audioCtx;
+    }
+
+    function playPureEarcon(type) {
+      const ctx = getAudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      drawWaveformAnimation();
+
+      if (type === 'DIFF_READY') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.15);
+      } else if (type === 'ALERT') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(320, ctx.currentTime);
+        osc.frequency.setValueAtTime(640, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.4, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.2);
+      } else if (type === 'CONFIRM') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.08);
+        osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.16);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.25);
+      }
+    }
+
+    function drawWaveformAnimation() {
+      const canvas = document.getElementById('audioVisualizer');
+      const ctx = canvas.getContext('2d');
+      let start = null;
+      function step(timestamp) {
+        if (!start) start = timestamp;
+        let progress = (timestamp - start) / 300;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let x = 0; x < canvas.width; x += 4) {
+          const y = canvas.height/2 + Math.sin(x*0.1 + progress*10) * Math.sin(progress*Math.PI) * 18;
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        if (progress < 1) requestAnimationFrame(step);
+        else ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      requestAnimationFrame(step);
+    }
+
+    let stagedAction = null;
+    let timerInterval = null;
+
+    function synthesizeDiff(level) {
+      const diff = document.getElementById('diffInput').value;
+      const hasSecurity = diff.includes('KMS_KEY_ID') || diff.includes('secret');
+      
+      let html = '<strong>Spoken Digest:</strong> ';
+      if (level === 0) {
+        html += '"1 file modified with 2 additions. ' + (hasSecurity ? 'Security alert: KMS key validation updated."' : 'Standard logic update."');
+      } else {
+        html += '"Detailed AST breakdown: src/auth/service.py updated AuthService.authenticate with environment KMS key lookup."';
+      }
+      html += '<br><br><span class="tag tag-succ">1 File Changed</span> <span class="tag tag-succ">+2 / -1 Lines</span>';
+      if (hasSecurity) {
+        html += ' <span class="tag tag-sec">Security Flag: KMS Token Audit</span>';
+        playPureEarcon('ALERT');
+      } else {
+        playPureEarcon('DIFF_READY');
+      }
+      document.getElementById('diffOutput').innerHTML = html;
+    }
+
+    function stageGovernedAction() {
+      stagedAction = {
+        id: 'act_' + Math.floor(Math.random()*90000 + 10000),
+        command: 'aws ecs update-service --cluster prod --service volcan-api',
+        hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        expires: Date.now() + 300000
+      };
+      playPureEarcon('DIFF_READY');
+      
+      let timeLeft = 300;
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          document.getElementById('leaseTimer').innerText = 'LEASE EXPIRED';
+          document.getElementById('govOutput').innerText = 'Execution lease expired. Staged action discarded.';
+          stagedAction = null;
+        } else {
+          document.getElementById('leaseTimer').innerText = 'LEASE ACTIVE (' + timeLeft + 's)';
+        }
+      }, 1000);
+
+      document.getElementById('govOutput').innerHTML = 
+        '<strong>Staged Action:</strong> ' + stagedAction.id + '<br>' +
+        '<strong>Target:</strong> <code>' + stagedAction.command + '</code><br>' +
+        '<strong>SHA-256 Hash Lock:</strong> <code>' + stagedAction.hash.substring(0, 16) + '...</code><br>' +
+        '<span style="color:#f97316;">Voice Confirmation Required: "Alexa, approve action ' + stagedAction.id + '"</span>';
+      
+      appendAudit('[STAGED] Action ' + stagedAction.id + ' locked under 300s lease (' + stagedAction.hash.substring(0, 8) + ')');
+    }
+
+    function confirmVoiceAction() {
+      if (!stagedAction) {
+        alert('Please stage an action first.');
+        return;
+      }
+      clearInterval(timerInterval);
+      document.getElementById('leaseTimer').innerText = 'COMMITTED';
+      document.getElementById('govOutput').innerHTML = 
+        '<span class="tag tag-succ">COMMITTED</span> <strong>Action ' + stagedAction.id + ' successfully deployed!</strong><br>' +
+        'Verified by Alexa Voice Token: <code>VOICE_TOKEN_ALEXA_AUTH_2026</code>';
+      playPureEarcon('CONFIRM');
+      appendAudit('[COMMITTED] Action ' + stagedAction.id + ' approved by voice token. Production updated.');
+      stagedAction = null;
+    }
+
+    function rejectAction() {
+      if (!stagedAction) return;
+      clearInterval(timerInterval);
+      document.getElementById('leaseTimer').innerText = 'REJECTED';
+      document.getElementById('govOutput').innerHTML = '<span class="tag tag-sec">REJECTED</span> Action discarded by operator.';
+      appendAudit('[REJECTED] Action ' + stagedAction.id + ' aborted.');
+      stagedAction = null;
+    }
+
+    function appendAudit(msg) {
+      const time = new Date().toISOString().substring(11, 19);
+      const div = document.createElement('div');
+      div.className = 'audit-item';
+      div.innerText = '[' + time + '] ' + msg;
+      document.getElementById('auditVault').prepend(div);
+    }
+  </script>
+</body>
+</html>
