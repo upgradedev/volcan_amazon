@@ -1,0 +1,68 @@
+{
+  "project": "volcan_amazon",
+  "title": "Volcan: Accessible Voice-First AI Agent Forge",
+  "total_duration_sec": 165.0,
+  "is_under_180s_cap": true,
+  "beats": [
+    {
+      "beat_index": 1,
+      "beat_id": "beat_01_hook",
+      "timestamp_start": 0.0,
+      "timestamp_end": 20.0,
+      "duration_sec": 20.0,
+      "words_count": 31,
+      "words_per_minute": 93.0,
+      "speech_rate_intelligible": false,
+      "narration_text": "Autonomous AI coding agents promise to democratize software development. But for blind, visually impaired, or motor-disabled engineers, streaming terminal tokens and visual git diffs create an impossible barrier. This is Volcan.",
+      "visual_action": "Show terminal with streaming text chaos, juxtaposed with Volcan clean voice architecture diagram."
+    },
+    {
+      "beat_index": 2,
+      "beat_id": "beat_02_architecture",
+      "timestamp_start": 20.0,
+      "timestamp_end": 50.0,
+      "duration_sec": 30.0,
+      "words_count": 36,
+      "words_per_minute": 72.0,
+      "speech_rate_intelligible": false,
+      "narration_text": "Volcan connects Amazon Alexa Plus with local coding agents via the open Model Context Protocol over Streamable HTTP. Instead of overwhelming screen readers with raw code patches, Volcan generates hierarchical spoken digests and real-time acoustic earcons.",
+      "visual_action": "Zoom into Alexa Plus Streamable HTTP connection and FastMCP tool registry in browser."
+    },
+    {
+      "beat_index": 3,
+      "beat_id": "beat_03_diff_demo",
+      "timestamp_start": 50.0,
+      "timestamp_end": 90.0,
+      "duration_sec": 40.0,
+      "words_count": 37,
+      "words_per_minute": 55.5,
+      "speech_rate_intelligible": false,
+      "narration_text": "Watch a developer review a pull request using only voice. When asked to summarize changes, Volcan plays a harmonic chime and speaks an executive digest. It detects an altered cryptographic function and highlights the security implication immediately.",
+      "visual_action": "Live demo: Voice query 'Alexa, summarize my workspace diff', audio earcon plays, spoken text appears, security alert badges illuminate."
+    },
+    {
+      "beat_index": 4,
+      "beat_id": "beat_04_governance_demo",
+      "timestamp_start": 90.0,
+      "timestamp_end": 135.0,
+      "duration_sec": 45.0,
+      "words_count": 36,
+      "words_per_minute": 48.0,
+      "speech_rate_intelligible": false,
+      "narration_text": "When an agent proposes deploying to production, Volcan engages dual-custody governance. It stages the command with a cryptographic SHA-256 hash lock and a five-minute lease. The engineer speaks their confirmation token to execute the action safely.",
+      "visual_action": "Live demo: Staging action, governance challenge earcon, voice confirmation token, green execution output, immutable audit record created."
+    },
+    {
+      "beat_index": 5,
+      "beat_id": "beat_05_closing",
+      "timestamp_start": 135.0,
+      "timestamp_end": 165.0,
+      "duration_sec": 30.0,
+      "words_count": 29,
+      "words_per_minute": 58.0,
+      "speech_rate_intelligible": false,
+      "narration_text": "Volcan brings software craftsmanship within reach of every developer, regardless of physical ability. Built on Amazon Alexa Plus, Bedrock, and open MCP standards. Build, ship, and shape with Volcan.",
+      "visual_action": "Full system architecture, GitHub open-source repo URL, Alexa Plus badge, closing title card."
+    }
+  ]
+}

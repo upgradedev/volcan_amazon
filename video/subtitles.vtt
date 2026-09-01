@@ -1,0 +1,21 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:20.000
+Autonomous AI coding agents promise to democratize software development. But for blind, visually impaired, or motor-disabled engineers, streaming terminal tokens and visual git diffs create an impossible barrier. This is Volcan.
+
+2
+00:00:20.000 --> 00:00:50.000
+Volcan connects Amazon Alexa Plus with local coding agents via the open Model Context Protocol over Streamable HTTP. Instead of overwhelming screen readers with raw code patches, Volcan generates hierarchical spoken digests and real-time acoustic earcons.
+
+3
+00:00:50.000 --> 00:01:30.000
+Watch a developer review a pull request using only voice. When asked to summarize changes, Volcan plays a harmonic chime and speaks an executive digest. It detects an altered cryptographic function and highlights the security implication immediately.
+
+4
+00:01:30.000 --> 00:02:15.000
+When an agent proposes deploying to production, Volcan engages dual-custody governance. It stages the command with a cryptographic SHA-256 hash lock and a five-minute lease. The engineer speaks their confirmation token to execute the action safely.
+
+5
+00:02:15.000 --> 00:02:45.000
+Volcan brings software craftsmanship within reach of every developer, regardless of physical ability. Built on Amazon Alexa Plus, Bedrock, and open MCP standards. Build, ship, and shape with Volcan.
