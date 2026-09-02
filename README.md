@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP Spec](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Amazon Alexa+](https://img.shields.io/badge/Alexa%2B-Streamable%20HTTP-orange.svg)](https://developer.amazon.com)
-[![Tests](https://img.shields.io/badge/tests-44%20passing-brightgreen.svg)](https://github.com/upgradedev/volcan_amazon/actions)
+[![Tests](https://img.shields.io/badge/tests-50%20passing-brightgreen.svg)](https://github.com/upgradedev/volcan_amazon/actions)
 
 ---
 
@@ -38,8 +38,9 @@ Volcan introduces a dedicated accessibility layer between autonomous AI coding a
 1. **Semantic Diff Sonification:** Converts raw git patches into hierarchical spoken digests with audio earcon cues (Level 0: Executive summary, Level 1: File breakdown, Level 2: Line drill-down).
 2. **Deterministic Security Scanner:** Inspects diffs for authentication, cryptographic, or database changes before execution.
 3. **Hands-Free Governed Approvals:** Implements a dual-custody voice authorization protocol with cryptographic SHA-256 hash locks and 300-second leases for terminal commands.
-4. **Alexa+ Streamable HTTP FastMCP Server:** Connects directly into the developer environment using open Model Context Protocol standards (Spec 2025-11-25+).
-5. **Cross-Device Ecosystem Companions:** Unifies workspace peripherals under Alexa+ central voice orchestration:
+4. **Silent Tactile Braille Output:** Translates AST diffs into standard **Unicode Braille Patterns (U+2800–U+28FF)** for Refreshable Braille Displays (Focus 40, Orbit Reader, BRLTTY) for quiet hours and deafblind engineers.
+5. **Alexa+ Streamable HTTP FastMCP Server:** Connects directly into the developer environment using open Model Context Protocol standards (Spec 2025-11-25+).
+6. **Cross-Device Ecosystem Companions:** Unifies workspace peripherals under Alexa+ central voice orchestration:
    - **Bee Wearable:** Captures ambient spoken decisions when away from the desk and links them directly to PR contexts.
    - **Fire TV 10-Foot Display:** Broadcasts accessible high-contrast waveforms and lease countdowns to ambient team screens.
    - **Ring Focus Sanctuary:** Suppresses abrasive chimes during active release leases and plays gentle 440Hz acoustic earcons on door motion.

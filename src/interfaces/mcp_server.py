@@ -11,6 +11,7 @@ from src.application.governed_execution_use_case import GovernedExecutionUseCase
 from src.application.sonify_event_use_case import SonifyEventUseCase
 from src.application.voice_turn_use_case import VoiceTurnUseCase
 from src.application.ecosystem_companion_use_case import OrchestrateEcosystemCompanionUseCase
+from src.application.braille_diff_use_case import BrailleDiffUseCase
 from src.domain.sonification import EarconType
 from src.infrastructure.audit_repository import InMemoryAuditRepository
 from src.infrastructure.bedrock_adapter import BedrockSynthesisAdapter
@@ -31,6 +32,7 @@ git_adapter = LocalGitAdapter()
 digest_use_case = DigestDiffUseCase(bedrock_adapter)
 sonify_use_case = SonifyEventUseCase()
 ecosystem_use_case = OrchestrateEcosystemCompanionUseCase()
+braille_use_case = BrailleDiffUseCase()
 
 
 class ShellExecutor:
@@ -303,7 +305,28 @@ async def evaluate_ring_presence(req: RingPresenceRequest) -> dict[str, Any]:
     )
 
 
+class BrailleTranslateRequest(BaseModel):
+    text: str = Field(..., description="ASCII text or code string to translate to Braille")
+
+
+class BrailleDiffRequest(BaseModel):
+    raw_diff: str = Field(..., description="Unified git patch to format for Braille terminals")
+
+
+@app.post("/mcp/tools/braille/translate_text")
+async def translate_text_to_braille(req: BrailleTranslateRequest) -> dict[str, Any]:
+    """MCP Tool: Translate arbitrary code or text into Unicode Braille patterns (U+2800 - U+28FF)."""
+    return braille_use_case.translate_text(req.text)
+
+
+@app.post("/mcp/tools/braille/diff_digest")
+async def digest_diff_to_braille(req: BrailleDiffRequest) -> dict[str, Any]:
+    """MCP Tool: Format AST diff with tactile markers (+/-) for Refreshable Braille Displays."""
+    return braille_use_case.digest_to_braille(req.raw_diff)
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 

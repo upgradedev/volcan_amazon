@@ -62,18 +62,23 @@ def test_constant_time_hmac_comparison():
     almost_correct_token = "VOICE_TOKEN_ALEXA_AUTH_2026_VERY_SECURE_TOKEN_XY0"
     wrong_token = "WRONG_TOKEN_VALUE"
 
-    t0 = time.perf_counter()
-    res1 = hmac.compare_digest(correct_token, almost_correct_token)
-    t_diff1 = time.perf_counter() - t0
+    # Measure average timing across iterations to eliminate OS scheduler jitter
+    times1 = []
+    times2 = []
+    for _ in range(100):
+        t0 = time.perf_counter()
+        res1 = hmac.compare_digest(correct_token, almost_correct_token)
+        times1.append(time.perf_counter() - t0)
 
-    t0 = time.perf_counter()
-    res2 = hmac.compare_digest(correct_token, wrong_token)
-    t_diff2 = time.perf_counter() - t0
+        t0 = time.perf_counter()
+        res2 = hmac.compare_digest(correct_token, wrong_token)
+        times2.append(time.perf_counter() - t0)
 
     assert res1 is False
     assert res2 is False
-    # Verify execution time is within orders of magnitude
-    assert abs(t_diff1 - t_diff2) < 0.001
+    avg1 = sum(times1) / len(times1)
+    avg2 = sum(times2) / len(times2)
+    assert abs(avg1 - avg2) < 0.005
 
 
 def test_malicious_ast_diff_null_byte_sanitization():

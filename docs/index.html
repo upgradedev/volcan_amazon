@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Volcan — Accessible Voice-First AI Agent Forge</title>
+  <title>Volcan — Accessible Voice & Braille AI Agent Forge</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -40,6 +40,9 @@
     }
     .badge-orange {
       background: rgba(249, 115, 22, 0.15); border-color: rgba(249, 115, 22, 0.4); color: #fdba74;
+    }
+    .badge-braille {
+      background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe;
     }
     
     .voice-bar {
@@ -89,7 +92,7 @@
     .chip:hover, .chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
     textarea {
-      width: 100%; height: 150px; background: #070a13; border: 1px solid var(--surface-border);
+      width: 100%; height: 140px; background: #070a13; border: 1px solid var(--surface-border);
       color: #38bdf8; padding: 14px; border-radius: 8px; font-family: 'JetBrains Mono', monospace;
       font-size: 0.82rem; resize: vertical; line-height: 1.4;
     }
@@ -104,6 +107,8 @@
     button:hover { background: #ea580c; transform: translateY(-1px); box-shadow: 0 4px 15px var(--primary-glow); }
     .btn-secondary { background: #1e293b; border: 1px solid #334155; color: var(--text); }
     .btn-secondary:hover { background: #334155; }
+    .btn-purple { background: #7e22ce; color: #fff; }
+    .btn-purple:hover { background: #6b21a8; }
     .btn-danger { background: #dc2626; }
     .btn-danger:hover { background: #b91c1c; }
 
@@ -119,6 +124,13 @@
     .tag-sec { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; }
     .tag-succ { background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; color: #86efac; }
     .tag-lease { background: rgba(249, 115, 22, 0.2); border: 1px solid var(--primary); color: #fed7aa; }
+    .tag-braille { background: rgba(168, 85, 247, 0.2); border: 1px solid #a855f7; color: #e9d5ff; }
+
+    .braille-stream {
+      font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; letter-spacing: 3px; line-height: 1.8;
+      color: #c084fc; background: #030712; padding: 16px; border-radius: 8px; border: 1px solid #581c87;
+      max-height: 160px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+    }
 
     canvas#audioVisualizer {
       width: 100%; height: 55px; background: #070a13; border: 1px solid var(--surface-border);
@@ -136,14 +148,14 @@
   <div class="container">
     <header>
       <div class="brand">
-        <h1>🌋 <span>Volcan</span> Voice Agent Forge</h1>
-        <p>Accessible Voice-First AI Agent Infrastructure on Amazon Alexa+ & AWS Bedrock</p>
+        <h1>🌋 <span>Volcan</span> Voice & Braille Agent Forge</h1>
+        <p>Accessible Multi-Modal AI Infrastructure on Amazon Alexa+, AWS Bedrock & Braille Terminals</p>
       </div>
       <div class="badges-row">
         <span class="badge badge-orange">Alexa+ Voice First</span>
+        <span class="badge badge-braille">⠠⠃⠗⠁⠊⠇⠇⠑ Braille (U+2800)</span>
         <span class="badge">Model Context Protocol</span>
         <span class="badge">Pure PCM Audio 22kHz</span>
-        <span class="badge">Web Speech Synthesizer</span>
       </div>
     </header>
 
@@ -224,7 +236,27 @@
         </div>
       </div>
 
-      <!-- Card 3: Amazon Multi-Device Ecosystem Companions -->
+      <!-- Card 3: Silent Tactile Braille Terminal -->
+      <div class="card" style="grid-column: 1 / -1;">
+        <h2>⠠⠃⠗⠁⠊⠇⠇⠑ Silent Tactile Braille Terminal (Refreshable Display Output)</h2>
+        <p class="card-desc">
+          For quiet hours, open offices, and deafblind software developers: Volcan converts AST diffs, code tokens, and governance leases directly into standard <strong>Unicode Braille Patterns (U+2800–U+28FF)</strong> for Refreshable Braille Displays (Focus 40, Orbit Reader, BRLTTY) with 100% silent operation.
+        </p>
+
+        <div class="actions-bar" style="margin-top: 0; margin-bottom: 14px;">
+          <button class="btn-purple" onclick="translateCurrentDiffToBraille()" title="Translate current AST diff to Braille stream">⠠⠙⠊⠋⠋ Translate Diff to Braille</button>
+          <button class="btn-secondary" onclick="translateCustomPromptToBraille()" title="Translate voice query to Braille">Translate Voice Input</button>
+          <button class="btn-secondary" onclick="copyBrailleStream()" title="Copy Unicode Braille to clipboard">Copy Braille Stream</button>
+        </div>
+
+        <div class="console-header">
+          <span>Tactile Braille Cell Stream (6-Dot Unicode Standard)</span>
+          <span class="tag tag-braille">UEB / Computer Braille</span>
+        </div>
+        <div class="braille-stream" id="brailleOutput">⠠⠧⠕⠇⠉⠁⠝⠀⠃⠗⠁⠊⠇⠇⠑⠀⠞⠑⠗⠍⠊⠝⠁⠇⠀⠗⠑⠁⠙⠽⠲⠀⠠⠉⠇⠊⠉⠅⠀⠁⠃⠕⠧⠑⠀⠞⠕⠀⠞⠗⠁⠝⠎⠇⠁⠞⠑⠀⠁⠝⠽⠀⠉⠕⠙⠑⠀⠕⠗⠀⠙⠊⠋⠋⠲</div>
+      </div>
+
+      <!-- Card 4: Amazon Multi-Device Ecosystem Companions -->
       <div class="card" style="grid-column: 1 / -1; margin-top: 6px;">
         <h2>🌐 Amazon Ecosystem Companions (Cross-Device Voice Integration)</h2>
         <p class="card-desc">
@@ -307,6 +339,66 @@ index a1b2c3d..e5f6a7b 100644
 +    if not data: return ""
 +    return data.strip()`
     };
+
+    const BRAILLE_MAP = {
+      ' ': '\u2800', 'a': '\u2801', 'b': '\u2803', 'c': '\u2809', 'd': '\u2819',
+      'e': '\u2811', 'f': '\u280b', 'g': '\u281b', 'h': '\u2813', 'i': '\u280a',
+      'j': '\u281a', 'k': '\u2805', 'l': '\u2807', 'm': '\u280d', 'n': '\u281d',
+      'o': '\u2815', 'p': '\u280f', 'q': '\u281f', 'r': '\u2817', 's': '\u280e',
+      't': '\u281e', 'u': '\u2825', 'v': '\u2827', 'w': '\u283a', 'x': '\u282d',
+      'y': '\u283d', 'z': '\u2835', '1': '\u2801', '2': '\u2803', '3': '\u2809',
+      '4': '\u2819', '5': '\u2811', '6': '\u280b', '7': '\u281b', '8': '\u2813',
+      '9': '\u280a', '0': '\u281a', ',': '\u2802', ';': '\u2806', ':': '\u2812',
+      '.': '\u2832', '!': '\u2816', '?': '\u2826', '(': '\u2836', ')': '\u2836',
+      '-': '\u2824', '+': '\u282c', '=': '\u2836', '/': '\u280c', '\\': '\u2821',
+      '*': '\u2814', '#': '\u283c', '@': '\u2804', '_': '\u2820', '{': '\u2838',
+      '}': '\u281c', '[': '\u282a', ']': '\u283a', '<': '\u2818', '>': '\u2810',
+      '"': '\u2810', "'": '\u2804'
+    };
+
+    function jsTextToBraille(text) {
+      let res = '';
+      let inNum = false;
+      for (let ch of text) {
+        if (/\d/.test(ch)) {
+          if (!inNum) { res += '\u283c'; inNum = true; }
+          res += BRAILLE_MAP[ch] || '\u2800';
+        } else {
+          inNum = false;
+          if (/[A-Z]/.test(ch)) {
+            res += '\u2820' + (BRAILLE_MAP[ch.toLowerCase()] || '\u2800');
+          } else if (BRAILLE_MAP[ch]) {
+            res += BRAILLE_MAP[ch];
+          } else if (ch === '\n') {
+            res += '\n';
+          } else {
+            res += '\u2800';
+          }
+        }
+      }
+      return res;
+    }
+
+    function translateCurrentDiffToBraille() {
+      const diff = document.getElementById('diffInput').value;
+      const braille = jsTextToBraille(diff);
+      document.getElementById('brailleOutput').innerText = braille;
+      appendAudit('[BRAILLE] Diff rendered to 6-dot tactile stream for Refreshable Braille Display.');
+    }
+
+    function translateCustomPromptToBraille() {
+      const text = document.getElementById('voiceCommandInput').value;
+      const braille = jsTextToBraille(text);
+      document.getElementById('brailleOutput').innerText = braille;
+      appendAudit('[BRAILLE] Voice prompt converted to silent Braille stream.');
+    }
+
+    function copyBrailleStream() {
+      const text = document.getElementById('brailleOutput').innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Braille Unicode stream copied to clipboard!');
+      });
+    }
 
     function loadPreset(id) {
       document.getElementById('diffInput').value = PRESETS[id];
