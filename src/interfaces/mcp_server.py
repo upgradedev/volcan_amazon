@@ -1,3 +1,5 @@
+from pathlib import Path
+from fastapi.responses import FileResponse, JSONResponse
 """Interfaces Layer: FastMCP / Streamable HTTP Server for Amazon Alexa+ and MCP Clients."""
 import base64
 from typing import Any
@@ -361,3 +363,16 @@ if __name__ == "__main__":
 
 
 
+
+
+# Serve Companion Web UI & Tourguide
+WEB_DIR = Path(__file__).resolve().parent / "web"
+
+
+@app.get("/")
+@app.get("/web")
+async def serve_dashboard():
+    index_path = WEB_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(index_path)
+    return JSONResponse({"message": "FastMCP API Live"})
