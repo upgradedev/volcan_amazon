@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP Spec](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Amazon Alexa+](https://img.shields.io/badge/Alexa%2B-Streamable%20HTTP-orange.svg)](https://developer.amazon.com)
-[![Tests](https://img.shields.io/badge/tests-37%20passing-brightgreen.svg)](https://github.com/upgradedev/volcan_amazon/actions)
+[![Tests](https://img.shields.io/badge/tests-44%20passing-brightgreen.svg)](https://github.com/upgradedev/volcan_amazon/actions)
 
 ---
 
@@ -26,7 +26,7 @@
 
 ## The Problem: AI Coding is Inaccessible
 
-Modern AI coding assistants (Claude, Codex, Antigravity, Cursor) stream thousands of tokens per minute, render side-by-side color diffs, and require continuous mouse-driven approval popups. For software engineers with severe visual impairments, motor disabilities, quadriplegia, or repetitive strain injury (RSI), this interface creates an insurmountable barrier. Traditional screen readers choke on streaming ANSI terminal codes and raw git patches.
+Visually and motor-impaired software engineers face severe friction when collaborating with autonomous coding agents.
 
 A code patch requires tedious line-by-line auditory scrubbing through raw syntax characters with a screen reader before comprehension.
 
@@ -39,6 +39,10 @@ Volcan introduces a dedicated accessibility layer between autonomous AI coding a
 2. **Deterministic Security Scanner:** Inspects diffs for authentication, cryptographic, or database changes before execution.
 3. **Hands-Free Governed Approvals:** Implements a dual-custody voice authorization protocol with cryptographic SHA-256 hash locks and 300-second leases for terminal commands.
 4. **Alexa+ Streamable HTTP FastMCP Server:** Connects directly into the developer environment using open Model Context Protocol standards (Spec 2025-11-25+).
+5. **Cross-Device Ecosystem Companions:** Unifies workspace peripherals under Alexa+ central voice orchestration:
+   - **Bee Wearable:** Captures ambient spoken decisions when away from the desk and links them directly to PR contexts.
+   - **Fire TV 10-Foot Display:** Broadcasts accessible high-contrast waveforms and lease countdowns to ambient team screens.
+   - **Ring Focus Sanctuary:** Suppresses abrasive chimes during active release leases and plays gentle 440Hz acoustic earcons on door motion.
 
 ---
 
@@ -46,13 +50,20 @@ Volcan introduces a dedicated accessibility layer between autonomous AI coding a
 
 ```mermaid
 graph TD
-    User["Developer (Voice / Switch Control)"] -->|"Spoken Command / Intent"| Alexa["Amazon Alexa+ Skill"]
+    User["Developer (Voice / Switch Control)"] -->|"Spoken Command / Intent"| Alexa["Amazon Alexa+ Skill (Core Brain)"]
     Alexa -->|"Streamable HTTP (MCP Protocol)"| VolcanMCP["Volcan FastMCP Server"]
     
     subgraph "Volcan Accessible Core (DDD)"
         VolcanMCP --> DiffEngine["Semantic Diff Synthesizer"]
         VolcanMCP --> Sonification["Pure-Python Audio Earcon Synthesizer"]
         VolcanMCP --> Governance["Dual-Custody Voice Gate"]
+        VolcanMCP --> Ecosystem["Ecosystem Orchestrator"]
+    end
+
+    subgraph "Amazon Ecosystem Companions"
+        Ecosystem --> Bee["Bee Wearable (Ambient Audio Ingestion)"]
+        Ecosystem --> FireTV["Fire TV 10-Foot (High-Contrast Wallboard)"]
+        Ecosystem --> Ring["Ring Focus Shield (Presence Earcons)"]
     end
     
     subgraph "Infrastructure & AI"

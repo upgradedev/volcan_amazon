@@ -10,6 +10,7 @@ from src.application.digest_diff_use_case import DigestDiffUseCase
 from src.application.governed_execution_use_case import GovernedExecutionUseCase
 from src.application.sonify_event_use_case import SonifyEventUseCase
 from src.application.voice_turn_use_case import VoiceTurnUseCase
+from src.application.ecosystem_companion_use_case import OrchestrateEcosystemCompanionUseCase
 from src.domain.sonification import EarconType
 from src.infrastructure.audit_repository import InMemoryAuditRepository
 from src.infrastructure.bedrock_adapter import BedrockSynthesisAdapter
@@ -29,6 +30,7 @@ git_adapter = LocalGitAdapter()
 
 digest_use_case = DigestDiffUseCase(bedrock_adapter)
 sonify_use_case = SonifyEventUseCase()
+ecosystem_use_case = OrchestrateEcosystemCompanionUseCase()
 
 
 class ShellExecutor:
@@ -253,6 +255,55 @@ async def run_accessible_tests() -> dict[str, Any]:
     }
 
 
+class BeeAnnotationRequest(BaseModel):
+    speaker_id: str = Field("developer_voice_1", description="Speaker ID from Bee diarization")
+    transcript: str = Field(..., description="Spoken transcript from Bee wearable")
+    pr_id: str = Field("PR-104", description="Target PR or commit identifier")
+
+
+class FireTvSyncRequest(BaseModel):
+    lease_id: str | None = Field(None, description="Active lease ID")
+    ttl_sec: int = Field(300, description="TTL remaining in seconds")
+    security_flag: bool = Field(False, description="AST security flag")
+    dora_rating: str = Field("ELITE", description="DORA velocity tier")
+
+
+class RingPresenceRequest(BaseModel):
+    sensor_zone: str = Field("Front Door", description="Ring sensor zone")
+    active_lease_id: str | None = Field(None, description="Active release lease ID")
+
+
+@app.post("/mcp/tools/ecosystem/ingest_bee_annotation")
+async def ingest_bee_annotation(req: BeeAnnotationRequest) -> dict[str, Any]:
+    """MCP Tool: Ingest out-of-desk voice note from Bee Wearable into PR review context."""
+    return ecosystem_use_case.attach_bee_ambient_note(
+        speaker_id=req.speaker_id,
+        transcript=req.transcript,
+        pr_id=req.pr_id,
+    )
+
+
+@app.post("/mcp/tools/ecosystem/sync_firetv_wallboard")
+async def sync_firetv_wallboard(req: FireTvSyncRequest) -> dict[str, Any]:
+    """MCP Tool: Broadcast high-contrast 10-foot telemetry to Fire TV ambient screen."""
+    return ecosystem_use_case.sync_firetv_compatibility(
+        lease_id=req.lease_id,
+        ttl_sec=req.ttl_sec,
+        security_flag=req.security_flag,
+        dora_rating=req.dora_rating,
+    )
+
+
+@app.post("/mcp/tools/ecosystem/evaluate_ring_presence")
+async def evaluate_ring_presence(req: RingPresenceRequest) -> dict[str, Any]:
+    """MCP Tool: Evaluate Ring physical presence alert during active dual-custody lease."""
+    return ecosystem_use_case.evaluate_ring_presence(
+        sensor_zone=req.sensor_zone,
+        active_lease_id=req.active_lease_id,
+    )
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
