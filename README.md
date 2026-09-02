@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP Spec](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Amazon Alexa+](https://img.shields.io/badge/Alexa%2B-Streamable%20HTTP-orange.svg)](https://developer.amazon.com)
-[![Tests](https://img.shields.io/badge/tests-50%20passing-brightgreen.svg)](https://github.com/upgradedev/volcan_amazon/actions)
+[![Tests](https://img.shields.io/badge/tests-59%20passing-brightgreen.svg)](https://github.com/upgradedev/volcan_amazon/actions)
 
 ---
 
@@ -39,8 +39,10 @@ Volcan introduces a dedicated accessibility layer between autonomous AI coding a
 2. **Deterministic Security Scanner:** Inspects diffs for authentication, cryptographic, or database changes before execution.
 3. **Hands-Free Governed Approvals:** Implements a dual-custody voice authorization protocol with cryptographic SHA-256 hash locks and 300-second leases for terminal commands.
 4. **Silent Tactile Braille Output:** Translates AST diffs into standard **Unicode Braille Patterns (U+2800–U+28FF)** for Refreshable Braille Displays (Focus 40, Orbit Reader, BRLTTY) for quiet hours and deafblind engineers.
-5. **Alexa+ Streamable HTTP FastMCP Server:** Connects directly into the developer environment using open Model Context Protocol standards (Spec 2025-11-25+).
-6. **Cross-Device Ecosystem Companions:** Unifies workspace peripherals under Alexa+ central voice orchestration:
+5. **Hands-Free Adaptive Switch Access:** Supports single-switch scan-and-select, Sip-and-Puff tubes (Puff=Approve, Sip=Reject), and foot pedals for developers with zero hand mobility or quadriplegia.
+6. **Haptic & Visual Vibration Cadence:** Generates precise haptic vibration profiles (double pulse, triple buzz) and real-time visual captions for Deaf and Hard-of-Hearing (HOH) developers.
+7. **Alexa+ Streamable HTTP FastMCP Server:** Connects directly into the developer environment using open Model Context Protocol standards (Spec 2025-11-25+).
+8. **Cross-Device Ecosystem Companions:** Unifies workspace peripherals under Alexa+ central voice orchestration:
    - **Bee Wearable:** Captures ambient spoken decisions when away from the desk and links them directly to PR contexts.
    - **Fire TV 10-Foot Display:** Broadcasts accessible high-contrast waveforms and lease countdowns to ambient team screens.
    - **Ring Focus Sanctuary:** Suppresses abrasive chimes during active release leases and plays gentle 440Hz acoustic earcons on door motion.

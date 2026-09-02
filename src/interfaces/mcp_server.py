@@ -12,6 +12,7 @@ from src.application.sonify_event_use_case import SonifyEventUseCase
 from src.application.voice_turn_use_case import VoiceTurnUseCase
 from src.application.ecosystem_companion_use_case import OrchestrateEcosystemCompanionUseCase
 from src.application.braille_diff_use_case import BrailleDiffUseCase
+from src.application.accessibility_use_case import AccessibilityOrchestratorUseCase
 from src.domain.sonification import EarconType
 from src.infrastructure.audit_repository import InMemoryAuditRepository
 from src.infrastructure.bedrock_adapter import BedrockSynthesisAdapter
@@ -33,6 +34,7 @@ digest_use_case = DigestDiffUseCase(bedrock_adapter)
 sonify_use_case = SonifyEventUseCase()
 ecosystem_use_case = OrchestrateEcosystemCompanionUseCase()
 braille_use_case = BrailleDiffUseCase()
+accessibility_use_case = AccessibilityOrchestratorUseCase()
 
 
 class ShellExecutor:
@@ -325,8 +327,37 @@ async def digest_diff_to_braille(req: BrailleDiffRequest) -> dict[str, Any]:
     return braille_use_case.digest_to_braille(req.raw_diff)
 
 
+class SwitchPulseRequest(BaseModel):
+    input_type: str = Field("SIP_AND_PUFF", description="Input mechanism: SIP_AND_PUFF, SINGLE_BUTTON, FOOT_PEDAL")
+    signal_strength: float = Field(1.0, description="Pressure or analog value (0.0 - 1.0)")
+    duration_ms: int = Field(150, description="Pulse duration in milliseconds")
+    is_long_press: bool = Field(False, description="Whether pulse is held for dwell selection")
+
+
+class HapticRequest(BaseModel):
+    event_type: str = Field("TASK_COMPLETED", description="Event name: TASK_COMPLETED, SECURITY_FLAG, LEASE_TICK")
+
+
+@app.post("/mcp/tools/accessibility/process_switch_pulse")
+async def process_switch_pulse(req: SwitchPulseRequest) -> dict[str, Any]:
+    """MCP Tool: Process binary switch pulse for hands-free and motor-impaired operators."""
+    return accessibility_use_case.process_switch_signal(
+        input_type_str=req.input_type,
+        signal_strength=req.signal_strength,
+        duration_ms=req.duration_ms,
+        is_long_press=req.is_long_press,
+    )
+
+
+@app.post("/mcp/tools/accessibility/get_haptic_profile")
+async def get_haptic_profile(req: HapticRequest) -> dict[str, Any]:
+    """MCP Tool: Format tactile vibration cadence and visual captions for Deaf/HOH and wearables."""
+    return accessibility_use_case.generate_haptic_profile(req.event_type)
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
