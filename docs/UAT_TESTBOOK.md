@@ -65,9 +65,9 @@
 
 ---
 
-## 3. Automated Playwright & Test Execution
+## 3. Automated Test Execution
 
-Run automated Playwright and E2E test suites with:
+Run automated E2E structure and verification suites with:
 ```bash
 python -m pytest tests/e2e/ -v
 python scripts/load_test_suite.py

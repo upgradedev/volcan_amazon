@@ -1,10 +1,10 @@
-"""Playwright and Headless DOM End-to-End User Acceptance Test Suite.
+"""Static HTML DOM Structure & UI Element Assertion Suite for Volcan.
 
-Validates:
-- Full user journey through the Volcan web companion interface
-- Interactive AST diff sonification controls and audio element structure
-- Dual-custody lease staging, timer countdowns, and token confirmations
-- Accessibility elements, ARIA semantics, and responsive layout
+Performs static string and structure assertions over docs/index.html to verify:
+- Interactive AST diff sonification DOM controls and audio element hooks
+- Dual-custody lease staging DOM components, countdown tags, and token containers
+- ARIA accessibility semantics and responsive layout elements
+(Note: Runs static file assertions without an active browser driver).
 """
 import os
 
