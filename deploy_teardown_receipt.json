@@ -1,0 +1,10 @@
+{
+  "project": "volcan_amazon",
+  "aws_region": "eu-west-1",
+  "live_endpoint_url": "https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com",
+  "deployed_commit_sha": "38668ad6c16dc809ec87f37e143c8da01dddc07d",
+  "http_probe_status": 200,
+  "idle_monthly_cost_usd": 0.0,
+  "serverless_verified": true,
+  "verified_at_epoch": 1788359750.7188532
+}
