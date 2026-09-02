@@ -1,5 +1,5 @@
-# Pure Serverless Terraform Infrastructure for Volcan on AWS Lambda
-# Architecture: AWS Lambda (FastMCP Streaming) + Function URL + Amazon Bedrock + CloudWatch
+# Pure Serverless Terraform Infrastructure for Volcan on AWS Lambda (eu-west-1)
+# Architecture: AWS Lambda + Function URL + Amazon Bedrock + CloudWatch
 
 terraform {
   required_version = ">= 1.5.0"
@@ -16,18 +16,20 @@ provider "aws" {
 }
 
 variable "aws_region" {
-  type    = string
-  default = "us-east-1"
+  type        = string
+  default     = "eu-west-1"
+  description = "Primary AWS region for deployment"
 }
 
 variable "environment" {
-  type    = string
-  default = "prod"
+  type        = string
+  default     = "prod"
+  description = "Environment tier"
 }
 
 # 1. IAM Execution Role for AWS Lambda (Least Privilege)
 resource "aws_iam_role" "volcan_lambda_role" {
-  name = "volcan-lambda-role-${var.environment}"
+  name = "volcan-lambda-role-euw1-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -45,7 +47,7 @@ resource "aws_iam_role" "volcan_lambda_role" {
 
 # 2. Least-Privilege Policy for Amazon Bedrock & CloudWatch Logging
 resource "aws_iam_policy" "volcan_serverless_policy" {
-  name        = "volcan-serverless-policy-${var.environment}"
+  name        = "volcan-serverless-policy-euw1-${var.environment}"
   description = "Least privilege access to Amazon Bedrock models and CloudWatch logs for Volcan"
 
   policy = jsonencode({
@@ -69,7 +71,7 @@ resource "aws_iam_policy" "volcan_serverless_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource = "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/volcan-mcp-${var.environment}:*"
+        Resource = "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/volcan-mcp-euw1-${var.environment}:*"
       }
     ]
   })
@@ -82,7 +84,7 @@ resource "aws_iam_role_policy_attachment" "volcan_attach" {
 
 # 3. AWS Lambda Function for Streamable HTTP FastMCP Server ($0.00 Idle Cost)
 resource "aws_lambda_function" "volcan_mcp_function" {
-  function_name = "volcan-mcp-${var.environment}"
+  function_name = "volcan-mcp-euw1-${var.environment}"
   role          = aws_iam_role.volcan_lambda_role.arn
   runtime       = "python3.11"
   handler       = "src.interfaces.mcp_server.handler"
@@ -94,6 +96,14 @@ resource "aws_lambda_function" "volcan_mcp_function" {
       ENVIRONMENT         = var.environment
       AWS_LWA_INVOKE_MODE = "response_stream"
     }
+  }
+
+  tags = {
+    Project     = "volcan"
+    Environment = var.environment
+    Region      = var.aws_region
+    ManagedBy   = "terraform"
+    Hackathon   = "amazon-developer-2026"
   }
 }
 
@@ -113,7 +123,7 @@ resource "aws_lambda_function_url" "volcan_mcp_url" {
 
 # 5. CloudWatch Log Group with 14-day retention
 resource "aws_cloudwatch_log_group" "volcan_lambda_logs" {
-  name              = "/aws/lambda/volcan-mcp-${var.environment}"
+  name              = "/aws/lambda/volcan-mcp-euw1-${var.environment}"
   retention_in_days = 14
 }
 
