@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP Spec](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Amazon Alexa+](https://img.shields.io/badge/Alexa%2B-Streamable%20HTTP-orange.svg)](https://developer.amazon.com)
-[![Tests: 36 Passed](https://img.shields.io/badge/Tests-36%20Passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-37%20passing-brightgreen.svg)](https://github.com/upgradedev/volcan_amazon/actions)
 
 ---
 

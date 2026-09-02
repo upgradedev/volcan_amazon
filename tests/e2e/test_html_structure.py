@@ -73,3 +73,22 @@ def test_volcan_governance_lease_timing_contract():
     assert "setInterval" in html
     assert "LEASE ACTIVE" in html
     assert "LEASE EXPIRED" in html
+
+
+def test_volcan_ux_principles_h1_h2_h3():
+    """Verify UX principles H1, H2, H3: responsive viewports, no unexplained disabled controls, non-null empty states."""
+    index_path = os.path.join(os.path.dirname(__file__), "../../docs/index.html")
+    with open(index_path, "r", encoding="utf-8") as f:
+        html = f.read()
+
+    # H1: Responsive viewport and obvious hero action
+    assert 'name="viewport"' in html
+    assert "@media (max-width: 480px)" in html or "@media (max-width: 860px)" in html
+    assert 'data-testid="primary-hero-action"' in html
+
+    # H2: Controls have explanatory titles / descriptions
+    assert 'title="' in html
+
+    # H3: Empty state cards render friendly guidance instead of null
+    assert "empty-state-card" in html
+

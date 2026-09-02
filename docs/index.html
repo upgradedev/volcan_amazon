@@ -59,6 +59,19 @@
 
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
     @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 480px) {
+      body { padding: 12px 8px; }
+      header { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .brand h1 { font-size: 1.4rem; }
+      .voice-bar { flex-direction: column; align-items: stretch; padding: 12px; gap: 10px; }
+      .voice-input-wrap { flex-direction: column; }
+      button { width: 100%; justify-content: center; }
+      .actions-bar { flex-direction: column; }
+    }
+    .empty-state-card {
+      background: rgba(15, 23, 42, 0.6); border: 1px dashed #334155; border-radius: 6px;
+      padding: 14px; color: var(--text-muted); font-size: 0.85rem; text-align: center;
+    }
     
     .card {
       background: var(--surface); border: 1px solid var(--surface-border);
@@ -138,8 +151,8 @@
     <div class="voice-bar">
       <div class="voice-icon">🎙️</div>
       <div class="voice-input-wrap">
-        <input type="text" id="voiceCommandInput" class="voice-input" value="Alexa, summarize my workspace diff" placeholder="Speak or type an Alexa command...">
-        <button onclick="executeVoiceCommand()">Speak Alexa Query</button>
+        <input type="text" id="voiceCommandInput" class="voice-input" value="Alexa, summarize my workspace diff" placeholder="Speak or type an Alexa command..." aria-label="Alexa voice command simulation">
+        <button data-testid="primary-hero-action" class="primary-action" title="Click or tap to synthesize voice digest and audio earcon" onclick="executeVoiceCommand()">🎙️ Speak Alexa Query</button>
       </div>
       <div class="preset-chips" style="margin-bottom:0;">
         <span class="chip" onclick="setVoicePrompt('Alexa, summarize my workspace diff')">Diff Summary</span>
