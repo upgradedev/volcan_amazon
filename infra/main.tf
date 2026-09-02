@@ -1,4 +1,5 @@
-# Terraform Infrastructure for Volcan Accessible AI Agent Forge on AWS
+# Pure Serverless Terraform Infrastructure for Volcan on AWS Lambda
+# Architecture: AWS Lambda (FastMCP Streaming) + Function URL + Amazon Bedrock + CloudWatch
 
 terraform {
   required_version = ">= 1.5.0"
@@ -24,9 +25,9 @@ variable "environment" {
   default = "prod"
 }
 
-# IAM Role for Volcan Execution with Least Privilege Bedrock Access
-resource "aws_iam_role" "volcan_exec_role" {
-  name = "volcan-execution-role-${var.environment}"
+# 1. IAM Execution Role for AWS Lambda (Least Privilege)
+resource "aws_iam_role" "volcan_lambda_role" {
+  name = "volcan-lambda-role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -35,16 +36,17 @@ resource "aws_iam_role" "volcan_exec_role" {
         Action = "sts:AssumeRole"
         Effect = "Allow"
         Principal = {
-          Service = "ecs-tasks.amazonaws.com"
+          Service = "lambda.amazonaws.com"
         }
       }
     ]
   })
 }
 
-resource "aws_iam_policy" "volcan_bedrock_least_privilege" {
-  name        = "volcan-bedrock-policy-${var.environment}"
-  description = "Least privilege access to Amazon Bedrock models for AST synthesis"
+# 2. Least-Privilege Policy for Amazon Bedrock & CloudWatch Logging
+resource "aws_iam_policy" "volcan_serverless_policy" {
+  name        = "volcan-serverless-policy-${var.environment}"
+  description = "Least privilege access to Amazon Bedrock models and CloudWatch logs for Volcan"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -59,33 +61,69 @@ resource "aws_iam_policy" "volcan_bedrock_least_privilege" {
           "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0",
           "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-micro-v1:0"
         ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/volcan-mcp-${var.environment}:*"
       }
     ]
   })
 }
 
 resource "aws_iam_role_policy_attachment" "volcan_attach" {
-  role       = aws_iam_role.volcan_exec_role.name
-  policy_arn = aws_iam_policy.volcan_bedrock_least_privilege.arn
+  role       = aws_iam_role.volcan_lambda_role.name
+  policy_arn = aws_iam_policy.volcan_serverless_policy.arn
 }
 
-# ECS Cluster for Streamable HTTP FastMCP Container
-resource "aws_ecs_cluster" "volcan_cluster" {
-  name = "volcan-cluster-${var.environment}"
+# 3. AWS Lambda Function for Streamable HTTP FastMCP Server ($0.00 Idle Cost)
+resource "aws_lambda_function" "volcan_mcp_function" {
+  function_name = "volcan-mcp-${var.environment}"
+  role          = aws_iam_role.volcan_lambda_role.arn
+  runtime       = "python3.11"
+  handler       = "src.interfaces.mcp_server.handler"
+  memory_size   = 256
+  timeout       = 30
+
+  environment {
+    variables = {
+      ENVIRONMENT         = var.environment
+      AWS_LWA_INVOKE_MODE = "response_stream"
+    }
+  }
 }
 
-# CloudWatch Log Group for Immutable Governance Audit Trail
-resource "aws_cloudwatch_log_group" "volcan_logs" {
-  name              = "/ecs/volcan-mcp-${var.environment}"
-  retention_in_days = 30
+# 4. HTTPS Lambda Function URL (Replaces costly Application Load Balancers)
+resource "aws_lambda_function_url" "volcan_mcp_url" {
+  function_name      = aws_lambda_function.volcan_mcp_function.function_name
+  authorization_type = "NONE"
+
+  cors {
+    allow_credentials = false
+    allow_origins     = ["*"]
+    allow_methods     = ["GET", "POST", "OPTIONS"]
+    allow_headers     = ["content-type", "x-mcp-version", "authorization"]
+    max_age           = 86400
+  }
 }
 
-output "ecs_cluster_name" {
-  value       = aws_ecs_cluster.volcan_cluster.name
-  description = "Name of the Volcan ECS cluster"
+# 5. CloudWatch Log Group with 14-day retention
+resource "aws_cloudwatch_log_group" "volcan_lambda_logs" {
+  name              = "/aws/lambda/volcan-mcp-${var.environment}"
+  retention_in_days = 14
 }
 
-output "iam_role_arn" {
-  value       = aws_iam_role.volcan_exec_role.arn
-  description = "ARN of the least-privilege IAM execution role"
+# Outputs
+output "volcan_function_url" {
+  value       = aws_lambda_function_url.volcan_mcp_url.function_url
+  description = "Public HTTPS Streamable HTTP FastMCP endpoint on AWS Lambda"
+}
+
+output "lambda_function_arn" {
+  value       = aws_lambda_function.volcan_mcp_function.arn
+  description = "ARN of the Volcan Serverless Lambda function"
 }

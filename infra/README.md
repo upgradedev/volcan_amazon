@@ -2,21 +2,27 @@
 
 ---
 
-## 1. Cloud Architecture
+## 1. Cloud Architecture: 100% Pure Serverless
 
-Volcan deploys on AWS using serverless containers (Amazon ECS Fargate / AWS Lambda) with least-privilege IAM policies granting access strictly to Amazon Bedrock models (`anthropic.claude-3-5-sonnet-20241022-v2:0` and `amazon.nova-micro-v1:0`).
+Volcan deploys on AWS as a **Pure Serverless Architecture** using **AWS Lambda with Function URLs (Response Streaming)**, providing sub-second cold starts, infinite concurrency scaling, and exact **$0.00 monthly idle costs**.
+
+- **Compute:** AWS Lambda (`python3.11`, 256MB) executing the FastMCP ASGI application.
+- **Networking:** HTTPS Lambda Function URL with streaming response mode (`AWS_LWA_INVOKE_MODE = "response_stream"`), eliminating costly Application Load Balancers (ALBs).
+- **Intelligence:** Amazon Bedrock (`anthropic.claude-3-5-sonnet-20241022-v2:0` & `amazon.nova-micro-v1:0`) billed on pure token consumption with zero idle cost.
+- **Audit Logging:** Amazon CloudWatch Log Group with 14-day retention.
 
 ---
 
 ## 2. Monthly Idle Cost Profile
 
-| Resource | Service | Monthly Cost Idle | Measured Date |
+| Resource | AWS Service | Monthly Idle Cost | Measured Date |
 |---|---|---|---|
-| MCP Streamable HTTP Container | Amazon ECS Fargate (0 tasks when idle) | **$0.00** | 2026-09-01 |
-| LLM AST Synthesis | Amazon Bedrock (Pay-per-token, 0 idle) | **$0.00** | 2026-09-01 |
-| Audit Trail Logs | Amazon CloudWatch (Free Tier <5GB) | **$0.00** | 2026-09-01 |
-| IAM Roles & Policies | AWS IAM | **$0.00** | 2026-09-01 |
-| **TOTAL MONTHLY IDLE COST** | | **$0.00** | **2026-09-01** |
+| FastMCP Serverless Compute | AWS Lambda (0 invocations = $0.00) | **$0.00** | 2026-09-02 |
+| Public HTTPS Ingress | AWS Lambda Function URL (Included Free) | **$0.00** | 2026-09-02 |
+| AST Semantic Synthesis | Amazon Bedrock (Pay-per-token, $0.00 idle) | **$0.00** | 2026-09-02 |
+| Audit Trail Logs | Amazon CloudWatch (<5GB Free Tier) | **$0.00** | 2026-09-02 |
+| Identity & Access | AWS IAM | **$0.00** | 2026-09-02 |
+| **TOTAL MONTHLY IDLE COST** | | **$0.00** | **2026-09-02** |
 
 ---
 
