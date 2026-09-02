@@ -1,0 +1,32 @@
+{
+  "manifest": {
+    "publishingInformation": {
+      "locales": {
+        "en-US": {
+          "name": "Volcan Voice Agent Forge",
+          "summary": "Accessible voice-first AI coding for visually impaired developers",
+          "description": "Speak code requirements, receive AST validation and tactile Braille U+2800 streams.",
+          "keywords": [
+            "developer",
+            "accessibility",
+            "braille",
+            "coding",
+            "alexa-plus"
+          ]
+        }
+      },
+      "isAvailableWorldwide": true,
+      "category": "ORGANIZERS_AND_ASSISTANTS",
+      "distributionMode": "PUBLIC"
+    },
+    "apis": {
+      "custom": {
+        "endpoint": {
+          "uri": "https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/mcp/tools/synthesize"
+        },
+        "interfaces": []
+      }
+    },
+    "manifestVersion": "1.0"
+  }
+}

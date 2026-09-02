@@ -1,0 +1,48 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "volcan forge",
+      "intents": [
+        {
+          "name": "CodeSynthesizeIntent",
+          "slots": [
+            {
+              "name": "prompt",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "create {prompt}",
+            "write a function to {prompt}",
+            "synthesize code for {prompt}"
+          ]
+        },
+        {
+          "name": "BrailleTranslateIntent",
+          "slots": [
+            {
+              "name": "codeSnippet",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "translate to braille {codeSnippet}",
+            "show braille for {codeSnippet}"
+          ]
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        }
+      ]
+    }
+  }
+}
