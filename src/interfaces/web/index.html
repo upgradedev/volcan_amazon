@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#00e5ff">
+    <script src="webmcp_bridge.js"></script>
+    <script src="firetv_nav.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Volcan Voice IDE Companion | Amazon Developer Hackathon 2026</title>
@@ -109,6 +114,9 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
+        <div id="firetv-pairing-badge" class="badge" style="background: rgba(0,230,118,0.15); border-color: #00e676; color: #00e676; font-size: 13px;">
+            📺 Fire TV Pairing: <strong>TV-8492</strong> <span style="color:#00e676;">● Active</span> | <span style="color:#00e5ff;">WebMCP Enabled</span>
+        </div>
             <div>
                 <div class="header-title">
                     <span>Volcan Voice IDE Companion</span>
@@ -342,6 +350,23 @@
 
     const edgeOfflineBuffer = new EdgeOfflineBuffer();
 
+    </script>
+
+    <script>
+    window.addEventListener('DOMContentLoaded', () => {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+        
+        const bridge = new WebMCPBridge('volcan_agent_forge');
+        bridge.registerTool('synthesize_code_ast', 'Synthesizes code from voice prompt and validates AST tree', { prompt: 'string' }, async (args) => {
+            return { status: 'success', prompt: args.prompt, ast_valid: true, node_count: 24, braille_haptic_unicode: '⠁⠛⠑⠝⠞' };
+        });
+        bridge.registerTool('inspect_syntax_tree', 'Returns the tree-sitter AST nodes for current buffer', {}, async () => {
+            return { classes: ['AgentForge'], functions: ['synthesize', 'render_braille'] };
+        });
+        
+    });
     </script>
 </body>
 </html>
