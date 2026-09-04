@@ -1,0 +1,21 @@
+{
+  "name": "Volcan Agent Forge Companion",
+  "short_name": "Volcan Agent Forge",
+  "description": "Voice-First Accessible AI Agent Forge for Disabled Developers",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#080d1a",
+  "theme_color": "#00e5ff",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
