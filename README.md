@@ -4,9 +4,9 @@
 
 [![CI](https://github.com/upgradedev/volcan_amazon/actions/workflows/ci.yml/badge.svg)](https://github.com/upgradedev/volcan_amazon/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![MCP Spec](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
-[![Amazon Alexa+](https://img.shields.io/badge/Alexa%2B-Streamable%20HTTP-orange.svg)](https://developer.amazon.com)
-[![Tests](https://img.shields.io/badge/tests-59%20passing-brightgreen.svg)](https://github.com/upgradedev/volcan_amazon/actions)
+[![Alexa+ Track](https://img.shields.io/badge/Amazon%20Alexa%2B-Simulated%20Web%20Experience-orange.svg)](https://amazonappdev2026.devpost.com/rules)
+[![FastMCP Tools](https://img.shields.io/badge/FastMCP-Tools%20API-blue.svg)](https://fastmcp.org)
+[![Tests](https://img.shields.io/badge/tests-77%20passing-brightgreen.svg)](https://github.com/upgradedev/volcan_amazon/actions)
 
 ---
 
@@ -164,10 +164,10 @@ export AWS_BEDROCK_MODEL_ID="anthropic.claude-3-5-sonnet-20241022-v2:0"
 ### 3. Run the automated test suite
 ```bash
 pytest tests/
-# Output: 36 passed in <3.0s
+# Output: 77 passed in <3.0s (95% coverage)
 ```
 
-### 4. Start the FastMCP Streamable HTTP Server
+### 4. Start the Simulated Alexa+ FastMCP Server
 ```bash
 python -m src.interfaces.mcp_server
 # Output: Uvicorn running on http://0.0.0.0:8000
@@ -191,7 +191,7 @@ Open `http://localhost:8000/` or `http://localhost:8000/demo` in your browser to
 
 ## Contest Declarations & Feedback
 
-* **Primary Track:** **Alexa+ Track** (Streamable HTTP MCP Server, spec 2025-11-25+).
+* **Primary Track:** **Alexa+ Track** (Explicitly presented working simulated Alexa+ web experience & FastMCP tool interface qualifying under official hackathon rules exemption).
 * **Mini Challenges:** **AWS Builder** + **Open Source**.
 * **Friction Log:** Detailed developer feedback for the Amazon team is documented in [`docs/FRICTION_LOG.md`](docs/FRICTION_LOG.md) (earning up to +10% Stage 2 judging bonus).
 

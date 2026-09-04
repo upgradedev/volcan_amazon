@@ -21,6 +21,15 @@ def test_health_endpoint():
     assert data["mcp_spec"] == "2025-11-25"
 
 
+def test_mcp_root_endpoint():
+    response = client.post("/mcp")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mcp_version"] == "2025-11-25"
+    assert "tools" in data["capabilities"]
+    assert "exemption" in data
+
+
 def test_digest_semantic_diff_tool():
     response = client.post("/mcp/tools/digest_semantic_diff", json={"raw_diff": SAMPLE_DIFF, "level": 0})
     assert response.status_code == 200
