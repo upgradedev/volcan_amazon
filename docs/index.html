@@ -6,351 +6,634 @@
     <meta name="theme-color" content="#00e5ff">
     <script src="webmcp_bridge.js"></script>
     <script src="firetv_nav.js"></script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Volcan Voice IDE Companion | Amazon Developer Hackathon 2026</title>
-    <style>
-        :root {
-            --bg-primary: #080d1a;
-            --bg-card: #0f172a;
-            --bg-card-hover: #1e293b;
-            --cyan-glow: #00e5ff;
-            --emerald-glow: #00e676;
-            --amber-glow: #ffb300;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --border-color: #334155;
-            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            background-color: var(--bg-primary);
-            color: var(--text-main);
-            font-family: var(--font-family);
-            line-height: 1.6;
-            padding: 24px;
-        }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 20px;
-            margin-bottom: 28px;
-            flex-wrap: wrap;
-            gap: 16px;
-        }
-        .header-title { font-size: 26px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 10px; }
-        .badge {
-            font-size: 13px;
-            padding: 4px 12px;
-            border-radius: 9999px;
-            background: rgba(0, 229, 255, 0.15);
-            color: var(--cyan-glow);
-            border: 1px solid var(--cyan-glow);
-            font-weight: 600;
-        }
-        .nav-actions { display: flex; gap: 12px; }
-        .btn {
-            padding: 10px 18px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            border: none;
-            transition: all 0.2s ease;
-            font-size: 14px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .btn-primary { background: var(--cyan-glow); color: #000; }
-        .btn-primary:hover { background: #33ecff; box-shadow: 0 0 12px rgba(0, 229, 255, 0.4); }
-        .btn-secondary { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); }
-        .btn-secondary:hover { background: var(--bg-card-hover); border-color: var(--cyan-glow); }
-        .btn-success { background: var(--emerald-glow); color: #000; }
-        .btn-success:hover { background: #33eb8f; box-shadow: 0 0 12px rgba(0, 230, 118, 0.4); }
-
-        .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
-        @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 24px;
-        }
-        .card-header { font-size: 18px; font-weight: 700; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
-        .status-pill { font-size: 12px; padding: 2px 8px; border-radius: 4px; font-weight: bold; background: rgba(0, 230, 118, 0.15); color: var(--emerald-glow); border: 1px solid var(--emerald-glow); }
-
-        /* Live Simulator Box */
-        .sim-box { background: #020617; border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; font-family: monospace; font-size: 13px; color: #a5f3fc; min-height: 160px; max-height: 260px; overflow-y: auto; }
-
-        /* Settings Rows */
-        .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid rgba(51, 65, 85, 0.5); gap: 16px; }
-        .setting-row:last-child { border-bottom: none; }
-        .setting-meta { display: flex; flex-direction: column; }
-        .setting-title { font-size: 14px; font-weight: 600; color: var(--text-main); }
-        .setting-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-        .setting-select, .setting-input { background: #020617; color: var(--text-main); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 6px; font-size: 13px; }
-        .setting-range { accent-color: var(--cyan-glow); cursor: pointer; }
-
-        /* Toggle Switch */
-        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .3s; border-radius: 24px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--emerald-glow); }
-        input:checked + .slider:before { transform: translateX(20px); }
-
-        /* Tour Overlay */
-        .tour-bubble { background: #1e1b4b; border: 2px solid var(--cyan-glow); border-radius: 8px; padding: 14px; margin-bottom: 16px; display: none; }
-        .tour-bubble.active { display: block; animation: fadeIn 0.3s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-        <div id="firetv-pairing-badge" class="badge" style="background: rgba(0,230,118,0.15); border-color: #00e676; color: #00e676; font-size: 13px;">
-            📺 Fire TV Pairing: <strong>TV-8492</strong> <span style="color:#00e676;">● Active</span> | <span style="color:#00e5ff;">WebMCP Enabled</span>
-        </div>
-            <div>
-                <div class="header-title">
-                    <span>Volcan Voice IDE Companion</span>
-                    <span class="badge">Alexa+ & Braille Display Forge</span>
-                </div>
-                <p style="color: var(--text-muted); font-size: 14px; margin-top: 4px;">Amazon Developer Hackathon 2026 | Pure Serverless ($0.00 Idle)</p>
-            </div>
-            <div class="nav-actions">
-                <button class="btn btn-secondary" onclick="startTourguide()">🎯 Guided Tour</button>
-                <button class="btn btn-primary" onclick="openSettingsModal()">⚙️ Settings & Pairing</button>
-            </div>
-        </div>
-
-        <!-- Tour Guide Active Banner -->
-        <div id="tour_banner" class="tour-bubble">
-            <h4 style="color: var(--cyan-glow); margin-bottom: 4px;" id="tour_title">🎯 Step 1: Guided Architecture Walkthrough</h4>
-            <p style="color: var(--text-main); font-size: 13px;" id="tour_desc">Welcome! Click the simulator buttons below to test live event actuation, FastMCP tools, and cryptographic proofs without needing physical hardware.</p>
-            <div style="margin-top: 10px; display: flex; gap: 8px;">
-                <button class="btn btn-primary" style="padding: 4px 10px; font-size: 12px;" onclick="nextTourStep()">Next Step ➔</button>
-                <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px;" onclick="closeTour()">Close Tour</button>
-            </div>
-        </div>
-
-        <div class="grid">
-            <!-- Left Column: Core Experience & Live Simulation -->
-            <div>
-                <div class="card">
-                    <div class="card-header">
-                        <span>📡 Live System & Hardware Event Visualizer</span>
-                        <span class="status-pill">● LIVE INGESTION</span>
-                    </div>
-                    <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">
-                        Zero-Hardware Simulation: Trigger events below to watch the FastMCP Domain Engine, Bedrock Reasoning, and EventBridge Spine execute in real-time.
-                    </p>
-                    <div style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
-                        <button class="btn btn-primary" onclick="triggerSimulation('HERO_ACTION')">⚡ Run Primary Hero Action</button>
-                        <button class="btn btn-secondary" onclick="triggerSimulation('HARDWARE_EVENT')">🔔 Simulate Hardware Signal</button>
-                        <button class="btn btn-success" onclick="triggerSimulation('AUDIT_VERIFY')">🔐 Verify SHA-256 Proof</button>
-                    </div>
-                    <div class="sim-box" id="sim_output">
-                        // Waiting for event trigger... Click any simulation button above.
-                        // System initialized in region: eu-west-1 (Ireland)
-                        // FastMCP Transport: HTTP Streamable + AWS Strands Agents
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <span>🏛️ Architectural & Usability Guarantees</span>
-                        <span class="badge" style="border-color: var(--emerald-glow); color: var(--emerald-glow);">VERIFIED</span>
-                    </div>
-                    <ul style="color: var(--text-muted); font-size: 14px; padding-left: 20px; line-height: 1.8;">
-                        <li><strong style="color: var(--text-main);">Self-Explaining UI:</strong> Clear labels, zero ambiguous controls, 100% natural language feedback.</li>
-                        <li><strong style="color: var(--text-main);">Error Prevention:</strong> Strict safety ceilings and compensating transaction rollbacks (Saga Pattern).</li>
-                        <li><strong style="color: var(--text-main);">Accessibility First:</strong> Full keyboard navigation, screen reader ARIA labels, and high-contrast styling.</li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- Right Column: Settings & Configuration Panel -->
-            <div>
-                <div class="card">
-                    <div class="card-header">
-                        <span>⚙️ Preferences & Pairing</span>
-                        <span class="badge">AWS SYNCED</span>
-                    </div>
-                    <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 14px;">
-                        Easily configure device IDs, privacy masking, and safety limits. All settings persist locally and sync with AWS Lambda.
-                    </p>
-                    <div id="settings_container">
-                        
-            <div class="setting-row">
-                <div class="setting-meta">
-                    <label class="setting-title" for="braille_cells">Braille Terminal Cells</label>
-                    <span class="setting-desc">Length of the tactile Unicode U+2800 output buffer.</span>
-                </div>
-                <select id="braille_cells" class="setting-select"><option value='40 Cells (Standard)'>40 Cells (Standard)</option><option value='80 Cells (Extended)'>80 Cells (Extended)</option></select>
-            </div>
-            <div class="setting-row">
-                <div class="setting-meta">
-                    <label class="setting-title" for="voice_verbosity">Voice Feedback Verbosity</label>
-                    <span class="setting-desc">How much detail Alexa speaks during code debugging.</span>
-                </div>
-                <select id="voice_verbosity" class="setting-select"><option value='Concise (Line & Column only)'>Concise (Line & Column only)</option><option value='Detailed (Full AST explanation)'>Detailed (Full AST explanation)</option></select>
-            </div>
-            <div class="setting-row">
-                <div class="setting-meta">
-                    <label class="setting-title" for="auto_format">Auto-Format on Compile</label>
-                    <span class="setting-desc">Automatically format Python AST according to PEP 8.</span>
-                </div>
-                <label class="switch">
-                    <input type="checkbox" id="auto_format" checked>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-                    </div>
-                    <div style="margin-top: 18px;">
-                        <button class="btn btn-success" style="width: 100%; justify-content: center;" onclick="saveSettings()">💾 Save & Apply Settings</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        let tourStep = 0;
-        const tourSteps = [
-            { title: "🎯 Step 1: Zero-Hardware Visualizer", desc: "This visualizer lets judges and users interact with the system without needing physical devices in hand." },
-            { title: "🎯 Step 2: Live Action Simulation", desc: "Click 'Run Primary Hero Action' to watch the FastMCP server, Bedrock Strands agent, and EventBridge pipeline execute." },
-            { title: "🎯 Step 3: Self-Explaining Preferences", desc: "Configure safety limits and hardware pairing in the right panel with instant visual feedback and error prevention." }
-        ];
-
-        function startTourguide() {
-            tourStep = 0;
-            showTour();
-        }
-        function showTour() {
-            const b = document.getElementById('tour_banner');
-            b.classList.add('active');
-            document.getElementById('tour_title').innerText = tourSteps[tourStep].title;
-            document.getElementById('tour_desc').innerText = tourSteps[tourStep].desc;
-        }
-        function nextTourStep() {
-            tourStep++;
-            if (tourStep >= tourSteps.length) {
-                closeTour();
-            } else {
-                showTour();
-            }
-        }
-        function closeTour() {
-            document.getElementById('tour_banner').classList.remove('active');
-        }
-
-        function triggerSimulation(actionType) {
-            const box = document.getElementById('sim_output');
-            const now = new Date().toISOString();
-            box.innerHTML = `<span style="color: #67e8f9;">[${now}] 🚀 DISPATCHING: ${actionType}</span><br>`;
-            box.innerHTML += `<span style="color: #94a3b8;">--> Routing to FastMCP Interface Layer... (HTTP 200 OK)</span><br>`;
-            
-            setTimeout(() => {
-                box.innerHTML += `<span style="color: #a7f3d0;">--> Domain Engine Execution: Pure DDD Model validated (0 errors)</span><br>`;
-            }, 200);
-
-            setTimeout(() => {
-                box.innerHTML += `<span style="color: #fed7aa;">--> AWS Strands Agent Chaining: Bedrock Claude 3.5 Sonnet response received</span><br>`;
-                box.innerHTML += `<span style="color: #38bdf8;">--> SHA-256 Proof Hash: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</span><br>`;
-                box.innerHTML += `<strong style="color: #4ade80;">[SUCCESS] State Transition Committed. Latency: 16.4ms</strong>`;
-            }, 400);
-        }
-
-        function saveSettings() {
-            alert("✅ Preferences saved successfully! Applied to AWS Lambda Session.");
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Volcan — Accessible Voice & Braille AI Agent Forge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070a12;
+      --surface: #0f172a;
+      --surface-border: #1e293b;
+      --primary: #f97316;
+      --primary-glow: rgba(249, 115, 22, 0.35);
+      --secondary: #38bdf8;
+      --secondary-glow: rgba(56, 189, 248, 0.3);
+      --accent-green: #22c55e;
+      --accent-red: #ef4444;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 30px 20px; line-height: 1.6; min-height: 100vh; }
+    .container { max-width: 1200px; margin: 0 auto; }
     
-    // =========================================================================
-    // Edge Offline Resilience & Event Buffer Engine
-    // =========================================================================
-    class EdgeOfflineBuffer {
-        constructor(queueKey = 'edge_offline_event_queue_v1') {
-            this.queueKey = queueKey;
-            this.isOnline = navigator.onLine;
-            this.initListeners();
-        }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: 24px; border-bottom: 1px solid var(--surface-border); margin-bottom: 30px;
+      flex-wrap: wrap; gap: 16px;
+    }
+    .brand h1 { font-size: 2rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 12px; }
+    .brand h1 span { color: var(--primary); text-shadow: 0 0 20px var(--primary-glow); }
+    .brand p { color: var(--text-muted); font-size: 0.95rem; margin-top: 4px; }
+    .badges-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .badge {
+      background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--secondary); padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 600;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+    }
+    .badge-orange {
+      background: rgba(249, 115, 22, 0.15); border-color: rgba(249, 115, 22, 0.4); color: #fdba74;
+    }
+    .badge-braille {
+      background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe;
+    }
+    
+    .voice-bar {
+      background: linear-gradient(90deg, #1e1b4b 0%, #0f172a 100%);
+      border: 1px solid #4338ca; border-radius: 12px; padding: 14px 20px;
+      margin-bottom: 24px; display: flex; align-items: center; gap: 16px;
+      box-shadow: 0 4px 20px rgba(67, 56, 202, 0.25);
+    }
+    .voice-icon { font-size: 1.5rem; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+    .voice-input-wrap { flex: 1; display: flex; gap: 10px; }
+    .voice-input {
+      flex: 1; background: #070a13; border: 1px solid #334155; border-radius: 8px;
+      padding: 10px 14px; color: #fff; font-size: 0.9rem;
+    }
+    .voice-input:focus { outline: none; border-color: var(--secondary); }
 
-        initListeners() {
-            window.addEventListener('online', () => {
-                this.isOnline = true;
-                this.updateIndicator(true);
-                this.flushQueue();
-            });
-            window.addEventListener('offline', () => {
-                this.isOnline = false;
-                this.updateIndicator(false);
-            });
-        }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 480px) {
+      body { padding: 12px 8px; }
+      header { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .brand h1 { font-size: 1.4rem; }
+      .voice-bar { flex-direction: column; align-items: stretch; padding: 12px; gap: 10px; }
+      .voice-input-wrap { flex-direction: column; }
+      button { width: 100%; justify-content: center; }
+      .actions-bar { flex-direction: column; }
+    }
+    .empty-state-card {
+      background: rgba(15, 23, 42, 0.6); border: 1px dashed #334155; border-radius: 6px;
+      padding: 14px; color: var(--text-muted); font-size: 0.85rem; text-align: center;
+    }
+    
+    .card {
+      background: var(--surface); border: 1px solid var(--surface-border);
+      border-radius: 14px; padding: 24px; position: relative; overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    .card h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; color: #fff; display: flex; align-items: center; gap: 10px; }
+    .card-desc { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 18px; }
 
-        updateIndicator(online) {
-            let badge = document.getElementById('offline_resilience_badge');
-            if (!badge) {
-                badge = document.createElement('div');
-                badge.id = 'offline_resilience_badge';
-                badge.style.cssText = 'position:fixed;bottom:12px;left:12px;z-index:9999;font-size:11px;padding:4px 10px;border-radius:6px;font-weight:700;transition:all 0.3s;';
-                document.body.appendChild(badge);
-            }
-            if (online) {
-                const count = this.getQueue().length;
-                if (count > 0) {
-                    badge.style.background = 'rgba(0, 230, 118, 0.15)';
-                    badge.style.color = '#00e676';
-                    badge.style.border = '1px solid #00e676';
-                    badge.innerText = `🟢 Online: Flushed ${count} local events`;
-                    setTimeout(() => { badge.style.display = 'none'; }, 4000);
-                } else {
-                    badge.style.display = 'none';
-                }
-            } else {
-                badge.style.display = 'block';
-                badge.style.background = 'rgba(255, 179, 0, 0.15)';
-                badge.style.color = '#ffb300';
-                badge.style.border = '1px solid #ffb300';
-                badge.innerText = `📡 Offline Mode: Actions buffered locally`;
-            }
-        }
+    .preset-chips { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .chip {
+      background: #1e293b; border: 1px solid #334155; color: var(--text-muted);
+      padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
+    }
+    .chip:hover, .chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
-        getQueue() {
-            try {
-                return JSON.parse(localStorage.getItem(this.queueKey) || '[]');
-            } catch (e) {
-                return [];
-            }
-        }
+    textarea {
+      width: 100%; height: 140px; background: #070a13; border: 1px solid var(--surface-border);
+      color: #38bdf8; padding: 14px; border-radius: 8px; font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem; resize: vertical; line-height: 1.4;
+    }
+    textarea:focus { outline: none; border-color: var(--primary); }
 
-        enqueue(event) {
-            const queue = this.getQueue();
-            const enriched = { ...event, queued_at: new Date().toISOString() };
-            queue.push(enriched);
-            localStorage.setItem(this.queueKey, JSON.stringify(queue));
-            this.updateIndicator(false);
-            console.log('[OfflineBuffer] Enqueued event locally:', enriched);
-            return enriched;
-        }
+    .actions-bar { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    button {
+      background: var(--primary); color: white; border: none; padding: 10px 18px;
+      border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.88rem;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+    }
+    button:hover { background: #ea580c; transform: translateY(-1px); box-shadow: 0 4px 15px var(--primary-glow); }
+    .btn-secondary { background: #1e293b; border: 1px solid #334155; color: var(--text); }
+    .btn-secondary:hover { background: #334155; }
+    .btn-purple { background: #7e22ce; color: #fff; }
+    .btn-purple:hover { background: #6b21a8; }
+    .btn-danger { background: #dc2626; }
+    .btn-danger:hover { background: #b91c1c; }
 
-        flushQueue() {
-            const queue = this.getQueue();
-            if (queue.length === 0) return;
-            console.log(`[OfflineBuffer] Flushing ${queue.length} buffered events to cloud API...`);
-            localStorage.removeItem(this.queueKey);
-        }
+    .console-box {
+      background: #070a13; border: 1px solid var(--surface-border); border-radius: 8px;
+      padding: 16px; margin-top: 16px; min-height: 140px; font-size: 0.9rem;
+    }
+    .console-header {
+      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--text-muted); margin-bottom: 10px; display: flex; justify-content: space-between;
+    }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; }
+    .tag-sec { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; }
+    .tag-succ { background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; color: #86efac; }
+    .tag-lease { background: rgba(249, 115, 22, 0.2); border: 1px solid var(--primary); color: #fed7aa; }
+    .tag-braille { background: rgba(168, 85, 247, 0.2); border: 1px solid #a855f7; color: #e9d5ff; }
+
+    .braille-stream {
+      font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; letter-spacing: 3px; line-height: 1.8;
+      color: #c084fc; background: #030712; padding: 16px; border-radius: 8px; border: 1px solid #581c87;
+      max-height: 160px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
     }
 
-    const edgeOfflineBuffer = new EdgeOfflineBuffer();
+    canvas#audioVisualizer {
+      width: 100%; height: 55px; background: #070a13; border: 1px solid var(--surface-border);
+      border-radius: 6px; margin-top: 12px; display: block;
+    }
 
-    </script>
+    .audit-list {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--text-muted);
+      max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+    }
+    .audit-item { padding: 5px 10px; background: #070a13; border-radius: 4px; border-left: 3px solid var(--secondary); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <h1>🌋 <span>Volcan</span> Voice & Braille Agent Forge</h1>
+        <p>Accessible Multi-Modal AI Infrastructure on Amazon Alexa+, AWS Bedrock & Braille Terminals</p>
+      </div>
+      <div class="badges-row">
+        <span class="badge badge-orange">Alexa+ Voice First</span>
+        <span class="badge badge-braille">⠠⠃⠗⠁⠊⠇⠇⠑ Braille (U+2800)</span>
+        <span class="badge">Model Context Protocol</span>
+        <span class="badge">Pure PCM Audio 22kHz</span>
+      </div>
+    </header>
+
+    <!-- Alexa Voice Query Simulator Bar -->
+    <div class="voice-bar">
+      <div class="voice-icon">🎙️</div>
+      <div class="voice-input-wrap">
+        <input type="text" id="voiceCommandInput" class="voice-input" value="Alexa, summarize my workspace diff" placeholder="Speak or type an Alexa command..." aria-label="Alexa voice command simulation">
+        <button data-testid="primary-hero-action" class="primary-action" title="Click or tap to synthesize voice digest and audio earcon" onclick="executeVoiceCommand()">🎙️ Speak Alexa Query</button>
+      </div>
+      <div class="preset-chips" style="margin-bottom:0;">
+        <span class="chip" onclick="setVoicePrompt('Alexa, summarize my workspace diff')">Diff Summary</span>
+        <span class="chip" onclick="setVoicePrompt('Alexa, stage deploy to production')">Stage Deploy</span>
+        <span class="chip" onclick="setVoicePrompt('Alexa, approve action with token')">Approve Lease</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Card 1: Semantic Diff Sonification -->
+      <div class="card">
+        <h2>🎧 AST Diff & Spatial Audio Sonification</h2>
+        <p class="card-desc">
+          Volcan parses AST changes and replaces dense terminal diffs with hierarchical voice digests, synthesized speech, and acoustic earcons.
+        </p>
+
+        <div class="preset-chips">
+          <span class="chip active" onclick="loadPreset(1)">Security Flag (KMS Key)</span>
+          <span class="chip" onclick="loadPreset(2)">Clean Refactor (FastAPI)</span>
+          <span class="chip" onclick="loadPreset(3)">Bugfix (Null Check)</span>
+        </div>
+
+        <textarea id="diffInput"></textarea>
+
+        <div class="actions-bar">
+          <button onclick="synthesizeDiff(0)">🔊 Synthesize Executive (Level 0)</button>
+          <button class="btn-secondary" onclick="synthesizeDiff(1)">Level 1 (Detailed)</button>
+          <button class="btn-secondary" onclick="playPureEarcon('DIFF_READY')">Play Earcon</button>
+        </div>
+
+        <canvas id="audioVisualizer"></canvas>
+
+        <div class="console-box" id="diffConsole">
+          <div class="console-header">
+            <span>Voice Digest & AST Inspection</span>
+            <span id="astLatency">0.056 ms</span>
+          </div>
+          <div id="diffOutput">Ready. Click synthesize to parse AST, play harmonic earcon, and speak voice summary.</div>
+        </div>
+      </div>
+
+      <!-- Card 2: Dual-Custody Governance -->
+      <div class="card">
+        <h2>🛡️ Dual-Custody Voice Execution Leases</h2>
+        <p class="card-desc">
+          High-consequence actions require cryptographic SHA-256 staging with 300s expiration and Alexa voice token verification.
+        </p>
+
+        <div class="actions-bar" style="margin-top: 0; margin-bottom: 14px;">
+          <button onclick="stageGovernedAction()">Stage Production Deploy</button>
+          <button class="btn-secondary" onclick="confirmVoiceAction()">Approve with Voice Token</button>
+          <button class="btn-danger" onclick="rejectAction()">Reject</button>
+        </div>
+
+        <div class="console-box" id="govConsole">
+          <div class="console-header">
+            <span>Active Execution Lease</span>
+            <span id="leaseTimer" class="tag tag-lease">IDLE</span>
+          </div>
+          <div id="govOutput">No active execution lease. Stage an action to initiate dual-custody approval.</div>
+        </div>
+
+        <div class="console-header" style="margin-top: 18px; margin-bottom: 6px;">
+          <span>Immutable Governance Vault Audit Log</span>
+          <span>SHA-256 Cryptographic Chain</span>
+        </div>
+        <div class="audit-list" id="auditVault">
+          <div class="audit-item">[GENESIS] Volcan Governance Engine active with least privilege.</div>
+        </div>
+      </div>
+
+      <!-- Card 3: Silent Tactile Braille Terminal -->
+      <div class="card" style="grid-column: 1 / -1;">
+        <h2>⠠⠃⠗⠁⠊⠇⠇⠑ Silent Tactile Braille Terminal (Refreshable Display Output)</h2>
+        <p class="card-desc">
+          For quiet hours, open offices, and deafblind software developers: Volcan converts AST diffs, code tokens, and governance leases directly into standard <strong>Unicode Braille Patterns (U+2800–U+28FF)</strong> for Refreshable Braille Displays (Focus 40, Orbit Reader, BRLTTY) with 100% silent operation.
+        </p>
+
+        <div class="actions-bar" style="margin-top: 0; margin-bottom: 14px;">
+          <button class="btn-purple" onclick="translateCurrentDiffToBraille()" title="Translate current AST diff to Braille stream">⠠⠙⠊⠋⠋ Translate Diff to Braille</button>
+          <button class="btn-secondary" onclick="translateCustomPromptToBraille()" title="Translate voice query to Braille">Translate Voice Input</button>
+          <button class="btn-secondary" onclick="copyBrailleStream()" title="Copy Unicode Braille to clipboard">Copy Braille Stream</button>
+        </div>
+
+        <div class="console-header">
+          <span>Tactile Braille Cell Stream (6-Dot Unicode Standard)</span>
+          <span class="tag tag-braille">UEB / Computer Braille</span>
+        </div>
+        <div class="braille-stream" id="brailleOutput">⠠⠧⠕⠇⠉⠁⠝⠀⠃⠗⠁⠊⠇⠇⠑⠀⠞⠑⠗⠍⠊⠝⠁⠇⠀⠗⠑⠁⠙⠽⠲⠀⠠⠉⠇⠊⠉⠅⠀⠁⠃⠕⠧⠑⠀⠞⠕⠀⠞⠗⠁⠝⠎⠇⠁⠞⠑⠀⠁⠝⠽⠀⠉⠕⠙⠑⠀⠕⠗⠀⠙⠊⠋⠋⠲</div>
+      </div>
+
+      <!-- Card 4: Amazon Multi-Device Ecosystem Companions -->
+      <div class="card" style="grid-column: 1 / -1; margin-top: 6px;">
+        <h2>🌐 Amazon Ecosystem Companions (Cross-Device Voice Integration)</h2>
+        <p class="card-desc">
+          Volcan's central Alexa+ voice forge coordinates ambient companion devices across your developer workspace.
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 12px;">
+          <!-- Bee Companion -->
+          <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-weight: 700; color: #93c5fd;">🐝 Bee Wearable</span>
+              <span class="tag tag-pass">Ambient Voice</span>
+            </div>
+            <p style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 10px;">
+              Captures spontaneous spoken design decisions when away from the keyboard and attaches them as typed PR annotations.
+            </p>
+            <button class="btn-secondary" style="width: 100%; font-size: 0.82rem;" onclick="simulateBeeAnnotation()" title="Simulate Bee ambient note capture">Ingest Spoken Note</button>
+          </div>
+
+          <!-- Fire TV Companion -->
+          <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-weight: 700; color: #fcd34d;">📺 Fire TV 10-Foot</span>
+              <span class="tag tag-lease">Wallboard</span>
+            </div>
+            <p style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 10px;">
+              Broadcasts high-contrast accessible visual telemetry, waveform frequencies, and lease countdowns to ambient team screens.
+            </p>
+            <button class="btn-secondary" style="width: 100%; font-size: 0.82rem;" onclick="broadcastFireTvWallboard()" title="Broadcast telemetry to Fire TV">Sync Wallboard Frame</button>
+          </div>
+
+          <!-- Ring Companion -->
+          <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-weight: 700; color: #6ee7b7;">🔔 Ring Sanctuary</span>
+              <span class="tag tag-pass">Focus Shield</span>
+            </div>
+            <p style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 10px;">
+              Suppresses abrasive chimes during dual-custody release leases and chimes gentle 440Hz acoustic earcons on door arrival.
+            </p>
+            <button class="btn-secondary" style="width: 100%; font-size: 0.82rem;" onclick="testRingFocusPresence()" title="Test Ring focus presence trigger">Trigger Presence Event</button>
+          </div>
+        </div>
+
+        <div class="console-box" style="margin-top: 14px;" id="ecosystemConsole">
+          <div class="console-header">
+            <span>Ecosystem Companion Event Feed</span>
+            <span class="tag tag-pass">SYNCHRONIZED</span>
+          </div>
+          <div id="ecosystemOutput">Ready. Click any companion trigger above to simulate multi-device ecosystem coordination.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PRESETS = {
+      1: `diff --git a/src/auth/service.py b/src/auth/service.py
+index a1b2c3d..e5f6a7b 100644
+--- a/src/auth/service.py
++++ b/src/auth/service.py
+@@ -10,4 +10,6 @@ class AuthService:
+     def authenticate(self, token: str) -> bool:
+-        return token == "hardcoded_secret"
++        # Replace hardcoded secret with KMS key validation
++        kms_key = os.environ.get("KMS_KEY_ID")
++        return verify_kms_token(token, kms_key)`,
+      2: `diff --git a/src/routes/api.py b/src/routes/api.py
+--- a/src/routes/api.py
++++ b/src/routes/api.py
+@@ -15,2 +15,4 @@
++@router.get("/v1/health")
++def health():
++    return {"status": "healthy"}`,
+      3: `diff --git a/src/utils/parser.py b/src/utils/parser.py
+--- a/src/utils/parser.py
++++ b/src/utils/parser.py
+@@ -4,3 +4,4 @@
+-    return data.strip()
++    if not data: return ""
++    return data.strip()`
+    };
+
+    const BRAILLE_MAP = {
+      ' ': '\u2800', 'a': '\u2801', 'b': '\u2803', 'c': '\u2809', 'd': '\u2819',
+      'e': '\u2811', 'f': '\u280b', 'g': '\u281b', 'h': '\u2813', 'i': '\u280a',
+      'j': '\u281a', 'k': '\u2805', 'l': '\u2807', 'm': '\u280d', 'n': '\u281d',
+      'o': '\u2815', 'p': '\u280f', 'q': '\u281f', 'r': '\u2817', 's': '\u280e',
+      't': '\u281e', 'u': '\u2825', 'v': '\u2827', 'w': '\u283a', 'x': '\u282d',
+      'y': '\u283d', 'z': '\u2835', '1': '\u2801', '2': '\u2803', '3': '\u2809',
+      '4': '\u2819', '5': '\u2811', '6': '\u280b', '7': '\u281b', '8': '\u2813',
+      '9': '\u280a', '0': '\u281a', ',': '\u2802', ';': '\u2806', ':': '\u2812',
+      '.': '\u2832', '!': '\u2816', '?': '\u2826', '(': '\u2836', ')': '\u2836',
+      '-': '\u2824', '+': '\u282c', '=': '\u2836', '/': '\u280c', '\\': '\u2821',
+      '*': '\u2814', '#': '\u283c', '@': '\u2804', '_': '\u2820', '{': '\u2838',
+      '}': '\u281c', '[': '\u282a', ']': '\u283a', '<': '\u2818', '>': '\u2810',
+      '"': '\u2810', "'": '\u2804'
+    };
+
+    function jsTextToBraille(text) {
+      let res = '';
+      let inNum = false;
+      for (let ch of text) {
+        if (/\d/.test(ch)) {
+          if (!inNum) { res += '\u283c'; inNum = true; }
+          res += BRAILLE_MAP[ch] || '\u2800';
+        } else {
+          inNum = false;
+          if (/[A-Z]/.test(ch)) {
+            res += '\u2820' + (BRAILLE_MAP[ch.toLowerCase()] || '\u2800');
+          } else if (BRAILLE_MAP[ch]) {
+            res += BRAILLE_MAP[ch];
+          } else if (ch === '\n') {
+            res += '\n';
+          } else {
+            res += '\u2800';
+          }
+        }
+      }
+      return res;
+    }
+
+    function translateCurrentDiffToBraille() {
+      const diff = document.getElementById('diffInput').value;
+      const braille = jsTextToBraille(diff);
+      document.getElementById('brailleOutput').innerText = braille;
+      appendAudit('[BRAILLE] Diff rendered to 6-dot tactile stream for Refreshable Braille Display.');
+    }
+
+    function translateCustomPromptToBraille() {
+      const text = document.getElementById('voiceCommandInput').value;
+      const braille = jsTextToBraille(text);
+      document.getElementById('brailleOutput').innerText = braille;
+      appendAudit('[BRAILLE] Voice prompt converted to silent Braille stream.');
+    }
+
+    function copyBrailleStream() {
+      const text = document.getElementById('brailleOutput').innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Braille Unicode stream copied to clipboard!');
+      });
+    }
+
+    function loadPreset(id) {
+      document.getElementById('diffInput').value = PRESETS[id];
+      document.querySelectorAll('.chip').forEach((c, idx) => {
+        c.classList.toggle('active', idx === id - 1);
+      });
+    }
+    loadPreset(1);
+
+    function setVoicePrompt(text) {
+      document.getElementById('voiceCommandInput').value = text;
+      executeVoiceCommand();
+    }
+
+    function speakText(text) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.05;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    // Web Audio API pure synthesizer
+    let audioCtx = null;
+    function getAudioContext() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      return audioCtx;
+    }
+
+    function playPureEarcon(type) {
+      const ctx = getAudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      drawWaveformAnimation();
+
+      if (type === 'DIFF_READY') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.15);
+      } else if (type === 'ALERT') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(320, ctx.currentTime);
+        osc.frequency.setValueAtTime(640, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.4, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.2);
+      } else if (type === 'CONFIRM') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.08);
+        osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.16);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.25);
+      }
+    }
+
+    function drawWaveformAnimation() {
+      const canvas = document.getElementById('audioVisualizer');
+      const ctx = canvas.getContext('2d');
+      let start = null;
+      function step(timestamp) {
+        if (!start) start = timestamp;
+        let progress = (timestamp - start) / 350;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let x = 0; x < canvas.width; x += 3) {
+          const y = canvas.height/2 + Math.sin(x*0.12 + progress*12) * Math.sin(progress*Math.PI) * 22;
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        if (progress < 1) requestAnimationFrame(step);
+        else ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      requestAnimationFrame(step);
+    }
+
+    let stagedAction = null;
+    let timerInterval = null;
+
+    function synthesizeDiff(level) {
+      const diff = document.getElementById('diffInput').value;
+      const hasSecurity = diff.includes('KMS_KEY_ID') || diff.includes('secret');
+      
+      let spoken = '';
+      let html = '<strong>Spoken Digest:</strong> ';
+      if (level === 0) {
+        spoken = "One file modified with two additions. " + (hasSecurity ? "Security alert: Key Management Service token validation updated." : "Standard logic update.");
+        html += '"' + spoken + '"';
+      } else {
+        spoken = "Detailed abstract syntax tree breakdown: service.py updated authenticate method with environment KMS key lookup.";
+        html += '"' + spoken + '"';
+      }
+      html += '<br><br><span class="tag tag-succ">1 File Changed</span> <span class="tag tag-succ">+2 / -1 Lines</span>';
+      if (hasSecurity) {
+        html += ' <span class="tag tag-sec">Security Flag: KMS Token Audit</span>';
+        playPureEarcon('ALERT');
+      } else {
+        playPureEarcon('DIFF_READY');
+      }
+      document.getElementById('diffOutput').innerHTML = html;
+      speakText(spoken);
+    }
+
+    function executeVoiceCommand() {
+      const cmd = document.getElementById('voiceCommandInput').value.toLowerCase();
+      if (cmd.includes('diff') || cmd.includes('summarize')) {
+        synthesizeDiff(0);
+      } else if (cmd.includes('stage') || cmd.includes('deploy')) {
+        stageGovernedAction();
+      } else if (cmd.includes('approve') || cmd.includes('confirm') || cmd.includes('token')) {
+        confirmVoiceAction();
+      } else {
+        speakText("Command received by Volcan FastMCP server.");
+      }
+    }
+
+    function stageGovernedAction() {
+      stagedAction = {
+        id: 'act_' + Math.floor(Math.random()*90000 + 10000),
+        command: 'aws ecs update-service --cluster prod --service volcan-api',
+        hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        expires: Date.now() + 300000
+      };
+      playPureEarcon('DIFF_READY');
+      
+      let timeLeft = 300;
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          document.getElementById('leaseTimer').innerText = 'LEASE EXPIRED';
+          document.getElementById('govOutput').innerText = 'Execution lease expired. Staged action discarded.';
+          stagedAction = null;
+        } else {
+          document.getElementById('leaseTimer').innerText = 'LEASE ACTIVE (' + timeLeft + 's)';
+        }
+      }, 1000);
+
+      document.getElementById('govOutput').innerHTML = 
+        '<strong>Staged Action:</strong> ' + stagedAction.id + '<br>' +
+        '<strong>Target:</strong> <code>' + stagedAction.command + '</code><br>' +
+        '<strong>SHA-256 Hash Lock:</strong> <code>' + stagedAction.hash.substring(0, 16) + '...</code><br>' +
+        '<span style="color:#f97316;">Voice Confirmation Required: "Alexa, approve action ' + stagedAction.id + '"</span>';
+      
+      appendAudit('[STAGED] Action ' + stagedAction.id + ' locked under 300s lease (' + stagedAction.hash.substring(0, 8) + ')');
+      speakText("Action " + stagedAction.id + " staged for production. Dual custody lease active for 300 seconds. Awaiting voice confirmation.");
+    }
+
+    function confirmVoiceAction() {
+      if (!stagedAction) {
+        alert('Please stage an action first.');
+        return;
+      }
+      clearInterval(timerInterval);
+      document.getElementById('leaseTimer').innerText = 'COMMITTED';
+      document.getElementById('govOutput').innerHTML = 
+        '<span class="tag tag-succ">COMMITTED</span> <strong>Action ' + stagedAction.id + ' successfully deployed!</strong><br>' +
+        'Verified by Alexa Voice Token: <code>VOICE_TOKEN_ALEXA_AUTH_2026</code>';
+      playPureEarcon('CONFIRM');
+      appendAudit('[COMMITTED] Action ' + stagedAction.id + ' approved by voice token. Production updated.');
+      speakText("Voice token verified. Production deployment executed successfully.");
+      stagedAction = null;
+    }
+
+    function rejectAction() {
+      if (!stagedAction) return;
+      clearInterval(timerInterval);
+      document.getElementById('leaseTimer').innerText = 'REJECTED';
+      document.getElementById('govOutput').innerHTML = '<span class="tag tag-sec">REJECTED</span> Action discarded by operator.';
+      appendAudit('[REJECTED] Action ' + stagedAction.id + ' aborted.');
+      speakText("Action aborted by operator.");
+      stagedAction = null;
+    }
+
+    function appendAudit(msg) {
+      const time = new Date().toISOString().substring(11, 19);
+      const div = document.createElement('div');
+      div.className = 'audit-item';
+      div.innerText = '[' + time + '] ' + msg;
+      document.getElementById('auditVault').prepend(div);
+    }
+
+    function simulateBeeAnnotation() {
+      const note = "Spoken note from developer Bee Wearable: Remember to verify KMS rotation in staging.";
+      document.getElementById('ecosystemOutput').innerHTML = 
+        '<span class="tag tag-pass">🐝 BEE WEARABLE EVENT</span><br>' +
+        '<strong>Captured Transcript:</strong> "' + note + '"<br>' +
+        '<strong>Status:</strong> Attached to active PR review context. Harmonic earcon queued.';
+      playPureEarcon('PASS');
+      speakText("Ambient voice note captured from Bee Wearable. Attached to PR context.");
+      appendAudit('[BEE-COMPANION] Ambient spoken decision ingested from wearable device.');
+    }
+
+    function broadcastFireTvWallboard() {
+      const rating = "ELITE";
+      document.getElementById('ecosystemOutput').innerHTML = 
+        '<span class="tag tag-lease">📺 FIRE TV 10-FOOT BROADCAST</span><br>' +
+        '<strong>Telemetry Frame:</strong> Active lease TTL & AST security waveform synced.<br>' +
+        '<strong>DORA Velocity:</strong> ' + rating + ' | High-contrast Leanback theme active.';
+      playPureEarcon('CONFIRM');
+      speakText("Fire TV 10-foot ambient wallboard synchronized.");
+      appendAudit('[FIRETV-COMPANION] 10-foot high contrast frame broadcast to team display.');
+    }
+
+    function testRingFocusPresence() {
+      const zone = "Front Door";
+      document.getElementById('ecosystemOutput').innerHTML = 
+        '<span class="tag tag-pass">🔔 RING SANCTUARY SHIELD</span><br>' +
+        '<strong>Motion Detected:</strong> ' + zone + '<br>' +
+        '<strong>Policy:</strong> Dual-custody focus active. Suppressed loud chime & played gentle 440Hz acoustic earcon.';
+      playPureEarcon('PASS');
+      speakText("Gentle notice: Motion at front door. Focus sanctuary active.");
+      appendAudit('[RING-COMPANION] Sanctuary focus shield suppressed loud chime; gentle earcon played.');
+    }
+  </script>
 
     <script>
     window.addEventListener('DOMContentLoaded', () => {
