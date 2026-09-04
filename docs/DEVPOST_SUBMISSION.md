@@ -45,9 +45,8 @@ Volcan is engineered with strict Domain-Driven Design (DDD) and Clean Hexagonal 
 
 ## 5. Track & Mini-Challenge Declarations
 
-* **Primary Track:** **Alexa+ Track** (Self-hosted FastMCP Server over Streamable HTTP, spec 2025-11-25+).
-* **Mini Challenge 1:** **AWS Builder** (Amazon Bedrock multimodal synthesis, IAM least-privilege policies, CloudWatch audit logs).
-* **Mini Challenge 2:** **Open Source** (Public GitHub repository with detectable MIT License, full documentation, and reproducible test suite).
+* **Primary Track:** **Alexa+ Track** (Self-hosted FastMCP tool catalog server under hackathon web simulation exemption).
+* **Mini Challenge:** **AWS Builder** (Amazon Bedrock multimodal reasoning, IAM least-privilege policies, CloudWatch audit logging, and serverless Lambda deployment).
 
 ---
 
