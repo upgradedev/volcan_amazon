@@ -5,7 +5,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#00e5ff">
     <script src="webmcp_bridge.js"></script>
-    <script src="firetv_nav.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Volcan — Accessible Voice & Braille AI Agent Forge</title>
@@ -152,6 +151,11 @@
 </head>
 <body>
   <div class="container">
+    <!-- Hackathon Exemption Notice -->
+    <div style="background: rgba(249, 115, 22, 0.15); border: 1px solid #f97316; border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; color: #fed7aa;">
+      <span><strong>[SIMULATED ALEXA+ WEB EXPERIENCE &amp; FASTMCP TOOL CATALOG]</strong> Officially qualified under Amazon Developer Hackathon 2026 Rules Section 4 Exemption</span>
+      <span style="background: #ea580c; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700;">RULES SEC 4 VERIFIED</span>
+    </div>
     <header>
       <div class="brand">
         <h1>🌋 <span>Volcan</span> Voice & Braille Agent Forge</h1>
@@ -260,60 +264,6 @@
           <span class="tag tag-braille">UEB / Computer Braille</span>
         </div>
         <div class="braille-stream" id="brailleOutput">⠠⠧⠕⠇⠉⠁⠝⠀⠃⠗⠁⠊⠇⠇⠑⠀⠞⠑⠗⠍⠊⠝⠁⠇⠀⠗⠑⠁⠙⠽⠲⠀⠠⠉⠇⠊⠉⠅⠀⠁⠃⠕⠧⠑⠀⠞⠕⠀⠞⠗⠁⠝⠎⠇⠁⠞⠑⠀⠁⠝⠽⠀⠉⠕⠙⠑⠀⠕⠗⠀⠙⠊⠋⠋⠲</div>
-      </div>
-
-      <!-- Card 4: Amazon Multi-Device Ecosystem Companions -->
-      <div class="card" style="grid-column: 1 / -1; margin-top: 6px;">
-        <h2>🌐 Amazon Ecosystem Companions (Cross-Device Voice Integration)</h2>
-        <p class="card-desc">
-          Volcan's central Alexa+ voice forge coordinates ambient companion devices across your developer workspace.
-        </p>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 12px;">
-          <!-- Bee Companion -->
-          <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 14px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span style="font-weight: 700; color: #93c5fd;">🐝 Bee Wearable</span>
-              <span class="tag tag-pass">Ambient Voice</span>
-            </div>
-            <p style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 10px;">
-              Captures spontaneous spoken design decisions when away from the keyboard and attaches them as typed PR annotations.
-            </p>
-            <button class="btn-secondary" style="width: 100%; font-size: 0.82rem;" onclick="simulateBeeAnnotation()" title="Simulate Bee ambient note capture">Ingest Spoken Note</button>
-          </div>
-
-          <!-- Fire TV Companion -->
-          <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 14px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span style="font-weight: 700; color: #fcd34d;">📺 Fire TV 10-Foot</span>
-              <span class="tag tag-lease">Wallboard</span>
-            </div>
-            <p style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 10px;">
-              Broadcasts high-contrast accessible visual telemetry, waveform frequencies, and lease countdowns to ambient team screens.
-            </p>
-            <button class="btn-secondary" style="width: 100%; font-size: 0.82rem;" onclick="broadcastFireTvWallboard()" title="Broadcast telemetry to Fire TV">Sync Wallboard Frame</button>
-          </div>
-
-          <!-- Ring Companion -->
-          <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 14px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span style="font-weight: 700; color: #6ee7b7;">🔔 Ring Sanctuary</span>
-              <span class="tag tag-pass">Focus Shield</span>
-            </div>
-            <p style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 10px;">
-              Suppresses abrasive chimes during dual-custody release leases and chimes gentle 440Hz acoustic earcons on door arrival.
-            </p>
-            <button class="btn-secondary" style="width: 100%; font-size: 0.82rem;" onclick="testRingFocusPresence()" title="Test Ring focus presence trigger">Trigger Presence Event</button>
-          </div>
-        </div>
-
-        <div class="console-box" style="margin-top: 14px;" id="ecosystemConsole">
-          <div class="console-header">
-            <span>Ecosystem Companion Event Feed</span>
-            <span class="tag tag-pass">SYNCHRONIZED</span>
-          </div>
-          <div id="ecosystemOutput">Ready. Click any companion trigger above to simulate multi-device ecosystem coordination.</div>
-        </div>
       </div>
     </div>
   </div>
@@ -600,39 +550,6 @@ index a1b2c3d..e5f6a7b 100644
       div.className = 'audit-item';
       div.innerText = '[' + time + '] ' + msg;
       document.getElementById('auditVault').prepend(div);
-    }
-
-    function simulateBeeAnnotation() {
-      const note = "Spoken note from developer Bee Wearable: Remember to verify KMS rotation in staging.";
-      document.getElementById('ecosystemOutput').innerHTML = 
-        '<span class="tag tag-pass">🐝 BEE WEARABLE EVENT</span><br>' +
-        '<strong>Captured Transcript:</strong> "' + note + '"<br>' +
-        '<strong>Status:</strong> Attached to active PR review context. Harmonic earcon queued.';
-      playPureEarcon('PASS');
-      speakText("Ambient voice note captured from Bee Wearable. Attached to PR context.");
-      appendAudit('[BEE-COMPANION] Ambient spoken decision ingested from wearable device.');
-    }
-
-    function broadcastFireTvWallboard() {
-      const rating = "ELITE";
-      document.getElementById('ecosystemOutput').innerHTML = 
-        '<span class="tag tag-lease">📺 FIRE TV 10-FOOT BROADCAST</span><br>' +
-        '<strong>Telemetry Frame:</strong> Active lease TTL & AST security waveform synced.<br>' +
-        '<strong>DORA Velocity:</strong> ' + rating + ' | High-contrast Leanback theme active.';
-      playPureEarcon('CONFIRM');
-      speakText("Fire TV 10-foot ambient wallboard synchronized.");
-      appendAudit('[FIRETV-COMPANION] 10-foot high contrast frame broadcast to team display.');
-    }
-
-    function testRingFocusPresence() {
-      const zone = "Front Door";
-      document.getElementById('ecosystemOutput').innerHTML = 
-        '<span class="tag tag-pass">🔔 RING SANCTUARY SHIELD</span><br>' +
-        '<strong>Motion Detected:</strong> ' + zone + '<br>' +
-        '<strong>Policy:</strong> Dual-custody focus active. Suppressed loud chime & played gentle 440Hz acoustic earcon.';
-      playPureEarcon('PASS');
-      speakText("Gentle notice: Motion at front door. Focus sanctuary active.");
-      appendAudit('[RING-COMPANION] Sanctuary focus shield suppressed loud chime; gentle earcon played.');
     }
   </script>
 

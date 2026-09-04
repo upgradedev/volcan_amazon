@@ -2,6 +2,10 @@
 
 > **Volcan empowers blind and mobility-impaired software developers to orchestrate autonomous AI coding agents through semantic diff sonification and governed voice dialogs on Amazon Alexa+.**
 
+> [!IMPORTANT]
+> **SIMULATED ALEXA+ WEB EXPERIENCE & FASTMCP TOOLS (Official Hackathon Rules Section 4 Exemption)**  
+> Volcan operates as a fully functional, voice-orchestrated developer accessibility platform using the Model Context Protocol (FastMCP) and simulated Alexa+ dialogs. In accordance with Amazon Developer Hackathon 2026 Rules Section 4, a simulated web experience is officially permitted and utilized.
+
 [![CI](https://github.com/upgradedev/volcan_amazon/actions/workflows/ci.yml/badge.svg)](https://github.com/upgradedev/volcan_amazon/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Alexa+ Track](https://img.shields.io/badge/Amazon%20Alexa%2B-Simulated%20Web%20Experience-orange.svg)](https://amazonappdev2026.devpost.com/rules)
@@ -41,11 +45,7 @@ Volcan introduces a dedicated accessibility layer between autonomous AI coding a
 4. **Silent Tactile Braille Output:** Translates AST diffs into standard **Unicode Braille Patterns (U+2800–U+28FF)** for Refreshable Braille Displays (Focus 40, Orbit Reader, BRLTTY) for quiet hours and deafblind engineers.
 5. **Hands-Free Adaptive Switch Access:** Supports single-switch scan-and-select, Sip-and-Puff tubes (Puff=Approve, Sip=Reject), and foot pedals for developers with zero hand mobility or quadriplegia.
 6. **Haptic & Visual Vibration Cadence:** Generates precise haptic vibration profiles (double pulse, triple buzz) and real-time visual captions for Deaf and Hard-of-Hearing (HOH) developers.
-7. **Alexa+ FastMCP Tool Interface & Emulation Experience:** Connects developer tools into a simulated Alexa+ voice workflow under Hackathon Rules Section 4 (exemption for web-simulated Alexa+ experiences).
-8. **Cross-Device Ecosystem Companions:** Unifies workspace peripherals under Alexa+ central voice orchestration:
-   - **Bee Wearable:** Captures ambient spoken decisions when away from the desk and links them directly to PR contexts.
-   - **Fire TV 10-Foot Display:** Broadcasts accessible high-contrast waveforms and lease countdowns to ambient team screens.
-   - **Ring Focus Sanctuary:** Suppresses abrasive chimes during active release leases and plays gentle 440Hz acoustic earcons on door motion.
+7. **Alexa+ FastMCP Tool Interface & Emulation Experience:** Connects developer tools into an accessible, simulated Alexa+ voice workflow under Hackathon Rules Section 4 (exemption for web-simulated Alexa+ experiences).
 
 ---
 
@@ -60,13 +60,7 @@ graph TD
         VolcanMCP --> DiffEngine["Semantic Diff Synthesizer"]
         VolcanMCP --> Sonification["Pure-Python Audio Earcon Synthesizer"]
         VolcanMCP --> Governance["Dual-Custody Voice Gate"]
-        VolcanMCP --> Ecosystem["Ecosystem Orchestrator"]
-    end
-
-    subgraph "Amazon Ecosystem Companions"
-        Ecosystem --> Bee["Bee Wearable (Ambient Audio Ingestion)"]
-        Ecosystem --> FireTV["Fire TV 10-Foot (High-Contrast Wallboard)"]
-        Ecosystem --> Ring["Ring Focus Shield (Presence Earcons)"]
+        VolcanMCP --> BrailleEngine["Tactile Braille Engine (U+2800)"]
     end
     
     subgraph "Infrastructure & AI"
