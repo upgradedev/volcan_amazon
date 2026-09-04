@@ -41,7 +41,7 @@ Volcan introduces a dedicated accessibility layer between autonomous AI coding a
 4. **Silent Tactile Braille Output:** Translates AST diffs into standard **Unicode Braille Patterns (U+2800–U+28FF)** for Refreshable Braille Displays (Focus 40, Orbit Reader, BRLTTY) for quiet hours and deafblind engineers.
 5. **Hands-Free Adaptive Switch Access:** Supports single-switch scan-and-select, Sip-and-Puff tubes (Puff=Approve, Sip=Reject), and foot pedals for developers with zero hand mobility or quadriplegia.
 6. **Haptic & Visual Vibration Cadence:** Generates precise haptic vibration profiles (double pulse, triple buzz) and real-time visual captions for Deaf and Hard-of-Hearing (HOH) developers.
-7. **Alexa+ Streamable HTTP FastMCP Server:** Connects directly into the developer environment using open Model Context Protocol standards (Spec 2025-11-25+).
+7. **Alexa+ FastMCP Tool Interface & Emulation Experience:** Connects developer tools into a simulated Alexa+ voice workflow under Hackathon Rules Section 4 (exemption for web-simulated Alexa+ experiences).
 8. **Cross-Device Ecosystem Companions:** Unifies workspace peripherals under Alexa+ central voice orchestration:
    - **Bee Wearable:** Captures ambient spoken decisions when away from the desk and links them directly to PR contexts.
    - **Fire TV 10-Foot Display:** Broadcasts accessible high-contrast waveforms and lease countdowns to ambient team screens.
@@ -130,7 +130,7 @@ src/
 │   ├── audit_repository.py    # Immutable audit log storage
 │   └── git_adapter.py         # Local git workspace inspector
 └── interfaces/        # FastMCP Server & Zero-Setup Web Companion
-    ├── mcp_server.py          # FastMCP Streamable HTTP Server
+    ├── mcp_server.py          # FastMCP Tool Interface & Emulation Server
     └── web_companion.py       # Interactive single-page web simulator
 ```
 

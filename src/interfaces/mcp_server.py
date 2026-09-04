@@ -1,6 +1,6 @@
 from pathlib import Path
 from fastapi.responses import FileResponse, JSONResponse
-"""Interfaces Layer: FastMCP / Streamable HTTP Server for Amazon Alexa+ and MCP Clients."""
+"""Interfaces Layer: FastMCP Tool Interface for Amazon Alexa+ and Web Companion."""
 import base64
 from typing import Any
 
@@ -23,7 +23,7 @@ from src.interfaces.web_companion import COMPANION_HTML
 
 app = FastAPI(
     title="Volcan Accessible AI Agent Forge",
-    description="Streamable HTTP FastMCP Server for Amazon Alexa+ & Accessible AI Coding (Spec 2025-11-25+)",
+    description="FastMCP-compatible Tool Server for Simulated Amazon Alexa+ Voice Experience",
     version="0.1.0",
 )
 
