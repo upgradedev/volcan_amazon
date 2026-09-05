@@ -143,6 +143,7 @@ async def rest_plan_test_run() -> dict[str, Any]:
         "spoken_text": plan.spoken,
         "earcon": {
             "type": cue.earcon_type.value,
+            "spoken_fallback": cue.spoken_fallback,
             "wav_base64": base64.b64encode(wav_bytes).decode("ascii"),
         },
     }

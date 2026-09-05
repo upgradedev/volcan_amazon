@@ -72,6 +72,7 @@ async def op_drill_down(req: DrillDownRequest) -> dict[str, Any]:
         "security_flags": sec.security_flags,
         "earcon": {
             "type": cue.earcon_type.value,
+            "spoken_fallback": cue.spoken_fallback,
             "wav_base64": base64.b64encode(wav_bytes).decode("ascii"),
         },
         "_wav": wav_bytes,
@@ -99,6 +100,7 @@ def op_stage_action(req: StageActionRequest) -> dict[str, Any]:
         ),
         "earcon": {
             "type": cue.earcon_type.value,
+            "spoken_fallback": cue.spoken_fallback,
             "wav_base64": base64.b64encode(wav_bytes).decode("ascii"),
         },
         "_wav": wav_bytes,
@@ -120,6 +122,7 @@ async def op_confirm_action(req: ConfirmActionRequest) -> dict[str, Any]:
         "spoken_text": outcome.spoken_reason if outcome.refused else outcome.output,
         "earcon": {
             "type": cue.earcon_type.value,
+            "spoken_fallback": cue.spoken_fallback,
             "wav_base64": base64.b64encode(wav_bytes).decode("ascii"),
         },
         "_wav": wav_bytes,
