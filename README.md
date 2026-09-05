@@ -3,7 +3,7 @@
 > **Volcan lets blind and mobility-impaired software developers review autonomous coding agents by ear and by touch instead of by reading a diff.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-161%20passing-brightgreen.svg)](#verify-every-claim-yourself)
+[![Tests](https://img.shields.io/badge/tests-163%20passing-brightgreen.svg)](#verify-every-claim-yourself)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
 
@@ -208,7 +208,7 @@ estimate unless it says ESTIMATE.
 | Patch parse latency, mean of 1000 runs | not measured | 0.027 ms | `python scripts/benchmark_suite.py` |
 | Earcon synthesis latency, mean of 1000 runs | not measured | 2.734 ms | `python scripts/benchmark_suite.py` |
 | MCP conformance checks passing | not applicable | 18 of 18 | `python scripts/mcp_conformance.py` |
-| Automated tests | not applicable | 161 passing | `python -m pytest tests/ -q` |
+| Automated tests | not applicable | 163 passing | `python -m pytest tests/ -q` |
 
 The detection corpus is 24 hand-labelled patches in
 [`tests/fixtures/diff_corpus.py`](tests/fixtures/diff_corpus.py), each carrying an

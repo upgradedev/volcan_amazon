@@ -354,3 +354,85 @@ def test_loopback_origin_is_accepted():
 def test_absent_origin_is_accepted_for_non_browser_clients():
     response = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert response.status_code == 200
+
+
+# --- every advertised tool actually runs ------------------------------------
+
+TOOL_ARGUMENTS: dict[str, dict] = {
+    "digest_semantic_diff": {"raw_diff": SAMPLE_DIFF, "level": 1},
+    "drill_down_section": {"raw_diff": SAMPLE_DIFF, "section_index": 0},
+    "stage_governed_action": {
+        "action_id": "mcp-tool-sweep", "action_type": "RUN_TESTS",
+        "command": "pytest tests/unit", "summary_spoken": "Run the unit suite",
+    },
+    "confirm_governed_action": {
+        "action_id": "mcp-tool-sweep", "approval_grant": "v1.forged.forged",
+        "approver_id": "sweeper",
+    },
+    "play_earcon": {"earcon_type": "TEST_PASSED"},
+    "voice_turn": {
+        "session_id": "sweep", "user_id": "sweeper", "repository": "volcan",
+        "intent": "summarize_diff", "params": {"raw_diff": SAMPLE_DIFF},
+    },
+    "translate_text_to_braille": {"text": "review the patch"},
+    "braille_diff_digest": {"raw_diff": SAMPLE_DIFF},
+    "process_switch_pulse": {"input_type": "SIP_AND_PUFF", "signal_strength": 0.9},
+    "get_haptic_profile": {"event_type": "SECURITY_FLAG"},
+    "check_ast_completeness": {"source_code": "class A:\n    def b(self):\n        return 1\n"},
+}
+
+
+def test_every_advertised_tool_can_be_called_and_returns_content_blocks():
+    """A catalog entry nobody can call is a lie the catalog tells."""
+    session_id, _ = initialize()
+    listing = client.post(
+        "/mcp", headers=headers_for(session_id),
+        json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+    )
+    names = [tool["name"] for tool in listing.json()["result"]["tools"]]
+    assert set(names) == set(TOOL_ARGUMENTS), (
+        "the catalog and this sweep disagree; add arguments for any new tool"
+    )
+
+    for index, name in enumerate(names, start=100):
+        response = client.post("/mcp", headers=headers_for(session_id), json={
+            "jsonrpc": "2.0", "id": index, "method": "tools/call",
+            "params": {"name": name, "arguments": TOOL_ARGUMENTS[name]},
+        })
+        assert response.status_code == 200, f"{name} -> HTTP {response.status_code}"
+        body = response.json()
+        assert "error" not in body, f"{name} returned a transport error: {body.get('error')}"
+        result = body["result"]
+        assert result["isError"] is False, f"{name} reported a tool error"
+        assert result["content"], f"{name} returned no content blocks"
+        for block in result["content"]:
+            assert block["type"] in {"text", "audio"}, f"{name} returned {block['type']}"
+            if block["type"] == "text":
+                assert isinstance(block["text"], str)
+            else:
+                assert block["mimeType"] == "audio/wav"
+                assert base64.b64decode(block["data"]).startswith(b"RIFF")
+
+
+def test_a_refused_grant_travels_as_content_not_as_an_error():
+    """The refusal is the product's answer, so it belongs in the result."""
+    session_id, _ = initialize()
+    client.post("/mcp", headers=headers_for(session_id), json={
+        "jsonrpc": "2.0", "id": 200, "method": "tools/call",
+        "params": {"name": "stage_governed_action", "arguments": {
+            "action_id": "mcp-refusal", "action_type": "RUN_TESTS",
+            "command": "pytest tests/unit", "summary_spoken": "Run the unit suite",
+        }},
+    })
+    response = client.post("/mcp", headers=headers_for(session_id), json={
+        "jsonrpc": "2.0", "id": 201, "method": "tools/call",
+        "params": {"name": "confirm_governed_action", "arguments": {
+            "action_id": "mcp-refusal", "approval_grant": "v1.tampered.tampered",
+            "approver_id": "attacker",
+        }},
+    })
+    result = response.json()["result"]
+    assert result["isError"] is False
+    detail = json.loads(result["content"][-1]["text"])
+    assert detail["approved"] is False
+    assert detail["refusal_code"] in {"BAD_SIGNATURE", "MALFORMED"}
