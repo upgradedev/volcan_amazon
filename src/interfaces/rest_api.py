@@ -15,8 +15,8 @@ from src.interfaces.composition import (
     ast_checker,
     bedrock_adapter,
     braille_use_case,
+    dry_run_executor,
     ecosystem_use_case,
-    git_adapter,
     sessions,
     sonify_use_case,
     voice_turn_use_case,
@@ -125,16 +125,22 @@ async def rest_voice_turn(req: VoiceTurnRequest) -> dict[str, Any]:
     )
 
 
-@router.post("/api/run_accessible_tests")
-async def rest_run_tests() -> dict[str, Any]:
-    passed, output = git_adapter.run_tests()
-    cue_type = EarconType.TEST_PASSED if passed else EarconType.TEST_FAILED
-    cue, wav_bytes = sonify_use_case.execute(cue_type)
-    status_phrase = "All tests passed." if passed else "The test suite reported failures."
+@router.post("/api/plan_accessible_test_run")
+async def rest_plan_test_run() -> dict[str, Any]:
+    """Plans the workspace test command and speaks the plan. Runs nothing.
+
+    An earlier version of this route called subprocess to run pytest, with no
+    body, no grant and no custody check, which contradicted the promise the rest
+    of the product makes. It now returns what it would run, and the developer
+    runs it.
+    """
+    plan = dry_run_executor.plan("pytest tests/unit")
+    cue, wav_bytes = sonify_use_case.execute(EarconType.GOVERNANCE_CHALLENGE)
     return {
-        "passed": passed,
-        "spoken_text": f"{status_phrase} Processed workspace test execution.",
-        "output_snippet": output[:300],
+        "executed": plan.executed,
+        "allowed": plan.allowed,
+        "plan": plan.to_dict(),
+        "spoken_text": plan.spoken,
         "earcon": {
             "type": cue.earcon_type.value,
             "wav_base64": base64.b64encode(wav_bytes).decode("ascii"),

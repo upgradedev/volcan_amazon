@@ -206,7 +206,11 @@ def _emit_tool_metric(message: dict[str, Any], elapsed_ms: float) -> None:
         tool_name = params["name"]
     harness = PrivateObservabilityHarness()
     harness.record_metric("McpToolDurationMs", round(elapsed_ms, 3))
-    harness.add_audit_event(actor="mcp-client", action=f"tools/call:{tool_name}", details={})
+    harness.add_audit_event(
+        actor="mcp-client",
+        action="tools/call",
+        details={"tool": tool_name, "duration_ms": round(elapsed_ms, 3)},
+    )
     harness.flush()
 
 

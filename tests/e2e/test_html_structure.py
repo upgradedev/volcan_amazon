@@ -229,3 +229,65 @@ def test_empty_states_render_a_reason_instead_of_nothing():
     html = read_html()
     assert "empty-state-card" in html
     assert html.count("empty-state-card") >= 3
+
+
+# --- structural validity ----------------------------------------------------
+
+VOID_ELEMENTS = {
+    "area", "base", "br", "col", "embed", "hr", "img", "input",
+    "link", "meta", "source", "track", "wbr",
+}
+
+CONTAINER_TAGS = (
+    "html", "head", "body", "header", "nav", "main", "footer", "section",
+    "div", "button", "table", "thead", "tbody", "tr", "th", "td", "ol", "ul",
+    "li", "p", "span", "fieldset", "label", "textarea", "canvas", "a", "code",
+    "strong", "kbd", "caption", "h1", "h2", "h3", "style", "script", "title",
+)
+
+
+def markup_without_scripts() -> str:
+    """Strips script and style bodies so JS comparison operators are not read as tags."""
+    html = read_html()
+    html = re.sub(r"<script\b[^>]*>.*?</script>", "<script></script>", html, flags=re.S)
+    return re.sub(r"<style\b[^>]*>.*?</style>", "<style></style>", html, flags=re.S)
+
+
+def test_every_container_element_is_balanced():
+    """html.parser tolerates broken markup, so count the tags directly.
+
+    An unclosed landmark changes the accessibility tree a screen reader builds,
+    which would make every role assertion above true of a document no browser
+    actually produces.
+    """
+    markup = markup_without_scripts()
+    mismatched = []
+    for tag in CONTAINER_TAGS:
+        opened = len(re.findall(rf"<{tag}\b", markup))
+        closed = len(re.findall(rf"</{tag}>", markup))
+        if opened != closed:
+            mismatched.append(f"{tag}: {opened} opened, {closed} closed")
+    assert mismatched == [], "unbalanced elements in docs/index.html: " + "; ".join(mismatched)
+
+
+def test_no_element_is_left_open_and_nesting_never_crosses():
+    markup = markup_without_scripts()
+    stack: list[str] = []
+    errors: list[str] = []
+    for match in re.finditer(r"<(/?)([a-zA-Z][a-zA-Z0-9]*)\b[^>]*?(/?)>", markup):
+        closing, name, self_closing = match.group(1), match.group(2).lower(), match.group(3)
+        if name in VOID_ELEMENTS or self_closing:
+            continue
+        if not closing:
+            stack.append(name)
+        elif not stack:
+            errors.append(f"</{name}> closes nothing")
+        elif stack[-1] != name:
+            errors.append(f"</{name}> closes while <{stack[-1]}> is still open")
+            if name in stack:
+                while stack and stack.pop() != name:
+                    pass
+        else:
+            stack.pop()
+    assert errors == [], "crossed nesting in docs/index.html: " + "; ".join(errors)
+    assert stack == [], f"elements left open at end of docs/index.html: {stack}"

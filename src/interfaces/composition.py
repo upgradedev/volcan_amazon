@@ -19,12 +19,10 @@ from src.domain.ast_completeness_checker import ASTGraphCompletenessChecker
 from src.infrastructure.audit_repository import InMemoryAuditRepository
 from src.infrastructure.bedrock_adapter import BedrockSynthesisAdapter
 from src.infrastructure.dry_run_executor import DryRunExecutor
-from src.infrastructure.git_adapter import LocalGitAdapter
 from src.interfaces.mcp_protocol import SessionRegistry
 
 audit_repo = InMemoryAuditRepository()
 bedrock_adapter = BedrockSynthesisAdapter()
-git_adapter = LocalGitAdapter()
 dry_run_executor = DryRunExecutor()
 ast_checker = ASTGraphCompletenessChecker()
 

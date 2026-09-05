@@ -32,7 +32,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 #: place to park a check that is merely inconvenient.
 ENVIRONMENT_GATED: dict[str, str] = {
     "C5": "needs a browser driver (playwright or selenium), which is not vendored here",
-    "D2": "needs a deploy of the current commit; the recorded receipt is for an older commit",
+    "D2": "needs a deploy of the current commit followed by a recorded teardown",
     "E2": "needs a rendered video file to compare narration against picture",
     "E4": "needs the owner to record and publish the video",
     "G2": "needs a redeploy so the deployed commit matches HEAD",
@@ -430,6 +430,23 @@ def check_g1(readme: str) -> tuple[bool, str]:
     actual = int(collected.group(1))
     if claimed != actual:
         return False, f"README badge says {claimed} tests, pytest collected {actual}"
+
+    # The README also quotes a conformance-check count. That number lives in
+    # scripts/mcp_conformance.py, so count the checks the script really makes.
+    conformance_claim = re.search(r"(\d+) of (\d+) conformance checks", readme)
+    script = read_text("scripts/mcp_conformance.py")
+    declared_checks = script.count("report.check(")
+    if conformance_claim and declared_checks:
+        claimed_checks = int(conformance_claim.group(2))
+        if claimed_checks != declared_checks:
+            return False, (
+                f"README quotes {claimed_checks} conformance checks, "
+                f"scripts/mcp_conformance.py makes {declared_checks}"
+            )
+        return True, (
+            f"README and pytest agree on {actual} tests, and README and "
+            f"scripts/mcp_conformance.py agree on {declared_checks} conformance checks"
+        )
     return True, f"README badge and pytest agree on {actual} tests"
 
 

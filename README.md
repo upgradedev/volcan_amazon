@@ -3,7 +3,7 @@
 > **Volcan lets blind and mobility-impaired software developers review autonomous coding agents by ear and by touch instead of by reading a diff.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-171%20passing-brightgreen.svg)](#verify-every-claim-yourself)
+[![Tests](https://img.shields.io/badge/tests-176%20passing-brightgreen.svg)](#verify-every-claim-yourself)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
 
@@ -34,7 +34,7 @@ JSON-RPC 2.0 at `POST /mcp`, an SSE stream at `GET /mcp`, session identifiers, p
 version negotiation, a tool catalog whose JSON Schemas are generated from the code that
 parses the arguments, and MCP audio content blocks carrying the synthesized earcons.
 `python scripts/mcp_conformance.py` runs a full client handshake against a running
-server and prints a pass or fail line for each of 18 checks.
+server and prints a pass or fail line for each of its 18 conformance checks.
 
 **Simulated, and labelled as such everywhere it appears.** The voice experience is a web
 companion, not an Alexa skill. There is no Alexa skill package in this repository, no
@@ -50,8 +50,10 @@ is `"bedrock"` when a model answered and `"heuristic-local"` when none did, so t
 companion can show which path produced the words you are hearing.
 
 **Never executed.** Volcan plans shell commands against an allowlist and refuses the
-rest. It does not run them. `DryRunExecutor` imports no execution primitive at all, and a
-test parses its AST to keep it that way.
+rest. It does not run them. The claim covers the whole product, not one module: no file
+under `src/` imports or calls `subprocess`, `os.system`, `eval`, `exec` or any process
+spawn, and `tests/unit/test_no_execution_in_source_tree.py` walks every source module's
+AST on each run to keep it that way.
 
 ---
 
@@ -214,8 +216,8 @@ estimate unless it says ESTIMATE.
 | Security-flag detection | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **100% recall over n=24 labelled patches**, 12 that must flag and 12 that must not, with 0% false positives | `python scripts/benchmark_suite.py` |
 | Patch parse latency, mean of 1000 runs | not measured | 0.027 ms | `python scripts/benchmark_suite.py` |
 | Earcon synthesis latency, mean of 1000 runs | not measured | 2.734 ms | `python scripts/benchmark_suite.py` |
-| MCP conformance checks passing | not applicable | 18 of 18 | `python scripts/mcp_conformance.py` |
-| Automated tests | not applicable | 171 passing | `python -m pytest tests/ -q` |
+| MCP protocol conformance | not applicable | **18 of 18 conformance checks pass** | `python scripts/mcp_conformance.py` |
+| Automated tests | not applicable | 176 passing | `python -m pytest tests/ -q` |
 
 The detection corpus is 24 hand-labelled patches in
 [`tests/fixtures/diff_corpus.py`](tests/fixtures/diff_corpus.py), each carrying an
