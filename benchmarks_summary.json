@@ -3,17 +3,17 @@
   "python_version": "3.11.0",
   "ast_diff_engine": {
     "iterations": 1000,
-    "mean_ms": 0.028,
-    "p50_ms": 0.027,
-    "p95_ms": 0.032,
-    "p99_ms": 0.045
+    "mean_ms": 0.032,
+    "p50_ms": 0.028,
+    "p95_ms": 0.047,
+    "p99_ms": 0.061
   },
   "earcon_synthesizer": {
     "iterations": 1000,
-    "mean_ms": 2.791,
-    "p50_ms": 2.226,
-    "p95_ms": 4.947,
-    "p99_ms": 6.611
+    "mean_ms": 3.556,
+    "p50_ms": 2.841,
+    "p95_ms": 7.142,
+    "p99_ms": 9.879
   },
   "security_detection": {
     "corpus_file": "tests/fixtures/diff_corpus.py",
