@@ -37,7 +37,8 @@ def test_full_accessible_developer_journey():
     })
     assert turn_1.status_code == 200
     res_1 = turn_1.json()
-    assert "Modified 1 files" in res_1["spoken_text"]
+    assert "Modified 1 file with" in res_1["spoken_text"]
+    assert "1 files" not in res_1["spoken_text"], "spoken text must be pluralised for a listener"
     assert res_1["earcon_type"] == "DIFF_READY"
     assert res_1["synthesis_mode"] in {"heuristic-local", "bedrock"}
 

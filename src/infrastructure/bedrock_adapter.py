@@ -14,8 +14,9 @@ Amazon Bedrock claim honest when no credentials are configured.
 """
 import json
 import os
+from collections import Counter
 
-from src.domain.semantic_diff import DiffSectionDigest, SemanticDiffReport
+from src.domain.semantic_diff import DiffSectionDigest, SemanticDiffReport, plural
 
 MODE_BEDROCK = "bedrock"
 MODE_HEURISTIC = "heuristic-local"
@@ -77,10 +78,7 @@ class BedrockSynthesisAdapter:
         files_count = len(sections)
         total_add = sum(s.added_count for s in sections)
         total_del = sum(s.removed_count for s in sections)
-        summary = (
-            f"Refactored code across {files_count} modules with "
-            f"{total_add} insertions and {total_del} deletions."
-        )
+        summary = self._heuristic_headline(sections)
 
         return SemanticDiffReport(
             total_files_changed=files_count,
@@ -92,3 +90,23 @@ class BedrockSynthesisAdapter:
             sections=sections,
             synthesis_mode=MODE_HEURISTIC,
         )
+
+    @staticmethod
+    def _heuristic_headline(sections: list[DiffSectionDigest]) -> str:
+        """A one-clause characterisation, not a restatement of the counts.
+
+        The caller already speaks the file and line counts, so repeating them
+        here would make a listener sit through the same numbers twice.
+        """
+        if not sections:
+            return "No code changes detected in the current workspace"
+
+        flagged = [section for section in sections if section.security_flags]
+        if flagged:
+            headline = f"Security-sensitive changes in {flagged[0].file_path}"
+            if len(flagged) > 1:
+                headline += f" and {plural(len(flagged) - 1, 'other file')}"
+            return headline
+
+        top_category = Counter(section.category.value for section in sections).most_common(1)[0][0]
+        return f"Changes are mostly {top_category.replace('_', ' ').lower()}"

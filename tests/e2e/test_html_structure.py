@@ -1,94 +1,231 @@
-"""Static HTML DOM Structure & UI Element Assertion Suite for Volcan.
+"""Structural and accessibility assertions over the single companion document.
 
-Performs static string and structure assertions over docs/index.html to verify:
-- Interactive AST diff sonification DOM controls and audio element hooks
-- Dual-custody lease staging DOM components, countdown tags, and token containers
-- ARIA accessibility semantics and responsive layout elements
-(Note: Runs static file assertions without an active browser driver).
+These are static DOM assertions parsed with the standard library, not a browser
+journey: no browser driver runs here, and gate C5 records that honestly.
+
+The accessibility assertions are the point of this module. Volcan's whole claim
+is that a blind or mobility-impaired developer can drive it, so a control that
+cannot be reached by keyboard, a result that is never announced, or an
+animation that ignores a reduced-motion preference is a product defect, and
+these tests fail on each of them.
 """
 import os
+import re
+from html.parser import HTMLParser
+
+INDEX_PATH = os.path.join(os.path.dirname(__file__), "../../docs/index.html")
 
 
-def test_volcan_web_companion_html_structure():
-    """Verify docs/index.html contains all required UI components, Web Audio hooks, and accessibility tags."""
-    index_path = os.path.join(os.path.dirname(__file__), "../../docs/index.html")
-    assert os.path.exists(index_path), "docs/index.html must exist"
+def read_html() -> str:
+    with open(INDEX_PATH, "r", encoding="utf-8") as handle:
+        return handle.read()
 
-    with open(index_path, "r", encoding="utf-8") as f:
-        html = f.read()
 
-    # Brand & header
+class TagCollector(HTMLParser):
+    """Collects every start tag with its attributes, for structural assertions."""
+
+    def __init__(self):
+        super().__init__()
+        self.tags: list[tuple[str, dict[str, str]]] = []
+
+    def handle_starttag(self, tag, attrs):
+        self.tags.append((tag, {key: (value or "") for key, value in attrs}))
+
+    def of(self, name: str) -> list[dict[str, str]]:
+        return [attrs for tag, attrs in self.tags if tag == name]
+
+
+def parsed() -> TagCollector:
+    collector = TagCollector()
+    collector.feed(read_html())
+    return collector
+
+
+# --- structure --------------------------------------------------------------
+
+def test_companion_document_exists_and_names_the_product():
+    html = read_html()
+    assert os.path.exists(INDEX_PATH)
     assert "Volcan" in html
-    assert "Voice Agent Forge" in html or "AI Agent Forge" in html
+    assert "Agent Forge" in html
 
-    # Voice query simulation bar
-    assert "voiceCommandInput" in html
-    assert "executeVoiceCommand" in html
 
-    # AST Diff sonifier & oscilloscope
-    assert "diffInput" in html
-    assert "audioVisualizer" in html
-    assert "synthesizeDiff" in html
-    assert "playPureEarcon" in html
+def test_core_controls_are_present():
+    html = read_html()
+    for hook in (
+        "voiceCommandInput", "executeVoiceCommand", "diffInput", "audioVisualizer",
+        "synthesizeDiff", "playPureEarcon", "stageGovernedAction", "confirmVoiceAction",
+        "rejectAction", "auditVault", "brailleOutput",
+    ):
+        assert hook in html, f"missing control hook: {hook}"
 
-    # Dual-custody governance controls
-    assert "stageGovernedAction" in html
-    assert "confirmVoiceAction" in html
-    assert "rejectAction" in html
-    assert "auditVault" in html
 
-    # Web Audio & Speech API integration
+def test_web_audio_and_speech_apis_are_used():
+    html = read_html()
     assert "AudioContext" in html
     assert "speechSynthesis" in html
     assert "SpeechSynthesisUtterance" in html
 
 
-def test_volcan_diff_presets_validity():
-    """Verify all preloaded AST diff presets are well-formed unified diffs."""
-    index_path = os.path.join(os.path.dirname(__file__), "../../docs/index.html")
-    with open(index_path, "r", encoding="utf-8") as f:
-        html = f.read()
-
-    # Preset 1: Security KMS Key
-    assert "KMS_KEY_ID" in html
-    assert "AuthService" in html
-
-    # Preset 2: Clean FastAPI Refactor
-    assert "router.get" in html
-    assert "health" in html
-
-    # Preset 3: Bugfix
+def test_diff_presets_are_well_formed_patches():
+    html = read_html()
+    assert "KMS_KEY_ID" in html and "AuthService" in html
+    assert "router.get" in html and "health" in html
     assert "strip" in html
+    assert html.count("diff --git") >= 3
 
 
-def test_volcan_governance_lease_timing_contract():
-    """Verify 300s lease duration and countdown logic in web companion script."""
-    index_path = os.path.join(os.path.dirname(__file__), "../../docs/index.html")
-    with open(index_path, "r", encoding="utf-8") as f:
-        html = f.read()
-
-    # Assert 300000ms (5 minute) TTL
-    assert "300000" in html
-    # Assert countdown timer interval
+def test_lease_countdown_contract():
+    html = read_html()
     assert "setInterval" in html
     assert "LEASE ACTIVE" in html
     assert "LEASE EXPIRED" in html
+    assert "300" in html
 
 
-def test_volcan_ux_principles_h1_h2_h3():
-    """Verify UX principles H1, H2, H3: responsive viewports, no unexplained disabled controls, non-null empty states."""
-    index_path = os.path.join(os.path.dirname(__file__), "../../docs/index.html")
-    with open(index_path, "r", encoding="utf-8") as f:
-        html = f.read()
+# --- semantic landmarks and roles -------------------------------------------
 
-    # H1: Responsive viewport and obvious hero action
+def test_page_uses_semantic_landmarks():
+    html = read_html()
+    for landmark in ("<header", "<nav", "<main", "<footer", "<section"):
+        assert landmark in html, f"missing landmark: {landmark}"
+    assert 'role="banner"' in html
+    assert 'role="contentinfo"' in html
+    assert 'id="main"' in html
+
+
+def test_every_section_is_labelled_by_a_heading():
+    dom = parsed()
+    sections = dom.of("section")
+    assert len(sections) >= 4
+    html = read_html()
+    for section in sections:
+        labelled_by = section.get("aria-labelledby")
+        assert labelled_by, f"section without aria-labelledby: {section}"
+        assert f'id="{labelled_by}"' in html, f"aria-labelledby points at a missing id: {labelled_by}"
+
+
+def test_the_page_declares_meaningful_roles():
+    html = read_html()
+    for role in ('role="status"', 'role="alert"', 'role="group"', 'role="region"', 'role="img"'):
+        assert role in html, f"missing role: {role}"
+
+
+def test_navigation_and_button_groups_are_named():
+    dom = parsed()
+    navs = dom.of("nav")
+    assert navs and all(nav.get("aria-label") for nav in navs)
+    groups = [attrs for tag, attrs in dom.tags if attrs.get("role") == "group"]
+    assert groups and all(group.get("aria-label") for group in groups)
+
+
+# --- keyboard reachability --------------------------------------------------
+
+def test_there_are_no_click_handlers_on_non_interactive_elements():
+    """A span or div with onclick is unreachable by keyboard. There must be none."""
+    dom = parsed()
+    offenders = [
+        (tag, attrs) for tag, attrs in dom.tags
+        if "onclick" in attrs and tag not in {"button", "a", "input"}
+    ]
+    assert offenders == [], f"keyboard-unreachable click handlers: {offenders}"
+
+
+def test_every_action_is_a_real_button_with_an_explicit_type():
+    dom = parsed()
+    buttons = dom.of("button")
+    assert len(buttons) >= 12
+    for button in buttons:
+        assert button.get("type") == "button", f"button without an explicit type: {button}"
+
+
+def test_every_button_carries_a_visible_reason_or_title():
+    """Gate H2: no control is presented without an explanation beside it."""
+    dom = parsed()
+    for button in dom.of("button"):
+        assert button.get("title") or button.get("aria-label"), f"unexplained control: {button}"
+
+
+def test_a_skip_link_precedes_the_header():
+    html = read_html()
+    assert 'class="skip-link"' in html
+    assert 'href="#main"' in html
+    assert html.index("skip-link") < html.index('role="banner"')
+
+
+def test_focus_is_visible_and_not_suppressed():
+    html = read_html()
+    assert ":focus-visible" in html
+    assert re.search(r":focus-visible\s*\{[^}]*outline:\s*3px", html), "focus ring must be a visible outline"
+    assert "outline: none" not in html and "outline:none" not in html
+
+
+def test_a_keyboard_map_is_documented_on_the_page():
+    html = read_html()
+    assert "Keyboard map" in html
+    assert html.count("<kbd>") >= 6
+    assert "Alt" in html and "Escape" in html
+
+
+def test_keyboard_shortcuts_are_wired_in_script():
+    html = read_html()
+    assert 'addEventListener("keydown"' in html
+    assert "altKey" in html
+    assert 'event.key === "Escape"' in html
+
+
+# --- announcements and motion -----------------------------------------------
+
+def test_results_are_announced_through_live_regions():
+    html = read_html()
+    assert html.count('aria-live="polite"') >= 3
+    assert 'role="alert"' in html, "security findings must be announced assertively"
+
+
+def test_every_text_input_has_a_label_or_an_accessible_name():
+    dom = parsed()
+    html = read_html()
+    for tag in ("input", "textarea"):
+        for element in dom.of(tag):
+            if element.get("type") in {"hidden"}:
+                continue
+            element_id = element.get("id")
+            has_label = element_id and f'for="{element_id}"' in html
+            assert has_label or element.get("aria-label"), f"unlabelled field: {element}"
+
+
+def test_reduced_motion_is_honoured_in_css_and_in_script():
+    html = read_html()
+    assert "@media (prefers-reduced-motion: reduce)" in html
+    assert "prefers-reduced-motion: reduce" in html
+    assert "REDUCED_MOTION" in html, "the canvas animation must also check the preference"
+
+
+# --- honesty ----------------------------------------------------------------
+
+def test_the_page_makes_no_connection_claim_before_a_real_fetch():
+    html = read_html()
+    assert 'fetch(base + "/health"' in html, "connection state must come from a real request"
+    assert 'data-mode="checking"' in html, "the initial state must be 'checking', not 'connected'"
+    assert "SIMULATED IN BROWSER" in html, "browser-only results must be labelled"
+
+
+def test_the_page_carries_no_fabricated_status_badges():
+    html = read_html()
+    for banned in ("LIVE INGESTION", "AWS SYNCED", "RULES SEC 4 VERIFIED", "Fire TV Pairing"):
+        assert banned not in html, f"fabricated status badge present: {banned}"
+
+
+# --- responsive layout and empty states -------------------------------------
+
+def test_responsive_layout_and_hero_action():
+    html = read_html()
     assert 'name="viewport"' in html
     assert "@media (max-width: 480px)" in html or "@media (max-width: 860px)" in html
     assert 'data-testid="primary-hero-action"' in html
 
-    # H2: Controls have explanatory titles / descriptions
-    assert 'title="' in html
 
-    # H3: Empty state cards render friendly guidance instead of null
+def test_empty_states_render_a_reason_instead_of_nothing():
+    html = read_html()
     assert "empty-state-card" in html
-
+    assert html.count("empty-state-card") >= 3

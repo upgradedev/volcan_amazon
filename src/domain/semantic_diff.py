@@ -4,6 +4,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 
+def plural(count: int, noun: str, suffix: str = "s") -> str:
+    """Speech-safe count. A listener hears every one of these words."""
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}{suffix}"
+
+
 class ChangeCategory(str, Enum):
     SECURITY_SENSITIVE = "SECURITY_SENSITIVE"
     API_CONTRACT_CHANGE = "API_CONTRACT_CHANGE"
@@ -63,11 +68,22 @@ class SemanticDiffReport:
         Level 0: Executive spoken summary (concise for voice).
         Level 1: File-by-file breakdown.
         Level 2: Comprehensive drill-down with security findings.
+
+        Every count is pluralised. A screen reader speaks this text verbatim,
+        so "1 files" and a doubled full stop are defects a sighted reader
+        would skim past and a listener cannot.
         """
         if level == 0:
-            base = f"{self.executive_spoken_summary}. Modified {self.total_files_changed} files with {self.total_insertions} additions and {self.total_deletions} deletions."
+            headline = self.executive_spoken_summary.rstrip().rstrip(".")
+            base = (
+                f"{headline}. Modified {plural(self.total_files_changed, 'file')} with "
+                f"{plural(self.total_insertions, 'addition')} and "
+                f"{plural(self.total_deletions, 'deletion')}."
+            )
             if self.critical_findings:
-                base += f" Note: {len(self.critical_findings)} critical findings require your verification."
+                count = len(self.critical_findings)
+                verb = "requires" if count == 1 else "require"
+                base += f" Note: {plural(count, 'critical finding')} {verb} your verification."
             return base
 
         if level == 1:
