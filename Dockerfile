@@ -1,4 +1,5 @@
-# Multi-stage production container for Volcan FastMCP server
+# Multi-stage container for the Volcan server: MCP at /mcp, REST at /api,
+# and the web companion at / served from docs/index.html.
 FROM python:3.11-slim as builder
 
 WORKDIR /app
@@ -14,4 +15,6 @@ RUN pip install --no-cache-dir /app/*.whl fastapi uvicorn
 COPY docs/index.html /app/docs/index.html
 
 EXPOSE 8000
+# Binding to 0.0.0.0 is deliberate inside a container. Outside one, run
+# python -m src.interfaces.mcp_server, which binds to 127.0.0.1.
 CMD ["uvicorn", "src.interfaces.mcp_server:app", "--host", "0.0.0.0", "--port", "8000"]
