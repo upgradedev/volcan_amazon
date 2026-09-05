@@ -3,7 +3,7 @@
 > **Volcan lets blind and mobility-impaired software developers review autonomous coding agents by ear and by touch instead of by reading a diff.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-163%20passing-brightgreen.svg)](#verify-every-claim-yourself)
+[![Tests](https://img.shields.io/badge/tests-171%20passing-brightgreen.svg)](#verify-every-claim-yourself)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
 
@@ -162,6 +162,13 @@ action, when the command changed after it was issued, when the lease elapsed, an
 has already been used once. Each of those refusals has its own test in
 [`tests/unit/test_governance.py`](tests/unit/test_governance.py).
 
+Every audit record is sealed with the hash of the record before it, so editing a stored
+entry, deleting one or reordering two is **detected** and the verdict names the entry that
+broke. It is tamper-evident, not tamper-proof: nothing here stops someone who can rewrite
+the whole chain from re-sealing it end to end, because the head hash is not published
+anywhere the writer cannot reach. `python -m pytest tests/unit/test_audit_chain.py -v`
+covers each detection path.
+
 ---
 
 ## The MCP surface
@@ -208,7 +215,7 @@ estimate unless it says ESTIMATE.
 | Patch parse latency, mean of 1000 runs | not measured | 0.027 ms | `python scripts/benchmark_suite.py` |
 | Earcon synthesis latency, mean of 1000 runs | not measured | 2.734 ms | `python scripts/benchmark_suite.py` |
 | MCP conformance checks passing | not applicable | 18 of 18 | `python scripts/mcp_conformance.py` |
-| Automated tests | not applicable | 163 passing | `python -m pytest tests/ -q` |
+| Automated tests | not applicable | 171 passing | `python -m pytest tests/ -q` |
 
 The detection corpus is 24 hand-labelled patches in
 [`tests/fixtures/diff_corpus.py`](tests/fixtures/diff_corpus.py), each carrying an
@@ -265,6 +272,9 @@ server, and says SIMULATED when it did not.
 | Every readiness gate, including the failing ones | `python ci/readiness.py` |
 | Forged and replayed grants are refused | `python -m pytest tests/unit/test_governance.py -v` |
 | Nothing executes a shell command | `python -m pytest tests/unit/test_dry_run_executor.py -v` |
+| Injection payloads and grant attacks are refused | `python scripts/security_audit.py` |
+| An edited audit record is detected | `python -m pytest tests/unit/test_audit_chain.py -v` |
+| The whole product in one terminal walkthrough | `python scripts/volcan_cli.py` |
 | The companion is keyboard reachable and announced | `python -m pytest tests/e2e -v` |
 
 `ci/readiness.py` is written so that it can fail, and it does. It currently reports gates

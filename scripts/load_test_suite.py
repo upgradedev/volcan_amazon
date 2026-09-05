@@ -103,7 +103,9 @@ def run_load_stress_suite():
     assert len(leases) == num_leases
 
     print("\n----------------------------------------------------------------")
-    print("[*] Load Test Result: 100% SUCCESS | Zero errors, zero deadlocks")
+    print("[*] Every iteration above returned without raising.")
+    print("[*] This measures in-process function latency on this machine only.")
+    print("[*] It is not an HTTP load test and says nothing about a deployment.")
     print("================================================================")
 
 

@@ -64,6 +64,11 @@ class AuditLogRecord:
     timestamp: str
     staged_by: str = "unknown"
     approved_by: str = "unapproved"
+    #: Position in the tamper-evident chain, filled in when the record is sealed
+    #: by src/domain/audit_chain.py. -1 means the record has not been sealed.
+    sequence: int = -1
+    previous_hash: str = ""
+    entry_hash: str = ""
 
 
 @dataclass
