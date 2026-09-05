@@ -5,11 +5,11 @@ Connects Alexa+ central voice intelligence with ambient companion peripherals:
 - Fire TV: High-contrast 10-foot ambient wallboard for team war-rooms.
 - Ring: Focus sanctuary presence alerts with acoustic earcons.
 """
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Dict, Any, List, Optional
-import uuid
+from typing import Optional
 
 
 class CompanionDeviceType(str, Enum):

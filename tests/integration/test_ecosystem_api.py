@@ -1,12 +1,13 @@
 """Integration tests for Amazon Ecosystem Companion MCP endpoints in Volcan."""
 from fastapi.testclient import TestClient
+
 from src.interfaces.mcp_server import app
 
 client = TestClient(app)
 
 def test_ingest_bee_annotation_endpoint():
     resp = client.post(
-        "/mcp/tools/ecosystem/ingest_bee_annotation",
+        "/api/companions/ingest_bee_annotation",
         json={
             "speaker_id": "engineer_alexa",
             "transcript": "Spoken decision: use SSE transport for realtime diff streaming.",
@@ -21,7 +22,7 @@ def test_ingest_bee_annotation_endpoint():
 
 def test_sync_firetv_wallboard_endpoint():
     resp = client.post(
-        "/mcp/tools/ecosystem/sync_firetv_wallboard",
+        "/api/companions/sync_firetv_wallboard",
         json={
             "lease_id": "act_5544",
             "ttl_sec": 280,
@@ -37,7 +38,7 @@ def test_sync_firetv_wallboard_endpoint():
 
 def test_evaluate_ring_presence_endpoint():
     resp = client.post(
-        "/mcp/tools/ecosystem/evaluate_ring_presence",
+        "/api/companions/evaluate_ring_presence",
         json={
             "sensor_zone": "Backgate Camera",
             "active_lease_id": "act_5544"

@@ -5,7 +5,11 @@ Coordinates:
 - Haptic vibration pattern formatting for Deaf/HOH & wearables
 """
 from typing import Any, Dict
-from src.domain.adaptive_switch import SwitchInputType, SwitchSignal, SwitchNavigationState, SwitchAction
+
+from src.domain.adaptive_switch import (
+    SwitchInputType,
+    SwitchSignal,
+)
 from src.domain.haptic_feedback import HapticProfile
 
 

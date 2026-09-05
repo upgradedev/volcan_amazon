@@ -1,5 +1,6 @@
 """Integration tests for Braille accessibility MCP endpoints in Volcan."""
 from fastapi.testclient import TestClient
+
 from src.interfaces.mcp_server import app
 
 client = TestClient(app)
@@ -7,7 +8,7 @@ client = TestClient(app)
 
 def test_translate_text_to_braille_endpoint():
     resp = client.post(
-        "/mcp/tools/braille/translate_text",
+        "/api/braille/translate_text",
         json={"text": "Aws Bedrock 2026"},
     )
     assert resp.status_code == 200
@@ -19,7 +20,7 @@ def test_translate_text_to_braille_endpoint():
 
 def test_digest_diff_to_braille_endpoint():
     resp = client.post(
-        "/mcp/tools/braille/diff_digest",
+        "/api/braille/diff_digest",
         json={
             "raw_diff": "+ return KMS_KEY_ID\n- return hardcoded_secret",
         },

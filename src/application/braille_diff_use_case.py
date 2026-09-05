@@ -1,8 +1,9 @@
 """Application Use Case: Braille Diff & Tactile Orchestration."""
-from typing import Dict, Any
+from typing import Any, Dict
+
 from src.domain.braille_translator import (
-    text_to_braille,
     BrailleDiffDigest,
+    text_to_braille,
 )
 
 
@@ -18,11 +19,11 @@ class BrailleDiffUseCase:
             "braille_summary": digest.braille_summary,
             "lines": [
                 {
-                    "type": l.line_type,
-                    "text": l.text,
-                    "braille": l.braille,
+                    "type": line.line_type,
+                    "text": line.text,
+                    "braille": line.braille,
                 }
-                for l in digest.lines
+                for line in digest.lines
             ],
         }
 

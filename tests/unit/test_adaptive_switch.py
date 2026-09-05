@@ -1,11 +1,11 @@
 """Unit tests for Adaptive Switch & Motor Impairment Accessibility."""
-from src.domain.adaptive_switch import (
-    SwitchInputType,
-    SwitchSignal,
-    SwitchAction,
-    SwitchNavigationState,
-)
 from src.application.accessibility_use_case import AccessibilityOrchestratorUseCase
+from src.domain.adaptive_switch import (
+    SwitchAction,
+    SwitchInputType,
+    SwitchNavigationState,
+    SwitchSignal,
+)
 
 
 def test_sip_and_puff_mapping():

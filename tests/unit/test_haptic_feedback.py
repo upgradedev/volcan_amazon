@@ -1,9 +1,9 @@
 """Unit tests for Haptic Feedback & Deaf/HOH Tactile Notifications."""
+from src.application.accessibility_use_case import AccessibilityOrchestratorUseCase
 from src.domain.haptic_feedback import (
     HapticPatternType,
     HapticProfile,
 )
-from src.application.accessibility_use_case import AccessibilityOrchestratorUseCase
 
 
 def test_haptic_profile_success():

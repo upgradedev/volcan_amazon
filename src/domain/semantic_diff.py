@@ -52,6 +52,11 @@ class SemanticDiffReport:
     category_breakdown: dict[str, int]
     critical_findings: list[str]
     sections: list[DiffSectionDigest] = field(default_factory=list)
+    #: Which synthesis path produced ``executive_spoken_summary``.
+    #: "bedrock" means an Amazon Bedrock model actually answered.
+    #: "heuristic-local" means the deterministic local fallback ran and no
+    #: model was invoked. Callers surface this so nobody has to guess.
+    synthesis_mode: str = "heuristic-local"
 
     def to_voice_summary(self, level: int = 0) -> str:
         """Render multi-level hierarchical voice digests.

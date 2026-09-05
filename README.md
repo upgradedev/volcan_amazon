@@ -84,19 +84,19 @@ sequenceDiagram
     participant Git as Git / Terminal
 
     Dev->>Alexa: "Alexa, ask Volcan to summarize workspace changes"
-    Alexa->>MCP: POST /mcp/tools/digest_semantic_diff
+    Alexa->>MCP: POST /api/digest_semantic_diff
     MCP->>Git: Read working git patch
     MCP->>Bedrock: Synthesize executive summary & AST security flags
     MCP-->>Alexa: Spoken text + Audio Earcon (DIFF_READY)
     Alexa-->>Dev: Plays chime + Speaks: "Modified 2 files with 1 critical auth flag"
 
     Dev->>Alexa: "Alexa, tell Volcan to stage production deployment"
-    Alexa->>MCP: POST /mcp/tools/stage_governed_action
+    Alexa->>MCP: POST /api/stage_governed_action
     MCP-->>Alexa: Challenges with SHA-256 hash lock & lease
     Alexa-->>Dev: Plays challenge earcon + "Say Confirm with voice token"
 
     Dev->>Alexa: "Confirm action with token ALPHA-77"
-    Alexa->>MCP: POST /mcp/tools/confirm_action
+    Alexa->>MCP: POST /api/confirm_action
     MCP->>Git: Execute deployment safely
     MCP-->>Alexa: Returns execution output + success earcon
     Alexa-->>Dev: Plays success chime + Confirms deployment

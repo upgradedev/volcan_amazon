@@ -1,8 +1,16 @@
-"""Domain entity for Voice-Governed Action Execution and Audit Logging."""
+"""Domain entity for governed action staging, approval and audit logging.
+
+Custody model, stated exactly as implemented: an autonomous agent may *stage*
+an action, and only a principal whose role is HUMAN may *release* it. An agent
+cannot approve its own proposal, and no principal can approve an action it
+staged itself unless the caller explicitly allows self-approval. The approval
+itself is an :class:`~src.domain.approval_grant.ApprovalGrantIssuer` grant, not
+a free-form string.
+"""
 import hashlib
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 
@@ -13,6 +21,34 @@ class ActionState(str, Enum):
     EXECUTED = "EXECUTED"
     FAILED = "FAILED"
     EXPIRED = "EXPIRED"
+
+
+class PrincipalRole(str, Enum):
+    AGENT = "AGENT"
+    HUMAN = "HUMAN"
+
+
+@dataclass(frozen=True)
+class Principal:
+    """Who is acting. Role decides what the principal is allowed to do."""
+
+    principal_id: str
+    role: PrincipalRole = PrincipalRole.HUMAN
+
+    @classmethod
+    def agent(cls, principal_id: str = "volcan-agent") -> "Principal":
+        return cls(principal_id=principal_id, role=PrincipalRole.AGENT)
+
+    @classmethod
+    def human(cls, principal_id: str = "developer") -> "Principal":
+        return cls(principal_id=principal_id, role=PrincipalRole.HUMAN)
+
+
+class CustodyRefusal(str, Enum):
+    NOT_PENDING = "NOT_PENDING"
+    LEASE_EXPIRED = "LEASE_EXPIRED"
+    AGENT_MAY_NOT_APPROVE = "AGENT_MAY_NOT_APPROVE"
+    SELF_APPROVAL = "SELF_APPROVAL"
 
 
 @dataclass(frozen=True)
@@ -26,6 +62,8 @@ class AuditLogRecord:
     state: ActionState
     execution_stdout: str
     timestamp: str
+    staged_by: str = "unknown"
+    approved_by: str = "unapproved"
 
 
 @dataclass
@@ -35,45 +73,71 @@ class GovernedAction:
     command_or_path: str
     payload_hash: str
     summary_spoken: str
+    staged_by: Principal = field(default_factory=Principal.agent)
     state: ActionState = ActionState.PENDING_APPROVAL
     created_at_epoch: float = field(default_factory=time.time)
     lease_duration_sec: float = 300.0
     approval_token: str | None = None
+    approved_by: Principal | None = None
     execution_result: str | None = None
 
     @classmethod
     def create(
-        cls, action_id: str, action_type: str, command_or_path: str, summary_spoken: str, lease_sec: float = 300.0
+        cls,
+        action_id: str,
+        action_type: str,
+        command_or_path: str,
+        summary_spoken: str,
+        lease_sec: float = 300.0,
+        staged_by: Principal | None = None,
     ) -> "GovernedAction":
-        content = f"{action_type}:{command_or_path}".encode()
-        payload_hash = hashlib.sha256(content).hexdigest()
         return cls(
             action_id=action_id,
             action_type=action_type,
             command_or_path=command_or_path,
-            payload_hash=payload_hash,
+            payload_hash=cls.compute_payload_hash(action_type, command_or_path),
             summary_spoken=summary_spoken,
+            staged_by=staged_by or Principal.agent(),
             state=ActionState.PENDING_APPROVAL,
             created_at_epoch=time.time(),
             lease_duration_sec=lease_sec,
         )
 
+    @staticmethod
+    def compute_payload_hash(action_type: str, command_or_path: str) -> str:
+        """The content binding an approval grant is signed over."""
+        return hashlib.sha256(f"{action_type}:{command_or_path}".encode()).hexdigest()
+
+    @property
+    def expires_at_epoch(self) -> float:
+        return self.created_at_epoch + self.lease_duration_sec
+
     def is_expired(self, current_time: float | None = None) -> bool:
-        now = current_time or time.time()
+        now = time.time() if current_time is None else current_time
         return (now - self.created_at_epoch) > self.lease_duration_sec
 
-    def approve(self, token: str, current_time: float | None = None) -> bool:
+    def check_custody(
+        self,
+        approver: Principal,
+        current_time: float | None = None,
+        allow_self_approval: bool = False,
+    ) -> CustodyRefusal | None:
+        """Returns the refusal reason, or None when custody rules are satisfied."""
+        if self.state != ActionState.PENDING_APPROVAL:
+            return CustodyRefusal.NOT_PENDING
         if self.is_expired(current_time):
             self.state = ActionState.EXPIRED
-            return False
-        if self.state != ActionState.PENDING_APPROVAL:
-            return False
-        if not token or not token.strip():
-            return False
+            return CustodyRefusal.LEASE_EXPIRED
+        if approver.role is not PrincipalRole.HUMAN:
+            return CustodyRefusal.AGENT_MAY_NOT_APPROVE
+        if not allow_self_approval and approver.principal_id == self.staged_by.principal_id:
+            return CustodyRefusal.SELF_APPROVAL
+        return None
 
+    def mark_approved(self, grant: str, approver: Principal) -> None:
         self.state = ActionState.APPROVED
-        self.approval_token = token
-        return True
+        self.approval_token = grant
+        self.approved_by = approver
 
     def reject(self) -> None:
         self.state = ActionState.REJECTED
@@ -93,5 +157,7 @@ class GovernedAction:
             approver_token_hash=token_hash,
             state=self.state,
             execution_stdout=stdout,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            staged_by=self.staged_by.principal_id,
+            approved_by=self.approved_by.principal_id if self.approved_by else "unapproved",
         )

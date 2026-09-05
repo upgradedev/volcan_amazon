@@ -3,9 +3,10 @@ AST Graph Completeness Checker for Volcan (CE Pattern).
 Validates syntactic completeness of AST mutations before generating Braille diffs.
 """
 
-from dataclasses import dataclass
-from typing import List, Dict, Optional
 import ast
+from dataclasses import dataclass
+from typing import Optional
+
 
 @dataclass
 class ASTSyntaxCheckResult:

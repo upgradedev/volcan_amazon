@@ -28,6 +28,7 @@ class DigestDiffUseCase:
                 category_breakdown={},
                 critical_findings=[],
                 sections=[],
+                synthesis_mode="heuristic-local",
             )
 
         # 1. Deterministic AST & Unified patch parsing
@@ -55,4 +56,5 @@ class DigestDiffUseCase:
             category_breakdown=dict(categories),
             critical_findings=critical_findings,
             sections=sections,
+            synthesis_mode=enhanced_report.synthesis_mode,
         )

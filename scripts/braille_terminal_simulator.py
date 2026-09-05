@@ -16,7 +16,7 @@ if hasattr(sys.stdout, "reconfigure"):
 # Ensure volcan_amazon repo root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.domain.braille_translator import text_to_braille, BrailleDiffDigest
+from src.domain.braille_translator import BrailleDiffDigest
 
 
 def render_tactile_pin_cells(braille_str: str, max_cells: int = 40) -> str:

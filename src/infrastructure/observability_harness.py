@@ -5,11 +5,11 @@ Guarantees $0.00 idle cost, zero 3rd-party telemetry leaks, and client-side PII 
 """
 
 import json
+import logging
+import re
 import time
 import uuid
-import re
-import logging
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("volcan-voice-ide")
 logger.setLevel(logging.INFO)

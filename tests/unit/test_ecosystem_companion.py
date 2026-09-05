@@ -1,17 +1,12 @@
 """Unit tests for Amazon Ecosystem Companions in Volcan."""
-pytest = __import__("pytest")
+import pytest
+
+from src.application.ecosystem_companion_use_case import OrchestrateEcosystemCompanionUseCase
 from src.domain.ecosystem_companion import (
     AmbientVoiceAnnotation,
-    WallboardTelemetryFrame,
     FocusSanctuaryState,
-    CompanionDeviceType,
+    WallboardTelemetryFrame,
 )
-from src.infrastructure.ecosystem_adapters import (
-    BeeCompanionAdapter,
-    FireTvWallboardAdapter,
-    RingSanctuaryAdapter,
-)
-from src.application.ecosystem_companion_use_case import OrchestrateEcosystemCompanionUseCase
 
 
 def test_bee_annotation_creation_and_validation():

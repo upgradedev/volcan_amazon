@@ -23,7 +23,7 @@ Modern autonomous AI coding agents (Claude, Codex, Antigravity) stream thousands
 |---|---|---|---|---|
 | **Blind Developers** | Spoken Voice / Perkins Braille | Spoken AST Summaries + 22kHz Harmonic Earcons | Amazon Echo / Alexa+ Headset | `DigestDiffUseCase` + `SonifyEventUseCase` (Pure PCM 22kHz WAV) |
 | **Quiet Hours / Silent Mode** | Perkins Braille Chords (8-key) | **6-Dot / 8-Dot Unicode Braille (`U+2800`–`U+28FF`)** | Refreshable Braille Displays (Focus 40, Orbit Reader, BRLTTY) | `src/domain/braille_translator.py` + `BrailleDiffUseCase` |
-| **Deafblind Developers** | Braille Terminal Keyboard | **Tactile Braille Pins + Haptic Pulses** | Multi-Line Braille Terminals + Wearables | Unicode Braille Stream (`/mcp/tools/braille/diff_digest`) |
+| **Deafblind Developers** | Braille Terminal Keyboard | **Tactile Braille Pins + Haptic Pulses** | Multi-Line Braille Terminals + Wearables | Unicode Braille Stream (`/api/braille/diff_digest`) |
 | **Hands-Free / Quadriplegia (ALS, RSI)** | **Voice / Sip-and-Puff / Foot Pedal** | Spoken Audio + Ambient Wallboard | Alexa+ Voice + Sip-and-Puff Switch | `src/domain/adaptive_switch.py` (Puff=Approve, Sip=Reject) |
 | **Deaf & Hard-of-Hearing (HOH)** | Voice / Keyboard / Switch | **Haptic Pulses + Visual Waveforms + Captions** | Bee Wearable, Smartwatch, Fire TV 10-Foot | `src/domain/haptic_feedback.py` (Double Pulse / Triple Buzz) |
 

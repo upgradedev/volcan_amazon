@@ -4,6 +4,7 @@ Unit tests for ASTGraphCompletenessChecker (Volcan).
 
 from src.domain.ast_completeness_checker import ASTGraphCompletenessChecker
 
+
 def test_ast_checker_detects_clean_syntax():
     checker = ASTGraphCompletenessChecker()
     code = """

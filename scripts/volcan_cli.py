@@ -20,12 +20,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-from src.application.digest_diff_use_case import DigestDiffUseCase
-from src.application.sonify_event_use_case import SonifyEventUseCase
-from src.application.governed_execution_use_case import GovernedExecutionUseCase
-from src.application.ecosystem_companion_use_case import OrchestrateEcosystemCompanionUseCase
-from src.application.braille_diff_use_case import BrailleDiffUseCase
 from src.application.accessibility_use_case import AccessibilityOrchestratorUseCase
+from src.application.braille_diff_use_case import BrailleDiffUseCase
+from src.application.digest_diff_use_case import DigestDiffUseCase
+from src.application.ecosystem_companion_use_case import OrchestrateEcosystemCompanionUseCase
+from src.application.governed_execution_use_case import GovernedExecutionUseCase
+from src.application.sonify_event_use_case import SonifyEventUseCase
 from src.domain.sonification import EarconType
 from src.infrastructure.audit_repository import InMemoryAuditRepository
 from src.infrastructure.bedrock_adapter import BedrockSynthesisAdapter

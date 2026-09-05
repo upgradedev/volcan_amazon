@@ -26,7 +26,7 @@ flowchart TD
     subgraph LAMBDA["3. Serverless Execution Core ($0.00 Idle Cost)"]
         FUNC["AWS Lambda: volcan-mcp-euw1-prod\n(Python 3.11, 256MB, <150ms Cold Start)"]
         BRIDGE["ASGI Lambda Bridge\n(lambda_handler.py)"]
-        ROUTER["FastMCP Application Router\n(/mcp/tools/*, /health)"]
+        ROUTER["FastMCP Application Router\n(/api/*, /health)"]
         
         subgraph DOMAIN["Domain Core (0 External Dependencies)"]
             AST["Deterministic AST Diff Parser"]

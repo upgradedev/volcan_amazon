@@ -1,7 +1,5 @@
 """Language Server Protocol (LSP) Bridge for Volcan Braille AST Engine."""
 from dataclasses import dataclass
-import json
-from typing import Dict, List
 
 
 @dataclass
