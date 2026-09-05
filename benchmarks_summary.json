@@ -1,17 +1,29 @@
 {
+  "generated_by": "python scripts/benchmark_suite.py",
+  "python_version": "3.11.0",
   "ast_diff_engine": {
     "iterations": 1000,
-    "mean_ms": 0.056,
-    "p50_ms": 0.046,
-    "p95_ms": 0.105,
-    "p99_ms": 0.157
+    "mean_ms": 0.028,
+    "p50_ms": 0.027,
+    "p95_ms": 0.032,
+    "p99_ms": 0.045
   },
-  "spatial_audio_synthesizer": {
+  "earcon_synthesizer": {
     "iterations": 1000,
-    "mean_ms": 3.028,
-    "p50_ms": 2.403,
-    "p95_ms": 5.172,
-    "p99_ms": 6.663
+    "mean_ms": 2.791,
+    "p50_ms": 2.226,
+    "p95_ms": 4.947,
+    "p99_ms": 6.611
   },
-  "security_catch_rate_pct": 100.0
+  "security_detection": {
+    "corpus_file": "tests/fixtures/diff_corpus.py",
+    "n_total": 24,
+    "n_should_flag": 12,
+    "n_should_not_flag": 12,
+    "detected": 12,
+    "recall_pct": 100.0,
+    "false_positive_pct": 0.0,
+    "missed_fixture_ids": [],
+    "false_positive_fixture_ids": []
+  }
 }
