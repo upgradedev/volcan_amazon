@@ -382,6 +382,18 @@ video and its sync check, the absent browser-driver journey, the deployed endpoi
 older commit than HEAD, and three actions only the owner can perform. Each failure is printed
 with its reason rather than hidden.
 
+**You will see 41, not 45, and that is expected.** Four of those gates read the persona review
+out of `STATE.md`, a coordination file that lives one directory above this repository and is
+deliberately never committed. From a standalone clone or a CI runner there is no copy to read,
+so gates I1 to I4 report themselves externally blocked with that reason and the script still
+exits 0: `41/53 passed, 0 blocking failures, 12 externally blocked`. The excuse is narrow. If
+`STATE.md` is present and does not record the review, those four gates fail as blocking and the
+script exits 1.
+
+To satisfy yourself that the script is capable of failing rather than decorative, change the
+test count in the README badge from 194 to 195 and run it again. Gate G1 turns red under
+`FAILED, BLOCKING`, the summary reads `1 blocking failures`, and the process exits 1.
+
 ---
 
 ## Known limitations

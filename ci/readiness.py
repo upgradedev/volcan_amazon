@@ -500,6 +500,7 @@ def check_i_section(state_text: str) -> dict[str, tuple[bool, str]]:
             key: (False, "STATE.md was not found from this repository")
             for key in ("I1", "I2", "I3", "I4")
         }
+    required_personas = ("01 Sponsor Product Owner", "06 UX Designer", "08 Recruiter")
     return {
         "I1": (
             "00-RUNBOOK.md" in state_text or "Persona Review" in state_text,
@@ -507,16 +508,22 @@ def check_i_section(state_text: str) -> dict[str, tuple[bool, str]]:
             or "Persona Review" in state_text else "no persona review runbook recorded",
         ),
         "I2": (
-            all(marker in state_text for marker in ("01 Sponsor Product Owner", "06 UX Designer", "08 Recruiter")),
-            "personas 01, 06 and 08 recorded in STATE.md",
+            all(marker in state_text for marker in required_personas),
+            "personas 01, 06 and 08 recorded in STATE.md"
+            if all(marker in state_text for marker in required_personas)
+            else "STATE.md is missing persona "
+                 + ", ".join(m for m in required_personas if m not in state_text),
         ),
         "I3": (
             "00-ROSTER.md" in state_text,
-            "persona anchors reference 00-ROSTER.md",
+            "persona anchors reference 00-ROSTER.md" if "00-ROSTER.md" in state_text
+            else "no persona anchor in STATE.md references 00-ROSTER.md",
         ),
         "I4": (
             "Persona Review Findings" in state_text or "Verdict:" in state_text,
-            "persona findings written down in STATE.md",
+            "persona findings written down in STATE.md"
+            if "Persona Review Findings" in state_text or "Verdict:" in state_text
+            else "STATE.md records no persona review findings and no verdict",
         ),
     }
 
@@ -804,6 +811,18 @@ def audit_project() -> list[GateResult]:
         ("I3", "Ownership comes from the roster"),
         ("I4", "Findings are written down in STATE.md"),
     ):
+        # STATE.md is a workspace coordination file and is deliberately never
+        # committed to this repository, so a standalone clone or a CI runner has
+        # no copy of it to read. That is an environmental blocker, not a defect,
+        # and it is excused here only when the file is genuinely absent. When
+        # STATE.md IS present and simply does not record the persona review,
+        # these gates stay blocking, because then the repository really is
+        # missing the work.
+        if not state_text:
+            DYNAMIC_EXCUSES[gate_id] = (
+                "STATE.md is a workspace file that is never committed, so it is "
+                "unreachable from a standalone clone or a CI runner"
+            )
         outcome = persona_outcomes[gate_id]
         record(gate_id, title, (outcome[0], outcome[1] if outcome[0] else f"not satisfied: {outcome[1]}"))
 
