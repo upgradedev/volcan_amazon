@@ -412,9 +412,23 @@ def test_the_layout_is_responsive_at_phone_and_desktop_widths():
 
 def test_empty_states_render_a_reason_instead_of_nothing():
     html = read_html()
-    assert html.count('class="empty"') >= 4
+    assert html.count('class="empty-state-card"') >= 4
     for pane in ("spokenPane", "earconCaption", "brailleOutput", "mcpPane", "govPane"):
         assert f'id="{pane}"' in html
+
+
+def test_the_audit_row_never_reads_as_a_command_that_ran():
+    """The server's terminal state string is EXECUTED and nothing executes.
+
+    The page must not print that word on its own beside a command, because the
+    product's whole claim is that it plans and refuses. It renders a plain
+    label and keeps the server's raw value beside it, so the honest reading and
+    the unedited server value are both on screen.
+    """
+    html = read_html()
+    assert 'EXECUTED: "plan released, not run"' in html, "no plain-language label for the terminal state"
+    assert '[server state " + record.state + "]' in html, "the server's own raw state is no longer shown"
+    assert 'record.state + "   " + record.action' not in html, "the bare state is printed with no label"
 
 
 # --- self-containment -------------------------------------------------------

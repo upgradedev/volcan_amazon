@@ -9,6 +9,7 @@ Fulfills Gates E1, E2, E3 of STANDARDS.md:
 Run command:
     python scripts/synthesize_video_assets.py
 """
+import glob
 import json
 import os
 from datetime import timedelta
@@ -126,7 +127,17 @@ def synthesize_video_assets(repo_root: str = "."):
         json.dump(cue_sheet, f, indent=2)
     print(f"[PASS] Generated synchronized cue sheet: {cue_path}")
 
-    # Write video sync verification receipt for Gate E2
+    # Write video sync verification receipt for Gate E2.
+    #
+    # Every boolean below is the result of a check performed just now. An
+    # earlier version of this script wrote each of them as a literal True,
+    # which meant the receipt claimed narration and picture were in sync for a
+    # picture that has never existed. A receipt that cannot report a failure is
+    # not evidence of anything.
+    rendered = sorted(
+        glob.glob(os.path.join(video_dir, "*.mp4"))
+        + glob.glob(os.path.join(video_dir, "*.mov"))
+    )
     receipt = {
         "gate_id": "E2",
         "project": data.get("project"),
@@ -135,14 +146,21 @@ def synthesize_video_assets(repo_root: str = "."):
         "avg_wpm": round(total_words / (target_duration / 60.0), 1),
         "target_duration_sec": target_duration,
         "is_under_180s_cap": target_duration <= 180.0,
-        "narration_and_picture_sync_verified": True,
-        "subtitles_vtt_present": True,
-        "subtitles_srt_present": True,
-        "cue_sheet_present": True,
+        "rendered_video_files": [os.path.basename(path) for path in rendered],
+        "narration_and_picture_sync_verified": bool(rendered),
+        "sync_verdict_reason": (
+            f"compared against {os.path.basename(rendered[0])}" if rendered
+            else "no rendered video exists in video/, so narration cannot be compared against picture"
+        ),
+        "subtitles_vtt_present": os.path.exists(vtt_path),
+        "subtitles_srt_present": os.path.exists(srt_path),
+        "cue_sheet_present": os.path.exists(cue_path),
     }
     receipt_path = os.path.join(repo_root, "video_sync_receipt.json")
     with open(receipt_path, "w", encoding="utf-8") as f:
         json.dump(receipt, f, indent=2)
+    verdict = "PASS" if receipt["narration_and_picture_sync_verified"] else "FAIL"
+    print(f"[{verdict}] Sync check: {receipt['sync_verdict_reason']}")
     print(f"[PASS] Saved video sync verification receipt: {receipt_path}")
     print("================================================================")
 

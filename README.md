@@ -1,10 +1,11 @@
 # Volcan
 
-**Volcan lets blind and mobility-impaired software developers review autonomous coding agents by ear and by touch instead of by reading a diff.**
+> **Volcan lets blind and mobility-impaired software developers review autonomous coding agents by ear and by touch instead of by reading a diff.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
+[![tests](https://img.shields.io/badge/tests-194%20passing-brightgreen.svg)](tests/)
 
 One patch goes in. Three things a person can actually use come out.
 
@@ -38,7 +39,9 @@ content blocks, and reach a browser through the companion page at
 
 ## Quickstart
 
-Copy these in order. Everything below is checkable on your own machine.
+Four steps. Everything they print is checkable on your own machine.
+
+### 1. Install and run the tests
 
 ```bash
 git clone https://github.com/upgradedev/volcan_amazon.git
@@ -47,26 +50,35 @@ python -m pip install fastapi uvicorn pydantic httpx boto3 pytest pytest-asyncio
 python -m pytest tests/ -q
 ```
 
+### 2. Start the server
+
 ```bash
 python -m src.interfaces.mcp_server
 ```
 
-Then, in a second terminal, prove the protocol before you trust the page:
+### 3. Prove the protocol before you trust the page
+
+In a second terminal:
 
 ```bash
 python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp
 ```
 
-Now open `http://127.0.0.1:8000/` and press **Hear this code review**. The button posts the
-patch to the running server, plays the WAV the server synthesized, prints the Braille cells,
-and reports the round trip it measured with `performance.now()`.
+### 4. Hear a code review
 
-**Time to first result, measured on the development machine on 2026-09-05.** The test suite
-reported `193 passed, 1 warning in 3.66s`. The server answered its first `GET /health` with
-HTTP 200 **1.1 seconds** after launch, printed by
-[`scripts/measure_cold_start.py`](scripts/measure_cold_start.py). The first digest round trip in the browser was
-**66.7 ms**, which the page prints for itself on every run rather than taking that figure
-from this file. The `pip install` step depends on your network and is not measured here.
+Open `http://127.0.0.1:8000/` and press **Hear this code review**, or press
+<kbd>Alt</kbd>+<kbd>1</kbd> then <kbd>Enter</kbd> without touching a pointer. The button
+posts the patch to the running server, plays the WAV the server synthesized, prints the
+Braille cells, and reports the round trip it measured with `performance.now()`.
+
+**Time to first result, measured on the development machine on 2026-09-06.** Step 1 reported
+`194 passed, 1 warning in 3.37s`. The server in step 2 answered its first `GET /health` with
+HTTP 200 **1.6 seconds** after launch, printed by
+[`scripts/measure_cold_start.py`](scripts/measure_cold_start.py). Step 3 printed
+`18/18 checks passed, 0 failed`. The first digest round trip in step 4 was **72.6 ms** in
+Chrome at 1280x900, and the page prints that figure for itself on every run rather than
+taking it from this file. The `pip install` step depends on your network and is not measured
+here.
 
 Requires Python 3.11 or newer. The repository is private until the submission window opens,
 so `git clone` works for an account with access and otherwise starts from the submitted
@@ -74,7 +86,7 @@ archive.
 
 ---
 
-## Table of contents
+## Table of Contents
 
 1. [What is true and what is simulated](#what-is-true-and-what-is-simulated)
 2. [The problem](#the-problem)
@@ -309,20 +321,20 @@ the network, so it renders whole on a locked-down machine.
 
 ## Measured numbers
 
-Every number below was printed by the command beside it on 2026-09-05, on the development
+Every number below was printed by the command beside it on 2026-09-06, on the development
 machine recorded in [`benchmarks_summary.json`](benchmarks_summary.json). Nothing here is an
 estimate unless it says ESTIMATE.
 
 | Metric | Baseline | Volcan | Command that prints it |
 |---|---|---|---|
 | Security-flag detection | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **100% recall over n=24 labelled patches**, 12 that must flag and 12 that must not, with 0% false positives | `python scripts/benchmark_suite.py` |
-| Patch parse latency, mean of 1000 runs | not measured | 0.088 ms | `python scripts/benchmark_suite.py` |
-| Earcon synthesis latency, mean of 1000 runs | not measured | 3.036 ms | `python scripts/benchmark_suite.py` |
+| Patch parse latency, mean of 1000 runs | not measured | 0.049 ms | `python scripts/benchmark_suite.py` |
+| Earcon synthesis latency, mean of 1000 runs | not measured | 3.423 ms | `python scripts/benchmark_suite.py` |
 | MCP protocol conformance | not applicable | **18 of 18 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 11 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 193 passing in 3.66 s | `python -m pytest tests/ -q` |
-| Cold start to the first HTTP 200 on `/health` | not applicable | 1.1 s | `python scripts/measure_cold_start.py` |
-| First digest round trip, browser to server and back | not applicable | 66.7 ms | the page measures and prints this itself on every run |
+| Automated tests | not applicable | 194 passing in 3.37 s | `python -m pytest tests/ -q` |
+| Cold start to the first HTTP 200 on `/health` | not applicable | 1.6 s | `python scripts/measure_cold_start.py` |
+| First digest round trip, browser to server and back | not applicable | 72.6 ms | the page measures and prints this itself on every run |
 
 The cold start figure comes from
 [`scripts/measure_cold_start.py`](scripts/measure_cold_start.py), which launches the server as
@@ -338,7 +350,10 @@ real repository.
 recomputes the published figures, so the number in this table turns red if the parser or the
 corpus changes.
 
-Latency figures come from one machine and will differ on yours. Rerun the benchmark.
+The two latency figures are the single run recorded in `benchmarks_summary.json`, not a
+stable constant. Three consecutive runs of `python scripts/benchmark_suite.py` on this
+machine reported a parse mean of 0.088 ms, 0.035 ms and 0.049 ms, so treat the order of
+magnitude as the claim and rerun the benchmark on your own hardware.
 
 ---
 
@@ -358,9 +373,11 @@ Latency figures come from one machine and will differ on yours. Rerun the benchm
 | How long a cold server takes to answer | `python scripts/measure_cold_start.py` |
 | The companion page keeps its four rules and is keyboard reachable | `python -m pytest tests/e2e -v` |
 
-`ci/readiness.py` is written so that it can fail, and it does. It currently reports gates red
-for the absent video, the absent browser-driver journey, and the deployed endpoint running an
-older commit than HEAD. Those failures are printed with their reasons rather than hidden.
+`ci/readiness.py` is written so that it can fail, and it does. On 2026-09-06 it printed
+`45/53 passed, 0 blocking failures, 8 externally blocked`. The eight red gates are the absent
+video and its sync check, the absent browser-driver journey, the deployed endpoint running an
+older commit than HEAD, and three actions only the owner can perform. Each failure is printed
+with its reason rather than hidden.
 
 ---
 

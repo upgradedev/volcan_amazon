@@ -346,7 +346,7 @@
     .cells .row[data-type="REMOVE"] { color: var(--bad); }
     .cells .row[data-type="HEADER"] { color: var(--warn); }
 
-    .empty {
+    .empty-state-card {
       border: 1px dashed var(--line-strong); border-radius: var(--r-s);
       padding: 14px; color: var(--ink-soft); font-size: 0.87rem; margin: 0;
       background: none; font-family: var(--sans); letter-spacing: 0; line-height: 1.5;
@@ -602,7 +602,7 @@
             <article class="rendering r-spoken" aria-labelledby="r-spoken-heading">
               <h3 id="r-spoken-heading"><span class="num">1</span> Spoken digest</h3>
               <div id="spokenPane" role="status" aria-live="polite">
-                <p class="empty">Nothing spoken yet. Select <strong>Hear this code review</strong> and the sentence the server returns appears here.</p>
+                <p class="empty-state-card">Nothing spoken yet. Select <strong>Hear this code review</strong> and the sentence the server returns appears here.</p>
               </div>
               <p class="caption" id="spokenCaption"></p>
               <div class="chips" role="group" aria-label="Digest detail controls">
@@ -626,7 +626,7 @@
               <h3 id="r-braille-heading"><span class="num">3</span> Braille cells</h3>
               <div class="cells" id="brailleOutput" role="region" tabindex="0"
                    aria-label="Braille cell stream, six-dot Unicode">
-                <p class="empty">No cells yet. Volcan renders the same patch as six-dot Unicode Braille in the U+2800 block for a refreshable display.</p>
+                <p class="empty-state-card">No cells yet. Volcan renders the same patch as six-dot Unicode Braille in the U+2800 block for a refreshable display.</p>
               </div>
               <p class="caption" id="brailleCaption"></p>
               <div class="chips">
@@ -677,7 +677,7 @@
         </dl>
 
         <div id="mcpPane">
-          <p class="empty">The tool catalog appears here after the handshake. Each entry expands to the exact <code>inputSchema</code> the server published, generated from the model that parses that tool's arguments.</p>
+          <p class="empty-state-card">The tool catalog appears here after the handshake. Each entry expands to the exact <code>inputSchema</code> the server published, generated from the model that parses that tool's arguments.</p>
         </div>
       </section>
 
@@ -703,7 +703,7 @@
               <span class="lease" id="leaseTag" data-state="idle">IDLE</span>
             </div>
             <div id="govPane" role="status" aria-live="polite">
-              <p class="empty">Nothing staged. Select <strong>Stage an action</strong> to open a 300 second lease on the server.</p>
+              <p class="empty-state-card">Nothing staged. Select <strong>Stage an action</strong> to open a 300 second lease on the server.</p>
             </div>
           </div>
 
@@ -1366,7 +1366,7 @@
         if (remaining <= 0) {
           clearInterval(State.leaseTimer);
           setLease("idle", "LEASE EXPIRED");
-          clear($("govPane")).appendChild(el("p", "empty",
+          clear($("govPane")).appendChild(el("p", "empty-state-card",
             "The lease the server issued has elapsed, so its grant is no longer accepted. Stage a new action."));
           State.staged = null;
           return;
@@ -1388,6 +1388,25 @@
       return dl;
     }
 
+    /* The server's terminal state for a released plan is the string EXECUTED.
+       That is the domain's state machine, not a claim that a command ran. On a
+       page whose headline is that Volcan never runs anything, the bare word
+       would read as a contradiction, so every row carries the plain-language
+       label and the server's own raw value side by side. Nothing is hidden and
+       nothing is renamed on the way through. */
+    var AUDIT_LABELS = {
+      PENDING_APPROVAL: "staged, awaiting a human",
+      APPROVED: "grant accepted",
+      REJECTED: "rejected",
+      EXECUTED: "plan released, not run",
+      FAILED: "planning failed",
+      EXPIRED: "lease expired"
+    };
+
+    function auditLabel(state) {
+      return AUDIT_LABELS[state] || String(state).toLowerCase();
+    }
+
     async function refreshAudit() {
       if (!State.live) { return; }
       try {
@@ -1399,8 +1418,10 @@
           return;
         }
         data.records.slice().reverse().forEach(function (record) {
-          list.appendChild(el("li", null, record.state + "   " + record.action + "   "
-            + record.command + "   hash " + String(record.payload_hash).slice(0, 12)));
+          list.appendChild(el("li", null,
+            auditLabel(record.state) + "   [server state " + record.state + "]   "
+            + record.action + "   " + record.command
+            + "   hash " + String(record.payload_hash).slice(0, 12)));
         });
       } catch (error) {
         clear($("auditVault")).appendChild(el("li", null,
@@ -1446,7 +1467,7 @@
 
     async function approveAction() {
       if (!State.staged) {
-        clear($("govPane")).appendChild(el("p", "empty",
+        clear($("govPane")).appendChild(el("p", "empty-state-card",
           "Nothing is staged, so there is no grant to present. Select Stage an action first."));
         return;
       }
@@ -1478,7 +1499,7 @@
 
     function rejectAction() {
       if (!State.staged) {
-        clear($("govPane")).appendChild(el("p", "empty",
+        clear($("govPane")).appendChild(el("p", "empty-state-card",
           "Nothing is staged, so there is nothing to reject."));
         return;
       }
