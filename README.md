@@ -74,7 +74,10 @@ Braille cells, and reports the round trip it measured with `performance.now()`.
 **Time to first result, measured on the development machine on 2026-09-06.** Step 1 reported
 `194 passed, 1 warning in 3.37s`. The server in step 2 answered its first `GET /health` with
 HTTP 200 **1.6 seconds** after launch, printed by
-[`scripts/measure_cold_start.py`](scripts/measure_cold_start.py). Step 3 printed
+[`scripts/measure_cold_start.py`](scripts/measure_cold_start.py). That script launches its
+own server, so stop the one from step 2 before running it. It refuses to time a process that
+was already warm, and says so rather than printing a figure it cannot stand behind. Step 3
+printed
 `18/18 checks passed, 0 failed`. The first digest round trip in step 4 was **72.6 ms** in
 Chrome at 1280x900, and the page prints that figure for itself on every run rather than
 taking it from this file. The `pip install` step depends on your network and is not measured
