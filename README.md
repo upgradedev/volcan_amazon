@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-194%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-199%20passing-brightgreen.svg)](tests/)
 
 One patch goes in. Three things a person can actually use come out.
 
@@ -72,7 +72,7 @@ posts the patch to the running server, plays the WAV the server synthesized, pri
 Braille cells, and reports the round trip it measured with `performance.now()`.
 
 **Time to first result, measured on the development machine on 2026-09-06.** Step 1 reported
-`194 passed, 1 warning in 3.37s`. The server in step 2 answered its first `GET /health` with
+`199 passed, 1 warning in 35.05s`. The server in step 2 answered its first `GET /health` with
 HTTP 200 **1.6 seconds** after launch, printed by
 [`scripts/measure_cold_start.py`](scripts/measure_cold_start.py). That script launches its
 own server, so stop the one from step 2 before running it. It refuses to time a process that
@@ -335,7 +335,7 @@ estimate unless it says ESTIMATE.
 | Earcon synthesis latency, mean of 1000 runs | not measured | 3.423 ms | `python scripts/benchmark_suite.py` |
 | MCP protocol conformance | not applicable | **18 of 18 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 11 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 194 passing in 3.37 s | `python -m pytest tests/ -q` |
+| Automated tests | not applicable | 199 passing in 35.05 s | `python -m pytest tests/ -q` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.6 s | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 72.6 ms | the page measures and prints this itself on every run |
 
@@ -391,7 +391,7 @@ exits 0: `41/53 passed, 0 blocking failures, 12 externally blocked`. The excuse 
 script exits 1.
 
 To satisfy yourself that the script is capable of failing rather than decorative, change the
-test count in the README badge from 194 to 195 and run it again. Gate G1 turns red under
+test count in the README badge from 199 to 200 and run it again. Gate G1 turns red under
 `FAILED, BLOCKING`, the summary reads `1 blocking failures`, and the process exits 1.
 
 ---

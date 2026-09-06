@@ -33,7 +33,21 @@ class BedrockSynthesisAdapter:
         self.last_fallback_reason: str | None = None
 
     def credentials_present(self) -> bool:
-        return bool(os.getenv("AWS_ACCESS_KEY_ID") or os.getenv("AWS_SESSION_TOKEN"))
+        """Resolve credentials the way boto3 itself does.
+
+        Environment variables are only one of the sources boto3 searches. A judge
+        running with a shared credentials file, an SSO profile or an instance role
+        has working credentials and must reach the Bedrock path, not the fallback.
+        The environment check remains as the answer when boto3 is absent.
+        """
+        try:
+            import boto3
+        except ImportError:
+            return bool(os.getenv("AWS_ACCESS_KEY_ID") or os.getenv("AWS_SESSION_TOKEN"))
+        try:
+            return boto3.Session().get_credentials() is not None
+        except Exception:
+            return False
 
     async def summarize_diff(self, raw_diff: str, sections: list[DiffSectionDigest]) -> SemanticDiffReport:
         if not self.credentials_present():
