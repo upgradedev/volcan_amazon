@@ -154,6 +154,42 @@ def test_the_synthesis_engine_is_read_from_the_response():
     )
 
 
+def test_the_first_screen_says_a_model_can_answer_and_who_reports_it():
+    """A judge must not have to scroll to learn the product has an AI path.
+
+    The header is read before any button is pressed. If it never mentions
+    Amazon Bedrock, a reviewer whose install lacked the SDK concludes the AI is
+    absent rather than uninstalled. The sentence also has to point at the meter,
+    so the page keeps promising a report rather than a result.
+    """
+    html = read_html()
+    header = html.split("<main", 1)[0]
+    assert "Bedrock" in header, (
+        "the first screen must state that a Bedrock model can synthesize the digest"
+    )
+    assert "anthropic[bedrock]" in header, (
+        "the first screen must name the package that enables the model path"
+    )
+    assert "Synthesis engine" in header, (
+        "the first screen must point at the meter that reports which engine answered"
+    )
+    assert "will be answered by Amazon Bedrock" not in header, (
+        "the header may say a model can answer, never that one did"
+    )
+
+
+def test_the_earcon_empty_state_names_both_cues():
+    """The pre-verbal triage layer is only real if the page can be checked.
+
+    Naming both cue types lets a reviewer press two presets and confirm the
+    audio differs, which is the claim four documents make.
+    """
+    html = read_html()
+    caption = html.split('id="earconCaption"', 1)[1].split("</p>", 1)[0]
+    assert "DIFF_READY" in caption and "SECURITY_FINDING" in caption
+    assert "rising" in caption and "falling" in caption
+
+
 def test_an_unanswered_model_call_prints_its_reason_beside_the_engine():
     """A fallback with no reason is indistinguishable from a design decision."""
     script = script_body()
