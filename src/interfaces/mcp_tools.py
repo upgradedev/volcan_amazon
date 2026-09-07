@@ -145,14 +145,19 @@ def build_tool_registry() -> ToolRegistry:
         title="Digest a patch into a spoken summary",
         description=(
             "Parse a unified git patch, flag security-sensitive changes and return a "
-            "hierarchical spoken digest together with the DIFF_READY earcon as audio."
+            "hierarchical spoken digest together with an earcon as audio. The earcon "
+            "encodes the verdict: the falling SECURITY_FINDING cue when the patch "
+            "carries a security finding, the rising DIFF_READY cue when it does not."
         ),
         input_model=DigestRequest, handler=tool_digest,
     ))
     registry.register(ToolDefinition(
         name="drill_down_section",
         title="Inspect one file section of a patch",
-        description="Return a symbol-level spoken explanation of one section of a patch.",
+        description=(
+            "Return a symbol-level spoken explanation of one section of a patch, with the "
+            "falling SECURITY_FINDING earcon when that section is flagged."
+        ),
         input_model=DrillDownRequest, handler=tool_drill_down,
     ))
     registry.register(ToolDefinition(

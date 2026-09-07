@@ -39,7 +39,13 @@ def test_full_accessible_developer_journey():
     res_1 = turn_1.json()
     assert "Modified 1 file with" in res_1["spoken_text"]
     assert "1 files" not in res_1["spoken_text"], "spoken text must be pluralised for a listener"
-    assert res_1["earcon_type"] == "DIFF_READY"
+    # This patch adds HMAC signature verification, so the parser categorises it
+    # SECURITY_SENSITIVE. The cue has to say so before the sentence does: this
+    # assertion used to read DIFF_READY, which passed against a build where
+    # every digest returned the same cue and the security verdict never
+    # reached the ear. The stricter form fails against that build.
+    assert res_1["earcon_type"] == "SECURITY_FINDING"
+    assert res_1["critical_findings"], "a security-sensitive patch must name its finding"
     assert res_1["synthesis_mode"] in {"heuristic-local", "bedrock"}
 
     # 2. Drill into the one changed file.

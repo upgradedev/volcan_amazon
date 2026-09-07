@@ -16,6 +16,16 @@ class SonifyEventUseCase:
                 [AudioTone(523.25, 120, 0.5), AudioTone(659.25, 120, 0.5), AudioTone(783.99, 200, 0.5)],
                 "Semantic diff digest is ready."
             ),
+            # Two notes, falling, and in a register nothing else here occupies.
+            # The four judge-facing documents promise a "falling two-note cue"
+            # for a security finding, so the shape is part of the contract, not
+            # a taste decision. It must also stay audibly apart from
+            # TEST_FAILED, which falls in the bottom of the range.
+            EarconType.SECURITY_FINDING: AudioCue(
+                EarconType.SECURITY_FINDING,
+                [AudioTone(622.25, 180, 0.6), AudioTone(349.23, 420, 0.6)],
+                "Security-sensitive change in this patch."
+            ),
             EarconType.TEST_PASSED: AudioCue(
                 EarconType.TEST_PASSED,
                 [AudioTone(587.33, 100, 0.5), AudioTone(880.0, 250, 0.6)],

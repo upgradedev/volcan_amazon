@@ -38,7 +38,7 @@ from src.application.governed_execution_use_case import GovernedExecutionUseCase
 from src.application.sonify_event_use_case import SonifyEventUseCase
 from src.domain.approval_grant import ApprovalGrantIssuer
 from src.domain.governed_action import Principal
-from src.domain.sonification import EarconType
+from src.domain.sonification import earcon_for_report
 from src.infrastructure.audit_repository import InMemoryAuditRepository
 from src.infrastructure.bedrock_adapter import BedrockSynthesisAdapter
 from src.infrastructure.dry_run_executor import DryRunExecutor
@@ -77,13 +77,15 @@ async def run_full_multimodal_demo() -> None:
     t0 = time.perf_counter()
     report = await digest_uc.execute(sample_diff)
     latency_ms = (time.perf_counter() - t0) * 1000
-    has_security = len(report.critical_findings) > 0
     print(f"  Parsed AST in {latency_ms:.3f} ms | Critical Findings: {len(report.critical_findings)}")
     print(f"  Level 0 Executive Spoken Summary: \"{report.to_voice_summary(0)}\"")
     print(f"  Level 1 Detailed Spoken Summary:  \"{report.to_voice_summary(1)}\"")
 
     print(f"  Synthesis mode: {report.synthesis_mode}")
-    earcon_type = EarconType.GOVERNANCE_CHALLENGE if has_security else EarconType.DIFF_READY
+    # The same selector the API and the voice turn use. This script used to pick
+    # GOVERNANCE_CHALLENGE for a security finding, which is the cue for "a human
+    # must authorize an action" and not the cue for "this patch touches security".
+    earcon_type = earcon_for_report(report)
     _cue, wav_bytes = sonify_uc.execute(earcon_type)
     print(f"  Generated PCM WAV earcon: {len(wav_bytes)} bytes ({earcon_type.value})")
 

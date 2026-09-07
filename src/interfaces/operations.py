@@ -12,7 +12,7 @@ import base64
 from typing import Any
 
 from src.domain.governed_action import Principal
-from src.domain.sonification import EarconType
+from src.domain.sonification import EarconType, earcon_for_report, earcon_for_section
 from src.interfaces.composition import (
     audit_repo,
     digest_use_case,
@@ -30,7 +30,11 @@ from src.interfaces.dto import (
 
 async def op_digest(req: DigestRequest) -> dict[str, Any]:
     report = await digest_use_case.execute(req.raw_diff)
-    cue, wav_bytes = sonify_use_case.execute(EarconType.DIFF_READY)
+    # The cue carries the verdict, so it is read off the report rather than
+    # fixed at the call site. A benign patch and a security-sensitive one must
+    # not return the same bytes; tests/unit/test_earcon_encodes_the_verdict.py
+    # compares the two payloads.
+    cue, wav_bytes = sonify_use_case.execute(earcon_for_report(report))
     return {
         "voice_summary": report.to_voice_summary(level=req.level),
         "synthesis_mode": report.synthesis_mode,
@@ -59,7 +63,7 @@ async def op_drill_down(req: DrillDownRequest) -> dict[str, Any]:
             f"{len(report.sections)} sections."
         )
     sec = report.sections[req.section_index]
-    cue, wav_bytes = sonify_use_case.execute(EarconType.DRILL_DOWN_OPENED)
+    cue, wav_bytes = sonify_use_case.execute(earcon_for_section(sec))
     spoken = (
         f"Inspecting {sec.file_path}. Category: {sec.category.value}. "
         f"Significance is {sec.significance.value}. {sec.summary_spoken} "

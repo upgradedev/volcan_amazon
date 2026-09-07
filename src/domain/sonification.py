@@ -5,16 +5,48 @@ import struct
 from dataclasses import dataclass
 from enum import Enum
 
+from src.domain.semantic_diff import ChangeCategory
+
 
 class EarconType(str, Enum):
     AGENT_THINKING = "AGENT_THINKING"
     DIFF_READY = "DIFF_READY"
+    SECURITY_FINDING = "SECURITY_FINDING"
     TEST_PASSED = "TEST_PASSED"
     TEST_FAILED = "TEST_FAILED"
     LINT_WARNING = "LINT_WARNING"
     GOVERNANCE_CHALLENGE = "GOVERNANCE_CHALLENGE"
     ACTION_COMMITTED = "ACTION_COMMITTED"
     DRILL_DOWN_OPENED = "DRILL_DOWN_OPENED"
+
+
+def earcon_for_report(report) -> EarconType:
+    """The digest cue, chosen from the verdict the digest reached.
+
+    The cue is the pre-verbal triage layer: a listener learns the falling pair
+    in one session and knows a security finding is coming before any word
+    arrives. That only works if the cue is a function of the result, so this is
+    the single place the choice is made. Every surface that speaks a digest -
+    REST, MCP and the voice turn - calls it, because a cue that means one thing
+    on one surface and another thing on the next is worse than no cue.
+    """
+    if getattr(report, "critical_findings", None):
+        return EarconType.SECURITY_FINDING
+    if ChangeCategory.SECURITY_SENSITIVE.value in (getattr(report, "category_breakdown", None) or {}):
+        return EarconType.SECURITY_FINDING
+    return EarconType.DIFF_READY
+
+
+def earcon_for_section(section) -> EarconType:
+    """The drill-down cue for one file section, chosen the same way.
+
+    A drill-down is where a reviewer lands on the one file that matters, so the
+    same falling cue has to survive the descent. A section carries either a
+    parsed finding or a raw keyword flag; either one is a security verdict.
+    """
+    if getattr(section, "security_findings", None) or getattr(section, "security_flags", None):
+        return EarconType.SECURITY_FINDING
+    return EarconType.DRILL_DOWN_OPENED
 
 
 @dataclass(frozen=True)

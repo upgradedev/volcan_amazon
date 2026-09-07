@@ -5,7 +5,7 @@ from src.application.digest_diff_use_case import DigestDiffUseCase
 from src.application.governed_execution_use_case import GovernedExecutionUseCase
 from src.application.sonify_event_use_case import SonifyEventUseCase
 from src.domain.governed_action import Principal
-from src.domain.sonification import EarconType
+from src.domain.sonification import EarconType, earcon_for_report
 from src.domain.voice_session import VoiceSessionContext
 
 
@@ -52,7 +52,9 @@ class VoiceTurnUseCase:
         report = await self._digest.execute(params.get("raw_diff", ""))
         level = params.get("level", 0)
         voice_text = report.to_voice_summary(level=level)
-        cue, wav_bytes = self._sonify.execute(EarconType.DIFF_READY)
+        # Same selection as the REST and MCP digests. The voice surface is the
+        # one where the cue matters most, because it arrives before the words.
+        cue, wav_bytes = self._sonify.execute(earcon_for_report(report))
         session.record_turn("volcan", voice_text)
         return {
             "spoken_text": voice_text,
