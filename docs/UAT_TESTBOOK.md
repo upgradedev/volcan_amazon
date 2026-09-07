@@ -72,4 +72,4 @@ python -m pytest tests/ -v
 | Echo device dialogue | No Alexa skill exists and none was submitted | Build and certify a skill, then test on hardware |
 | Refreshable Braille display | No display was available | Verify the U+2800 stream on a Focus 40 or an Orbit Reader |
 | Sip-and-puff switch | No switch was available | Feed real pulse timings through `process_switch_pulse` |
-| Amazon Bedrock synthesis | No AWS credentials in this environment | Set credentials, rerun, confirm `synthesis_mode` reads `bedrock` |
+| Amazon Bedrock synthesis | No usable Bedrock access here; the response says why in `synthesis_fallback_reason` | `pip install 'anthropic[bedrock]'`, set credentials, rerun, confirm `synthesis_mode` reads `bedrock` and the reason is null |

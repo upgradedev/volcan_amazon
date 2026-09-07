@@ -69,10 +69,10 @@ readiness gate verifies by parsing every domain module.
   `/api` serves the web companion and is never called MCP.
 * **Domain.** A unified diff parser, a PCM WAV synthesizer, a Braille translator, an adaptive
   switch state machine, and an approval grant issuer.
-* **Infrastructure.** An Amazon Bedrock adapter that is real boto3 code and that labels every
-  response `synthesis_mode: bedrock` or `synthesis_mode: heuristic-local`, so nobody has to
-  guess which path ran. An allowlisted dry-run planner that imports no execution primitive at
-  all.
+* **Infrastructure.** An Amazon Bedrock adapter that labels every response
+  `synthesis_mode: bedrock` or `synthesis_mode: heuristic-local`, and carries
+  `synthesis_fallback_reason` when no model answered, so nobody has to guess which path ran or
+  why. An allowlisted dry-run planner that imports no execution primitive at all.
 * **The companion page.** One self-contained HTML file, served by FastAPI at `/` and `/demo`.
   It holds no second implementation of the product: pressing its one primary button posts the
   patch to the running server, plays the WAV the server returned, draws the waveform from
@@ -156,10 +156,13 @@ sought, and nothing has been tested on an Echo device. The companion speaks with
 browser's Web Speech API and calls the same API an Alexa+ integration would call. It performs
 a real `GET /health` on load and reports what actually answered.
 
-**Real code that has not run here.** Amazon Bedrock. The adapter is genuine boto3 code
-against `bedrock-runtime`, and there are no AWS credentials in this environment, so every
-digest in this repository came from the local heuristic path and is labelled
-`synthesis_mode: heuristic-local` in the response and on the page.
+**Real code that has not run here.** Amazon Bedrock. The adapter calls Claude on Amazon
+Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client, pinned to
+`anthropic.claude-opus-5`. No model has answered in this environment, so every digest in this
+repository came from the local heuristic path, labelled `synthesis_mode: heuristic-local` in
+the response and on the page **together with `synthesis_fallback_reason`, which names the
+exception, the model id and the message**. The pinned model id has not been confirmed to
+answer, because nobody working on this repository has AWS access that could confirm it.
 
 **Never executed.** No file under `src/` imports or calls `subprocess`, `os.system`, `eval`,
 `exec` or any process spawn. `tests/unit/test_no_execution_in_source_tree.py` walks every

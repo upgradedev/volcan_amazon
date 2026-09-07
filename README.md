@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-199%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-238%20passing-brightgreen.svg)](tests/)
 
 One patch goes in. Three things a person can actually use come out.
 
@@ -71,8 +71,8 @@ Open `http://127.0.0.1:8000/` and press **Hear this code review**, or press
 posts the patch to the running server, plays the WAV the server synthesized, prints the
 Braille cells, and reports the round trip it measured with `performance.now()`.
 
-**Time to first result, measured on the development machine on 2026-09-06.** Step 1 reported
-`199 passed, 1 warning in 35.05s`. The server in step 2 answered its first `GET /health` with
+**Time to first result, measured on the development machine on 2026-09-08.** Step 1 reported
+`238 passed, 1 warning in 4.61s`. The server in step 2 answered its first `GET /health` with
 HTTP 200 **1.6 seconds** after launch, printed by
 [`scripts/measure_cold_start.py`](scripts/measure_cold_start.py). That script launches its
 own server, so stop the one from step 2 before running it. It refuses to time a process that
@@ -101,7 +101,8 @@ archive.
 8. [Measured numbers](#measured-numbers)
 9. [Verify every claim yourself](#verify-every-claim-yourself)
 10. [Known limitations](#known-limitations)
-11. [License](#license)
+11. [Who would buy this, and out of which budget](#who-would-buy-this-and-out-of-which-budget)
+12. [License](#license)
 
 ---
 
@@ -123,12 +124,28 @@ has been submitted for certification, and nothing here has been tested on an Ech
 The companion speaks with the browser's Web Speech API and calls the same API an Alexa+
 integration would call.
 
-**Real code with a labelled fallback.** The Amazon Bedrock adapter is genuine boto3 code
-against `bedrock-runtime`, and with no AWS credentials in the environment it never runs; the
-deterministic local path runs instead. Every response carries `synthesis_mode`, which is
-`"bedrock"` when a model answered and `"heuristic-local"` when none did. The companion reads
-that field off the response and shows it, so nobody has to guess which path produced the
-words they are hearing.
+**Real code with a labelled fallback, and a stated reason.** The Amazon Bedrock adapter calls
+Claude on Amazon Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client, pinned to
+`anthropic.claude-opus-5`. When the call cannot be made or fails, the deterministic local path
+runs instead. Every response carries `synthesis_mode`, which is `"bedrock"` when a model
+answered and `"heuristic-local"` when none did, **and `synthesis_fallback_reason`, which says
+why**. The companion prints both beside the synthesis meter. An unexplained fallback is
+indistinguishable from a design decision, which is why the reason is not optional.
+
+Run against this repository on 2026-09-08 it prints, verbatim:
+
+```
+synthesis_mode: heuristic-local
+synthesis_fallback_reason: the Anthropic SDK is not installed (No module named 'anthropic');
+pip install 'anthropic[bedrock]' to reach Amazon Bedrock
+```
+
+**No model has ever answered here, and the pinned model id is unverified.** `pip install
+'anthropic[bedrock]'` (or `pip install -e '.[bedrock]'`) installs the client. The previous
+pin, `anthropic.claude-3-5-sonnet-20241022-v2:0`, is a retired snapshot on the legacy
+InvokeModel integration and answers `ResourceNotFoundException`; the new id is the documented
+current one, and nobody here has AWS access that could confirm it answers. Confirming it is an
+owner action, listed under Known limitations.
 
 **Never executed.** Volcan plans shell commands against an allowlist and refuses the rest. It
 does not run them. The claim covers the whole product, not one module: no file under `src/`
@@ -156,9 +173,14 @@ the other side: the review is not hard to understand, it is hard to navigate.
 1. **Semantic diff digests.** Parses a unified patch and speaks it at three levels: an
    executive sentence, a file-by-file breakdown, then a line drill-down. Counts are
    pluralised, because a listener hears "1 files" and a reader skims past it.
-2. **Security flags before comprehension.** A deterministic pass flags authentication,
-   cryptographic, database and process-execution changes, and the digest names them first
-   rather than burying them in line order.
+2. **Security flags before comprehension.** Two deterministic passes run over every patch. A
+   keyword pass flags authentication, cryptographic, database and process-execution
+   vocabulary. A syntax-tree pass then compares the added and removed lines as parsed Python
+   and reports what the change *did*: an authorization comparison inverted, a cross-origin
+   policy widened to any origin, a verification call deleted and not replaced. The second pass
+   exists because `user.role == "admin"` and `user.role != "admin"` contain identical words,
+   so no keyword matcher can tell them apart. The digest speaks findings first, and names the
+   change rather than the keyword that matched.
 3. **Audio earcons as first-class results.** A pure-Python PCM WAV synthesizer produces
    distinct cues, returned over MCP as `audio` content blocks so a client plays the sound
    instead of reading a description of it. Each cue also carries a `spoken_fallback` string,
@@ -203,13 +225,14 @@ graph TD
     end
 
     subgraph Domain["src/domain, zero SDK imports"]
-        DIGEST --> PARSER["UnifiedDiffParser"]
+        DIGEST --> PARSER["UnifiedDiffParser<br/>git and plain unified patches"]
+        PARSER --> RULES["ast_security_rules<br/>syntax-tree findings"]
         SONIFY --> WAVE["WaveformSynthesizer"]
         GOV --> GRANT["ApprovalGrantIssuer, HMAC-SHA256"]
     end
 
     subgraph Infrastructure["src/infrastructure"]
-        DIGEST --> BEDROCK["BedrockSynthesisAdapter<br/>bedrock or heuristic-local"]
+        DIGEST --> BEDROCK["BedrockSynthesisAdapter<br/>bedrock, or heuristic-local<br/>with a stated reason"]
         GOV --> PLANNER["DryRunExecutor: plans, never executes"]
     end
 ```
@@ -324,20 +347,20 @@ the network, so it renders whole on a locked-down machine.
 
 ## Measured numbers
 
-Every number below was printed by the command beside it on 2026-09-06, on the development
+Every number below was printed by the command beside it on 2026-09-08, on the development
 machine recorded in [`benchmarks_summary.json`](benchmarks_summary.json). Nothing here is an
 estimate unless it says ESTIMATE.
 
 | Metric | Baseline | Volcan | Command that prints it |
 |---|---|---|---|
-| Security-flag detection | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **100% recall over n=24 labelled patches**, 12 that must flag and 12 that must not, with 0% false positives | `python scripts/benchmark_suite.py` |
-| Patch parse latency, mean of 1000 runs | not measured | 0.049 ms | `python scripts/benchmark_suite.py` |
-| Earcon synthesis latency, mean of 1000 runs | not measured | 3.423 ms | `python scripts/benchmark_suite.py` |
+| Security-flag detection | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **81.8% recall over n=40 labelled patches**, 22 that must flag and 18 that must not, with 0% false positives | `python scripts/benchmark_suite.py` |
+| Patch parse latency, mean of 1000 runs | not measured | 0.17 ms | `python scripts/benchmark_suite.py` |
+| Earcon synthesis latency, mean of 1000 runs | not measured | 2.562 ms | `python scripts/benchmark_suite.py` |
 | MCP protocol conformance | not applicable | **18 of 18 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 11 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 199 passing in 35.05 s | `python -m pytest tests/ -q` |
-| Cold start to the first HTTP 200 on `/health` | not applicable | 1.6 s | `python scripts/measure_cold_start.py` |
-| First digest round trip, browser to server and back | not applicable | 72.6 ms | the page measures and prints this itself on every run |
+| Automated tests | not applicable | 238 passing in 4.61 s | `python -m pytest tests/ -q` |
+| Cold start to the first HTTP 200 on `/health` | not applicable | 1.5 s | `python scripts/measure_cold_start.py` |
+| First digest round trip, browser to server and back | not applicable | 72.6 ms, measured on 2026-09-06 | the page measures and prints this itself on every run |
 
 The cold start figure comes from
 [`scripts/measure_cold_start.py`](scripts/measure_cold_start.py), which launches the server as
@@ -345,18 +368,37 @@ a child process, polls `/health` until it answers 200, prints the elapsed second
 the child again. Stop any server already on port 8000 first, or the script refuses to time a
 process that was already warm.
 
-The detection corpus is 24 hand-labelled patches in
-[`tests/fixtures/diff_corpus.py`](tests/fixtures/diff_corpus.py), each carrying an explicit
-`expect_security_flag`. It measures behaviour on those fixtures and is not a claim about any
-real repository.
-[`tests/unit/test_security_detection_corpus.py`](tests/unit/test_security_detection_corpus.py)
-recomputes the published figures, so the number in this table turns red if the parser or the
-corpus changes.
+**The detection corpus is written by the same people who wrote the parser.** It is 40
+hand-labelled patches in [`tests/fixtures/diff_corpus.py`](tests/fixtures/diff_corpus.py),
+each carrying an explicit `expect_security_flag`. It measures behaviour on those fixtures and
+is not a claim about any real repository, and a figure measured over fixtures its own author
+chose is worth less than one measured over somebody else's. Read the number with that in mind.
 
-The two latency figures are the single run recorded in `benchmarks_summary.json`, not a
-stable constant. Three consecutive runs of `python scripts/benchmark_suite.py` on this
-machine reported a parse mean of 0.088 ms, 0.035 ms and 0.049 ms, so treat the order of
-magnitude as the claim and rerun the benchmark on your own hardware.
+Two things push back on it. Six of the positives were written to defeat the keyword matcher
+rather than to flatter it, including the three regressions an end-customer review found in the
+field: an authorization comparison inverted to `!= "admin"`, CORS origins widened to `["*"]`,
+and a signature-verification call deleted. Six negatives were written to tempt the rules those
+positives forced into existence, among them the same CORS line narrowed rather than widened,
+and a removed `verify_email_format` call that a cruder rule would flag.
+
+And four positives are in the corpus precisely because nothing here detects them. They are why
+recall is 81.8% and not a round hundred:
+
+| Missed | What it is | Why it is missed |
+|---|---|---|
+| `pos-19` | an authorization guard block deleted | no rule reads deleted blocks, only deleted calls |
+| `pos-20` | a permission decorator removed | a bare decorator line is not parseable Python on its own |
+| `pos-21` | `verify=False` added to an outbound call | no rule inspects argument values |
+| `pos-22` | an IAM policy widened in JSON | the syntax-tree rules are Python only |
+
+[`tests/unit/test_security_detection_corpus.py`](tests/unit/test_security_detection_corpus.py)
+recomputes the published figures and pins that list by fixture id, so a new miss fails the
+build and closing one of these means deleting its id from the list.
+
+The two latency figures are the single run recorded in `benchmarks_summary.json`, not a stable
+constant. The parse mean rose from 0.041 ms to 0.17 ms when the syntax-tree pass was added,
+which is the honest cost of parsing every changed line rather than scanning it; treat the order
+of magnitude as the claim and rerun the benchmark on your own hardware.
 
 ---
 
@@ -369,6 +411,9 @@ magnitude as the claim and rerun the benchmark on your own hardware.
 | The benchmark numbers above | `python scripts/benchmark_suite.py` |
 | Every readiness gate, including the failing ones | `python ci/readiness.py` |
 | Forged and replayed grants are refused | `python -m pytest tests/unit/test_governance.py -v` |
+| The security rules catch an inverted check, and refuse a lookalike | `python -m pytest tests/unit/test_ast_security_rules.py -v` |
+| A plain `diff -u` patch is named, not called unknown_file | `python -m pytest tests/unit/test_plain_unified_diff.py -v` |
+| A fallback from Amazon Bedrock states its reason | `python -m pytest tests/unit/test_bedrock_synthesis_path.py -v` |
 | Nothing executes a shell command | `python -m pytest tests/unit/test_dry_run_executor.py -v` |
 | Injection payloads and grant attacks are refused | `python scripts/security_audit.py` |
 | An edited audit record is detected | `python -m pytest tests/unit/test_audit_chain.py -v` |
@@ -376,7 +421,7 @@ magnitude as the claim and rerun the benchmark on your own hardware.
 | How long a cold server takes to answer | `python scripts/measure_cold_start.py` |
 | The companion page keeps its four rules and is keyboard reachable | `python -m pytest tests/e2e -v` |
 
-`ci/readiness.py` is written so that it can fail, and it does. On 2026-09-06 it printed
+`ci/readiness.py` is written so that it can fail, and it does. On 2026-09-08 it printed
 `45/53 passed, 0 blocking failures, 8 externally blocked`. The eight red gates are the absent
 video and its sync check, the absent browser-driver journey, the deployed endpoint running an
 older commit than HEAD, and three actions only the owner can perform. Each failure is printed
@@ -391,7 +436,7 @@ exits 0: `41/53 passed, 0 blocking failures, 12 externally blocked`. The excuse 
 script exits 1.
 
 To satisfy yourself that the script is capable of failing rather than decorative, change the
-test count in the README badge from 199 to 200 and run it again. Gate G1 turns red under
+test count in the README badge from 238 to 239 and run it again. Gate G1 turns red under
 `FAILED, BLOCKING`, the summary reads `1 blocking failures`, and the process exits 1.
 
 ---
@@ -404,9 +449,22 @@ test count in the README badge from 199 to 200 and run it again. Gate G1 turns r
 * **No browser-driver end-to-end test.** `tests/e2e` parses the companion DOM and asserts its
   structure, its accessibility and its four honesty rules; it does not drive a real browser,
   because no browser driver is vendored here. Gate C5 records that as a failure.
-* **Bedrock has not run in this environment.** There are no AWS credentials here, so every
-  digest produced in this repository came from the local heuristic path and is labelled
-  `synthesis_mode: heuristic-local`.
+* **Bedrock has never answered here, and the pinned model id is unverified.** Every digest
+  produced in this repository came from the local heuristic path, labelled
+  `synthesis_mode: heuristic-local` with the reason printed beside it. On the development
+  machine `/health` reports `bedrock_credentials_present: true`, because boto3 resolves
+  something from the local credential chain; that says nothing about whether a model answers,
+  which is the whole reason the reason field exists. The Anthropic SDK is not installed here,
+  so the call has never left the process. Nobody working on this repository has AWS access
+  that could confirm `anthropic.claude-opus-5` answers on Bedrock, so **it has not been
+  confirmed**. Recording a successful Bedrock transcript is an owner action: install
+  `anthropic[bedrock]`, run one digest with working credentials, and check that the response
+  reads `synthesis_mode: bedrock` with a null reason.
+* **The syntax-tree security rules cover three change classes and Python only.** An inverted
+  authorization comparison, a widened cross-origin policy, and a removed verification call. A
+  deleted guard block, a removed decorator, a dangerous argument value and any non-Python file
+  are outside them, which is what the four named misses in Measured numbers are. A line that
+  does not parse as Python produces no finding rather than a guess.
 * **The deployed endpoint is stale.** `deploy_teardown_receipt.json` records a real probe
   performed on 2026-09-05: the endpoint answered `GET /health` with HTTP 200, but it runs
   commit `38668ad`, an ancestor of HEAD, and returns 404 for `/mcp`. Gates D2 and G2 are red
@@ -423,6 +481,75 @@ test count in the README badge from 199 to 200 and run it again. Gate G1 turns r
 * **The companion's cross-device panels were removed.** Volcan targets one track. Bee, Fire TV
   and Ring helpers remain in the codebase as local simulations reachable under
   `/api/companions`, and no device SDK is involved.
+
+---
+
+## Who would buy this, and out of which budget
+
+**This section is a commercial hypothesis, not a finding.** It names a buyer and the basis for
+asking them to pay. It contains no market size, no price, no revenue projection and no
+conversion rate, because none of those have been measured and an invented one would be worth
+less than the empty space.
+
+**The buyer.** An engineering organisation that is already obliged to meet accessibility
+requirements and already employs, or wants to employ, blind and mobility-impaired engineers.
+Two obligations create that population and are the cited basis:
+
+* **Directive (EU) 2019/882, the European Accessibility Act**, which applies from 28 June 2025
+  to products and services placed on the EU market, computer hardware and operating systems,
+  e-commerce and several other categories. Its technical requirements are met in practice
+  through the harmonised European standard **EN 301 549**, which is also what
+  **Directive (EU) 2016/2102** puts into public sector procurement.
+* **Section 508 of the US Rehabilitation Act**, which requires information and communication
+  technology developed, procured, maintained or used by US federal agencies to be accessible.
+  The Revised 508 Standards adopt WCAG 2.0 Level AA, and US federal procurement routinely asks
+  a supplier for an Accessibility Conformance Report before signing.
+
+Those two make accessibility a condition of selling and of being sold to. Volcan is not an
+audit tool and does not help anyone pass an audit. It is aimed one step behind that: the
+engineers who do the work.
+
+**The budget line.** Not a new one. The three that already exist in such organisations are
+third-party accessibility audit and report authoring engagements, assistive technology and
+workplace adjustment provision for disabled employees, and per-seat developer tooling. The
+hypothesis is that Volcan is bought out of the second or the third, because it is a tool an
+individual engineer uses to do their job, not a report anyone files.
+
+**The willingness-to-pay basis.** These organisations already pay for comparable things: paid
+screen reader licences such as JAWS alongside free ones such as NVDA, refreshable Braille
+displays as capital equipment, and consultancy days from accessibility firms. That is the
+comparison to argue from. **What they pay, and what fraction of it a tool like this could
+ask for, is not known here and is the first thing the conversations below exist to find out.**
+No figure is stated because none was measured.
+
+**The first ten to approach.** Three accessibility consultancies who both employ this
+population and sell to it, four engineering organisations with a named internal accessibility
+function, one public sector buyer on each side of the Atlantic, and two disability
+organisations who can say whether the premise is wrong:
+
+1. Deque Systems
+2. Level Access
+3. TPGi
+4. Microsoft accessibility engineering
+5. Google central accessibility
+6. GitHub accessibility
+7. UK Government Digital Service
+8. European Commission DIGIT, as an EN 301 549 procurement buyer
+9. Royal National Institute of Blind People
+10. American Foundation for the Blind
+
+The first question to all ten is not whether they would buy it. It is whether a blind engineer
+on their staff reviews agent-written patches today, and what that costs them in hours.
+
+**On whether this compounds, which it does not yet.** Volcan has real distribution and no loop.
+The MCP surface is genuine and any MCP client can mount it today, which is a way in, not a
+flywheel. Nothing here improves as more people use it: there is no shared corpus, no telemetry
+and no model trained on usage. The one honest compounding hypothesis is that regressions a user
+finds and reports become fixtures in the detection corpus, so the tool gets better at the
+mistakes real agents actually make. That is a process rather than a product loop, it has not
+been tried, and the four misses named in Measured numbers are what it would have to close
+first. A CI surface, where the digest runs on a pull request and posts the spoken summary as an
+artifact, is the obvious second distribution path and **has not been built**.
 
 ---
 

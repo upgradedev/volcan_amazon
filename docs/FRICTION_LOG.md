@@ -90,14 +90,31 @@ Accessibility is where content ordering stops being cosmetic.
 ## 4. There is no way to exercise Amazon Bedrock without credentials, so the fallback
 path is the one that gets tested
 
-**Context.** `src/infrastructure/bedrock_adapter.py` holds real boto3 code against
-`bedrock-runtime`. The build environment had no AWS credentials.
+**Context.** `src/infrastructure/bedrock_adapter.py` calls Claude on Amazon Bedrock through
+the Anthropic SDK's `AnthropicBedrockMantle` client. The build environment has no usable
+Amazon Bedrock access.
 
-**Observed behaviour.** `BedrockSynthesisAdapter.credentials_present()` returns `False`
-here, so every digest in this repository was produced by the deterministic local path.
-`curl http://127.0.0.1:8000/health` reports `"bedrock_credentials_present": false`, and
-every digest response carries `"synthesis_mode": "heuristic-local"`. The Bedrock branch has
-never run, and this repository says so in its README rather than implying otherwise.
+**Observed behaviour.** Every digest in this repository was produced by the deterministic
+local path and carries `"synthesis_mode": "heuristic-local"`. The Bedrock branch has never
+run, and this repository says so in its README rather than implying otherwise.
+
+**The part that was worse than the missing credentials.** Until 2026-09-08 the mode field
+was the only thing a reviewer got. `/health` reported `"bedrock_credentials_present": true`
+on the development machine, because boto3 resolves something from the local credential
+chain, and the companion page turned that into "AWS credentials are present, so a digest may
+be answered by Amazon Bedrock". Then every digest came back `heuristic-local` with no
+explanation, which reads as a product decision rather than a failure. The model id pinned at
+the time, `anthropic.claude-3-5-sonnet-20241022-v2:0`, was a retired snapshot and answered
+`ResourceNotFoundException`, and nothing in the codebase ever showed that string to anyone.
+The adapter had been recording the reason on itself the whole time and no caller read it.
+Every response now carries `synthesis_fallback_reason` and the page prints it beside the
+mode. Today it reads:
+
+```
+synthesis_mode: heuristic-local
+synthesis_fallback_reason: the Anthropic SDK is not installed (No module named 'anthropic');
+pip install 'anthropic[bedrock]' to reach Amazon Bedrock
+```
 
 **Friction.** Without a local emulator, the only ways to develop against Bedrock are to
 hold live credentials or to hand-write a double. Both make it easy to ship a "Bedrock
