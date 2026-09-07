@@ -90,7 +90,6 @@ the fingerprints it asserts on, so the claim is checkable in one command:
 $ python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s
 benign   | earcon DIFF_READY       | sha256[:16] 08f48648388bff02 | 19448 WAV bytes | 25932 base64 chars
 security | earcon SECURITY_FINDING | sha256[:16] 22c91bec11e275d1 | 26504 WAV bytes | 35340 base64 chars
-8 passed in 0.60s
 ```
 
 ---

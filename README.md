@@ -218,7 +218,6 @@ the other side: the review is not hard to understand, it is hard to navigate.
    $ python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s
    benign   | earcon DIFF_READY       | sha256[:16] 08f48648388bff02 | 19448 WAV bytes | 25932 base64 chars
    security | earcon SECURITY_FINDING | sha256[:16] 22c91bec11e275d1 | 26504 WAV bytes | 35340 base64 chars
-   8 passed in 0.60s
    ```
 
    Each cue also carries a `spoken_fallback` string, so a Deaf or hard-of-hearing developer
@@ -435,11 +434,12 @@ recomputes the published figures and pins that list by fixture id, so a new miss
 build and closing one of these means deleting its id from the list.
 
 The two latency figures are the single run recorded in `benchmarks_summary.json`, not a stable
-constant. The parse mean rose from 0.041 ms to 0.17 ms when the syntax-tree pass was added,
-which is the honest cost of parsing every changed line rather than scanning it. Re-run on
-2026-09-08 on the same machine it printed 0.253 ms and 2.707 ms, both slower than the figures
-this file carried before, and both published rather than re-rolled; treat the order of
-magnitude as the claim and rerun the benchmark on your own hardware.
+constant. The parse mean rose from 0.041 ms to 0.253 ms when the syntax-tree pass was added,
+which is the honest cost of parsing every changed line rather than scanning it. This file
+previously published 0.17 ms and 2.562 ms from an earlier run of the same script; re-run on
+2026-09-08 on the same machine it printed 0.253 ms and 2.707 ms. Both are slower, and both
+are published rather than re-rolled until they flattered. Treat the order of magnitude as the
+claim and rerun the benchmark on your own hardware.
 
 ---
 

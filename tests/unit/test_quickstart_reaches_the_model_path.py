@@ -84,6 +84,11 @@ def test_the_published_fallback_transcript_says_which_machine_state_produced_it(
     readme = _read("README.md")
     transcript_intro = readme.split("synthesis_fallback_reason: the Anthropic SDK", 1)[0]
     tail = transcript_intro.rsplit("Run on", 1)[-1]
-    assert "without" in tail.lower(), (
+    # The condition, not merely a word that could survive an unrelated rewrite:
+    # the transcript is only honest while it names the missing extra.
+    assert "without" in tail.lower() and "`bedrock` extra" in tail, (
         "the verbatim fallback transcript must say it was measured without the bedrock extra"
+    )
+    assert "has never been observed here" in readme, (
+        "the README must still say the model-answered outcome has not been seen here"
     )
