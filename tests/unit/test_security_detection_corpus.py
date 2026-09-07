@@ -9,6 +9,22 @@ from scripts.benchmark_suite import measure_security_detection
 from src.domain.semantic_diff import ChangeCategory, UnifiedDiffParser
 from tests.fixtures.diff_corpus import CORPUS, NEGATIVES, POSITIVES
 
+#: Positives this parser does not detect today, recorded rather than removed.
+#: Asserting an empty set here would make the corpus unable to hold a case the
+#: product has not solved, which is how a detection figure becomes decorative.
+#: A regression that misses anything else still fails these tests, and closing a
+#: gap means deleting its id from this list.
+KNOWN_MISSES = {
+    "pos-19",  # an authorization guard block deleted; no rule reads deleted blocks
+    "pos-20",  # a permission decorator removed; a bare decorator line does not parse
+    "pos-21",  # verify=False added to an outbound call; no rule reads argument values
+    "pos-22",  # an IAM policy widened in JSON; the AST rules are Python only
+}
+
+#: Negatives this parser over-flags today. Empty, and it has to stay a set the
+#: tests print rather than an assumption, so a new over-flag is named.
+KNOWN_OVER_FLAGS: set[str] = set()
+
 
 def test_corpus_is_balanced_and_labelled():
     assert len(CORPUS) == len(POSITIVES) + len(NEGATIVES)
@@ -19,26 +35,33 @@ def test_corpus_is_balanced_and_labelled():
     assert len({case.fixture_id for case in CORPUS}) == len(CORPUS)
 
 
-def test_every_positive_fixture_raises_a_security_flag():
-    missed = []
+def test_positive_fixtures_flag_except_the_recorded_misses():
+    missed = set()
     for case in POSITIVES:
         sections = UnifiedDiffParser.parse_patch(case.raw_diff)
         if not any(section.security_flags for section in sections):
-            missed.append(case.fixture_id)
-    assert missed == [], f"Security patches that produced no flag: {missed}"
+            missed.add(case.fixture_id)
+    assert missed == KNOWN_MISSES, (
+        f"newly missed: {sorted(missed - KNOWN_MISSES)}; "
+        f"now detected, delete from KNOWN_MISSES: {sorted(KNOWN_MISSES - missed)}"
+    )
 
 
 def test_no_negative_fixture_raises_a_security_flag():
-    over_flagged = []
+    over_flagged = set()
     for case in NEGATIVES:
         sections = UnifiedDiffParser.parse_patch(case.raw_diff)
         if any(section.security_flags for section in sections):
-            over_flagged.append(case.fixture_id)
-    assert over_flagged == [], f"Benign patches that were flagged: {over_flagged}"
+            over_flagged.add(case.fixture_id)
+    assert over_flagged == KNOWN_OVER_FLAGS, (
+        f"benign patches newly flagged: {sorted(over_flagged - KNOWN_OVER_FLAGS)}"
+    )
 
 
 def test_security_sensitive_patches_are_categorised_critical():
     for case in POSITIVES:
+        if case.fixture_id in KNOWN_MISSES:
+            continue
         sections = UnifiedDiffParser.parse_patch(case.raw_diff)
         flagged = [s for s in sections if s.security_flags]
         assert flagged, case.fixture_id
@@ -51,8 +74,9 @@ def test_security_sensitive_patches_are_categorised_critical():
 def test_published_detection_numbers_match_the_benchmark_script():
     """The README quotes these exact values; the benchmark script produces them."""
     measured = measure_security_detection()
-    assert measured["n_total"] == 24
-    assert measured["n_should_flag"] == 12
-    assert measured["n_should_not_flag"] == 12
-    assert measured["recall_pct"] == 100.0
+    assert measured["n_total"] == 40
+    assert measured["n_should_flag"] == 22
+    assert measured["n_should_not_flag"] == 18
+    assert measured["recall_pct"] == 81.8
     assert measured["false_positive_pct"] == 0.0
+    assert set(measured["missed_fixture_ids"]) == KNOWN_MISSES

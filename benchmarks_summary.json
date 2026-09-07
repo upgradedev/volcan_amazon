@@ -3,27 +3,32 @@
   "python_version": "3.11.0",
   "ast_diff_engine": {
     "iterations": 1000,
-    "mean_ms": 0.049,
-    "p50_ms": 0.045,
-    "p95_ms": 0.074,
-    "p99_ms": 0.104
+    "mean_ms": 0.17,
+    "p50_ms": 0.16,
+    "p95_ms": 0.215,
+    "p99_ms": 0.343
   },
   "earcon_synthesizer": {
     "iterations": 1000,
-    "mean_ms": 3.423,
-    "p50_ms": 2.76,
-    "p95_ms": 6.141,
-    "p99_ms": 8.312
+    "mean_ms": 2.562,
+    "p50_ms": 2.218,
+    "p95_ms": 4.418,
+    "p99_ms": 6.001
   },
   "security_detection": {
     "corpus_file": "tests/fixtures/diff_corpus.py",
-    "n_total": 24,
-    "n_should_flag": 12,
-    "n_should_not_flag": 12,
-    "detected": 12,
-    "recall_pct": 100.0,
+    "n_total": 40,
+    "n_should_flag": 22,
+    "n_should_not_flag": 18,
+    "detected": 18,
+    "recall_pct": 81.8,
     "false_positive_pct": 0.0,
-    "missed_fixture_ids": [],
+    "missed_fixture_ids": [
+      "pos-19",
+      "pos-20",
+      "pos-21",
+      "pos-22"
+    ],
     "false_positive_fixture_ids": []
   }
 }
