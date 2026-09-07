@@ -34,6 +34,9 @@ async def op_digest(req: DigestRequest) -> dict[str, Any]:
     return {
         "voice_summary": report.to_voice_summary(level=req.level),
         "synthesis_mode": report.synthesis_mode,
+        # Null when a model answered. Otherwise the exception, the model id and
+        # the message, so a reviewer reads why rather than guessing.
+        "synthesis_fallback_reason": report.fallback_reason,
         "total_files": report.total_files_changed,
         "insertions": report.total_insertions,
         "deletions": report.total_deletions,
@@ -62,7 +65,11 @@ async def op_drill_down(req: DrillDownRequest) -> dict[str, Any]:
         f"Significance is {sec.significance.value}. {sec.summary_spoken} "
         f"(Added {sec.added_count} lines, removed {sec.removed_count} lines)."
     )
-    if sec.security_flags:
+    if sec.security_findings:
+        spoken += " Security alert: " + " ".join(
+            f"{finding}." for finding in sec.security_findings
+        )
+    elif sec.security_flags:
         spoken += f" Security alert: Flagged for {', '.join(sec.security_flags)}."
     return {
         "spoken_text": spoken,
@@ -70,6 +77,7 @@ async def op_drill_down(req: DrillDownRequest) -> dict[str, Any]:
         "category": sec.category.value,
         "significance": sec.significance.value,
         "security_flags": sec.security_flags,
+        "security_findings": sec.security_findings,
         "earcon": {
             "type": cue.earcon_type.value,
             "spoken_fallback": cue.spoken_fallback,

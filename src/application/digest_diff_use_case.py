@@ -29,6 +29,7 @@ class DigestDiffUseCase:
                 critical_findings=[],
                 sections=[],
                 synthesis_mode="heuristic-local",
+                fallback_reason="an empty patch is answered locally; no model is called",
             )
 
         # 1. Deterministic AST & Unified patch parsing
@@ -39,10 +40,17 @@ class DigestDiffUseCase:
         total_deletions = sum(s.removed_count for s in sections)
         categories = Counter(s.category.value for s in sections)
         
+        # A finding is spoken before anything else in the digest, so it names
+        # what changed. "detected auth_token" is a keyword hit dressed up as a
+        # conclusion; the parser now supplies the sentence itself.
         critical_findings = []
         for s in sections:
-            for flag in s.security_flags:
-                critical_findings.append(f"Potential security impact in {s.file_path}: detected {flag}.")
+            if s.security_findings:
+                for finding in s.security_findings:
+                    critical_findings.append(f"In {s.file_path}, {finding}.")
+            else:
+                for flag in s.security_flags:
+                    critical_findings.append(f"Potential security impact in {s.file_path}: detected {flag}.")
 
         # 3. Enhance via Bedrock Synthesis Adapter
         enhanced_report = await self._bedrock.summarize_diff(raw_diff, sections)
@@ -57,4 +65,5 @@ class DigestDiffUseCase:
             critical_findings=critical_findings,
             sections=sections,
             synthesis_mode=enhanced_report.synthesis_mode,
+            fallback_reason=enhanced_report.fallback_reason,
         )
