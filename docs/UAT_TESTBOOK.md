@@ -35,8 +35,11 @@ would call.
 | UAT-14 | The earcon arrives as playable audio, not a description | The `audio` block decodes to a RIFF WAVE file | `tests/integration/test_mcp_conformance.py::test_play_earcon_returns_a_playable_audio_content_block` |
 | UAT-15 | The companion is reachable by keyboard alone | No click handler on a non-interactive element, every control a real button, a visible focus ring, a documented keyboard map | `tests/e2e/test_html_structure.py` |
 | UAT-16 | Results are announced to a screen reader | `aria-live` regions for digests and lease state, `role="alert"` for security findings | `tests/e2e/test_html_structure.py::test_results_are_announced_through_live_regions` |
-| UAT-17 | Reduced motion is honoured | The preference is respected in CSS and in the canvas animation | `tests/e2e/test_html_structure.py::test_reduced_motion_is_honoured_in_css_and_in_script` |
+| UAT-17 | Reduced motion is honoured | The preference is respected in CSS and in the canvas animation | `tests/e2e/test_html_structure.py::test_reduced_motion_is_honoured` |
 | UAT-18 | The companion never claims a connection it did not make | The initial state is `checking`, the state comes from a real `GET /health`, and browser-only results are tagged | `tests/e2e/test_html_structure.py::test_the_page_makes_no_connection_claim_before_a_real_fetch` |
+| UAT-19 | The earcon says which verdict the digest reached | A security-sensitive patch and a benign one return different WAV bytes: the falling `SECURITY_FINDING` cue and the rising `DIFF_READY` cue, on the REST, MCP, voice and drill-down paths alike | `tests/unit/test_earcon_encodes_the_verdict.py` |
+| UAT-20 | A benign patch does not sound the alarm | The cue stays `DIFF_READY` when there is no critical finding and no `SECURITY_SENSITIVE` section | `tests/unit/test_earcon_encodes_the_verdict.py::test_a_benign_patch_still_gets_the_rising_ready_cue` |
+| UAT-21 | The quickstart installs the model path without promising its output | The install line carries the `bedrock` extra, pyproject declares it, and the README keeps saying no model has answered here | `tests/unit/test_quickstart_reaches_the_model_path.py` |
 
 Run them all:
 
@@ -72,4 +75,4 @@ python -m pytest tests/ -v
 | Echo device dialogue | No Alexa skill exists and none was submitted | Build and certify a skill, then test on hardware |
 | Refreshable Braille display | No display was available | Verify the U+2800 stream on a Focus 40 or an Orbit Reader |
 | Sip-and-puff switch | No switch was available | Feed real pulse timings through `process_switch_pulse` |
-| Amazon Bedrock synthesis | No usable Bedrock access here; the response says why in `synthesis_fallback_reason` | `pip install 'anthropic[bedrock]'`, set credentials, rerun, confirm `synthesis_mode` reads `bedrock` and the reason is null |
+| Amazon Bedrock synthesis | No model has answered here. The quickstart now installs the client with `pip install -e ".[dev,bedrock]"`, but nobody working on this repository has AWS access that can confirm the pinned model id, and the response says why in `synthesis_fallback_reason` | Run the quickstart install with working credentials, rerun one digest, confirm `synthesis_mode` reads `bedrock` and the reason is null |

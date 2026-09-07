@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-240%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-254%20passing-brightgreen.svg)](tests/)
 
 One patch goes in. Three things a person can actually use come out.
 
@@ -46,9 +46,25 @@ Four steps. Everything they print is checkable on your own machine.
 ```bash
 git clone https://github.com/upgradedev/volcan_amazon.git
 cd volcan_amazon
-python -m pip install fastapi uvicorn pydantic httpx boto3 pytest pytest-asyncio
+python -m pip install -e ".[dev,bedrock]"
 python -m pytest tests/ -q
 ```
+
+**Install the `bedrock` extra, which is in that command.** It pulls in `anthropic[bedrock]`,
+the client that reaches Claude on Amazon Bedrock. With it installed and AWS credentials
+resolvable, the digest in step 4 is sent to a Bedrock model, and the companion page reports
+which engine answered: `Amazon Bedrock` when a model did, `local heuristic` when none did,
+with the reason printed beside it either way. Without the extra the model call cannot even
+be attempted, so the heuristic always answers and the AI in this project never runs. The
+previous quickstart installed the base dependencies only, which is why a judge following it
+exactly saw `SYNTHESIS ENGINE: local heuristic` and `the Anthropic SDK is not installed`.
+
+That path has still never answered here. See
+[Known limitations](#known-limitations): nobody working on this repository has AWS access
+that can confirm the pinned model id, so what the extra buys you is the attempt and an
+honest label on the outcome, not a promise about the outcome. `python -m pip install
+--dry-run -e ".[dev,bedrock]"` on 2026-09-08 resolved to
+`Would install anthropic-1.4.0 httpcore2-2.12.0 httpx2-2.12.0 idna-3.19 pytest-asyncio-1.4.0 starlette-0.41.3 truststore-0.10.4 volcan_amazon-0.1.0`.
 
 ### 2. Start the server
 
@@ -72,7 +88,7 @@ posts the patch to the running server, plays the WAV the server synthesized, pri
 Braille cells, and reports the round trip it measured with `performance.now()`.
 
 **Time to first result, measured on the development machine on 2026-09-08.** Step 1 reported
-`240 passed, 1 warning in 3.49s`. The server in step 2 answered its first `GET /health` with
+`254 passed, 1 warning in 5.11s`. The server in step 2 answered its first `GET /health` with
 HTTP 200 **1.5 seconds** after launch, printed by
 [`scripts/measure_cold_start.py`](scripts/measure_cold_start.py). That script launches its
 own server, so stop the one from step 2 before running it. It refuses to time a process that
@@ -132,7 +148,8 @@ answered and `"heuristic-local"` when none did, **and `synthesis_fallback_reason
 why**. The companion prints both beside the synthesis meter. An unexplained fallback is
 indistinguishable from a design decision, which is why the reason is not optional.
 
-Run against this repository on 2026-09-08 it prints, verbatim:
+Run on the development machine on 2026-09-08, **without** the `bedrock` extra the quickstart
+now installs, it prints, verbatim:
 
 ```
 synthesis_mode: heuristic-local
@@ -140,8 +157,16 @@ synthesis_fallback_reason: the Anthropic SDK is not installed (No module named '
 pip install 'anthropic[bedrock]' to reach Amazon Bedrock
 ```
 
-**No model has ever answered here, and the pinned model id is unverified.** `pip install
-'anthropic[bedrock]'` (or `pip install -e '.[bedrock]'`) installs the client. The previous
+That reason is the state of this machine, not the state of the product, and it is no longer
+the reason a judge following the quickstart will see. Reaching it at all proves credentials
+resolved, because the adapter checks the credential chain before it imports the SDK: with no
+credentials the reason reads `no AWS credentials were resolved by the boto3 credential
+chain`. With the extra installed and credentials resolving, the call is attempted and the
+reason is whatever the call returns; **that outcome has never been observed here**, so this
+README publishes no line claiming to know it.
+
+**No model has ever answered here, and the pinned model id is unverified.** The quickstart's
+`pip install -e ".[dev,bedrock]"` installs the client. The previous
 pin, `anthropic.claude-3-5-sonnet-20241022-v2:0`, is a retired snapshot on the legacy
 InvokeModel integration and answers `ResourceNotFoundException`; the new id is the documented
 current one, and nobody here has AWS access that could confirm it answers. Confirming it is an
@@ -181,10 +206,23 @@ the other side: the review is not hard to understand, it is hard to navigate.
    exists because `user.role == "admin"` and `user.role != "admin"` contain identical words,
    so no keyword matcher can tell them apart. The digest speaks findings first, and names the
    change rather than the keyword that matched.
-3. **Audio earcons as first-class results.** A pure-Python PCM WAV synthesizer produces
-   distinct cues, returned over MCP as `audio` content blocks so a client plays the sound
-   instead of reading a description of it. Each cue also carries a `spoken_fallback` string,
-   so a Deaf or hard-of-hearing developer reads what a hearing one heard.
+3. **Audio earcons as first-class results, and the cue carries the verdict.** A pure-Python
+   PCM WAV synthesizer produces distinct cues, returned over MCP as `audio` content blocks
+   so a client plays the sound instead of reading a description of it. A digest whose patch
+   carries a security finding returns the falling two-note `SECURITY_FINDING` cue; one that
+   does not returns the rising `DIFF_READY` cue, so the verdict reaches a listener before
+   the sentence does. The two payloads are different bytes, and
+   `tests/unit/test_earcon_encodes_the_verdict.py` prints and asserts the difference:
+
+   ```
+   $ python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s
+   benign   | earcon DIFF_READY       | sha256[:16] 08f48648388bff02 | 19448 WAV bytes | 25932 base64 chars
+   security | earcon SECURITY_FINDING | sha256[:16] 22c91bec11e275d1 | 26504 WAV bytes | 35340 base64 chars
+   8 passed in 0.60s
+   ```
+
+   Each cue also carries a `spoken_fallback` string, so a Deaf or hard-of-hearing developer
+   reads what a hearing one heard.
 4. **Unicode Braille output.** Renders patches and commands as Braille patterns in the U+2800
    block for a refreshable Braille display, for quiet hours, open offices and deafblind
    developers.
@@ -285,8 +323,8 @@ arguments, so the published schema cannot drift away from the code:
 
 | Tool | What it returns |
 |---|---|
-| `digest_semantic_diff` | Spoken digest, the DIFF_READY earcon as audio, and the parsed detail |
-| `drill_down_section` | Symbol-level explanation of one file section, plus an earcon |
+| `digest_semantic_diff` | Spoken digest, the earcon that encodes the verdict as audio, and the parsed detail |
+| `drill_down_section` | Symbol-level explanation of one file section, plus the earcon for that section |
 | `stage_governed_action` | An action id, a payload hash, a dry-run plan and a single-use grant |
 | `confirm_governed_action` | Release or a named refusal, plus the matching earcon |
 | `play_earcon` | A 16-bit PCM WAV as an MCP `audio` content block |
@@ -354,11 +392,12 @@ estimate unless it says ESTIMATE.
 | Metric | Baseline | Volcan | Command that prints it |
 |---|---|---|---|
 | Security-flag detection | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **81.8% recall over n=40 labelled patches**, 22 that must flag and 18 that must not, with 0% false positives | `python scripts/benchmark_suite.py` |
-| Patch parse latency, mean of 1000 runs | not measured | 0.17 ms | `python scripts/benchmark_suite.py` |
-| Earcon synthesis latency, mean of 1000 runs | not measured | 2.562 ms | `python scripts/benchmark_suite.py` |
+| Digest earcon, benign patch vs security-sensitive patch | **byte-identical until 2026-09-08**: both returned `DIFF_READY`, 19448 WAV bytes, `sha256[:16] 08f48648388bff02` | 19448 bytes `08f48648388bff02` for the benign patch, 26504 bytes `22c91bec11e275d1` for the security-sensitive one | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
+| Patch parse latency, mean of 1000 runs | not measured | 0.253 ms | `python scripts/benchmark_suite.py` |
+| Earcon synthesis latency, mean of 1000 runs | not measured | 2.707 ms | `python scripts/benchmark_suite.py` |
 | MCP protocol conformance | not applicable | **18 of 18 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 11 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 240 passing in 3.49 s | `python -m pytest tests/ -q` |
+| Automated tests | not applicable | 254 passing in 5.11 s | `python -m pytest tests/ -q` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.5 s | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 72.6 ms, measured on 2026-09-06 | the page measures and prints this itself on every run |
 
@@ -397,8 +436,10 @@ build and closing one of these means deleting its id from the list.
 
 The two latency figures are the single run recorded in `benchmarks_summary.json`, not a stable
 constant. The parse mean rose from 0.041 ms to 0.17 ms when the syntax-tree pass was added,
-which is the honest cost of parsing every changed line rather than scanning it; treat the order
-of magnitude as the claim and rerun the benchmark on your own hardware.
+which is the honest cost of parsing every changed line rather than scanning it. Re-run on
+2026-09-08 on the same machine it printed 0.253 ms and 2.707 ms, both slower than the figures
+this file carried before, and both published rather than re-rolled; treat the order of
+magnitude as the claim and rerun the benchmark on your own hardware.
 
 ---
 
@@ -414,6 +455,8 @@ of magnitude as the claim and rerun the benchmark on your own hardware.
 | The security rules catch an inverted check, and refuse a lookalike | `python -m pytest tests/unit/test_ast_security_rules.py -v` |
 | A plain `diff -u` patch is named, not called unknown_file | `python -m pytest tests/unit/test_plain_unified_diff.py -v` |
 | A fallback from Amazon Bedrock states its reason | `python -m pytest tests/unit/test_bedrock_synthesis_path.py -v` |
+| The quickstart installs the model path, and still refuses to claim it answered | `python -m pytest tests/unit/test_quickstart_reaches_the_model_path.py -v` |
+| The earcon differs between a benign and a security-sensitive patch | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
 | Nothing executes a shell command | `python -m pytest tests/unit/test_dry_run_executor.py -v` |
 | Injection payloads and grant attacks are refused | `python scripts/security_audit.py` |
 | An edited audit record is detected | `python -m pytest tests/unit/test_audit_chain.py -v` |
@@ -436,7 +479,7 @@ exits 0: `41/53 passed, 0 blocking failures, 12 externally blocked`. The excuse 
 script exits 1.
 
 To satisfy yourself that the script is capable of failing rather than decorative, change the
-test count in the README badge from 240 to 241 and run it again. Gate G1 turns red under
+test count in the README badge from 254 to 255 and run it again. Gate G1 turns red under
 `FAILED, BLOCKING`, the summary reads `1 blocking failures`, and the process exits 1.
 
 ---

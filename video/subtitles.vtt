@@ -6,7 +6,7 @@ An autonomous coding agent just wrote this patch. A sighted reviewer scans it in
 
 2
 00:00:20.000 --> 00:00:58.000
-This is Volcan, running on this machine. One button. It posts that patch to the Volcan API and gets back three things a person can use. The earcon plays first, so the verdict arrives before the sentence. Then the spoken digest, which names the security-sensitive file ahead of the line detail instead of in line order. Then the same patch as six-dot Unicode Braille cells for a refreshable display. The engine label and the round trip are read off the response, measured in this browser.
+This is Volcan, running on this machine. One button. It posts that patch to the Volcan API and gets back three things a person can use. The earcon plays first, so the verdict arrives before the sentence. This patch touches security, so the cue falls; a benign one rises. Then the spoken digest, which names the security-sensitive file ahead of the line detail instead of in line order. Then the same patch as six-dot Unicode Braille cells for a refreshable display. The engine label and the round trip are read off the response, measured in this browser.
 
 3
 00:00:58.000 --> 00:01:32.000
@@ -18,4 +18,4 @@ A high-consequence command is staged behind a single-use grant, bound by HMAC SH
 
 5
 00:02:08.000 --> 00:02:45.000
-Everything shown here is checkable in one command. 194 automated tests. Eighteen of eighteen protocol conformance checks. And a readiness script that is allowed to fail, and does: no browser driver runs in continuous integration, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.
+Everything shown here is checkable in one command. 254 automated tests. Eighteen of eighteen protocol conformance checks. And a readiness script that is allowed to fail, and does: no browser driver runs in continuous integration, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.

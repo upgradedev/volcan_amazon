@@ -20,15 +20,19 @@ field carries the turn.
 * **Spoken form the companion accepts:** "summarize my workspace diff", "what changed"
 * **Intent:** `summarize_diff`
 * **Slots:** `raw_diff` (the patch), `level` (0 executive, 1 file-by-file, 2 drill-down)
-* **Response:** spoken digest, the `DIFF_READY` earcon, the counts, the security findings,
-  and `synthesis_mode` saying whether a model or the local path produced the words
+* **Response:** spoken digest, the counts, the security findings, `synthesis_mode` saying
+  whether a model or the local path produced the words, and the earcon that carries the
+  verdict: `SECURITY_FINDING` when the patch has a critical finding or a
+  `SECURITY_SENSITIVE` section, `DIFF_READY` when it has neither. One selector,
+  `earcon_for_report` in `src/domain/sonification.py`, makes that choice for every surface
 * **Implementation:** `src/application/voice_turn_use_case.py`
 
 ### Drill into one file
 * **Spoken form:** "inspect section one", "explain the changes in auth dot py"
 * **Endpoint:** `POST /api/drill_down_section`, or MCP tool `drill_down_section`
 * **Response:** symbol-level explanation, the category, the significance, the security
-  flags, and the `DRILL_DOWN_OPENED` earcon
+  flags, and the `DRILL_DOWN_OPENED` earcon, replaced by `SECURITY_FINDING` when this
+  section is the flagged one, so the verdict survives the descent into a single file
 
 ### Stage a command
 * **Spoken form:** "stage running the unit tests"
@@ -64,6 +68,7 @@ a client that cannot play audio still says something meaningful.
 |---|---|---|
 | `AGENT_THINKING` | 440 Hz then 554 Hz | "Volcan is analyzing your workspace." |
 | `DIFF_READY` | rising 523, 659, 784 Hz | "Semantic diff digest is ready." |
+| `SECURITY_FINDING` | falling 622 Hz then 349 Hz | "Security-sensitive change in this patch." |
 | `TEST_PASSED` | 587 Hz then 880 Hz | "All test assertions passed cleanly." |
 | `TEST_FAILED` | falling 311 Hz then 220 Hz | "Test suite execution failed." |
 | `LINT_WARNING` | single 466 Hz | "Linter raised warnings." |
@@ -74,6 +79,19 @@ a client that cannot play audio still says something meaningful.
 Falling contours mean something went wrong and rising contours mean something completed.
 A listener learns the pair in one session, which is the point: the cue arrives before the
 sentence does.
+
+That only holds if the cue is a function of the result. It was not until 2026-09-08: every
+digest returned `DIFF_READY`, so a benign patch and a security-sensitive one produced
+byte-identical audio. `src/domain/sonification.py` now chooses the cue from the report, and
+`tests/unit/test_earcon_encodes_the_verdict.py` compares the two payloads. That test prints
+the fingerprints it asserts on, so the claim is checkable in one command:
+
+```
+$ python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s
+benign   | earcon DIFF_READY       | sha256[:16] 08f48648388bff02 | 19448 WAV bytes | 25932 base64 chars
+security | earcon SECURITY_FINDING | sha256[:16] 22c91bec11e275d1 | 26504 WAV bytes | 35340 base64 chars
+8 passed in 0.60s
+```
 
 ---
 

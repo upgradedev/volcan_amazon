@@ -508,6 +508,13 @@
         for a refreshable display. Every result on this page is produced by the Volcan API
         on this machine and measured while it runs.
       </p>
+      <p class="lede">
+        With <code>anthropic[bedrock]</code> installed and AWS credentials present, the
+        digest below is synthesized by a model on Amazon Bedrock. Without either, a
+        deterministic local path answers instead. This page never guesses which one ran:
+        the <b>Synthesis engine</b> meter reports the engine that answered, and prints the
+        reason beside it when no model did.
+      </p>
 
       <div class="conn" id="conn" data-state="checking" role="status" aria-live="polite">
         <span class="conn-label" id="connLabel">Checking</span>
@@ -618,7 +625,7 @@
                       aria-label="No audio cue has played yet. When one does, its amplitude is drawn here from the audio samples the server returned."></canvas>
               <div id="earconPlayer"></div>
               <p class="caption" id="earconCaption" role="status" aria-live="polite">
-                No cue yet. Volcan sends a rising cue when a digest is ready and a falling one when the patch touches security, so the verdict arrives before the sentence does.
+                No cue yet. Volcan sends a rising three-note cue, <code>DIFF_READY</code>, when a digest is ready, and a falling two-note cue, <code>SECURITY_FINDING</code>, when the patch touches security, so the verdict arrives before the sentence does. The two are different audio: switch between preset 1 and preset 3 above and this caption changes with the bytes.
               </p>
             </article>
 

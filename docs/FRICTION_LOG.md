@@ -85,6 +85,15 @@ exists.
 `presentationOrder` field, so a tool can say that a cue is meant to precede its text.
 Accessibility is where content ordering stops being cosmetic.
 
+**The part that was our own bug, not the protocol's.** The paragraph above was true about
+the ordering and false about the cue. Until 2026-09-08 every digest emitted `DIFF_READY`
+regardless of what the parser found, so a benign patch and an AST-confirmed
+security-sensitive patch returned byte-identical audio and there was no falling two-tone cue
+to arrive early or late. A protocol gap is worth reporting; shipping it as cover for a
+one-line defect in our own selection code is not. `src/domain/sonification.py` now chooses
+the cue from the report, one selector shared by the REST, MCP, voice and CLI surfaces, and
+`tests/unit/test_earcon_encodes_the_verdict.py` fails if the two payloads ever match again.
+
 ---
 
 ## 4. There is no way to exercise Amazon Bedrock without credentials, so the fallback

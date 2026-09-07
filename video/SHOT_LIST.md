@@ -23,8 +23,8 @@ exercised on Windows 11 with Python 3.11.0 on 2026-09-06.
 
 | Step | Command or action | What must be true before you record |
 |---|---|---|
-| 1 | `python -m pip install fastapi uvicorn pydantic httpx boto3 pytest pytest-asyncio` | Dependencies resolve. This is off camera. |
-| 2 | `python -m pytest tests/ -q` | Prints `194 passed`. If it does not, stop and fix that first. |
+| 1 | `python -m pip install -e ".[dev,bedrock]"` | Dependencies resolve. This is off camera. |
+| 2 | `python -m pytest tests/ -q` | Prints `254 passed`. If it does not, stop and fix that first. |
 | 3 | `python -m src.interfaces.mcp_server` | Leave it running in terminal 1, off camera. |
 | 4 | Open `http://127.0.0.1:8000/` in a fresh profile at 1280x900 | The connection strip reads **SERVER REACHED** with a real `GET /health` duration. If it reads **NO SERVER**, the recording is wrong before it starts. |
 | 5 | System audio capture on, microphone off | The earcon in beat 2 is the product speaking. It must reach the recording. |
@@ -57,17 +57,22 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
   and plays, the spoken digest fills in, the red security finding appears below the split,
   the Braille cells fill the third card, and the three meters change from `not run yet` to
   real values.
-* **Expected values:** the engine meter reads `local heuristic` with the note
-  `Reported by the server as synthesis_mode: heuristic-local`. The round trip meter reads a
-  two or three digit millisecond figure measured in that browser. It read **72.6 ms** on the
-  development machine on 2026-09-06, and it will differ on yours. Do not retake the shot to
-  get a smaller number.
-* **Hold on:** the earcon caption, which reads
-  `Cue DIFF_READY, 0.44 seconds of 16-bit PCM at 22050 Hz. Written description: Semantic
-  diff digest is ready.` It is the proof that a Deaf viewer gets the same information a
-  hearing one does.
+* **Expected values:** the engine meter reads whichever engine actually answered, and the
+  note under it repeats the raw `synthesis_mode`. On a machine with the `bedrock` extra
+  installed and AWS credentials resolving it reads `Amazon Bedrock`; without either it
+  reads `local heuristic` with `synthesis_mode: heuristic-local` and the reason beside it.
+  Record whichever one your machine produces and say so in the narration. Do not stage the
+  other. The round trip meter reads a two or three digit millisecond figure measured in
+  that browser. It read **72.6 ms** on the development machine on 2026-09-06, and it will
+  differ on yours. Do not retake the shot to get a smaller number.
+* **Hold on:** the earcon caption. The preset patch replaces a hardcoded secret with a KMS
+  lookup, so the server returns the falling security cue and the caption reads
+  `Cue SECURITY_FINDING, 0.60 seconds of 16-bit PCM at 22050 Hz. Written description:
+  Security-sensitive change in this patch.` It is the proof that a Deaf viewer gets the
+  same information a hearing one does, and that the cue is chosen from the verdict: preset
+  3, the benign parser guard, returns `Cue DIFF_READY, 0.44 seconds` instead.
 * **Cut on:** the security finding card, which reads
-  `Potential security impact in src/auth/service.py: detected auth_token.`
+  `In src/auth/service.py, text matching the auth_token keyword set appears in this change.`
 
 ## Beat 3, `beat_03_mcp_handshake`. A real MCP handshake, 58 to 92 seconds
 
@@ -105,13 +110,16 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
 
 * **Platform:** terminal 2, then back to the browser.
 * **Exact action, terminal:** run `python -m pytest tests/ -q`, then `python ci/readiness.py`.
-* **On screen:** `194 passed`, then the readiness output **scrolled to a red gate**. Do not
+* **On screen:** `254 passed`, then the readiness output **scrolled to a red gate**. Do not
   crop the failures out. The gates that were red on 2026-09-06 are the absent video, the
   absent browser-driver journey, and the deployed endpoint running an older commit.
 * **Exact action, browser:** scroll to the connection strip at the top of the page.
-* **On screen:** the sentence
-  `No AWS credentials are present here, so digests come from the local heuristic path and
-  say so.` Then the page heading.
+* **On screen:** the connection strip's credential sentence. The page prints one of two,
+  from `bedrock_credentials_present` on `/health`, and you record the one your machine
+  produces. On the development machine on 2026-09-08 boto3 resolved something from the
+  local chain, so it reads `AWS credentials resolved here. Whether a model answered is
+  reported per digest by the synthesis meter, which also prints the reason when none did.`
+  Then the page heading.
 * **Cut on:** the heading `Hear your code review instead of scrubbing a diff`.
 
 ---
@@ -122,8 +130,12 @@ Each line below is something that does not exist in this repository, so filming 
 mean staging it.
 
 * An Echo device, an Alexa wake word, or any Alexa skill screen. No skill is submitted.
-* A Bedrock console, a model id, or any response labelled `synthesis_mode: bedrock`. No
-  credentials exist here, so the heuristic path is what runs.
+* A Bedrock console, a model id, or a response labelled `synthesis_mode: bedrock` that your
+  machine did not actually produce. No model has answered from this repository: boto3
+  resolves credentials here, but the Anthropic SDK is not installed, so the call has never
+  left the process. If you install the `bedrock` extra and a model really does answer on
+  your machine, record that and say in the narration that it is the first time. Do not
+  stage the label either way.
 * A command actually executing after approval. The planner returns a plan and the audit row
   says so.
 * Any figure typed into an overlay in post-production. Every number on screen is one the

@@ -19,7 +19,7 @@
       "beat_id": "beat_02_one_button",
       "timestamp_start": 20.0,
       "timestamp_end": 58.0,
-      "narration_text": "This is Volcan, running on this machine. One button. It posts that patch to the Volcan API and gets back three things a person can use. The earcon plays first, so the verdict arrives before the sentence. Then the spoken digest, which names the security-sensitive file ahead of the line detail instead of in line order. Then the same patch as six-dot Unicode Braille cells for a refreshable display. The engine label and the round trip are read off the response, measured in this browser.",
+      "narration_text": "This is Volcan, running on this machine. One button. It posts that patch to the Volcan API and gets back three things a person can use. The earcon plays first, so the verdict arrives before the sentence. This patch touches security, so the cue falls; a benign one rises. Then the spoken digest, which names the security-sensitive file ahead of the line detail instead of in line order. Then the same patch as six-dot Unicode Braille cells for a refreshable display. The engine label and the round trip are read off the response, measured in this browser.",
       "visual_action": "Click the primary button Hear this code review on the companion page. Hold on the earcon audio while it plays, then on the spoken digest, the security finding, the Braille cells, and the three meters filling with the engine name, the measured round trip and the change size."
     },
     {
@@ -40,7 +40,7 @@
       "beat_id": "beat_05_verification",
       "timestamp_start": 128.0,
       "timestamp_end": 165.0,
-      "narration_text": "Everything shown here is checkable in one command. 194 automated tests. Eighteen of eighteen protocol conformance checks. And a readiness script that is allowed to fail, and does: no browser driver runs in continuous integration, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.",
+      "narration_text": "Everything shown here is checkable in one command. 254 automated tests. Eighteen of eighteen protocol conformance checks. And a readiness script that is allowed to fail, and does: no browser driver runs in continuous integration, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.",
       "visual_action": "Terminal running python -m pytest tests/ -q, then python ci/readiness.py scrolled to its red gates, then back to the companion page connection strip stating that no AWS credentials are present. Close on the page heading."
     }
   ]

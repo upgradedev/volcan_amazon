@@ -36,8 +36,12 @@ One patch goes in, and three things a person can use come out.
    Model Context Protocol as an `audio` content block, so a client plays the sound instead of
    reading a description of it. A falling contour means something is wrong and a rising one
    means something completed, and the cue arrives before the sentence, so the verdict lands
-   before the detail. Each cue also carries a `spoken_fallback` string, so a Deaf or
-   hard-of-hearing developer reads what a hearing one heard.
+   before the detail. A digest whose patch carries a security finding returns the falling
+   two-note `SECURITY_FINDING` cue and a digest whose patch does not returns the rising
+   `DIFF_READY` cue, as different audio rather than two labels on one waveform:
+   `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` prints both
+   payloads and fails if they are equal. Each cue also carries a `spoken_fallback` string,
+   so a Deaf or hard-of-hearing developer reads what a hearing one heard.
 3. **Braille cells**, the same patch rendered as Unicode Braille patterns in the U+2800
    block with tactile add and remove markers, with no sound at all, for quiet hours, open
    offices and deafblind developers.

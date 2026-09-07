@@ -39,8 +39,13 @@ diffs, and expects a click to confirm. Each of those assumptions excludes somebo
 
 1. **Ask.** The developer asks for a digest of the working patch, by typing or speaking in
    the companion, or by an MCP client calling `digest_semantic_diff`.
-2. **Hear the shape before the words.** A rising three-note cue means the digest is ready;
-   a falling two-note cue means a security finding is coming. The cue arrives first.
+2. **Hear the shape before the words.** A rising three-note cue, `DIFF_READY`, means the
+   digest is ready; a falling two-note cue, `SECURITY_FINDING`, means a security finding is
+   coming. The cue arrives first. It is chosen from the digest result by
+   `earcon_for_report` in `src/domain/sonification.py`, so the two are different audio and
+   not two labels on the same bytes:
+   `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` prints the WAV
+   size and hash of each and fails if they match.
 3. **Read by ear or by touch.** Level 0 is one sentence. Level 1 breaks down by file.
    Level 2 drills into lines. The same content renders as a Braille cell stream for a
    refreshable display, with no sound at all.
