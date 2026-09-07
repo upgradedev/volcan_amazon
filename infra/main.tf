@@ -59,8 +59,10 @@ resource "aws_iam_policy" "volcan_serverless_policy" {
           "bedrock:InvokeModel",
           "bedrock:InvokeModelWithResponseStream"
         ]
+        # Kept narrow on purpose: one model, named. A region-scoped inference
+        # profile is a different ARN and would have to be added here as well.
         Resource = [
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0",
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-opus-5",
           "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-micro-v1:0"
         ]
       },
