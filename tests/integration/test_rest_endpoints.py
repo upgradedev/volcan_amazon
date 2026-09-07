@@ -35,6 +35,14 @@ def test_digest_reports_which_synthesis_path_ran():
     assert data["synthesis_mode"] in {"heuristic-local", "bedrock"}
     assert len(data["earcon"]["wav_base64"]) > 50
 
+    # A mode without a reason makes a reviewer guess. Exactly one of these two
+    # states is legal: a model answered, or the response says why none did.
+    assert "synthesis_fallback_reason" in data
+    if data["synthesis_mode"] == "heuristic-local":
+        assert data["synthesis_fallback_reason"], "an unexplained fallback is not acceptable"
+    else:
+        assert data["synthesis_fallback_reason"] is None
+
 
 def test_drill_down_section():
     response = client.post("/api/drill_down_section", json={"raw_diff": SAMPLE_DIFF, "section_index": 0})

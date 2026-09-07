@@ -154,6 +154,23 @@ def test_the_synthesis_engine_is_read_from_the_response():
     )
 
 
+def test_an_unanswered_model_call_prints_its_reason_beside_the_engine():
+    """A fallback with no reason is indistinguishable from a design decision."""
+    script = script_body()
+    assert "synthesis_fallback_reason" in script, (
+        "the page must render why no model answered, not only that none did"
+    )
+    assert "meterEngineNote" in script
+
+
+def test_the_health_line_does_not_promise_a_model_answer():
+    """Credentials resolving says nothing about whether Bedrock replies."""
+    script = script_body()
+    assert "may be answered by Amazon Bedrock" not in script, (
+        "the page must not predict a model answer from the presence of credentials"
+    )
+
+
 def test_the_earcon_played_is_the_wav_the_server_returned():
     """No browser oscillator. The judge hears the product's own audio."""
     script = script_body()

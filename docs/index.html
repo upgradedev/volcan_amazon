@@ -557,7 +557,7 @@
         <dl class="meters">
           <div>
             <dt>Synthesis engine</dt>
-            <dd id="meterEngine">not run yet<span class="note" id="meterEngineNote">Read from the <code>synthesis_mode</code> field of the response.</span></dd>
+            <dd id="meterEngine">not run yet<span class="note" id="meterEngineNote">Read from the <code>synthesis_mode</code> field of the response, together with <code>synthesis_fallback_reason</code> when no model answered.</span></dd>
           </div>
           <div>
             <dt>Round trip measured here</dt>
@@ -875,9 +875,14 @@
         State.apiBase = base;
         State.live = true;
         var mcp = (health.mcp && health.mcp.protocol_version) || "unknown";
+        // Resolving credentials says nothing about whether a model answers.
+        // Only the digest response knows that, so this line points at the
+        // synthesis meter instead of predicting what it will say.
         var engine = health.bedrock_credentials_present
-          ? "AWS credentials are present, so a digest may be answered by Amazon Bedrock."
-          : "No AWS credentials are present here, so digests come from the local heuristic path and say so.";
+          ? "AWS credentials resolved here. Whether a model answered is reported per digest by "
+            + "the synthesis meter, which also prints the reason when none did."
+          : "No AWS credentials resolved here, so digests come from the local heuristic path "
+            + "and the synthesis meter says so.";
         setConnection("live", "Server reached",
           "GET " + base + "/health answered HTTP " + response.status + " in "
           + elapsed.toFixed(1) + " ms. MCP revision " + mcp + " is served at " + base
@@ -1131,8 +1136,15 @@
 
         $("meterEngine").firstChild.nodeValue =
           digest.data.synthesis_mode === "bedrock" ? "Amazon Bedrock" : "local heuristic";
-        $("meterEngineNote").textContent =
+        // A mode on its own leaves a reviewer guessing why the model did not
+        // answer. The server reports the reason; this prints it verbatim.
+        var engineNote =
           "Reported by the server as synthesis_mode: " + digest.data.synthesis_mode + ".";
+        if (digest.data.synthesis_fallback_reason) {
+          engineNote += " No model answered, because: "
+            + digest.data.synthesis_fallback_reason + ".";
+        }
+        $("meterEngineNote").textContent = engineNote;
         $("meterLatency").firstChild.nodeValue = digest.elapsedMs.toFixed(1) + " ms";
         $("meterChange").firstChild.nodeValue = plural(digest.data.total_files, "file")
           + "   +" + digest.data.insertions + " -" + digest.data.deletions;
