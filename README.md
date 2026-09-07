@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-238%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-240%20passing-brightgreen.svg)](tests/)
 
 One patch goes in. Three things a person can actually use come out.
 
@@ -72,16 +72,16 @@ posts the patch to the running server, plays the WAV the server synthesized, pri
 Braille cells, and reports the round trip it measured with `performance.now()`.
 
 **Time to first result, measured on the development machine on 2026-09-08.** Step 1 reported
-`238 passed, 1 warning in 4.61s`. The server in step 2 answered its first `GET /health` with
-HTTP 200 **1.6 seconds** after launch, printed by
+`240 passed, 1 warning in 3.49s`. The server in step 2 answered its first `GET /health` with
+HTTP 200 **1.5 seconds** after launch, printed by
 [`scripts/measure_cold_start.py`](scripts/measure_cold_start.py). That script launches its
 own server, so stop the one from step 2 before running it. It refuses to time a process that
 was already warm, and says so rather than printing a figure it cannot stand behind. Step 3
 printed
 `18/18 checks passed, 0 failed`. The first digest round trip in step 4 was **72.6 ms** in
-Chrome at 1280x900, and the page prints that figure for itself on every run rather than
-taking it from this file. The `pip install` step depends on your network and is not measured
-here.
+Chrome at 1280x900, measured on 2026-09-06 and not re-measured since, because it needs a
+browser and the page prints the figure for itself on every run rather than taking it from
+this file. The `pip install` step depends on your network and is not measured here.
 
 Requires Python 3.11 or newer. The repository is private until the submission window opens,
 so `git clone` works for an account with access and otherwise starts from the submitted
@@ -358,7 +358,7 @@ estimate unless it says ESTIMATE.
 | Earcon synthesis latency, mean of 1000 runs | not measured | 2.562 ms | `python scripts/benchmark_suite.py` |
 | MCP protocol conformance | not applicable | **18 of 18 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 11 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 238 passing in 4.61 s | `python -m pytest tests/ -q` |
+| Automated tests | not applicable | 240 passing in 3.49 s | `python -m pytest tests/ -q` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.5 s | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 72.6 ms, measured on 2026-09-06 | the page measures and prints this itself on every run |
 
@@ -436,7 +436,7 @@ exits 0: `41/53 passed, 0 blocking failures, 12 externally blocked`. The excuse 
 script exits 1.
 
 To satisfy yourself that the script is capable of failing rather than decorative, change the
-test count in the README badge from 238 to 239 and run it again. Gate G1 turns red under
+test count in the README badge from 240 to 241 and run it again. Gate G1 turns red under
 `FAILED, BLOCKING`, the summary reads `1 blocking failures`, and the process exits 1.
 
 ---

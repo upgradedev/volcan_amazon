@@ -112,3 +112,36 @@ def test_a_deleted_file_is_named_from_its_removal_header():
 
 def test_text_that_is_not_a_patch_still_produces_no_section():
     assert UnifiedDiffParser.parse_patch("just some prose about a change") == []
+
+
+def test_a_commit_preamble_is_not_read_as_a_nameless_file():
+    """`git format-patch` and `git show` put prose above the first header."""
+    patch = (
+        "commit 38668ad6c16d\n"
+        "Author: someone <s@example.com>\n\n"
+        "    tighten the admin route\n\n"
+        "--- a stray line of prose that opens like a header\n"
+        "diff --git a/src/api/admin.py b/src/api/admin.py\n"
+        "index 111..222 100644\n"
+        "--- a/src/api/admin.py\n"
+        "+++ b/src/api/admin.py\n"
+        "@@ -1,2 +1,2 @@\n"
+        "-x = 1\n"
+        "+x = 2\n"
+    )
+    sections = UnifiedDiffParser.parse_patch(patch)
+    assert [s.file_path for s in sections] == ["src/api/admin.py"]
+    assert [(s.added_count, s.removed_count) for s in sections] == [(1, 1)]
+
+
+def test_a_rename_is_named_by_its_new_path():
+    patch = (
+        "diff --git a/src/old.py b/src/new.py\n"
+        "similarity index 90%\n"
+        "--- a/src/old.py\n"
+        "+++ b/src/new.py\n"
+        "@@ -1,2 +1,2 @@\n"
+        "-y = 1\n"
+        "+y = 2\n"
+    )
+    assert UnifiedDiffParser.parse_patch(patch)[0].file_path == "src/new.py"
