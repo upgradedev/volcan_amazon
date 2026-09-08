@@ -122,13 +122,20 @@ covered. We deleted all of it. The page now shows a real result or an honest emp
 * **Governance that refuses its own author.** An agent principal presenting a valid grant for
   its own proposal is refused with `AGENT_MAY_NOT_APPROVE`, and each refusal path has its own
   test.
-* **100% detection recall over n=24 hand-labelled patches**, twelve that must raise a
-  security flag and twelve that must not, with 0% false positives, against a baseline of 0%
+* **81.8% detection recall over n=40 hand-labelled patches**, twenty-two that must raise a
+  security flag and eighteen that must not, with 0% false positives, against a baseline of 0%
   because a screen reader reading raw patch text surfaces no security categorisation at all.
   Printed by `python scripts/benchmark_suite.py`, recomputed by
   `tests/unit/test_security_detection_corpus.py`, measured over the corpus in
   `tests/fixtures/diff_corpus.py`. It measures behaviour on those fixtures and is not a claim
   about any real repository.
+
+  The figure was 100% over n=24 while the corpus contained only patches the rules already
+  handled. Four positives were then added *because* nothing here detects them, and the
+  README names all four: a deleted authorization guard block, a removed permission
+  decorator, `verify=False` added to an outbound call, and an IAM policy widened in JSON.
+  Recall fell to 81.8% and became worth reading. The four are pinned by fixture id, so a new
+  miss fails the build and closing one means deleting its id from the list.
 
 ---
 
