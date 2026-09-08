@@ -119,10 +119,14 @@ HTTP 200 **1.4 seconds** after launch, printed by
 own server, so stop the one from step 2 before running it. It refuses to time a process that
 was already warm, and says so rather than printing a figure it cannot stand behind. Step 3
 printed
-`21/21 checks passed, 0 failed`. The first digest round trip in step 4 was **72.6 ms** in
-Chrome at 1280x900, measured on 2026-09-06 and not re-measured since, because it needs a
-browser and the page prints the figure for itself on every run rather than taking it from
-this file. The `pip install` step depends on your network and is not measured here.
+`21/21 checks passed, 0 failed`. The first digest round trip in step 4 was **117.2 ms** in
+Chrome at 1440x900 on 2026-09-08, on a machine that was also running the test suite; three
+further presses of the same button on the same page read 80.5 ms, 42.9 ms and 58.7 ms. The
+first press is the slow one and it is the one quoted, because that is the press a judge makes.
+An earlier round published 72.6 ms at 1280x900 on 2026-09-06; today's first press was worse
+and today's is what is printed. The page measures this itself with `performance.now()` on
+every run and takes no figure from this file. The `pip install` step depends on your network
+and is not measured here.
 
 Requires Python 3.11 or newer. The repository is private until the submission window opens,
 so `git clone` works for an account with access and otherwise starts from the submitted
@@ -464,7 +468,7 @@ estimate unless it says ESTIMATE.
 | Tools advertised by `tools/list` | not applicable | 11 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Automated tests | not applicable | 280 passing, 4.74 s on the last of four runs that day (8.77, 5.06, 5.22, 4.74) | `python -m pytest tests/ -q` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.4 s | `python scripts/measure_cold_start.py` |
-| First digest round trip, browser to server and back | not applicable | 72.6 ms, measured on 2026-09-06 | the page measures and prints this itself on every run |
+| First digest round trip, browser to server and back | not applicable | 117.2 ms on the first press, then 80.5, 42.9 and 58.7 ms, Chrome at 1440x900 on 2026-09-08 | the page measures and prints this itself on every run |
 
 The cold start figure comes from
 [`scripts/measure_cold_start.py`](scripts/measure_cold_start.py), which launches the server as

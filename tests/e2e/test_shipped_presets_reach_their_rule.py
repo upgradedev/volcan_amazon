@@ -101,19 +101,35 @@ def implemented_rule_ids() -> set[str]:
 
     Reading the ids here rather than repeating them means a fourth rule added
     tomorrow without a preset to demonstrate it turns this file red.
+
+    Both call shapes are read, positional and ``rule_id=``, and a construction
+    this cannot read raises rather than being skipped. A silently shrinking set
+    would let the very drift this test exists to catch pass unnoticed.
     """
     with open(RULES_PATH, "r", encoding="utf-8") as handle:
         tree = ast.parse(handle.read())
+
     ids = set()
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
-        name = node.func.id if isinstance(node.func, ast.Name) else None
-        if name != "AstFinding" or not node.args:
+        if not (isinstance(node.func, ast.Name) and node.func.id == "AstFinding"):
             continue
-        first = node.args[0]
-        if isinstance(first, ast.Constant) and isinstance(first.value, str):
-            ids.add(first.value)
+
+        found = None
+        if node.args:
+            found = node.args[0]
+        else:
+            for keyword in node.keywords:
+                if keyword.arg == "rule_id":
+                    found = keyword.value
+        if not (isinstance(found, ast.Constant) and isinstance(found.value, str)):
+            raise AssertionError(
+                f"AstFinding is constructed at line {node.lineno} of "
+                "ast_security_rules.py in a shape this test cannot read, so its "
+                "rule id would silently escape the coverage check below"
+            )
+        ids.add(found.value)
     return ids
 
 

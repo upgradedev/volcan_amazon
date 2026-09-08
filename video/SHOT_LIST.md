@@ -65,8 +65,9 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
   reads `local heuristic` with `synthesis_mode: heuristic-local` and the reason beside it.
   Record whichever one your machine produces and say so in the narration. Do not stage the
   other. The round trip meter reads a two or three digit millisecond figure measured in
-  that browser. It read **72.6 ms** on the development machine on 2026-09-06, and it will
-  differ on yours. Do not retake the shot to get a smaller number.
+  that browser. On 2026-09-08 the first press read **117.2 ms** on the development machine
+  and three later presses read 80.5, 42.9 and 58.7 ms, and it will differ on yours. Record
+  the first press. Do not retake the shot to get a smaller number.
 * **Hold on:** the earcon caption. The preset patch inverts an authorization comparison, so
   the server returns the falling security cue and the caption reads
   `Cue SECURITY_FINDING, 0.60 seconds of 16-bit PCM at 22050 Hz. Written description:
