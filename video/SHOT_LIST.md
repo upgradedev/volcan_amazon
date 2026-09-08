@@ -24,7 +24,7 @@ exercised on Windows 11 with Python 3.11.0 on 2026-09-06.
 | Step | Command or action | What must be true before you record |
 |---|---|---|
 | 1 | `python -m pip install -e ".[dev,bedrock]"` | Dependencies resolve. This is off camera. |
-| 2 | `python -m pytest tests/ -q` | Prints `254 passed`. If it does not, stop and fix that first. |
+| 2 | `python -m pytest tests/ -q` | Prints `280 passed`. If it does not, stop and fix that first. |
 | 3 | `python -m src.interfaces.mcp_server` | Leave it running in terminal 1, off camera. |
 | 4 | Open `http://127.0.0.1:8000/` in a fresh profile at 1280x900 | The connection strip reads **SERVER REACHED** with a real `GET /health` duration. If it reads **NO SERVER**, the recording is wrong before it starts. |
 | 5 | System audio capture on, microphone off | The earcon in beat 2 is the product speaking. It must reach the recording. |
@@ -39,8 +39,10 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
 * **Platform:** browser, companion page, plus the operating system screen reader.
 * **Exact action:** focus the patch box with <kbd>Alt</kbd>+<kbd>2</kbd> and let the screen
   reader read the raw unified diff aloud from the top. Do not speed it up.
-* **On screen:** the `Auth change` preset patch in the left column, the screen reader cursor
-  moving character by character through `@@ -14,7 +14,9 @@` and the plus and minus signs.
+* **On screen:** the `Inverted admin check` preset patch in the left column, the one the page
+  loads on first paint, with the screen reader cursor moving character by character through
+  `@@ -12,7 +12,7 @@ def can_delete_workspace(user, workspace):` and the plus and minus
+  signs.
 * **Audio:** the screen reader only. No narration over the first four seconds of it.
 * **Why it is safe to record:** the preset is loaded by the page itself on first paint, and
   the screen reader is the viewer's own, not a simulation of one.
@@ -65,14 +67,17 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
   other. The round trip meter reads a two or three digit millisecond figure measured in
   that browser. It read **72.6 ms** on the development machine on 2026-09-06, and it will
   differ on yours. Do not retake the shot to get a smaller number.
-* **Hold on:** the earcon caption. The preset patch replaces a hardcoded secret with a KMS
-  lookup, so the server returns the falling security cue and the caption reads
+* **Hold on:** the earcon caption. The preset patch inverts an authorization comparison, so
+  the server returns the falling security cue and the caption reads
   `Cue SECURITY_FINDING, 0.60 seconds of 16-bit PCM at 22050 Hz. Written description:
   Security-sensitive change in this patch.` It is the proof that a Deaf viewer gets the
   same information a hearing one does, and that the cue is chosen from the verdict: preset
-  3, the benign parser guard, returns `Cue DIFF_READY, 0.44 seconds` instead.
+  4, the labelled clean control, returns `Cue DIFF_READY, 0.44 seconds` instead. Both
+  captions were produced by the running server on 2026-09-08.
 * **Cut on:** the security finding card, which reads
-  `In src/auth/service.py, text matching the auth_token keyword set appears in this change.`
+  `In src/auth/permissions.py, an authorization comparison was inverted: user.role == 'admin'
+  became user.role != 'admin'.` That sentence is the whole argument of the project: the words
+  on both sides of the change are identical, so nothing that matches keywords can produce it.
 
 ## Beat 3, `beat_03_mcp_handshake`. A real MCP handshake, 58 to 92 seconds
 
@@ -110,16 +115,19 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
 
 * **Platform:** terminal 2, then back to the browser.
 * **Exact action, terminal:** run `python -m pytest tests/ -q`, then `python ci/readiness.py`.
-* **On screen:** `254 passed`, then the readiness output **scrolled to a red gate**. Do not
-  crop the failures out. The gates that were red on 2026-09-06 are the absent video, the
-  absent browser-driver journey, and the deployed endpoint running an older commit.
+* **On screen:** `280 passed`, then the readiness output **scrolled to a red gate**. Do not
+  crop the failures out. The gates that were red on 2026-09-08 are the absent video and its
+  sync check, the absent browser-driver journey, the deployed endpoint running an older
+  commit, and three actions only the owner can perform.
 * **Exact action, browser:** scroll to the connection strip at the top of the page.
-* **On screen:** the connection strip's credential sentence. The page prints one of two,
-  from `bedrock_credentials_present` on `/health`, and you record the one your machine
-  produces. On the development machine on 2026-09-08 boto3 resolved something from the
-  local chain, so it reads `AWS credentials resolved here. Whether a model answered is
-  reported per digest by the synthesis meter, which also prints the reason when none did.`
-  Then the page heading.
+* **On screen:** the connection strip's model path sentence. The page prints whatever the
+  server resolved into the single `bedrock_model_path.resolved_capability` field on
+  `/health`, and you record the one your machine produces. On the development machine on
+  2026-09-08 credentials resolved from the local boto3 chain while the Anthropic SDK was
+  absent, so it reads `Model path: unavailable_sdk_not_installed. Credentials resolved, but
+  anthropic is not importable, so no call can leave this process. Install it with: pip
+  install 'anthropic[bedrock]'.` Do not read that as bad news on camera: it is the beat
+  where the project says what it has not done. Then the page heading.
 * **Cut on:** the heading `Hear your code review instead of scrubbing a diff`.
 
 ---

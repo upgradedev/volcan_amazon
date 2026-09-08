@@ -1,6 +1,6 @@
 1
 00:00:00,000 --> 00:00:20,000
-An autonomous coding agent just wrote this patch. A sighted reviewer scans it in seconds. A screen reader reads it one plus sign, one minus sign and one hunk header at a time, so the single line that changes an authentication check sounds exactly like everything around it.
+An autonomous coding agent just wrote this patch. A sighted reviewer scans it in seconds. A screen reader reads it one plus sign, one minus sign and one hunk header at a time, so the single line that flips an authorization check sounds exactly like everything around it.
 
 2
 00:00:20,000 --> 00:00:58,000
@@ -16,4 +16,4 @@ A high-consequence command is staged behind a single-use grant, bound by HMAC SH
 
 5
 00:02:08,000 --> 00:02:45,000
-Everything shown here is checkable in one command. 254 automated tests. Eighteen of eighteen protocol conformance checks. And a readiness script that is allowed to fail, and does: no browser driver runs in continuous integration, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.
+Everything shown here is checkable in one command. 280 automated tests. Twenty-one of twenty-one protocol conformance checks. And a readiness script that is allowed to fail, and does: no browser driver runs in continuous integration, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.

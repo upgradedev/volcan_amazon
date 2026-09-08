@@ -12,7 +12,7 @@
       "beat_id": "beat_01_hook",
       "timestamp_start": 0.0,
       "timestamp_end": 20.0,
-      "narration_text": "An autonomous coding agent just wrote this patch. A sighted reviewer scans it in seconds. A screen reader reads it one plus sign, one minus sign and one hunk header at a time, so the single line that changes an authentication check sounds exactly like everything around it.",
+      "narration_text": "An autonomous coding agent just wrote this patch. A sighted reviewer scans it in seconds. A screen reader reads it one plus sign, one minus sign and one hunk header at a time, so the single line that flips an authorization check sounds exactly like everything around it.",
       "visual_action": "Screen recording of a screen reader reading the raw unified diff in the textarea of the companion page at http://127.0.0.1:8000/, with the reader's own speech as the only audio."
     },
     {
@@ -40,8 +40,8 @@
       "beat_id": "beat_05_verification",
       "timestamp_start": 128.0,
       "timestamp_end": 165.0,
-      "narration_text": "Everything shown here is checkable in one command. 254 automated tests. Eighteen of eighteen protocol conformance checks. And a readiness script that is allowed to fail, and does: no browser driver runs in continuous integration, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.",
-      "visual_action": "Terminal running python -m pytest tests/ -q, then python ci/readiness.py scrolled to its red gates, then back to the companion page connection strip stating that no AWS credentials are present. Close on the page heading."
+      "narration_text": "Everything shown here is checkable in one command. 280 automated tests. Twenty-one of twenty-one protocol conformance checks. And a readiness script that is allowed to fail, and does: no browser driver runs in continuous integration, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.",
+      "visual_action": "Terminal running python -m pytest tests/ -q, then python ci/readiness.py scrolled to its red gates, then back to the companion page connection strip stating the resolved model path the server reported, which on the development machine reads unavailable_sdk_not_installed. Close on the page heading."
     }
   ]
 }

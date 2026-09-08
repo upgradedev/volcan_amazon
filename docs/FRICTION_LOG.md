@@ -125,11 +125,30 @@ synthesis_fallback_reason: the Anthropic SDK is not installed (No module named '
 pip install 'anthropic[bedrock]' to reach Amazon Bedrock
 ```
 
+**The second half of the same mistake, corrected on 2026-09-08.** Naming the reason fixed the
+digest and left the health check wrong. `/health` still published
+`"bedrock_credentials_present": true` as a top-level field, and a reviewer reasonably read
+that as "the model path is available here". It was not: credentials resolved and the SDK was
+absent, so no call could be attempted at all, and the two facts were being published one at a
+time. `/health` now publishes a single `bedrock_model_path.resolved_capability` computed from
+both, reading `unavailable_sdk_not_installed` on this machine, with the credential and SDK
+booleans underneath it as the evidence rather than as the headline. The general shape of the
+error is worth naming: a status endpoint that reports one input to a decision, rather than the
+decision, will be read as reporting the decision.
+
 **Friction.** Without a local emulator, the only ways to develop against Bedrock are to
 hold live credentials or to hand-write a double. Both make it easy to ship a "Bedrock
 integration" that has never once called Bedrock, which is a failure mode a reviewer cannot
 see from the outside. The mitigation Volcan uses is a labelled mode field in every response
 payload, so which path ran is visible in the data rather than inferred from the code.
+
+There is a sharper edge to this than a missing convenience. Confirming the integration on this
+machine would have meant installing the SDK where credentials already resolve, and the very
+next digest would have fired a real, billed call against an account whose owner had not been
+asked. The cheapest possible proof that an integration works costs somebody money and needs
+somebody's consent, so the honest option left is to ship the path untested and say so. That is
+what this repository did, and it is why the Bedrock receipt is an owner action with a written
+command rather than a screenshot.
 
 **Recommendation.** Ship a local Bedrock emulator, or a documented offline mode of the SDK
 that returns fixed responses and is impossible to mistake for the real service. A

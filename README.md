@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-254%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-280%20passing-brightgreen.svg)](tests/)
 
 One patch goes in. Three things a person can actually use come out.
 
@@ -87,14 +87,39 @@ Open `http://127.0.0.1:8000/` and press **Hear this code review**, or press
 posts the patch to the running server, plays the WAV the server synthesized, prints the
 Braille cells, and reports the round trip it measured with `performance.now()`.
 
+**The patch already in the box is the point of the product.** It inverts an authorization
+comparison, and the words on both sides of that change are identical, so no keyword matcher
+can see it. Volcan answers `an authorization comparison was inverted: user.role == 'admin'
+became user.role != 'admin'` and sounds the falling `SECURITY_FINDING` cue. Three more chips
+sit beside it: one per syntax-tree rule, plus a labelled clean control where the right answer
+is no finding at all and the rising `DIFF_READY` cue. Every chip's label quotes the sentence
+the server will produce, and
+[`tests/e2e/test_shipped_presets_reach_their_rule.py`](tests/e2e/test_shipped_presets_reach_their_rule.py)
+runs each shipped preset through the production parser and fails the build if a label and its
+rule ever separate. Until 2026-09-08 they had: the first preset removed a hardcoded secret,
+which is a security *improvement*, and the other two produced no finding at all, so the first
+press showed the weakest output the product can give. All four were pressed against a running
+server on 2026-09-08:
+
+```
+preset 1: cue=SECURITY_FINDING
+   finding: In src/auth/permissions.py, an authorization comparison was inverted: user.role == 'admin' became user.role != 'admin'.
+preset 2: cue=SECURITY_FINDING
+   finding: In src/api/app.py, a cross-origin policy was widened to accept any origin: allow_origins = ['*'].
+preset 3: cue=SECURITY_FINDING
+   finding: In src/webhooks/receiver.py, the call verify_signature(payload, request.headers['X-Signature']) was removed and nothing replaced it.
+preset 4: cue=DIFF_READY
+   voice: Changes are mostly business logic. Modified 1 file with 3 additions and 1 deletion.
+```
+
 **Time to first result, measured on the development machine on 2026-09-08.** Step 1 reported
-`254 passed, 1 warning in 5.11s`. The server in step 2 answered its first `GET /health` with
-HTTP 200 **1.5 seconds** after launch, printed by
+`280 passed, 1 warning in 4.74s`. Four runs on the same machine that day took 8.77 s, 5.06 s, 5.22 s and 4.74 s, the first of them on a cold bytecode cache, so the count is the claim here and the duration is not. The server in step 2 answered its first `GET /health` with
+HTTP 200 **1.4 seconds** after launch, printed by
 [`scripts/measure_cold_start.py`](scripts/measure_cold_start.py). That script launches its
 own server, so stop the one from step 2 before running it. It refuses to time a process that
 was already warm, and says so rather than printing a figure it cannot stand behind. Step 3
 printed
-`18/18 checks passed, 0 failed`. The first digest round trip in step 4 was **72.6 ms** in
+`21/21 checks passed, 0 failed`. The first digest round trip in step 4 was **72.6 ms** in
 Chrome at 1280x900, measured on 2026-09-06 and not re-measured since, because it needs a
 browser and the page prints the figure for itself on every run rather than taking it from
 this file. The `pip install` step depends on your network and is not measured here.
@@ -132,7 +157,7 @@ written by hand to revision **2025-11-25** over the **Streamable HTTP** transpor
 negotiation, a tool catalog whose JSON Schemas are generated from the code that parses the
 arguments, and MCP audio content blocks carrying the synthesized earcons.
 `python scripts/mcp_conformance.py` runs a full client handshake against a running server
-and prints a pass or fail line for each of its 18 conformance checks.
+and prints a pass or fail line for each of its 21 conformance checks.
 
 **Simulated, and labelled as such everywhere it appears.** The voice experience is a web
 companion, not an Alexa skill. There is no Alexa skill package in this repository, no skill
@@ -343,6 +368,36 @@ response; `notifications/initialized` returns HTTP 202 with no body; JSON-RPC er
 the allowlist is rejected while an absent `Origin` is allowed so non-browser clients work;
 and `PUT /mcp` returns 405 with an `Allow` header.
 
+**On the version header, two things a reviewer should know.**
+
+*It is refused, not assumed.* The transport specification permits a server that receives no
+`MCP-Protocol-Version` header to fall back to assuming the older `2025-03-26` revision. This
+server refuses instead, because assuming lets a client and a server disagree about the
+revision they are speaking while both believe the handshake succeeded, and that disagreement
+surfaces later and somewhere else. It is a deliberate deviation and this is where it is
+written down. `POST` answers `-32600` inside a JSON-RPC envelope; `GET` and `DELETE` carry no
+envelope, so they answer HTTP 400 with the same sentence.
+
+*A review round reported that a `tools/list` carrying a valid session but no version header
+returned HTTP 200 with an empty tools array.* **That did not reproduce here.** It was re-run on
+2026-09-08 against a server started for the purpose, and both the session-present and
+session-absent requests were refused identically:
+
+```
+tools/list  session YES, version header NO -> 200 {"jsonrpc":"2.0","id":2,"error":{"code":-32600,"message":"Missing MCP-Protocol-Version header; it is required on every request after initialize.","data":{"expected":"2025-11-25"}}}
+tools/list  session NO,  version header NO -> 200 {"jsonrpc":"2.0","id":3,"error":{"code":-32600,"message":"Missing MCP-Protocol-Version header; it is required on every request after initialize.","data":{"expected":"2025-11-25"}}}
+tools/list  session YES, version header YES -> 200 tools: 11
+```
+
+`tests/integration/test_mcp_conformance.py::test_a_valid_session_never_excuses_a_missing_protocol_version`
+now pins both halves and additionally asserts that no `result` member is present, because the
+dangerous shape of that failure is not an error but a plausible-looking answer. What the same
+investigation *did* find is that `GET /mcp` and `DELETE /mcp` accepted a request with no
+version header at all: the stream opened with HTTP 200 and the session terminated with HTTP
+204. The README already claimed the header was required on every request, and two verbs were
+not keeping that promise. All three verbs now enforce one rule from one function, and the
+conformance script checks each of them.
+
 The REST surface at `/api` is ordinary JSON over HTTP for the web companion. It is not MCP
 and is not described as MCP anywhere in this repository.
 
@@ -368,6 +423,17 @@ Four rules the page keeps, each enforced by
   starts one, and distinguishes "no server answered" from "the server answered and the call
   still failed", because those need different next steps.
 
+A fifth rule joined them on 2026-09-08: **the preset chips have to reach the rules the page
+exists to demonstrate.** Four chips ship, three of them one per syntax-tree rule and the
+fourth a labelled clean control, and each chip's `title` quotes the sentence the server will
+say back.
+[`tests/e2e/test_shipped_presets_reach_their_rule.py`](tests/e2e/test_shipped_presets_reach_their_rule.py)
+lifts the patches straight out of the page, runs them through the production parser, and fails
+if a chip promises a sentence the server no longer produces, if the control stops being
+silent, or if a rule is added to `src/domain/ast_security_rules.py` with no preset to show it.
+That last one works by reading the rule ids out of the module's own syntax tree rather than
+from a list kept by hand here.
+
 The **Run a real MCP handshake** button performs `initialize`, `notifications/initialized`
 and `tools/list` against `POST /mcp` in the browser, then renders the negotiated protocol
 version, the session id taken off the response header, and each published `inputSchema`.
@@ -392,12 +458,12 @@ estimate unless it says ESTIMATE.
 |---|---|---|---|
 | Security-flag detection | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **81.8% recall over n=40 labelled patches**, 22 that must flag and 18 that must not, with 0% false positives | `python scripts/benchmark_suite.py` |
 | Digest earcon, benign patch vs security-sensitive patch | **byte-identical until 2026-09-08**: both returned `DIFF_READY`, 19448 WAV bytes, `sha256[:16] 08f48648388bff02` | 19448 bytes `08f48648388bff02` for the benign patch, 26504 bytes `22c91bec11e275d1` for the security-sensitive one | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
-| Patch parse latency, mean of 1000 runs | not measured | 0.253 ms | `python scripts/benchmark_suite.py` |
-| Earcon synthesis latency, mean of 1000 runs | not measured | 2.707 ms | `python scripts/benchmark_suite.py` |
-| MCP protocol conformance | not applicable | **18 of 18 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
+| Patch parse latency, mean of 1000 runs | not measured | 0.209 ms | `python scripts/benchmark_suite.py` |
+| Earcon synthesis latency, mean of 1000 runs | not measured | 2.966 ms | `python scripts/benchmark_suite.py` |
+| MCP protocol conformance | not applicable | **21 of 21 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 11 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 254 passing in 5.11 s | `python -m pytest tests/ -q` |
-| Cold start to the first HTTP 200 on `/health` | not applicable | 1.5 s | `python scripts/measure_cold_start.py` |
+| Automated tests | not applicable | 280 passing, 4.74 s on the last of four runs that day (8.77, 5.06, 5.22, 4.74) | `python -m pytest tests/ -q` |
+| Cold start to the first HTTP 200 on `/health` | not applicable | 1.4 s | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 72.6 ms, measured on 2026-09-06 | the page measures and prints this itself on every run |
 
 The cold start figure comes from
@@ -434,12 +500,13 @@ recomputes the published figures and pins that list by fixture id, so a new miss
 build and closing one of these means deleting its id from the list.
 
 The two latency figures are the single run recorded in `benchmarks_summary.json`, not a stable
-constant. The parse mean rose from 0.041 ms to 0.253 ms when the syntax-tree pass was added,
-which is the honest cost of parsing every changed line rather than scanning it. This file
-previously published 0.17 ms and 2.562 ms from an earlier run of the same script; re-run on
-2026-09-08 on the same machine it printed 0.253 ms and 2.707 ms. Both are slower, and both
-are published rather than re-rolled until they flattered. Treat the order of magnitude as the
-claim and rerun the benchmark on your own hardware.
+constant. The parse mean rose from 0.041 ms to roughly a fifth of a millisecond when the
+syntax-tree pass was added, which is the honest cost of parsing every changed line rather than
+scanning it. Three successive runs of the same script on the same machine printed 0.17 ms,
+0.253 ms and now 0.209 ms for the parse, and 2.562 ms, 2.707 ms and now 2.966 ms for the
+earcon. Each figure replaced the one before it rather than being re-rolled until it flattered,
+and the spread between them is the reason the table is worth less than the command beside it.
+Treat the order of magnitude as the claim and rerun the benchmark on your own hardware.
 
 ---
 
@@ -479,7 +546,7 @@ exits 0: `41/53 passed, 0 blocking failures, 12 externally blocked`. The excuse 
 script exits 1.
 
 To satisfy yourself that the script is capable of failing rather than decorative, change the
-test count in the README badge from 254 to 255 and run it again. Gate G1 turns red under
+test count in the README badge from 280 to 281 and run it again. Gate G1 turns red under
 `FAILED, BLOCKING`, the summary reads `1 blocking failures`, and the process exits 1.
 
 ---
@@ -492,17 +559,55 @@ test count in the README badge from 254 to 255 and run it again. Gate G1 turns r
 * **No browser-driver end-to-end test.** `tests/e2e` parses the companion DOM and asserts its
   structure, its accessibility and its four honesty rules; it does not drive a real browser,
   because no browser driver is vendored here. Gate C5 records that as a failure.
-* **Bedrock has never answered here, and the pinned model id is unverified.** Every digest
-  produced in this repository came from the local heuristic path, labelled
-  `synthesis_mode: heuristic-local` with the reason printed beside it. On the development
-  machine `/health` reports `bedrock_credentials_present: true`, because boto3 resolves
-  something from the local credential chain; that says nothing about whether a model answers,
-  which is the whole reason the reason field exists. The Anthropic SDK is not installed here,
-  so the call has never left the process. Nobody working on this repository has AWS access
-  that could confirm `anthropic.claude-opus-5` answers on Bedrock, so **it has not been
-  confirmed**. Recording a successful Bedrock transcript is an owner action: install
-  `anthropic[bedrock]`, run one digest with working credentials, and check that the response
-  reads `synthesis_mode: bedrock` with a null reason.
+* **The model-backed path is implemented, shape-tested and has never executed here.** Every
+  digest produced in this repository came from the local heuristic path, labelled
+  `synthesis_mode: heuristic-local` with the reason printed beside it. The client call in
+  [`src/infrastructure/bedrock_adapter.py`](src/infrastructure/bedrock_adapter.py) is real
+  code, and its response handling is covered by
+  [`tests/unit/test_bedrock_synthesis_path.py`](tests/unit/test_bedrock_synthesis_path.py)
+  against a stub, so the *shape* of a Bedrock answer is tested and the *answer* is not. No
+  call has ever left this process, so `anthropic.claude-opus-5` on Bedrock is **unconfirmed**.
+
+  `/health` used to publish `bedrock_credentials_present: true` on this machine, which was
+  true and misleading: boto3 resolves something from the local credential chain, while the
+  Anthropic SDK is absent, so no call could be attempted at all. It now publishes one resolved
+  capability computed from both facts, with the evidence underneath it. Measured here on
+  2026-09-08:
+
+  ```json
+  "bedrock_model_path": {
+    "resolved_capability": "unavailable_sdk_not_installed",
+    "detail": "Credentials resolved, but anthropic is not importable, so no call can leave this process. Install it with: pip install 'anthropic[bedrock]'.",
+    "credentials_present": true,
+    "sdk_installed": false,
+    "model_id": "anthropic.claude-opus-5",
+    "region": "us-east-1"
+  }
+  ```
+
+  Even `ready_to_attempt` promises an attempt and not an answer; only `synthesis_mode` on a
+  digest reports what happened, and
+  [`tests/unit/test_health_reports_the_resolved_model_path.py`](tests/unit/test_health_reports_the_resolved_model_path.py)
+  drives all four combinations and fails the build on a health line that predicts a model
+  answer.
+
+  **Producing a Bedrock receipt is an owner action, deliberately left undone.** Installing the
+  SDK on a machine whose credentials resolve would fire a real, billed call against the
+  owner's AWS account without their say-so, so nobody working on this repository has done it.
+  The owner can, in one terminal:
+
+  ```bash
+  python -m pip install -e ".[dev,bedrock]"
+  python -m src.interfaces.mcp_server &
+  curl -s http://127.0.0.1:8000/health | python -m json.tool     # expect ready_to_attempt
+  curl -s -X POST http://127.0.0.1:8000/api/digest_semantic_diff \
+       -H "Content-Type: application/json" \
+       -d '{"raw_diff":"diff --git a/p.py b/p.py\n--- a/p.py\n+++ b/p.py\n@@ -1 +1 @@\n-    return user.role == \"admin\"\n+    return user.role != \"admin\"\n","level":0}' \
+       | python -c "import json,sys; d=json.load(sys.stdin); print(d['synthesis_mode'], '|', d['synthesis_fallback_reason'])"
+  ```
+
+  A receipt is that last line reading `bedrock | None`. Anything else prints the reason the
+  model did not answer, which is the outcome this repository has recorded every time.
 * **The syntax-tree security rules cover three change classes and Python only.** An inverted
   authorization comparison, a widened cross-origin policy, and a removed verification call. A
   deleted guard block, a removed decorator, a dangerous argument value and any non-Python file
@@ -534,9 +639,19 @@ asking them to pay. It contains no market size, no price, no revenue projection 
 conversion rate, because none of those have been measured and an invented one would be worth
 less than the empty space.
 
-**The buyer.** An engineering organisation that is already obliged to meet accessibility
-requirements and already employs, or wants to employ, blind and mobility-impaired engineers.
-Two obligations create that population and are the cited basis:
+**The user is not the buyer, and this section is about the buyer.** The user is the blind or
+mobility-impaired engineer who reviews agent-written patches by ear. That person almost never
+holds a budget. The person who does is the **enterprise accessibility compliance owner**: the
+accessibility programme manager, the director of accessibility engineering, or wherever a
+given organisation has parked responsibility for conformance and for workplace adjustments.
+They already sign off remediation work, already answer procurement questionnaires, and already
+own the line that pays for what disabled employees need in order to work. They are who a first
+conversation is with; the engineer is who has to want the tool afterwards, and a no from the
+engineer ends it regardless of the budget.
+
+**The organisation.** One that is already obliged to meet accessibility requirements and
+already employs, or wants to employ, blind and mobility-impaired engineers. Two obligations
+create that population and are the cited basis:
 
 * **Directive (EU) 2019/882, the European Accessibility Act**, which applies from 28 June 2025
   to products and services placed on the EU market, computer hardware and operating systems,
@@ -552,23 +667,47 @@ Those two make accessibility a condition of selling and of being sold to. Volcan
 audit tool and does not help anyone pass an audit. It is aimed one step behind that: the
 engineers who do the work.
 
-**The budget line.** Not a new one. The three that already exist in such organisations are
-third-party accessibility audit and report authoring engagements, assistive technology and
-workplace adjustment provision for disabled employees, and per-seat developer tooling. The
-hypothesis is that Volcan is bought out of the second or the third, because it is a tool an
-individual engineer uses to do their job, not a report anyone files.
+**The budget line.** Not a new one, and specifically the one the compliance owner already
+signs: **accessibility remediation and conformance spend**, the money set aside to close
+findings against ADA / WCAG 2.1 AA, Section 508 and EN 301 549, and the assistive technology
+and workplace adjustment provision that sits beside it for disabled employees. Two adjacent
+lines could also carry it: third-party audit and Accessibility Conformance Report authoring
+engagements, and per-seat developer tooling. The hypothesis is the first, because that is the
+line with a named owner, an annual figure and an existing obligation behind it, while per-seat
+developer tooling is bought by an engineering manager who has no obligation to satisfy.
 
-**The willingness-to-pay basis.** These organisations already pay for comparable things: paid
-screen reader licences such as JAWS alongside free ones such as NVDA, refreshable Braille
-displays as capital equipment, and consultancy days from accessibility firms. That is the
-comparison to argue from. **What they pay, and what fraction of it a tool like this could
-ask for, is not known here and is the first thing the conversations below exist to find out.**
-No figure is stated because none was measured.
+**Where that hypothesis is weakest, stated rather than smoothed over.** Remediation budgets pay
+to fix the accessibility of *the product being shipped*. Volcan makes the *work of building it*
+accessible to a disabled engineer, and it produces no Accessibility Conformance Report, closes
+no audit finding, and would not appear in a VPAT. Selling into a conformance budget therefore
+requires the buyer to accept that employing and retaining blind engineers is part of the same
+programme as conforming. Many accessibility owners hold exactly that view and some do not, and
+which is more common is not known here. If that argument fails, the fallback is the
+workplace adjustment line, which is smaller and per-employee.
 
-**The first ten to approach.** Three accessibility consultancies who both employ this
-population and sell to it, four engineering organisations with a named internal accessibility
-function, one public sector buyer on each side of the Atlantic, and two disability
-organisations who can say whether the premise is wrong:
+**The willingness-to-pay basis.** These organisations already pay for close comparables, and
+each of these vendors publishes its own pricing publicly, which is where the comparison should
+be argued from rather than from anything asserted here:
+
+* **Freedom Scientific's published pricing for the JAWS screen reader**, the paid product this
+  population already licenses alongside the free NVDA.
+* **Refreshable Braille display pricing published by HumanWare and by Freedom Scientific**,
+  which these employers already buy as capital equipment for the same engineers.
+* **Deque's published pricing for axe DevTools**, the closest thing to a per-seat accessibility
+  tool bought for developers rather than for auditors.
+
+**No figure from any of those pages is restated here, and none has been used to derive
+anything.** What such an organisation actually pays, and what fraction of it a tool like this
+could ask for, is not known here, and finding out is the first purpose of the conversations
+below. There is no price, no market size, no revenue projection and no conversion rate in this
+section for the same reason.
+
+**The first ten to approach. None of these has been contacted.** Nothing below is a pipeline,
+a lead, a warm introduction or a conversation in progress; it is a target list written from the
+outside, and it may well be wrong about who cares. Three accessibility consultancies who both
+employ this population and sell to it, four engineering organisations with a named internal
+accessibility function, one public sector buyer on each side of the Atlantic, and two
+disability organisations who can say whether the premise is wrong:
 
 1. Deque Systems
 2. Level Access
@@ -582,7 +721,9 @@ organisations who can say whether the premise is wrong:
 10. American Foundation for the Blind
 
 The first question to all ten is not whether they would buy it. It is whether a blind engineer
-on their staff reviews agent-written patches today, and what that costs them in hours.
+on their staff reviews agent-written patches today, and what that costs them in hours. The
+second is which budget line they would reach for, because the paragraph above is a guess and
+they are the only people who can correct it.
 
 **On whether this compounds, which it does not yet.** Volcan has real distribution and no loop.
 The MCP surface is genuine and any MCP client can mount it today, which is a way in, not a

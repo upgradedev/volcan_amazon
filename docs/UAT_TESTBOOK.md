@@ -40,6 +40,9 @@ would call.
 | UAT-19 | The earcon says which verdict the digest reached | A security-sensitive patch and a benign one return different WAV bytes: the falling `SECURITY_FINDING` cue and the rising `DIFF_READY` cue, on the REST, MCP, voice and drill-down paths alike | `tests/unit/test_earcon_encodes_the_verdict.py` |
 | UAT-20 | A benign patch does not sound the alarm | The cue stays `DIFF_READY` when there is no critical finding and no `SECURITY_SENSITIVE` section | `tests/unit/test_earcon_encodes_the_verdict.py::test_a_benign_patch_still_gets_the_rising_ready_cue` |
 | UAT-21 | The quickstart installs the model path without promising its output | The install line carries the `bedrock` extra, pyproject declares it, and the README keeps saying no model has answered here | `tests/unit/test_quickstart_reaches_the_model_path.py` |
+| UAT-22 | Every preset the demo ships reaches the rule its label promises | Each of the four shipped patches is lifted out of `docs/index.html`, run through the production parser, and produces exactly the rule its chip names; the control produces none; and no rule ships without a preset | `tests/e2e/test_shipped_presets_reach_their_rule.py` |
+| UAT-23 | A request missing the protocol version header is refused whether or not it holds a session | Both requests return `-32600` with the same message, neither carries a `result` member, and `GET` and `DELETE` refuse with HTTP 400 | `tests/integration/test_mcp_conformance.py::test_a_valid_session_never_excuses_a_missing_protocol_version` |
+| UAT-24 | `/health` never implies a model will answer | The resolved capability is the conjunction of credentials and SDK presence, the ready state promises an attempt rather than an answer, and detecting the SDK does not import it | `tests/unit/test_health_reports_the_resolved_model_path.py` |
 
 Run them all:
 
@@ -53,17 +56,27 @@ python -m pytest tests/ -v
 
 **Precondition:** `python -m src.interfaces.mcp_server` is running on `127.0.0.1:8000`.
 
-1. Run `python scripts/mcp_conformance.py`. Expect 18 of 18 checks to pass.
-2. Open `http://127.0.0.1:8000/`. The banner must read **LIVE SERVER** and quote the HTTP
-   status it actually received.
+1. Run `python scripts/mcp_conformance.py`. Expect 21 of 21 checks to pass. On 2026-09-08 it
+   printed `SUMMARY: 21/21 checks passed, 0 failed`.
+2. Open `http://127.0.0.1:8000/`. The connection banner must read **Server reached** and quote
+   the HTTP status and the round trip it actually measured, plus the resolved model path the
+   server reported. On this machine that line reads `unavailable_sdk_not_installed`.
 3. Press Tab once. The **Skip to main content** link must appear with a visible focus ring.
-4. Tab to **Speak level 0 digest** and press Enter. A chime plays, the digest is spoken,
-   and the digest panel names the synthesis mode that produced it.
-5. Select **Stage action**. A lease countdown starts and a grant beginning `v1.` appears.
-6. Select **Approve with grant**. The result must say the command was planned and that
+4. Press **Hear this code review** without changing the patch. The preset loaded on first
+   paint is the inverted authorization check, so the falling `SECURITY_FINDING` cue plays and
+   the finding reads *an authorization comparison was inverted: user.role == 'admin' became
+   user.role != 'admin'*. The synthesis meter names the engine that answered and, when no
+   model did, prints the reason beside it.
+5. Press **Clean change, no finding**, then **Hear this code review** again. The cue must
+   change to the rising `DIFF_READY` and the findings panel must stay empty. That pair is the
+   demonstration that the detector can refuse.
+6. Select **Stage an action**. A lease countdown starts and a grant beginning `v1.` appears.
+7. Select **Approve with the grant**. The result must say the command was planned and that
    nothing was executed.
-7. Stop the server and reload the page. The banner must change to **SIMULATED** and every
-   result must carry the SIMULATED tag.
+8. Stop the server and reload the page. The banner must change to **No server**, and every
+   panel must print the command that starts one rather than a result. Nothing on this page
+   falls back to a browser reimplementation, so no result appears at all until a server
+   answers.
 
 ---
 
@@ -75,4 +88,4 @@ python -m pytest tests/ -v
 | Echo device dialogue | No Alexa skill exists and none was submitted | Build and certify a skill, then test on hardware |
 | Refreshable Braille display | No display was available | Verify the U+2800 stream on a Focus 40 or an Orbit Reader |
 | Sip-and-puff switch | No switch was available | Feed real pulse timings through `process_switch_pulse` |
-| Amazon Bedrock synthesis | No model has answered here. The quickstart now installs the client with `pip install -e ".[dev,bedrock]"`, but nobody working on this repository has AWS access that can confirm the pinned model id, and the response says why in `synthesis_fallback_reason` | Run the quickstart install with working credentials, rerun one digest, confirm `synthesis_mode` reads `bedrock` and the reason is null |
+| Amazon Bedrock synthesis | The path is implemented and shape-tested against a stub, and has never executed. The quickstart installs the client with `pip install -e ".[dev,bedrock]"`, but nobody working on this repository has AWS access that can confirm the pinned model id, and installing the SDK where credentials resolve would fire a real billed call against an account without its owner's say-so. `/health` reports the resolved capability, `unavailable_sdk_not_installed` here, and every digest says why in `synthesis_fallback_reason` | Run the quickstart install with working credentials, rerun one digest, confirm `synthesis_mode` reads `bedrock` and the reason is null. The exact command is in the README's Known limitations |

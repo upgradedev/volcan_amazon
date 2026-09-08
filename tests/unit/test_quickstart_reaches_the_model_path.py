@@ -69,8 +69,45 @@ def test_the_readme_still_refuses_to_claim_a_model_answered_here():
     readme = _read("README.md")
     assert "No model has ever answered here" in readme
     assert "the pinned model id is unverified" in readme
-    assert "Bedrock has never answered here" in readme, (
-        "the Known limitations entry must survive the quickstart change"
+
+    # The Known limitations entry has to keep its teeth wherever it is worded
+    # from, so this reads the section rather than one fixed sentence.
+    limitations = readme.split("## Known limitations", 1)[1].split("\n## ", 1)[0]
+    assert "has never executed here" in limitations, (
+        "Known limitations must still say the model-backed path has never run here"
+    )
+    assert "unconfirmed" in limitations, (
+        "Known limitations must still say the pinned model id is unconfirmed"
+    )
+
+
+def test_the_owner_is_given_the_exact_command_that_would_produce_a_receipt():
+    """"Never executed" is only useful beside the way to change it.
+
+    A limitation with no route out of it reads as an excuse. The entry has to
+    carry the commands an owner with AWS access can run, and it has to say what
+    a receipt looks like, so the claim is falsifiable by somebody other than us.
+    """
+    limitations = _read("README.md").split("## Known limitations", 1)[1].split("\n## ", 1)[0]
+    assert 'pip install -e ".[dev,bedrock]"' in limitations, (
+        "the receipt procedure must name the install that reaches the model path"
+    )
+    assert "/api/digest_semantic_diff" in limitations, (
+        "the receipt procedure must name the call that would exercise it"
+    )
+    assert "synthesis_mode" in limitations and "bedrock | None" in limitations, (
+        "the entry must say what a successful receipt actually reads"
+    )
+
+
+def test_the_readme_states_why_the_receipt_was_not_produced_here():
+    """Not "we forgot". Running it would have spent somebody else's money."""
+    limitations = _read("README.md").split("## Known limitations", 1)[1].split("\n## ", 1)[0]
+    assert "billed" in limitations, (
+        "the entry must say that producing a receipt fires a real billed call"
+    )
+    assert "owner action" in limitations.lower(), (
+        "the entry must say whose action it is"
     )
 
 

@@ -48,9 +48,21 @@ One patch goes in, and three things a person can use come out.
 
 Around those three renderings:
 
-* **Security flags come before comprehension.** A deterministic pass catches authentication,
-  cryptographic, database and process-execution changes, and names them ahead of the line
-  detail rather than in line order.
+* **Security flags come before comprehension, and they say what changed.** Two deterministic
+  passes run. A keyword pass catches authentication, cryptographic, database and
+  process-execution vocabulary. A syntax-tree pass then compares the added and removed lines
+  as parsed Python and reports what the change *did*: an authorization comparison inverted, a
+  cross-origin policy widened to any origin, a verification call deleted and not replaced.
+  The second pass exists because `user.role == "admin"` and `user.role != "admin"` contain
+  identical words, so no keyword matcher can tell them apart, and the finding is spoken ahead
+  of the line detail rather than in line order.
+* **The demo's own buttons reach those rules.** The companion page ships four preset patches:
+  one per syntax-tree rule, plus a labelled clean control where the right answer is no finding
+  and the rising cue. Each chip's label quotes the sentence the server will say back, and
+  `tests/e2e/test_shipped_presets_reach_their_rule.py` runs every shipped preset through the
+  production parser and fails the build if a label and its rule separate, or if a rule ships
+  with no preset to demonstrate it. Until 2026-09-08 the presets triggered no syntax-tree rule
+  at all, so the first press showed the weakest output the product can give.
 * **High-consequence commands are staged behind a single-use grant.** The grant is bound by
   HMAC-SHA256 to the action id, the command's payload hash and an expiry. An agent cannot
   release its own proposal. Volcan plans the command and never executes it.
@@ -156,7 +168,7 @@ those defects became build failures instead of things to remember.
 
 **Live, and checkable in one command.** The MCP server. Start it with
 `python -m src.interfaces.mcp_server` and run
-`python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` to watch 18 of 18 protocol
+`python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` to watch 21 of 21 protocol
 checks pass. The companion page performs the same `initialize` and `tools/list` handshake in
 the browser and renders the negotiated protocol version, the session id from the response
 header and every published tool schema.
@@ -169,11 +181,21 @@ a real `GET /health` on load and reports what actually answered.
 
 **Real code that has not run here.** Amazon Bedrock. The adapter calls Claude on Amazon
 Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client, pinned to
-`anthropic.claude-opus-5`. No model has answered in this environment, so every digest in this
+`anthropic.claude-opus-5`. The path is implemented and shape-tested against a stub, and it
+has never executed: no model has answered in this environment, so every digest in this
 repository came from the local heuristic path, labelled `synthesis_mode: heuristic-local` in
 the response and on the page **together with `synthesis_fallback_reason`, which names the
 exception, the model id and the message**. The pinned model id has not been confirmed to
-answer, because nobody working on this repository has AWS access that could confirm it.
+answer, because nobody working on this repository has AWS access that could confirm it, and
+installing the SDK on a machine whose credentials resolve would fire a real billed call
+against an account without its owner's say-so.
+
+`/health` used to publish `bedrock_credentials_present: true` here, which was true and
+misleading: credentials resolve on this machine while the SDK is absent, so no call could be
+attempted at all. It now publishes one resolved capability computed from both facts, reading
+`unavailable_sdk_not_installed` on 2026-09-08, with the credential and SDK booleans underneath
+it as the evidence. The README carries the exact command an owner can run to produce a Bedrock
+receipt themselves.
 
 **Never executed.** No file under `src/` imports or calls `subprocess`, `os.system`, `eval`,
 `exec` or any process spawn. `tests/unit/test_no_execution_in_source_tree.py` walks every
@@ -187,6 +209,40 @@ E4 report red until footage exists.
 **Stale.** A deployed AWS endpoint answers `GET /health`, but it runs an ancestor commit and
 returns 404 for `/mcp`. `deploy_teardown_receipt.json` records that probe, and gates D2 and
 G2 are red for it. Run the server locally to exercise the MCP surface.
+
+---
+
+## Who would buy this, and out of which budget
+
+**A commercial hypothesis, not a finding.** No market size, no price, no revenue projection
+and no conversion rate appears here, because none has been measured.
+
+**The user is not the buyer.** The user is the blind or mobility-impaired engineer who reviews
+agent-written patches by ear. The budget holder is the **enterprise accessibility compliance
+owner**: the accessibility programme manager or director of accessibility engineering who
+already signs off remediation work, answers procurement questionnaires and owns the line that
+pays for what disabled employees need in order to work.
+
+**The budget line already exists.** Accessibility remediation and conformance spend, the money
+set aside against ADA / WCAG 2.1 AA, Section 508 and EN 301 549, together with the assistive
+technology and workplace adjustment provision beside it. **Where that is weakest:** remediation
+budgets pay to fix the accessibility of the product being shipped, and Volcan makes the work of
+building it accessible instead. It produces no Accessibility Conformance Report and closes no
+audit finding, so the sale needs the buyer to treat employing blind engineers as part of the
+same programme as conforming. The fallback is the workplace adjustment line, which is smaller.
+
+**The willingness-to-pay basis** is what these organisations already pay for the closest
+comparables, each of which the vendor publishes publicly: Freedom Scientific's pricing for the
+JAWS screen reader, refreshable Braille display pricing from HumanWare and Freedom Scientific,
+and Deque's pricing for axe DevTools. No figure from any of those pages is restated here and
+none has been used to derive anything.
+
+**The first ten to approach have not been contacted.** Deque Systems, Level Access, TPGi,
+Microsoft accessibility engineering, Google central accessibility, GitHub accessibility, the
+UK Government Digital Service, European Commission DIGIT, the Royal National Institute of Blind
+People and the American Foundation for the Blind. Nothing there is a pipeline or a warm
+introduction; it is a target list written from the outside. The full section, including what
+does and does not compound, is in the README.
 
 ---
 
