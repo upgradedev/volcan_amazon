@@ -6,11 +6,59 @@
 > Alexa+ integration would map onto, together with the API each turn calls.
 
 The companion at `docs/index.html` implements the same turns using the browser's Web Speech
-API. It labels itself SIMULATED whenever no Volcan server answers.
+API: `SpeechRecognition` for input where the browser exposes it, with a typed twin for every
+command, and `speechSynthesis` for output. Its header carries the label **Not an Alexa skill**
+above the fold at all times, and it prints the command that starts a server whenever none
+answers.
 
 ---
 
-## 1. Turns the product actually implements
+## 0. The review dialogue, one turn at a time
+
+The journey a blind developer needs from start to finish is a conversation, not a summary, and
+it is implemented as one state machine per session in `src/domain/review_dialogue.py` with the
+grammar in `src/domain/review_grammar.py`. Both surfaces reach it with a transcript:
+`POST /api/review/turn` and the MCP tool `review_dialogue_turn`. What comes back, in order, is
+the **readback** (`Understood: next line.` or `Corrected, previous.`), the **answer**, the
+**earcon** when the turn has one, and the machine-readable detail: state, focus, the current
+line with its old and new numbers, the speech rate, and on `confirm` the review outcome.
+
+| State | How you get there | What you can do |
+|---|---|---|
+| `IDLE` | Before anything is open | `open <url>`, `open the patch`, `help` |
+| `OVERVIEW` | `open`, `summary`, `file by file`, `findings` | Focus a file by name or number, `next`, `previous` |
+| `FILE` | `what changed in auth.py`, `file 2`, `next`, `previous` | `read the lines`, `line 14`, `next`, `previous` |
+| `LINES` | `read the lines`, `line 14` | `next line`, `previous line`, `next hunk`, `spell that`, `repeat` |
+| `CONFIRM_REVIEW` | `request changes: <comment>` after a pull request is open | `confirm` or `cancel`; every navigation is refused until one is said |
+| `RECORDED`, `SUBMITTED`, `REFUSED` | `confirm`, as the server resolved it | Anything from `OVERVIEW`; `where am I` reports the last outcome |
+
+Three properties hold in every state and each has a test in `tests/unit/test_review_dialogue.py`:
+the readback precedes the action; `no, I said <command>` restores the state before the
+misheard command and applies the meant one, without undoing a `slower` or `faster`; and
+`stop` is silent and changes nothing. The design rule behind the readback is that a
+misheard command is cheap when the listener hears it a second before its consequence, and
+expensive after.
+
+The review itself is a governed action. `request changes` mints a single-use HMAC grant bound
+to the repository, the pull request number, the head commit and the SHA-256 of the comment,
+with a 300 second lease. `confirm` presents it; the server checks custody (the human who said
+confirm is the approver, the dialogue is the staging principal), verifies the grant, re-reads
+the live head commit and refuses with `STALE_HEAD` if it moved, and then either records the
+exact request (the default, `RECORDED`), sends it when the server runs with
+`VOLCAN_GITHUB_WRITE=1` and a `GITHUB_TOKEN` (`SUBMITTED`), or reports GitHub's refusal
+(`REFUSED`, `UNAUTHORIZED` for a token without `pull_requests: write`). The earcon says which:
+`DRY_RUN_RECORDED` is two level notes, deliberately unlike the rising `ACTION_COMMITTED`,
+because a listener who cannot see the page has only the cue to tell "sent" from "would have
+sent".
+
+**What a microphone changes, and what it does not.** Nothing in the machine knows whether a
+transcript came from `SpeechRecognition` or from a keyboard. That is why the whole dialogue is
+proven with injected transcripts and why the page keeps a typed path for every command: the
+recogniser's accuracy is the browser vendor's, and the readback is the product's answer to it.
+
+---
+
+## 1. Turns the product also implements
 
 Each turn below is handled by `voice_turn` on both surfaces: `POST /api/voice_turn` on the
 REST surface and `tools/call` with `name: "voice_turn"` on the MCP surface. The `intent`
@@ -75,6 +123,7 @@ a client that cannot play audio still says something meaningful.
 | `GOVERNANCE_CHALLENGE` | 659, 523, 659 Hz | "Voice authorization required for this action." |
 | `ACTION_COMMITTED` | rising 440, 880, 1175 Hz | "Action executed successfully." |
 | `DRILL_DOWN_OPENED` | 523 Hz then 784 Hz | "Inspecting symbol details." |
+| `DRY_RUN_RECORDED` | two level notes, 494 Hz then 494 Hz | "Recorded and not sent." |
 
 Falling contours mean something went wrong and rising contours mean something completed.
 A listener learns the pair in one session, which is the point: the cue arrives before the

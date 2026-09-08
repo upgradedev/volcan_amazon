@@ -33,7 +33,7 @@ the two files and then fails because there is no picture to compare the narratio
 |---|---|---|
 | `beat_01_hook` | A screen reader working through a raw patch character by character | Companion page and the operating system screen reader |
 | `beat_02_one_button` | **Hear this code review** pressed by keyboard: the earcon plays, the digest and the security finding fill in, the Braille cells render, the meters report the engine and the measured round trip | Companion page |
-| `beat_03_mcp_handshake` | **Run a real MCP handshake** rendering the negotiated version, the session id and the eleven tool schemas, then `python scripts/mcp_conformance.py` in a terminal | Companion page, then terminal |
+| `beat_03_mcp_handshake` | **Run a real MCP handshake** rendering the negotiated version, the session id and the twelve tool schemas, then `python scripts/mcp_conformance.py` in a terminal | Companion page, then terminal |
 | `beat_04_governance` | Stage, then approve, ending on the line that says nothing was executed and on the audit row that says the same | Companion page, then terminal |
 | `beat_05_verification` | `python -m pytest tests/ -q` and `python ci/readiness.py` including the gates that are red | Terminal, then back to the page |
 

@@ -5,35 +5,46 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-280%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-421%20passing-brightgreen.svg)](tests/)
 
-One patch goes in. Three things a person can actually use come out.
+One pull request goes in. Three things a person can actually use come out, and one governed
+action goes back.
 
 ```mermaid
 flowchart LR
-    P["Unified patch<br/>what a screen reader reads<br/>one plus sign at a time"]
+    P["Pull request or unified patch<br/>what a screen reader reads<br/>one plus sign at a time"]
 
     V(("Volcan"))
 
-    S["1. Spoken digest<br/>one sentence, security named first<br/>counts agree with their nouns"]
+    S["1. Spoken digest and dialogue<br/>security named first, exact lines on request<br/>every turn reads back what it understood"]
     E["2. Earcon<br/>16-bit PCM WAV<br/>the verdict lands before the words"]
-    B["3. Braille cells<br/>Unicode U+2800<br/>silent, for a refreshable display"]
+    B["3. Braille cells<br/>eight-dot code fidelity, Unicode U+2800<br/>one cell per symbol, lossless"]
+    R["4. Request changes review<br/>bound to the reviewed head commit<br/>dry-run by default, recorded not sent"]
 
     P --> V
     V --> S
     V --> E
     V --> B
+    V --> R
 
     style P fill:#f4ece4,stroke:#8a6b4f,color:#1b120c
     style V fill:#b03509,stroke:#b03509,color:#ffffff
     style S fill:#fff3e0,stroke:#8f4300,color:#1b120c
     style E fill:#ffe9db,stroke:#b03509,color:#1b120c
     style B fill:#efe7ff,stroke:#5b21b6,color:#1b120c
+    style R fill:#e8f5ec,stroke:#14652f,color:#1b120c
 ```
 
-The same three renderings reach a Model Context Protocol client as text and `audio`
-content blocks, and reach a browser through the companion page at
-[`docs/index.html`](docs/index.html).
+The three renderings reach a Model Context Protocol client as text and `audio` content
+blocks, and reach a browser through the companion page at [`docs/index.html`](docs/index.html).
+The fourth is the journey the product exists for: a blind developer opens a real pull request
+by URL (a live, unauthenticated GitHub read), converses about the change, hears the exact
+numbered source lines, corrects a misheard command, and submits a `REQUEST_CHANGES` review
+bound to the commit that was reviewed. That review is **dry-run by default**: the server
+re-reads the head commit, records the exact request it would send, and sends nothing unless
+its owner starts it with `VOLCAN_GITHUB_WRITE=1` and a `GITHUB_TOKEN`. The voice loop is the
+browser's own speech recognition and synthesis with a typed twin for every command, and it is
+labelled on the page as a simulated voice experience, not an Alexa skill.
 
 ---
 
@@ -113,7 +124,10 @@ preset 4: cue=DIFF_READY
 ```
 
 **Time to first result, measured on the development machine on 2026-09-08.** Step 1 reported
-`280 passed, 1 warning in 4.74s`. Four runs on the same machine that day took 8.77 s, 5.06 s, 5.22 s and 4.74 s, the first of them on a cold bytecode cache, so the count is the claim here and the duration is not. The server in step 2 answered its first `GET /health` with
+`421 passed, 1 warning in 5.00s` on the run that closed this round; the run before it, with
+one more test still red, took 7.00 s, and earlier runs that day with a smaller suite took 8.77
+s, 5.06 s, 5.22 s and 4.74 s, so the count is the claim here and the duration is not. The
+server in step 2 answered its first `GET /health` with
 HTTP 200 **1.4 seconds** after launch, printed by
 [`scripts/measure_cold_start.py`](scripts/measure_cold_start.py). That script launches its
 own server, so stop the one from step 2 before running it. It refuses to time a process that
@@ -127,6 +141,21 @@ An earlier round published 72.6 ms at 1280x900 on 2026-09-06; today's first pres
 and today's is what is printed. The page measures this itself with `performance.now()` on
 every run and takes no figure from this file. The `pip install` step depends on your network
 and is not measured here.
+
+### 5. Review a real pull request by voice or by keyboard
+
+On the same page, scroll to **Converse about a pull request**, or press
+<kbd>Alt</kbd>+<kbd>6</kbd>, paste the URL of any public GitHub pull request, then press
+<kbd>Alt</kbd>+<kbd>4</kbd> and type `open` <kbd>Enter</kbd>. The server reads the pull
+request's head commit and diff from GitHub without a token, and the page reads back
+`Understood: open the pull request.` before it speaks the overview. Then type, or say with
+<kbd>Alt</kbd>+<kbd>5</kbd> where the browser has speech recognition:
+`what changed in <file>`, `read the lines`, `next`, `no, I said previous`, `spell that`,
+`request changes: <your comment>`, `confirm`. The last turn ends in one of three server
+outcomes printed on the page: `recorded and not sent` (the default, with the exact request
+shown), `submitted` (only when the server runs with `VOLCAN_GITHUB_WRITE=1` and a
+`GITHUB_TOKEN`), or `refused` with the reason, `STALE_HEAD` when the pull request moved after
+you reviewed it. Section [The review journey](#the-review-journey) has the whole grammar.
 
 Requires Python 3.11 or newer. The repository is private until the submission window opens,
 so `git clone` works for an account with access and otherwise starts from the submitted
@@ -143,11 +172,13 @@ archive.
 5. [Governed actions](#governed-actions)
 6. [The MCP surface](#the-mcp-surface)
 7. [The companion page](#the-companion-page)
-8. [Measured numbers](#measured-numbers)
-9. [Verify every claim yourself](#verify-every-claim-yourself)
-10. [Known limitations](#known-limitations)
-11. [Who would buy this, and out of which budget](#who-would-buy-this-and-out-of-which-budget)
-12. [License](#license)
+8. [The review journey](#the-review-journey)
+9. [Braille fidelity](#braille-fidelity)
+10. [Measured numbers](#measured-numbers)
+11. [Verify every claim yourself](#verify-every-claim-yourself)
+12. [Known limitations](#known-limitations)
+13. [Who would buy this, and out of which budget](#who-would-buy-this-and-out-of-which-budget)
+14. [License](#license)
 
 ---
 
@@ -163,11 +194,33 @@ arguments, and MCP audio content blocks carrying the synthesized earcons.
 `python scripts/mcp_conformance.py` runs a full client handshake against a running server
 and prints a pass or fail line for each of its 21 conformance checks.
 
-**Simulated, and labelled as such everywhere it appears.** The voice experience is a web
-companion, not an Alexa skill. There is no Alexa skill package in this repository, no skill
-has been submitted for certification, and nothing here has been tested on an Echo device.
-The companion speaks with the browser's Web Speech API and calls the same API an Alexa+
-integration would call.
+**Simulated, and labelled as such everywhere it appears, the page included.** The voice
+experience is a web companion, not an Alexa skill. There is no Alexa skill package in this
+repository, no skill has been submitted for certification, and nothing here has been tested on
+an Echo device. The companion listens with the browser's `SpeechRecognition` API where the
+browser has one (Chrome and Edge do, Firefox does not), speaks with `speechSynthesis`, keeps a
+typed twin for every spoken command, and calls the same server an Alexa+ integration would
+call. The label sits in the page header above the fold, in the paragraph with id `notASkill`,
+and `tests/e2e/test_html_structure.py::test_the_first_screen_says_this_is_not_an_alexa_skill_and_names_the_simulation`
+fails the build if the words `alexa`, `skill` and `simulat` leave the first screen. A review
+round on 2026-09-08 found the page contained none of them while this file claimed it did;
+that is why the test exists.
+
+**Real read, dry-run write, and the page prints which.** Opening a pull request by URL is a
+live, unauthenticated `GET` against `api.github.com` for its head commit and diff; it needs no
+token for a public repository. Submitting the `REQUEST_CHANGES` review is a real external side
+effect and ships behind a dry-run default: the server re-reads the head commit, refuses with
+`STALE_HEAD` if it moved, and without `VOLCAN_GITHUB_WRITE=1` records the exact request it
+would send, token redacted, and sends nothing. `/health` publishes the resolved
+`github_review_path` so the page prints the server's conclusion rather than guessing. **No
+live review has ever been sent from this repository**; the owner action that produces one is
+under [Known limitations](#known-limitations). The live read has been exercised against a
+real pull request: on 2026-09-08 the companion page opened
+`https://github.com/python/cpython/pull/1`, printed
+`Opened python/cpython pull request 1, Support "bpo-" in Misc/NEWS, by brettcannon, head
+commit 02a87ce` with a round trip of 1223.2 ms measured by the page, walked its first hunk
+line by line, and on `confirm` printed `Dry run. Nothing was sent to GitHub. The head commit
+is still 02a87ce, and the exact request Volcan would send has been recorded.`
 
 **Real code with a labelled fallback, and a stated reason.** The Amazon Bedrock adapter calls
 Claude on Amazon Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client, pinned to
@@ -251,14 +304,24 @@ the other side: the review is not hard to understand, it is hard to navigate.
 
    Each cue also carries a `spoken_fallback` string, so a Deaf or hard-of-hearing developer
    reads what a hearing one heard.
-4. **Unicode Braille output.** Renders patches and commands as Braille patterns in the U+2800
-   block for a refreshable Braille display, for quiet hours, open offices and deafblind
-   developers.
+4. **Unicode Braille output at two fidelities, and the response says which.** Renders patches
+   and commands as Braille patterns in the U+2800 block for a refreshable display, for quiet
+   hours, open offices and deafblind developers. The default for a patch is eight-dot code
+   fidelity, one cell per printable ASCII character, so `(`, `)` and `=` keep their own cells
+   and the cells decode back to the exact source. Six-dot literary Braille is available for
+   prose and is lossy for code; when it is used the response names the characters that
+   collided in that patch. See [Braille fidelity](#braille-fidelity).
 5. **Governed actions.** High-consequence commands are staged behind a single-use,
    content-bound authorization grant with a lease, and an agent cannot release its own
    proposal.
 6. **Adaptive switch and haptic input.** Maps sip-and-puff, single-button and foot-pedal
    pulses to navigation actions, and builds vibration cadences with visual captions.
+7. **A spoken review dialogue that ends in a governed GitHub action.** Open a pull request by
+   URL, ask what changed in a file, hear the exact numbered source lines of a hunk, spell a
+   line out symbol by symbol, correct a misheard command, and request changes. Every turn
+   reads back what it understood before it acts, a new command interrupts the current speech,
+   and the review is bound to the head commit and dry-run unless the owner enables the write.
+   See [The review journey](#the-review-journey).
 
 ---
 
@@ -288,18 +351,22 @@ graph TD
         OPS --> DIGEST["DigestDiffUseCase"]
         OPS --> GOV["GovernedExecutionUseCase"]
         OPS --> SONIFY["SonifyEventUseCase"]
+        OPS --> REVIEW["ReviewDialogueUseCase<br/>open, stage, confirm"]
     end
 
     subgraph Domain["src/domain, zero SDK imports"]
-        DIGEST --> PARSER["UnifiedDiffParser<br/>git and plain unified patches"]
+        DIGEST --> PARSER["UnifiedDiffParser<br/>git and plain unified patches<br/>every hunk line numbered"]
         PARSER --> RULES["ast_security_rules<br/>syntax-tree findings"]
         SONIFY --> WAVE["WaveformSynthesizer"]
         GOV --> GRANT["ApprovalGrantIssuer, HMAC-SHA256"]
+        REVIEW --> DIALOGUE["ReviewDialogue<br/>state machine over transcripts"]
+        REVIEW --> GRANT
     end
 
     subgraph Infrastructure["src/infrastructure"]
         DIGEST --> BEDROCK["BedrockSynthesisAdapter<br/>bedrock, or heuristic-local<br/>with a stated reason"]
         GOV --> PLANNER["DryRunExecutor: plans, never executes"]
+        REVIEW --> GITHUB["GitHubReviewAdapter<br/>live read, dry-run write"]
     end
 ```
 
@@ -333,7 +400,12 @@ sequenceDiagram
 A grant is refused when its signature is altered, when it was minted for a different action,
 when the command changed after it was issued, when the lease elapsed, and when it has already
 been used once. Each of those refusals has its own test in
-[`tests/unit/test_governance.py`](tests/unit/test_governance.py).
+[`tests/unit/test_governance.py`](tests/unit/test_governance.py). The `REQUEST_CHANGES` review
+in [The review journey](#the-review-journey) is the same mechanism with a real consequence
+behind it: the payload hash covers the repository, the pull request number, the head SHA and
+the SHA-256 of the comment, the staging principal is the dialogue and the approver is the
+human who said `confirm`, and the audit record's `outcome` field says `SUBMITTED`, `DRY RUN
+recorded, not sent` or `REFUSED <code>` in the executor's own words.
 
 Every audit record is sealed with the hash of the record before it, so editing a stored
 entry, deleting one or reordering two is **detected** and the verdict names the entry that
@@ -346,8 +418,13 @@ detection path.
 
 ## The MCP surface
 
-Eleven tools, each with an `inputSchema` generated from the pydantic model that parses its
-arguments, so the published schema cannot drift away from the code:
+Twelve tools, each with an `inputSchema` generated from the pydantic model that parses its
+arguments, so the published schema cannot drift away from the code. What this surface returns
+is the answer to "is it a wrapper around an existing API": `audio` content blocks carrying the
+earcon that encodes the verdict, Braille cells with their fidelity and loss declared, a review
+dialogue that reads back before it acts, and a review action that is governed by a single-use
+grant, bound to a head commit, and dry-run by default. No GitHub or Bedrock API returns any of
+those.
 
 | Tool | What it returns |
 |---|---|
@@ -357,8 +434,9 @@ arguments, so the published schema cannot drift away from the code:
 | `confirm_governed_action` | Release or a named refusal, plus the matching earcon |
 | `play_earcon` | A 16-bit PCM WAV as an MCP `audio` content block |
 | `voice_turn` | One conversational turn: summarize, stage, approve or reject |
-| `translate_text_to_braille` | Unicode Braille patterns in the U+2800 block |
-| `braille_diff_digest` | A patch formatted with tactile add and remove markers |
+| `review_dialogue_turn` | One turn of the spoken review: readback, answer, the earcon, and on `confirm` the review outcome, `submitted`, `recorded and not sent` or `refused` |
+| `translate_text_to_braille` | Unicode Braille patterns, in eight-dot code fidelity or six-dot literary, with `lossless` and the collisions named |
+| `braille_diff_digest` | A patch formatted with tactile add and remove markers, code fidelity by default, with its `disclosure` sentence |
 | `process_switch_pulse` | The navigation action a switch pulse resolves to |
 | `get_haptic_profile` | A vibration cadence and a visual caption |
 | `check_ast_completeness` | Whether Python source parses, with node, function and class counts |
@@ -390,12 +468,16 @@ session-absent requests were refused identically:
 ```
 tools/list  session YES, version header NO -> 200 {"jsonrpc":"2.0","id":2,"error":{"code":-32600,"message":"Missing MCP-Protocol-Version header; it is required on every request after initialize.","data":{"expected":"2025-11-25"}}}
 tools/list  session NO,  version header NO -> 200 {"jsonrpc":"2.0","id":3,"error":{"code":-32600,"message":"Missing MCP-Protocol-Version header; it is required on every request after initialize.","data":{"expected":"2025-11-25"}}}
-tools/list  session YES, version header YES -> 200 tools: 11
+tools/list  session YES, version header YES -> 200 tools: 12
 ```
 
 `tests/integration/test_mcp_conformance.py::test_a_valid_session_never_excuses_a_missing_protocol_version`
 now pins both halves and additionally asserts that no `result` member is present, because the
-dangerous shape of that failure is not an error but a plausible-looking answer. What the same
+dangerous shape of that failure is not an error but a plausible-looking answer.
+`test_the_version_rule_runs_before_dispatch_for_every_post_initialize_method` extends the same
+assertion to `tools/call`, `ping`, `resources/list` and an unknown method, with and without a
+valid session: each is refused `-32600` for the missing header and never reaches the `-32601`
+that would tell a client the header was fine. What the same
 investigation *did* find is that `GET /mcp` and `DELETE /mcp` accepted a request with no
 version header at all: the stream opened with HTTP 200 and the session terminated with HTTP
 204. The README already claimed the header was required on every request, and two verbs were
@@ -450,6 +532,235 @@ that ships disabled. `prefers-reduced-motion` removes every animation and the sm
 `prefers-color-scheme` selects a designed light or dark palette. The page loads nothing from
 the network, so it renders whole on a locked-down machine.
 
+The **Converse about a pull request** panel is the page's half of the review journey below.
+It has a microphone button that uses `window.SpeechRecognition` where the browser exposes one
+and says so when it does not, a typed command box that always works, one button per common
+command so nothing depends on being heard, a dialogue log that shows what was heard, what was
+understood and what was answered, and a review panel that prints the server's outcome word for
+word. Seven more assertions in `tests/e2e/test_html_structure.py` pin that contract: the
+typed path exists, a new command calls `stopAudio()` before it posts, the readback is logged
+and spoken before the answer at the `speech_rate` the server returned, every state change
+lands in an `aria-live` region, a dry run is printed as `recorded and not sent` and never as a
+send, the page never handles a token, and the keyboard map covers the dialogue.
+
+---
+
+## The review journey
+
+The state machine lives on the server, in
+[`src/domain/review_dialogue.py`](src/domain/review_dialogue.py), one instance per session,
+driven by transcripts. That is deliberate: the browser's `SpeechRecognition` API cannot be
+driven headlessly, so the page is only ears and mouth, and everything the dialogue does is
+proven by injecting the text a microphone would have produced.
+[`tests/unit/test_review_dialogue.py`](tests/unit/test_review_dialogue.py) drives the machine
+directly, [`tests/unit/test_review_dialogue_use_case.py`](tests/unit/test_review_dialogue_use_case.py)
+adds the grant and the GitHub port, and
+[`tests/integration/test_review_dialogue_api.py`](tests/integration/test_review_dialogue_api.py)
+runs the whole journey over `POST /api/review/turn` and over the MCP tool
+`review_dialogue_turn` against a scripted GitHub. None of them proves a microphone heard
+anything, and this file does not claim one did; the browser run recorded under
+[What is true and what is simulated](#what-is-true-and-what-is-simulated) used the typed path.
+
+**Three promises the machine keeps, each with a test.**
+
+* **It reads back before it acts.** Every answer begins `Understood: <command>.` or
+  `Corrected, <command>.`; an unrecognised transcript answers
+  `I heard '<text>' and did not recognise a command.` and changes nothing.
+* **A correction undoes the misheard command, then applies the meant one.** `no, I said
+  previous` after a misheard `next` returns to where you were and then goes back one, and a
+  speech-rate change is never undone by a correction, because `slower` is a preference and not
+  a navigation.
+* **Nothing is submitted by the machine.** `request changes` stages a review, reads back the
+  comment and the head commit, and waits. `confirm` presents a single-use HMAC grant bound to
+  the pull request, its head SHA and the SHA-256 of the comment; the server then re-reads the
+  live head and either records, sends, or refuses.
+
+**What you can say, or type.** File names may be spoken with "dot" (`auth dot py`), numbers
+as words (`line one hundred and twelve`), and every command has the same effect typed.
+
+| Say | What happens | State after |
+|---|---|---|
+| `open the pull request`, `open <url>`, `open the patch` | Live GitHub read of the head SHA and diff, or the pasted patch | `OVERVIEW` |
+| `summary`, `file by file`, `findings` | The digest, every file with its counts, or the security findings | `OVERVIEW` |
+| `what changed in auth.py`, `file 2`, `next`, `previous` | Focus a file by name or number and hear its category, finding and first hunk | `FILE` |
+| `read the lines` | The exact numbered source lines of the current hunk, 20 per breath, `next` to continue | `LINES` |
+| `next line`, `previous line`, `line 14`, `next hunk` | Move within the hunk, or jump to a line number on the new side of the file | `LINES` |
+| `spell that` | Every symbol of the current line named, so `!=` is heard as `bang, equals` | `LINES` |
+| `repeat`, `slower`, `faster`, `stop`, `where am I`, `help`, `undo` | Say it again, change the rate by 0.15 within 0.5 to 1.6, silence, orientation, the command list, one step back | unchanged |
+| `no, I said <command>`, `I meant <command>`, `correction: <command>` | Undo the last navigation and apply the one meant | as the command |
+| `request changes: <comment>` | Stage a `REQUEST_CHANGES` review bound to the head commit; a grant is issued | `CONFIRM_REVIEW` |
+| `confirm` | Present the grant; the server re-reads the head and records, sends or refuses | `RECORDED`, `SUBMITTED` or `REFUSED` |
+| `cancel` | Drop the staged review; nothing was sent | back to where you were |
+
+**Keyboard map on the page.** <kbd>Alt</kbd>+<kbd>6</kbd> focuses the pull request URL box,
+<kbd>Alt</kbd>+<kbd>4</kbd> the command box where <kbd>Enter</kbd> sends, <kbd>Alt</kbd>+<kbd>5</kbd>
+starts or stops listening, <kbd>Escape</kbd> interrupts the speech, the earcon and the
+microphone, and every command chip is a real button in the tab order.
+
+**What is live and what is dry-run, per step.**
+
+| Step | Live | Dry-run or simulated |
+|---|---|---|
+| Hearing the command | `SpeechRecognition` in Chrome and Edge; the typed box everywhere | The microphone is the browser's, not a device's |
+| Opening the pull request | `GET https://api.github.com/repos/<o>/<r>/pulls/<n>` twice, JSON then diff, no token needed for a public repository | nothing |
+| The dialogue itself | The server's state machine, the digest, the earcons, the Braille | Speech output is the browser's `speechSynthesis` |
+| Staging the review | A real HMAC-SHA256 grant with a 300 second lease, sealed in the audit chain on confirm | nothing |
+| Confirming the review | The head SHA is re-read live and a moved head is refused with `STALE_HEAD` | The `POST .../reviews` is **recorded and not sent** unless `VOLCAN_GITHUB_WRITE=1` and `GITHUB_TOKEN` are both set |
+
+Two environment variables, both read once at start-up by
+[`src/infrastructure/github_review_adapter.py`](src/infrastructure/github_review_adapter.py):
+`GITHUB_TOKEN`, a fine-grained token with `pull_requests: write` on the one repository to be
+reviewed, and `VOLCAN_GITHUB_WRITE`, which enables the send only when it is exactly `1`. With
+the flag and no token the server refuses with `NO_TOKEN` rather than sending unauthenticated;
+with a token that lacks the permission GitHub answers 401, 403 or 404 and the server reports
+`UNAUTHORIZED`, naming the permission. `/health` publishes the conjunction of the two facts as
+`github_review_path.resolved_capability`, one of `dry_run_no_token`, `dry_run_with_token`,
+`live_write_requested_but_no_token` and `live_write_enabled`, and never the token value.
+Measured on the development machine on 2026-09-08 with neither variable set:
+
+```json
+"github_review_path": {
+  "resolved_capability": "dry_run_no_token",
+  "detail": "Neither VOLCAN_GITHUB_WRITE nor GITHUB_TOKEN is set, so a confirmed review is recorded and not sent, and public pull requests are read unauthenticated.",
+  "write_enabled": false,
+  "token_present": false,
+  "api": "https://api.github.com"
+}
+```
+
+---
+
+## Braille fidelity
+
+Until 2026-09-08 the Braille output was a single six-dot table, and it lost code-symbol
+distinctions without saying so: `(`, `)` and `=` all landed on dots 2-3-5-6, `]` shared a cell
+with `w`, `"` with `>`, `'` with `@`, and `_` was indistinguishable from the capital prefix. A
+finger reading `user.role != "admin"` in that table could not tell it from
+`user.role != >admin>`. Two fidelities now exist, and every response says which one produced
+the cells and whether it was lossless:
+
+* **`code`, the default for a patch.** Eight-dot computer Braille: each of the 95 printable
+  ASCII characters has its own cell, so the translation is one to one and `braille_to_text`
+  reverses it exactly. The table is the North American Braille ASCII six-dot layout for the 64
+  characters from space to underscore, with dot 7 added to mark a capital letter and to
+  separate `@ [ \ ] ^` from their lower-range partners `` ` { | } ~ ``, which is the convention
+  of North American computer Braille. A character outside the table (a Greek identifier, say)
+  is rendered as the full eight-dot cell and named in the response, never blanked. A tab
+  becomes four blank cells and the response says so. **This table has not been reviewed by a
+  Braille transcriber.** What is proven is the property that matters for code, the round trip:
+  `tests/unit/test_braille_code_fidelity.py` asserts that all 95 characters map to distinct
+  cells and decode back to themselves.
+* **`literary`.** Six-dot cells with a capital prefix (dot 6) and a number prefix (dots
+  3-4-5-6), the shape of uncontracted English Braille, right for prose and lossy for code.
+  When it is used, `lossless` is `false` and `collisions` names, for that patch only, the
+  characters that became indistinguishable, so the reader learns the loss in the text they are
+  about to read rather than a loss in general. Contracted Grade 2 is not implemented.
+
+The page requests `code` by default and offers both as buttons; the caption beside the cells
+prints the server's `fidelity`, `lossless` and `disclosure` fields verbatim. Which symbol lands
+on which cell in code fidelity, printed by `code_fidelity_table()` and pinned by
+`test_the_readme_prints_the_table_the_code_uses`, which fails the build if this block and the
+module disagree (dot numbers, then the Unicode cell):
+
+<!-- braille-code-table -->
+```
+' '    dots blank     ⠀
+'!'    dots 2346      ⠮
+'"'    dots 5         ⠐
+'#'    dots 3456      ⠼
+'$'    dots 1246      ⠫
+'%'    dots 146       ⠩
+'&'    dots 12346     ⠯
+"'"    dots 3         ⠄
+'('    dots 12356     ⠷
+')'    dots 23456     ⠾
+'*'    dots 16        ⠡
+'+'    dots 346       ⠬
+','    dots 6         ⠠
+'-'    dots 36        ⠤
+'.'    dots 46        ⠨
+'/'    dots 34        ⠌
+'0'    dots 356       ⠴
+'1'    dots 2         ⠂
+'2'    dots 23        ⠆
+'3'    dots 25        ⠒
+'4'    dots 256       ⠲
+'5'    dots 26        ⠢
+'6'    dots 235       ⠖
+'7'    dots 2356      ⠶
+'8'    dots 236       ⠦
+'9'    dots 35        ⠔
+':'    dots 156       ⠱
+';'    dots 56        ⠰
+'<'    dots 126       ⠣
+'='    dots 123456    ⠿
+'>'    dots 345       ⠜
+'?'    dots 1456      ⠹
+'@'    dots 47        ⡈
+'A'    dots 17        ⡁
+'B'    dots 127       ⡃
+'C'    dots 147       ⡉
+'D'    dots 1457      ⡙
+'E'    dots 157       ⡑
+'F'    dots 1247      ⡋
+'G'    dots 12457     ⡛
+'H'    dots 1257      ⡓
+'I'    dots 247       ⡊
+'J'    dots 2457      ⡚
+'K'    dots 137       ⡅
+'L'    dots 1237      ⡇
+'M'    dots 1347      ⡍
+'N'    dots 13457     ⡝
+'O'    dots 1357      ⡕
+'P'    dots 12347     ⡏
+'Q'    dots 123457    ⡟
+'R'    dots 12357     ⡗
+'S'    dots 2347      ⡎
+'T'    dots 23457     ⡞
+'U'    dots 1367      ⡥
+'V'    dots 12367     ⡧
+'W'    dots 24567     ⡺
+'X'    dots 13467     ⡭
+'Y'    dots 134567    ⡽
+'Z'    dots 13567     ⡵
+'['    dots 2467      ⡪
+'\\'   dots 12567     ⡳
+']'    dots 124567    ⡻
+'^'    dots 457       ⡘
+'_'    dots 456       ⠸
+'`'    dots 4         ⠈
+'a'    dots 1         ⠁
+'b'    dots 12        ⠃
+'c'    dots 14        ⠉
+'d'    dots 145       ⠙
+'e'    dots 15        ⠑
+'f'    dots 124       ⠋
+'g'    dots 1245      ⠛
+'h'    dots 125       ⠓
+'i'    dots 24        ⠊
+'j'    dots 245       ⠚
+'k'    dots 13        ⠅
+'l'    dots 123       ⠇
+'m'    dots 134       ⠍
+'n'    dots 1345      ⠝
+'o'    dots 135       ⠕
+'p'    dots 1234      ⠏
+'q'    dots 12345     ⠟
+'r'    dots 1235      ⠗
+'s'    dots 234       ⠎
+'t'    dots 2345      ⠞
+'u'    dots 136       ⠥
+'v'    dots 1236      ⠧
+'w'    dots 2456      ⠺
+'x'    dots 1346      ⠭
+'y'    dots 13456     ⠽
+'z'    dots 1356      ⠵
+'{'    dots 246       ⠪
+'|'    dots 1256      ⠳
+'}'    dots 12456     ⠻
+'~'    dots 45        ⠘
+```
+
 ---
 
 ## Measured numbers
@@ -465,10 +776,12 @@ estimate unless it says ESTIMATE.
 | Patch parse latency, mean of 1000 runs | not measured | 0.209 ms | `python scripts/benchmark_suite.py` |
 | Earcon synthesis latency, mean of 1000 runs | not measured | 2.966 ms | `python scripts/benchmark_suite.py` |
 | MCP protocol conformance | not applicable | **21 of 21 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Tools advertised by `tools/list` | not applicable | 11 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 280 passing, 4.74 s on the last of four runs that day (8.77, 5.06, 5.22, 4.74) | `python -m pytest tests/ -q` |
+| Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
+| Automated tests | not applicable | 421 passing, 7.00 s on the run that produced the count | `python -m pytest tests/ -q` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.4 s | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 117.2 ms on the first press, then 80.5, 42.9 and 58.7 ms, Chrome at 1440x900 on 2026-09-08 | the page measures and prints this itself on every run |
+| Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
+| Braille characters that share a cell in code fidelity | 5 collision groups in the six-dot table covering `( ) =`, `] w`, `" >`, `' @` and `_` with the capital prefix | 0 of 95 printable ASCII characters | `python -m pytest tests/unit/test_braille_code_fidelity.py -v` |
 
 The cold start figure comes from
 [`scripts/measure_cold_start.py`](scripts/measure_cold_start.py), which launches the server as
@@ -534,6 +847,11 @@ Treat the order of magnitude as the claim and rerun the benchmark on your own ha
 | The whole product in one terminal walkthrough | `python scripts/volcan_cli.py` |
 | How long a cold server takes to answer | `python scripts/measure_cold_start.py` |
 | The companion page keeps its four rules and is keyboard reachable | `python -m pytest tests/e2e -v` |
+| The review dialogue reads back, corrects, spells and stages, driven by injected transcripts | `python -m pytest tests/unit/test_review_dialogue.py -v` |
+| A moved head, a missing grant, a self-approval and an unauthorized token are each refused | `python -m pytest tests/unit/test_review_dialogue_use_case.py tests/unit/test_github_review_adapter.py -v` |
+| The whole journey over REST and MCP ends in a recorded, not sent, review | `python -m pytest tests/integration/test_review_dialogue_api.py -v` |
+| Code-fidelity Braille is one to one over 95 characters and literary names its losses | `python -m pytest tests/unit/test_braille_code_fidelity.py -v` |
+| A missing version header is refused for every method, session or not | `python -m pytest tests/integration/test_mcp_conformance.py -k version -v` |
 
 `ci/readiness.py` is written so that it can fail, and it does. On 2026-09-08 it printed
 `45/53 passed, 0 blocking failures, 8 externally blocked`. The eight red gates are the absent
@@ -550,7 +868,7 @@ exits 0: `41/53 passed, 0 blocking failures, 12 externally blocked`. The excuse 
 script exits 1.
 
 To satisfy yourself that the script is capable of failing rather than decorative, change the
-test count in the README badge from 280 to 281 and run it again. Gate G1 turns red under
+test count in the README badge from 421 to 422 and run it again. Gate G1 turns red under
 `FAILED, BLOCKING`, the summary reads `1 blocking failures`, and the process exits 1.
 
 ---
@@ -559,10 +877,39 @@ test count in the README badge from 280 to 281 and run it again. Gate G1 turns r
 
 * **No Alexa skill.** No skill package is submitted, no certification has been sought, and
   nothing has been tested on an Echo device. The Alexa+ claim is the MCP server plus a web
-  companion that simulates the voice experience and says so on screen.
+  companion that simulates the voice experience and says so on screen, in the header paragraph
+  with id `notASkill`, which a test now holds in place.
+* **No live GitHub review has been sent from this repository.** The write path in
+  [`src/infrastructure/github_review_adapter.py`](src/infrastructure/github_review_adapter.py)
+  is real code, shape-tested against `httpx.MockTransport` for the accepted review, the stale
+  head, the missing token, the unauthorized token and the unreachable host, and it has never
+  been run with the flag set. Every confirmed review here was recorded and not sent. The owner
+  can produce a live receipt against a repository they own, in one terminal, and nothing else
+  in this repository needs to change for it:
+
+  ```bash
+  export GITHUB_TOKEN=<fine-grained token, pull_requests: write on that one repository>
+  export VOLCAN_GITHUB_WRITE=1
+  python -m src.interfaces.mcp_server &
+  curl -s http://127.0.0.1:8000/health | python -c "import json,sys; print(json.load(sys.stdin)['github_review_path']['resolved_capability'])"   # expect live_write_enabled
+  ```
+
+  Then open `http://127.0.0.1:8000/`, paste the pull request URL, type `open`, `request
+  changes: <comment>`, `confirm`. The receipt is the review panel reading `submitted to GitHub,
+  review id <n>` and the review appearing on the pull request under the token's account, bound
+  to the head commit shown. A token without the permission produces `refused, UNAUTHORIZED`
+  instead, and that is also a receipt: it proves the refusal path against real GitHub.
+* **Speech recognition depends on the browser and is not tested by a machine.** Chrome and
+  Edge expose `SpeechRecognition`; Firefox does not, and the page says so when the microphone
+  button is pressed there. No test here drives a microphone: the dialogue is proven with
+  injected transcripts, the page's typed path is what the recorded browser run used, and a
+  real spoken run is the owner's to make. The recogniser's accuracy is the browser vendor's,
+  which is exactly why every answer reads back what was understood before acting.
 * **No browser-driver end-to-end test.** `tests/e2e` parses the companion DOM and asserts its
   structure, its accessibility and its four honesty rules; it does not drive a real browser,
-  because no browser driver is vendored here. Gate C5 records that as a failure.
+  because no browser driver is vendored here. Gate C5 records that as a failure. The review
+  journey was walked by hand in Chrome against a running server on 2026-09-08, and the log of
+  that walk is quoted in [What is true and what is simulated](#what-is-true-and-what-is-simulated).
 * **The model-backed path is implemented, shape-tested and has never executed here.** Every
   digest produced in this repository came from the local heuristic path, labelled
   `synthesis_mode: heuristic-local` with the reason printed beside it. The client call in
@@ -628,8 +975,12 @@ test count in the README badge from 280 to 281 and run it again. Gate G1 turns r
   unless `VOLCAN_APPROVAL_SECRET` is set, so outstanding grants become invalid when the server
   restarts. That direction of failure is the safe one.
 * **Sessions and the audit trail live in memory.** Nothing is persisted between runs.
-* **Braille output is computer Braille, not contracted Grade 2.** It maps characters one to
-  one and has not been reviewed by a Braille transcriber.
+* **Braille output is computer Braille, not contracted Grade 2, and the code table is
+  unreviewed.** Code fidelity maps each printable ASCII character to its own eight-dot cell
+  and is proven lossless by round trip; literary fidelity is six-dot and lossy for code, and
+  names what it lost. Neither table has been reviewed by a Braille transcriber, and neither
+  has been read on a physical display. [Braille fidelity](#braille-fidelity) prints the whole
+  code table so a transcriber can.
 * **The companion's cross-device panels were removed.** Volcan targets one track. Bee, Fire TV
   and Ring helpers remain in the codebase as local simulations reachable under
   `/api/companions`, and no device SDK is involved.

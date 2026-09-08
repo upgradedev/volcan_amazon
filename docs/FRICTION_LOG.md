@@ -184,7 +184,7 @@ deployer having to remember to write it down.
 * The Model Context Protocol is a good fit for assistive tooling. Because tools are
   described by JSON Schema, Volcan generates its whole catalog from the pydantic models
   that parse the arguments, and the published schema cannot drift from the code. That is
-  eleven tools with zero hand-written schema.
+  twelve tools with zero hand-written schema.
 * The `audio` content block means an accessibility cue is a first-class result rather than
   a side channel, which is the single design decision that made this project possible over
   a text protocol.

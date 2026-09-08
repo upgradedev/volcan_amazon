@@ -24,7 +24,7 @@ exercised on Windows 11 with Python 3.11.0 on 2026-09-06.
 | Step | Command or action | What must be true before you record |
 |---|---|---|
 | 1 | `python -m pip install -e ".[dev,bedrock]"` | Dependencies resolve. This is off camera. |
-| 2 | `python -m pytest tests/ -q` | Prints `280 passed`. If it does not, stop and fix that first. |
+| 2 | `python -m pytest tests/ -q` | Prints `421 passed`. If it does not, stop and fix that first. |
 | 3 | `python -m src.interfaces.mcp_server` | Leave it running in terminal 1, off camera. |
 | 4 | Open `http://127.0.0.1:8000/` in a fresh profile at 1280x900 | The connection strip reads **SERVER REACHED** with a real `GET /health` duration. If it reads **NO SERVER**, the recording is wrong before it starts. |
 | 5 | System audio capture on, microphone off | The earcon in beat 2 is the product speaking. It must reach the recording. |
@@ -116,7 +116,7 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
 
 * **Platform:** terminal 2, then back to the browser.
 * **Exact action, terminal:** run `python -m pytest tests/ -q`, then `python ci/readiness.py`.
-* **On screen:** `280 passed`, then the readiness output **scrolled to a red gate**. Do not
+* **On screen:** `421 passed`, then the readiness output **scrolled to a red gate**. Do not
   crop the failures out. The gates that were red on 2026-09-08 are the absent video and its
   sync check, the absent browser-driver journey, the deployed endpoint running an older
   commit, and three actions only the owner can perform.

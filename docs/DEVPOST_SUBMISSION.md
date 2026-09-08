@@ -28,7 +28,20 @@ classical pantheon, who built machines to work alongside him at the forge.
 
 ## What it does
 
-One patch goes in, and three things a person can use come out.
+**Read this paragraph first if the question in your head is "is this an MCP wrapper around an
+existing API".** What Volcan's MCP surface returns is not available from any API it sits in
+front of. It returns `audio` content blocks carrying an earcon whose contour encodes the
+verdict, so a listener knows a patch touches security before the sentence arrives. It returns
+Braille cells with their fidelity and their loss declared, so a finger knows whether `(`, `)`
+and `=` are three cells or one. It returns a review dialogue whose every turn reads back what
+it understood before it acts, and it returns a governed action: a `REQUEST_CHANGES` review
+bound by a single-use HMAC grant to the head commit that was actually reviewed, re-checked
+live, and dry-run by default so the exact request is recorded and not sent until the owner
+enables the write. GitHub returns none of those. Bedrock returns none of those. That is the
+product; the protocol is how it reaches a client.
+
+One pull request goes in, three things a person can use come out, and one governed action
+goes back.
 
 1. **A spoken digest**, at three levels of detail, with counts that agree with their nouns,
    because a listener hears "1 files" and a reader skims past it.
@@ -44,9 +57,19 @@ One patch goes in, and three things a person can use come out.
    so a Deaf or hard-of-hearing developer reads what a hearing one heard.
 3. **Braille cells**, the same patch rendered as Unicode Braille patterns in the U+2800
    block with tactile add and remove markers, with no sound at all, for quiet hours, open
-   offices and deafblind developers.
+   offices and deafblind developers. The default is eight-dot code fidelity, one cell per
+   printable character and lossless by round trip; six-dot literary Braille is offered for
+   prose, and when it is used for code the response names the characters that collided.
+4. **A spoken review that ends in a governed action.** A blind developer opens a real pull
+   request by URL (a live, unauthenticated GitHub read), asks what changed in a file, hears the
+   exact numbered source lines, spells one out symbol by symbol so `!=` cannot pass for `==`,
+   says "no, I said previous" and is understood, then says "request changes" and "confirm".
+   The review is bound to the head commit, re-checked live, and **dry-run by default**: the
+   server records the exact request it would send and sends nothing unless it runs with
+   `VOLCAN_GITHUB_WRITE=1` and a `GITHUB_TOKEN`. No live review has been sent from this
+   repository; the README carries the owner command that produces that receipt.
 
-Around those three renderings:
+Around those renderings:
 
 * **Security flags come before comprehension, and they say what changed.** Two deterministic
   passes run. A keyword pass catches authentication, cryptographic, database and
@@ -80,15 +103,21 @@ readiness gate verifies by parsing every domain module.
   over the **Streamable HTTP** transport: JSON-RPC 2.0 at `POST /mcp`, an SSE stream at
   `GET /mcp`, session termination at `DELETE /mcp`, cryptographically random session ids,
   protocol version negotiation, Origin validation, and the full set of JSON-RPC error codes.
-  Eleven tools, each with a JSON Schema generated from the pydantic model that parses its
+  Twelve tools, each with a JSON Schema generated from the pydantic model that parses its
   arguments, so the published schema cannot drift from the code. A separate REST surface at
   `/api` serves the web companion and is never called MCP.
-* **Domain.** A unified diff parser, a PCM WAV synthesizer, a Braille translator, an adaptive
-  switch state machine, and an approval grant issuer.
+* **Domain.** A unified diff parser that numbers every line of every hunk, a PCM WAV
+  synthesizer, a Braille translator with two fidelities, an adaptive switch state machine, an
+  approval grant issuer, and the review dialogue: a state machine over transcripts that reads
+  back before it acts and undoes a misheard command when corrected, with no speech engine, no
+  HTTP and no GitHub in it, so it is driven in tests by injected text.
 * **Infrastructure.** An Amazon Bedrock adapter that labels every response
   `synthesis_mode: bedrock` or `synthesis_mode: heuristic-local`, and carries
   `synthesis_fallback_reason` when no model answered, so nobody has to guess which path ran or
-  why. An allowlisted dry-run planner that imports no execution primitive at all.
+  why. An allowlisted dry-run planner that imports no execution primitive at all. A GitHub
+  adapter over `httpx` whose read is live and whose write is dry-run by default, tested against
+  a mock transport for the accepted review, the moved head, the missing token and the
+  unauthorized token.
 * **The companion page.** One self-contained HTML file, served by FastAPI at `/` and `/demo`.
   It holds no second implementation of the product: pressing its one primary button posts the
   patch to the running server, plays the WAV the server returned, draws the waveform from
@@ -119,12 +148,21 @@ covered. We deleted all of it. The page now shows a real result or an honest emp
 
 ## Accomplishments we are proud of
 
-* **A spec-compliant MCP server with no SDK.** `python scripts/mcp_conformance.py` runs a
+* **A hand-written MCP server with no SDK.** `python scripts/mcp_conformance.py` runs a
   full client handshake against a running instance and prints a pass or fail line for each of
-  18 checks. All 18 pass, including the ones that are easy to get wrong: HTTP 404 for a
-  session the server never minted, HTTP 202 with no body for `notifications/initialized`,
-  `-32602` rather than a transport error for an unknown tool, and a 405 whose `Allow` header
-  names every method the endpoint really accepts.
+  21 checks. All 21 passed on 2026-09-08, including the ones that are easy to get wrong: HTTP
+  404 for a session the server never minted, HTTP 202 with no body for
+  `notifications/initialized`, `-32602` rather than a transport error for an unknown tool, a
+  405 whose `Allow` header names every method the endpoint really accepts, and `-32600` for a
+  missing version header on every method, session or no session.
+* **A review journey that reads back before it acts, and refuses when it should.** The
+  dialogue is driven by injected transcripts in `tests/unit/test_review_dialogue.py`, the
+  grant and the GitHub port in `tests/unit/test_review_dialogue_use_case.py`, and the whole
+  journey over REST and MCP in `tests/integration/test_review_dialogue_api.py`. A head that
+  moved after the review was prepared is refused as `STALE_HEAD` before anything is recorded;
+  a confirm without the grant, a tampered grant, a grant for a different review, an elapsed
+  lease, a self-approval and a token without permission each have a test that asserts the
+  refusal and the audit line it leaves.
 * **Audio as a first-class protocol result.** The earcons are not decoration described in
   text. They travel as MCP `audio` content blocks, and the conformance script decodes one to
   confirm it is a real WAV.
@@ -175,9 +213,17 @@ header and every published tool schema.
 
 **Simulated, and labelled on screen and in the README.** The voice experience is a web
 companion, not an Alexa skill. No skill package is submitted, no certification has been
-sought, and nothing has been tested on an Echo device. The companion speaks with the
-browser's Web Speech API and calls the same API an Alexa+ integration would call. It performs
-a real `GET /health` on load and reports what actually answered.
+sought, and nothing has been tested on an Echo device. The companion listens with the
+browser's `SpeechRecognition` where the browser has one, speaks with `speechSynthesis`, keeps
+a typed twin for every command, and calls the same server an Alexa+ integration would call.
+The label sits in the page header above the fold and a test holds it there. It performs a
+real `GET /health` on load and reports what actually answered.
+
+**Live read, dry-run write.** Opening a pull request is a live unauthenticated GitHub read;
+on 2026-09-08 the page opened `python/cpython#1` and printed its head commit `02a87ce`.
+Submitting the review is dry-run by default: on `confirm` the page printed `Dry run. Nothing
+was sent to GitHub.` beside the exact `POST .../reviews` body it recorded. No live review has
+been sent from this repository. The owner command that produces one is in the README.
 
 **Real code that has not run here.** Amazon Bedrock. The adapter calls Claude on Amazon
 Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client, pinned to
@@ -260,20 +306,27 @@ does and does not compound, is in the README.
 ## What is next
 
 1. **Submit an Alexa skill for certification** so the voice experience stops being a
-   simulation. The MCP tools already return everything a skill handler needs, and the gap is
-   certification and an Echo device, not code.
-2. **Run the Bedrock path with real credentials** and publish the same benchmark table for
+   simulation. The `review_dialogue_turn` tool already takes a transcript and returns the
+   readback, the answer and the cue a skill handler needs, and the gap is certification and an
+   Echo device, not code.
+2. **Send one live review** with `VOLCAN_GITHUB_WRITE=1` and a fine-grained token against a
+   repository the owner controls, and record the receipt. The code path exists and is tested
+   against a mock; the receipt does not.
+3. **Run the Bedrock path with real credentials** and publish the same benchmark table for
    `synthesis_mode: bedrock` beside the heuristic figures, so the two paths can be compared
    rather than assumed equivalent.
-3. **Have a Braille transcriber review the output.** Today it is computer Braille, mapped one
-   character to one cell. Contracted Grade 2 is what an experienced reader actually wants.
-4. **Test with the people this is for.** Nothing here has been through a session with a blind
-   or motor-impaired developer, and every design decision about cue ordering and digest length
-   is currently a hypothesis.
-5. **Persist sessions and the audit chain.** Both live in memory, so a restart loses the
+4. **Have a Braille transcriber review the two tables.** Code fidelity is proven lossless by
+   round trip and literary fidelity names its losses, but neither has been read by a
+   transcriber or on a physical display, and contracted Grade 2 is what an experienced reader
+   actually wants for prose.
+5. **Test with the people this is for.** Nothing here has been through a session with a blind
+   or motor-impaired developer, and every design decision about cue ordering, readback
+   wording and digest length is currently a hypothesis.
+6. **Persist sessions and the audit chain.** Both live in memory, so a restart loses the
    tamper-evident history that makes the governance claim worth anything.
-6. **Drive the companion with a real browser in CI.** `tests/e2e` parses the DOM; gate C5 is
-   red because no browser driver runs, and a screen-reader journey belongs in that gap.
+7. **Drive the companion with a real browser in CI.** `tests/e2e` parses the DOM; gate C5 is
+   red because no browser driver runs, and a screen-reader journey with a real microphone
+   belongs in that gap.
 
 ---
 

@@ -37,7 +37,7 @@
       "words_count": 74,
       "words_per_minute": 130.6,
       "speech_rate_intelligible": true,
-      "narration_text": "The track question is whether the protocol is real. Volcan's Model Context Protocol server is written by hand to revision 2025-11-25 over Streamable HTTP, with no SDK. This button performs a real initialize and a real tools list call against the MCP endpoint, then prints the negotiated version, the session identifier taken from the response header, and the JSON Schema of all eleven tools. The conformance script runs the same handshake from a terminal.",
+      "narration_text": "The track question is whether the protocol is real. Volcan's Model Context Protocol server is written by hand to revision 2025-11-25 over Streamable HTTP, with no SDK. This button performs a real initialize and a real tools list call against the MCP endpoint, then prints the negotiated version, the session identifier taken from the response header, and the JSON Schema of all twelve tools. The conformance script runs the same handshake from a terminal.",
       "visual_action": "Click Run a real MCP handshake, hold on the four facts and one expanded tool schema, then cut to a terminal running python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp and its pass lines."
     },
     {
@@ -61,7 +61,7 @@
       "words_count": 82,
       "words_per_minute": 133.0,
       "speech_rate_intelligible": true,
-      "narration_text": "Everything shown here is checkable in one command. 280 automated tests. Twenty-one of twenty-one protocol conformance checks. And a readiness script that is allowed to fail, and does: no browser driver runs in continuous integration, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.",
+      "narration_text": "Everything shown here is checkable in one command. 421 automated tests. Twenty-one of twenty-one protocol conformance checks. And a readiness script that is allowed to fail, and does: no browser driver runs in continuous integration, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.",
       "visual_action": "Terminal running python -m pytest tests/ -q, then python ci/readiness.py scrolled to its red gates, then back to the companion page connection strip stating the resolved model path the server reported, which on the development machine reads unavailable_sdk_not_installed. Close on the page heading."
     }
   ]
