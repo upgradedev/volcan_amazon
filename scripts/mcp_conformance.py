@@ -145,6 +145,17 @@ def main(url: str) -> int:
                       {"Mcp-Session-Id": session_id or ""})
     report.check(body.get("error", {}).get("code") == -32600,
                  "missing MCP-Protocol-Version header returns a JSON-RPC error")
+    # The dangerous shape of that failure is not an error, it is a plausible
+    # answer: a result member holding an empty tool list, which reads on stage
+    # as a server that publishes nothing.
+    report.check("result" not in (body if isinstance(body, dict) else {}),
+                 "and returns no result member alongside it")
+
+    status, _, _ = call(url, None, {"Mcp-Session-Id": session_id or ""}, method="GET")
+    report.check(status == 400, "GET /mcp without the version header is refused", f"got {status}")
+
+    status, _, _ = call(url, None, {"Mcp-Session-Id": session_id or ""}, method="DELETE")
+    report.check(status == 400, "DELETE /mcp without the version header is refused", f"got {status}")
 
     status, _, _ = call(url, {"jsonrpc": "2.0", "id": 8, "method": "tools/list"},
                         {"Mcp-Session-Id": "never-issued", "MCP-Protocol-Version": PROTOCOL_VERSION})

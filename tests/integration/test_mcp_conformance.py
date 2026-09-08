@@ -282,6 +282,70 @@ def test_missing_protocol_version_after_initialize_is_a_jsonrpc_error():
     assert "MCP-Protocol-Version" in error["message"]
 
 
+def test_a_valid_session_never_excuses_a_missing_protocol_version():
+    """The failure mode this pins is worse than an error: a plausible answer.
+
+    If holding a session let a request skip the version check, a client that
+    forgot one header would receive HTTP 200 with an empty ``tools`` array and
+    conclude the server publishes nothing, which on stage is indistinguishable
+    from a broken product. Both requests below omit only the version header;
+    one carries a live session and the other carries none, and the two answers
+    have to be the same refusal.
+    """
+    session_id, _ = initialize()
+    with_session = client.post(
+        "/mcp", headers={"Mcp-Session-Id": session_id},
+        json={"jsonrpc": "2.0", "id": 61, "method": "tools/list"},
+    )
+    without_session = client.post(
+        "/mcp", json={"jsonrpc": "2.0", "id": 62, "method": "tools/list"},
+    )
+
+    for response in (with_session, without_session):
+        body = response.json()
+        assert "result" not in body, (
+            "a request missing the version header must not receive a result at all, "
+            f"received {body.get('result')!r}"
+        )
+        assert body["error"]["code"] == INVALID_REQUEST
+        assert "Missing MCP-Protocol-Version header" in body["error"]["message"]
+
+    assert with_session.json()["error"] == without_session.json()["error"], (
+        "the presence of a session must not change the refusal"
+    )
+
+
+def test_the_sse_stream_also_requires_the_protocol_version_header():
+    """GET is a request after initialize too, and the README says every one."""
+    session_id, _ = initialize()
+    refused = client.get("/mcp", headers={"Mcp-Session-Id": session_id})
+    assert refused.status_code == 400
+    assert refused.json()["error"] == "bad_protocol_version"
+    assert "Missing MCP-Protocol-Version header" in refused.json()["detail"]
+
+    accepted = client.get("/mcp", headers=headers_for(session_id))
+    assert accepted.status_code == 200
+
+
+def test_session_termination_also_requires_the_protocol_version_header():
+    session_id, _ = initialize()
+    refused = client.delete("/mcp", headers={"Mcp-Session-Id": session_id})
+    assert refused.status_code == 400
+    assert refused.json()["error"] == "bad_protocol_version"
+
+    # The refusal must not have terminated the session as a side effect.
+    assert client.delete("/mcp", headers=headers_for(session_id)).status_code == 204
+
+
+def test_an_unsupported_version_is_refused_on_every_verb():
+    session_id, _ = initialize()
+    stale = {"Mcp-Session-Id": session_id, "MCP-Protocol-Version": "1999-01-01"}
+    assert client.get("/mcp", headers=stale).status_code == 400
+    assert client.delete("/mcp", headers=stale).status_code == 400
+    posted = client.post("/mcp", headers=stale, json={"jsonrpc": "2.0", "id": 8, "method": "ping"})
+    assert posted.json()["error"]["code"] == INVALID_REQUEST
+
+
 def test_unsupported_protocol_version_is_refused():
     session_id, _ = initialize()
     response = client.post(

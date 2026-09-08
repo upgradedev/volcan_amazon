@@ -117,24 +117,71 @@ def _session_refusal(request: Request) -> JSONResponse | None:
     )
 
 
-def _protocol_version_refusal(request: Request, method: str, request_id: Any) -> JSONResponse | None:
-    """Every request after initialize must declare MCP-Protocol-Version."""
-    if method == "initialize":
-        return None
+#: Why a header is refused, and the machine-readable code that goes with it.
+#: The two verbs that carry no JSON-RPC envelope reuse these strings, so the
+#: refusal a client reads is the same sentence whichever method it sent.
+_VERSION_MISSING = (
+    "Missing MCP-Protocol-Version header; it is required on every request after initialize."
+)
+
+
+def _protocol_version_problem(request: Request) -> tuple[str, dict[str, Any]] | None:
+    """(message, data) when the declared protocol version is unusable.
+
+    This is the whole rule, in one place, so no transport verb can quietly opt
+    out of it. It is deliberately stricter than the transport specification,
+    which permits a server that receives no ``MCP-Protocol-Version`` header to
+    assume the older ``2025-03-26`` revision. Assuming it would let a client and
+    this server disagree about the revision they are speaking while both believe
+    the handshake succeeded, which is a failure that surfaces later and
+    somewhere else. Volcan refuses instead and names the header, and the README
+    states that it is required on every request after initialize.
+    """
     declared = request.headers.get("mcp-protocol-version")
     if declared is None:
-        return _rpc_error(
-            request_id, INVALID_REQUEST,
-            "Missing MCP-Protocol-Version header; it is required on every request after initialize.",
-            {"expected": PROTOCOL_VERSION},
-        )
+        return _VERSION_MISSING, {"expected": PROTOCOL_VERSION}
     if declared not in SUPPORTED_PROTOCOL_VERSIONS:
-        return _rpc_error(
-            request_id, INVALID_REQUEST,
+        return (
             f"Unsupported MCP-Protocol-Version '{declared}'.",
             {"supported": list(SUPPORTED_PROTOCOL_VERSIONS)},
         )
     return None
+
+
+def _protocol_version_refusal(request: Request, method: str, request_id: Any) -> JSONResponse | None:
+    """The POST form of the rule: a JSON-RPC error against the request id.
+
+    The check runs on the method alone. It does not consult the session, so a
+    request that carries a valid ``Mcp-Session-Id`` and omits the version header
+    is refused exactly like one that carries neither: a conforming client that
+    forgets one header has to see an error, never a successful-looking result
+    with an empty tool list.
+    """
+    if method == "initialize":
+        return None
+    problem = _protocol_version_problem(request)
+    if problem is None:
+        return None
+    message, data = problem
+    return _rpc_error(request_id, INVALID_REQUEST, message, data)
+
+
+def _transport_version_refusal(request: Request) -> JSONResponse | None:
+    """The GET and DELETE form of the rule.
+
+    Neither verb carries a JSON-RPC request, so there is no id to answer and no
+    envelope to put an error member in. They answer at the transport level, the
+    way the Origin and session refusals above already do, and quote the same
+    sentence POST does so a client reads one rule rather than two.
+    """
+    problem = _protocol_version_problem(request)
+    if problem is None:
+        return None
+    message, data = problem
+    return JSONResponse(
+        status_code=400,
+        content={"error": "bad_protocol_version", "detail": message, **data},
+    )
 
 
 @app.api_route("/mcp", methods=["GET", "POST", "DELETE"], include_in_schema=True)
@@ -222,7 +269,11 @@ async def mcp_get(request: Request) -> Response:
     message that will never come. A client that wants request/response traffic
     uses POST.
     """
-    refusal = _origin_refusal(request) or _session_refusal(request)
+    refusal = (
+        _origin_refusal(request)
+        or _session_refusal(request)
+        or _transport_version_refusal(request)
+    )
     if refusal is not None:
         return refusal
 
@@ -261,7 +312,7 @@ async def mcp_get(request: Request) -> Response:
 
 async def mcp_delete(request: Request) -> Response:
     """Terminates an MCP session, as the Streamable HTTP transport allows."""
-    refusal = _origin_refusal(request)
+    refusal = _origin_refusal(request) or _transport_version_refusal(request)
     if refusal is not None:
         return refusal
     session_id = request.headers.get("mcp-session-id")
