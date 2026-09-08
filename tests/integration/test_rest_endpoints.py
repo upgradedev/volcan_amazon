@@ -23,7 +23,7 @@ def test_health_endpoint_describes_both_surfaces():
     assert data["mcp"]["endpoint"] == "/mcp"
     assert data["mcp"]["transport"] == "Streamable HTTP"
     assert data["rest_prefix"] == "/api"
-    assert isinstance(data["bedrock_credentials_present"], bool)
+    assert isinstance(data["bedrock_model_path"], dict)
 
 
 def test_digest_reports_which_synthesis_path_ran():

@@ -21,6 +21,7 @@ credentials here, so the model id and the client below are unexercised code. See
 the Known limitations section of the README.
 """
 import asyncio
+import importlib.util
 import os
 from collections import Counter
 
@@ -41,6 +42,21 @@ DEFAULT_MODEL_ID = "anthropic.claude-opus-5"
 #: is on by default on this model family and is billed against the same ceiling,
 #: so a small ceiling truncates the answer rather than saving anything.
 DEFAULT_MAX_TOKENS = 16000
+
+#: The one field ``/health`` reports about the model path. Credentials alone
+#: were reported for a while, and read as a promise that a model would answer:
+#: they resolve on the development machine, where the SDK is absent and no call
+#: can leave the process at all. Two facts decide whether an attempt is even
+#: possible, so the health check states the conclusion of both rather than half
+#: of the evidence.
+CAPABILITY_READY = "ready_to_attempt"
+CAPABILITY_NO_SDK = "unavailable_sdk_not_installed"
+CAPABILITY_NO_CREDENTIALS = "unavailable_no_credentials"
+CAPABILITY_NEITHER = "unavailable_no_sdk_and_no_credentials"
+
+#: Package that has to be importable before a Bedrock call can be attempted.
+SDK_DISTRIBUTION = "anthropic[bedrock]"
+SDK_MODULE = "anthropic"
 
 
 class BedrockSynthesisAdapter:
@@ -72,6 +88,67 @@ class BedrockSynthesisAdapter:
             return boto3.Session().get_credentials() is not None
         except Exception:
             return False
+
+    @staticmethod
+    def sdk_present() -> bool:
+        """Whether the Anthropic SDK could be imported, without importing it.
+
+        ``find_spec`` locates the module and stops. Importing it here to find
+        out would pull the client into every process that merely asks a health
+        question, which is a side effect a health check has no business having.
+        """
+        try:
+            return importlib.util.find_spec(SDK_MODULE) is not None
+        except (ImportError, ValueError):
+            return False
+
+    def model_path_capability(self) -> dict[str, object]:
+        """What ``/health`` can honestly say about the model path.
+
+        Neither fact is sufficient alone. Credentials without the SDK cannot
+        attempt a call; the SDK without credentials cannot either. The resolved
+        capability is the conjunction, and the two facts stay beside it so a
+        reviewer can see what produced the conclusion. Even ``ready_to_attempt``
+        is a statement about the attempt: whether a model answers is reported
+        per digest by ``synthesis_mode``, and nothing here predicts it.
+        """
+        credentials = self.credentials_present()
+        sdk = self.sdk_present()
+
+        if credentials and sdk:
+            capability = CAPABILITY_READY
+            detail = (
+                "Credentials resolved and the SDK is importable, so a Bedrock call will be "
+                f"attempted with model {self.model_id}. Whether one answers is reported per "
+                "digest as synthesis_mode, with the reason beside it when none did."
+            )
+        elif credentials:
+            capability = CAPABILITY_NO_SDK
+            detail = (
+                f"Credentials resolved, but {SDK_MODULE} is not importable, so no call can "
+                f"leave this process. Install it with: pip install '{SDK_DISTRIBUTION}'."
+            )
+        elif sdk:
+            capability = CAPABILITY_NO_CREDENTIALS
+            detail = (
+                "The SDK is importable, but the boto3 credential chain resolved no AWS "
+                "credentials, so every digest comes from the local heuristic path."
+            )
+        else:
+            capability = CAPABILITY_NEITHER
+            detail = (
+                f"Neither AWS credentials nor {SDK_MODULE} resolved here, so every digest "
+                "comes from the local heuristic path."
+            )
+
+        return {
+            "resolved_capability": capability,
+            "detail": detail,
+            "credentials_present": credentials,
+            "sdk_installed": sdk,
+            "model_id": self.model_id,
+            "region": self.region_name,
+        }
 
     def _build_client(self):
         if self._client_factory is not None:

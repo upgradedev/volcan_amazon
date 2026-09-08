@@ -63,7 +63,12 @@ async def health_check() -> dict[str, Any]:
             "active_sessions": sessions.count,
         },
         "rest_prefix": "/api",
-        "bedrock_credentials_present": bedrock_adapter.credentials_present(),
+        # One field, not two half-facts. ``bedrock_credentials_present`` used to
+        # sit here on its own and was read as a promise that a model would
+        # answer: credentials resolve on the development machine, where the SDK
+        # is absent and no call can be attempted at all. The resolved capability
+        # accounts for both, and the evidence stays beside it.
+        "bedrock_model_path": bedrock_adapter.model_path_capability(),
         "supported_earcons": [e.value for e in EarconType],
     }
 
