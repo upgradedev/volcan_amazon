@@ -56,6 +56,13 @@ class SonifyEventUseCase:
                 [AudioTone(523.25, 80, 0.4), AudioTone(783.99, 120, 0.5)],
                 "Inspecting symbol details."
             ),
+            # Two equal notes, level, neither rising nor falling: nothing
+            # completed and nothing failed. Something was written down.
+            EarconType.DRY_RUN_RECORDED: AudioCue(
+                EarconType.DRY_RUN_RECORDED,
+                [AudioTone(493.88, 140, 0.45), AudioTone(493.88, 140, 0.45)],
+                "Recorded and not sent."
+            ),
         }
 
     def execute(self, earcon_type: EarconType) -> tuple[AudioCue, bytes]:

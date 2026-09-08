@@ -16,6 +16,7 @@ from src.interfaces.composition import (
     accessibility_use_case,
     ast_checker,
     braille_use_case,
+    review_dialogue_use_case,
     sonify_use_case,
     voice_turn_use_case,
 )
@@ -28,6 +29,7 @@ from src.interfaces.dto import (
     DrillDownRequest,
     HapticRequest,
     PlayEarconRequest,
+    ReviewTurnRequest,
     StageActionRequest,
     SwitchPulseRequest,
     VoiceTurnRequest,
@@ -98,13 +100,30 @@ async def tool_voice_turn(req: VoiceTurnRequest) -> list[dict[str, Any]]:
     return [text_block(result.get("spoken_text", "")), json_block(result)]
 
 
+async def tool_review_turn(req: ReviewTurnRequest) -> list[dict[str, Any]]:
+    """Readback first, then the answer, then the cue, then the detail.
+
+    The readback precedes the answer in the text block for the same reason the
+    earcon precedes the sentence: a listener who is told what was understood
+    before hearing the consequence can interrupt a misheard command.
+    """
+    result = await review_dialogue_use_case.handle_turn(
+        session_id=req.session_id, user_id=req.user_id, transcript=req.transcript,
+        pr_url=req.pr_url, raw_diff=req.raw_diff, approval_grant=req.approval_grant,
+    )
+    wav = result.pop("_wav", None)
+    result.pop("earcon", None)
+    spoken = f"{result['readback']} {result['spoken']}".strip()
+    return _spoken_and_detail(spoken, result, wav)
+
+
 async def tool_braille_translate(req: BrailleTranslateRequest) -> list[dict[str, Any]]:
-    result = braille_use_case.translate_text(req.text)
+    result = braille_use_case.translate_text(req.text, req.fidelity)
     return [text_block(result["braille_unicode"]), json_block(result)]
 
 
 async def tool_braille_diff(req: BrailleDiffRequest) -> list[dict[str, Any]]:
-    result = braille_use_case.digest_to_braille(req.raw_diff)
+    result = braille_use_case.digest_to_braille(req.raw_diff, req.fidelity)
     return [text_block(result["braille_summary"]), json_block(result)]
 
 
@@ -194,15 +213,39 @@ def build_tool_registry() -> ToolRegistry:
         input_model=VoiceTurnRequest, handler=tool_voice_turn,
     ))
     registry.register(ToolDefinition(
+        name="review_dialogue_turn",
+        title="Converse about a pull request and submit a governed review",
+        description=(
+            "One turn of a spoken code review. Send what the developer said: open a pull request "
+            "by URL (a live unauthenticated GitHub read) or open a pasted patch; then summary, "
+            "file by file, what changed in <file>, next, previous, read the lines (the exact "
+            "numbered source lines of a hunk), line <n>, spell that, findings, repeat, slower, "
+            "faster, stop, 'no, I said <command>' to correct a misheard command, and 'request "
+            "changes <comment>' followed by confirm or cancel. Every answer reads back what was "
+            "understood before acting. A confirmed review is bound to the head commit by a "
+            "single-use grant and re-checked live; it is recorded and not sent unless the server "
+            "runs with VOLCAN_GITHUB_WRITE=1 and a GITHUB_TOKEN, and the outcome says which."
+        ),
+        input_model=ReviewTurnRequest, handler=tool_review_turn,
+    ))
+    registry.register(ToolDefinition(
         name="translate_text_to_braille",
         title="Translate text to Unicode Braille",
-        description="Translate text or code into Unicode Braille patterns in the U+2800 block.",
+        description=(
+            "Translate text or code into Unicode Braille patterns in the U+2800 block, in "
+            "eight-dot code fidelity (one cell per character, lossless) or six-dot literary "
+            "fidelity (lossy for code, with the collisions named in the result)."
+        ),
         input_model=BrailleTranslateRequest, handler=tool_braille_translate,
     ))
     registry.register(ToolDefinition(
         name="braille_diff_digest",
         title="Format a patch for a Braille display",
-        description="Format a unified patch with tactile add and remove markers for a Braille display.",
+        description=(
+            "Format a unified patch with tactile add and remove markers for a Braille display. "
+            "Defaults to eight-dot code fidelity so every code symbol keeps its own cell; the "
+            "result says whether the rendering is lossless."
+        ),
         input_model=BrailleDiffRequest, handler=tool_braille_diff,
     ))
     registry.register(ToolDefinition(

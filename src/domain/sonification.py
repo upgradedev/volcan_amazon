@@ -18,6 +18,10 @@ class EarconType(str, Enum):
     GOVERNANCE_CHALLENGE = "GOVERNANCE_CHALLENGE"
     ACTION_COMMITTED = "ACTION_COMMITTED"
     DRILL_DOWN_OPENED = "DRILL_DOWN_OPENED"
+    #: A side effect was recorded and deliberately not sent. It must not sound
+    #: like ACTION_COMMITTED, because a listener who cannot see the page has
+    #: only the cue to tell "sent" from "would have sent".
+    DRY_RUN_RECORDED = "DRY_RUN_RECORDED"
 
 
 def earcon_for_report(report) -> EarconType:

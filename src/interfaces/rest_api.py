@@ -17,6 +17,8 @@ from src.interfaces.composition import (
     braille_use_case,
     dry_run_executor,
     ecosystem_use_case,
+    github_adapter,
+    review_dialogue_use_case,
     sessions,
     sonify_use_case,
     voice_turn_use_case,
@@ -32,6 +34,7 @@ from src.interfaces.dto import (
     FireTvSyncRequest,
     HapticRequest,
     PlayEarconRequest,
+    ReviewTurnRequest,
     RingPresenceRequest,
     StageActionRequest,
     SwitchPulseRequest,
@@ -69,6 +72,10 @@ async def health_check() -> dict[str, Any]:
         # is absent and no call can be attempted at all. The resolved capability
         # accounts for both, and the evidence stays beside it.
         "bedrock_model_path": bedrock_adapter.model_path_capability(),
+        # Same shape, same reason: whether a confirmed review is sent or
+        # recorded is decided by two facts, and the page prints the conclusion
+        # the server drew from both rather than guessing from one.
+        "github_review_path": github_adapter.capability(),
         "supported_earcons": [e.value for e in EarconType],
     }
 
@@ -130,6 +137,27 @@ async def rest_voice_turn(req: VoiceTurnRequest) -> dict[str, Any]:
     )
 
 
+@router.post("/api/review/turn")
+async def rest_review_turn(req: ReviewTurnRequest) -> dict[str, Any]:
+    """One turn of the spoken review dialogue.
+
+    The transcript came from the browser's SpeechRecognition API or from the
+    keyboard; the server cannot tell and does not need to. The response reads
+    back what was understood, says what happened, and carries the earcon when
+    the turn has one.
+    """
+    result = await review_dialogue_use_case.handle_turn(
+        session_id=req.session_id,
+        user_id=req.user_id,
+        transcript=req.transcript,
+        pr_url=req.pr_url,
+        raw_diff=req.raw_diff,
+        approval_grant=req.approval_grant,
+    )
+    result.pop("_wav", None)
+    return result
+
+
 @router.post("/api/plan_accessible_test_run")
 async def rest_plan_test_run() -> dict[str, Any]:
     """Plans the workspace test command and speaks the plan. Runs nothing.
@@ -156,12 +184,18 @@ async def rest_plan_test_run() -> dict[str, Any]:
 
 @router.post("/api/braille/translate_text")
 async def rest_braille_translate(req: BrailleTranslateRequest) -> dict[str, Any]:
-    return braille_use_case.translate_text(req.text)
+    try:
+        return braille_use_case.translate_text(req.text, req.fidelity)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/api/braille/diff_digest")
 async def rest_braille_diff(req: BrailleDiffRequest) -> dict[str, Any]:
-    return braille_use_case.digest_to_braille(req.raw_diff)
+    try:
+        return braille_use_case.digest_to_braille(req.raw_diff, req.fidelity)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/api/accessibility/process_switch_pulse")

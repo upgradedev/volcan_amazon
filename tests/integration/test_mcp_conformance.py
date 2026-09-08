@@ -315,6 +315,40 @@ def test_a_valid_session_never_excuses_a_missing_protocol_version():
     )
 
 
+@pytest.mark.parametrize("method", [
+    "tools/list",
+    "tools/call",
+    "ping",
+    "resources/list",
+    "definitely/not/a/method",
+])
+def test_the_version_rule_runs_before_dispatch_for_every_post_initialize_method(method):
+    """One rule, every method, session or no session.
+
+    The dangerous failure is not the error; it is the plausible answer. A
+    ``tools/call`` that skipped the header check would run the tool, a
+    ``ping`` would pong, and an unknown method would be refused as -32601,
+    which would tell a client the header was fine and the method was not.
+    Every one of these has to be refused as -32600 for the missing header,
+    before anything else is consulted, and holding a valid session changes
+    nothing.
+    """
+    session_id, _ = initialize()
+    params = {"name": "play_earcon", "arguments": {"earcon_type": "TEST_PASSED"}} if method == "tools/call" else {}
+    message = {"jsonrpc": "2.0", "id": 77, "method": method, "params": params}
+    with_session = client.post("/mcp", headers={"Mcp-Session-Id": session_id}, json=message)
+    without_session = client.post("/mcp", json=message)
+    for response in (with_session, without_session):
+        assert response.status_code == 200
+        body = response.json()
+        assert "result" not in body, f"{method} without the header produced a result: {body!r}"
+        assert body["error"]["code"] == INVALID_REQUEST, f"{method} was refused with {body['error']}"
+        assert body["error"]["code"] != METHOD_NOT_FOUND
+        assert "Missing MCP-Protocol-Version header" in body["error"]["message"]
+        assert body["id"] == 77, "the refusal must answer the request that was made"
+    assert with_session.json()["error"] == without_session.json()["error"]
+
+
 def test_the_sse_stream_also_requires_the_protocol_version_header():
     """GET is a request after initialize too, and the README says every one."""
     session_id, _ = initialize()
@@ -443,6 +477,9 @@ TOOL_ARGUMENTS: dict[str, dict] = {
     "process_switch_pulse": {"input_type": "SIP_AND_PUFF", "signal_strength": 0.9},
     "get_haptic_profile": {"event_type": "SECURITY_FLAG"},
     "check_ast_completeness": {"source_code": "class A:\n    def b(self):\n        return 1\n"},
+    # "help" is the one turn that touches neither GitHub nor a patch, so this
+    # sweep proves the tool is callable without a request leaving the process.
+    "review_dialogue_turn": {"session_id": "conformance-sweep", "transcript": "help"},
 }
 
 

@@ -49,12 +49,41 @@ class PlayEarconRequest(BaseModel):
     earcon_type: str = Field(..., description=f"One of: {', '.join(e.value for e in EarconType)}")
 
 
+#: One sentence, reused by both Braille models so the two surfaces describe the
+#: choice in the same words.
+_FIDELITY_DESCRIPTION = (
+    "'code' for eight-dot computer Braille, one cell per printable ASCII character and "
+    "lossless; 'literary' for six-dot cells with capital and number prefixes, which is "
+    "lossy for code because ( ) and = share one cell"
+)
+
+
 class BrailleTranslateRequest(BaseModel):
     text: str = Field(..., description="ASCII text or code to translate into Unicode Braille")
+    fidelity: str = Field("literary", description=_FIDELITY_DESCRIPTION + "; prose defaults to literary")
 
 
 class BrailleDiffRequest(BaseModel):
     raw_diff: str = Field(..., description="Unified git patch to format for a Braille display")
+    fidelity: str = Field("code", description=_FIDELITY_DESCRIPTION + "; a patch defaults to code")
+
+
+class ReviewTurnRequest(BaseModel):
+    """One turn of the spoken review dialogue.
+
+    ``transcript`` is what the developer said or typed. The page sends the
+    pull request URL and the pasted patch with every turn so an ``open``
+    command can act on whichever one is filled in, and it sends back the
+    approval grant it received from a ``request changes`` turn so a ``confirm``
+    can present it.
+    """
+
+    session_id: str = Field(..., description="Conversation session identifier")
+    user_id: str = Field("developer", description="Identifier of the human speaking; the review's approver")
+    transcript: str = Field(..., description="What was heard or typed, e.g. 'what changed in auth.py'")
+    pr_url: str | None = Field(None, description="GitHub pull request URL an 'open' command should fetch")
+    raw_diff: str | None = Field(None, description="Pasted unified patch an 'open' command should use when no URL is given")
+    approval_grant: str | None = Field(None, description="The single-use grant issued by 'request changes', presented by 'confirm'")
 
 
 class SwitchPulseRequest(BaseModel):

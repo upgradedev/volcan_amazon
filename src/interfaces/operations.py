@@ -151,9 +151,13 @@ def op_audit_log() -> dict[str, Any]:
             {
                 "id": r.record_id,
                 "action": r.action_id,
+                "action_type": r.action_type,
                 "command": r.command,
                 "payload_hash": r.payload_hash,
                 "state": r.state.value,
+                # What the release produced, in the words the executor used.
+                # For a review this is where "dry run, not sent" lives.
+                "outcome": r.execution_stdout,
                 "staged_by": r.staged_by,
                 "approved_by": r.approved_by,
                 "timestamp": r.timestamp,
