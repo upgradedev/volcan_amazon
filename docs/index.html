@@ -160,6 +160,15 @@
     .conn p { margin: 0; color: var(--ink-soft); flex: 1 1 340px; }
     .conn button { min-height: 38px; padding: 7px 14px; font-size: 0.82rem; }
 
+    /* --- the honest boundary, above the fold ---------------------------- */
+
+    .boundary {
+      border: 1px solid var(--warn); border-left: 6px solid var(--warn);
+      background: var(--surface); border-radius: var(--r-s);
+      padding: 12px 16px; margin: 0 0 16px; font-size: 0.92rem; line-height: 1.5;
+    }
+    .boundary b { color: var(--warn); }
+
     nav.jump ul {
       list-style: none; display: flex; flex-wrap: wrap; gap: 6px 20px;
       padding: 0; margin: 0 0 40px; font-size: 0.86rem;
@@ -437,6 +446,36 @@
       font-family: var(--mono); font-size: 0.75rem; color: var(--ink-soft); word-break: break-all;
     }
 
+    /* --- the review dialogue ----------------------------------------------- */
+
+    input[type="text"], input[type="url"] {
+      width: 100%; min-height: 44px; margin: 0 0 8px;
+      background: var(--sunk); color: var(--ink);
+      border: 1px solid var(--line); border-radius: var(--r-s);
+      padding: 10px 14px; font: inherit; font-size: 0.9rem;
+    }
+
+    ol.dialogue {
+      list-style: none; padding: 0; margin: 0 0 18px; max-height: 320px; overflow: auto;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    ol.dialogue li {
+      background: var(--sunk); border-left: 3px solid var(--line-strong);
+      border-radius: 0 var(--r-s) var(--r-s) 0; padding: 8px 12px;
+      font-size: 0.86rem; line-height: 1.5; word-break: break-word;
+    }
+    ol.dialogue li.you { border-left-color: var(--ink-soft); color: var(--ink-soft); }
+    ol.dialogue li.understood { border-left-color: var(--warn); font-family: var(--mono); font-size: 0.78rem; }
+    ol.dialogue li.volcan { border-left-color: var(--spoken); font-weight: 600; }
+    ol.dialogue li.empty-state-card { border: 1px dashed var(--line-strong); background: none; font-weight: 400; }
+
+    .review-request {
+      margin: 10px 0 0; padding: 12px 14px; background: var(--sunk);
+      border: 1px solid var(--line); border-radius: var(--r-s);
+      font-family: var(--mono); font-size: 0.76rem; color: var(--ink);
+      white-space: pre-wrap; word-break: break-all; overflow-x: auto;
+    }
+
     table { width: 100%; border-collapse: collapse; font-size: 0.91rem; }
     caption { text-align: left; color: var(--ink-soft); font-size: 0.87rem; padding-bottom: 12px; }
     th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -515,6 +554,16 @@
         the <b>Synthesis engine</b> meter reports the engine that answered, and prints the
         reason beside it when no model did.
       </p>
+      <p class="boundary" id="notASkill">
+        <b>Not an Alexa skill.</b> The voice loop on this page is a simulated voice
+        experience: the browser's own speech recognition and speech synthesis stand in
+        for a device, and every command reaches the same Volcan server an Alexa+
+        integration would call. No skill package is in this repository, none has been
+        certified, and no Echo device has been used. Live on this page: the server, the
+        MCP handshake, and the unauthenticated GitHub read of a public pull request.
+        Dry-run on this page: the <code>Request changes</code> review, which the server
+        records and does not send unless its owner enables the write.
+      </p>
 
       <div class="conn" id="conn" data-state="checking" role="status" aria-live="polite">
         <span class="conn-label" id="connLabel">Checking</span>
@@ -525,6 +574,7 @@
       <nav class="jump" aria-label="Sections of this page">
         <ul>
           <li><a href="#transform">The transformation</a></li>
+          <li><a href="#review">Review a pull request by voice</a></li>
           <li><a href="#mcp">MCP handshake</a></li>
           <li><a href="#governance">Governed actions</a></li>
           <li><a href="#access">Keyboard map</a></li>
@@ -639,11 +689,15 @@
             <article class="rendering r-braille" aria-labelledby="r-braille-heading">
               <h3 id="r-braille-heading"><span class="num">3</span> Braille cells</h3>
               <div class="cells" id="brailleOutput" role="region" tabindex="0"
-                   aria-label="Braille cell stream, six-dot Unicode">
-                <p class="empty-state-card">No cells yet. Volcan renders the same patch as six-dot Unicode Braille in the U+2800 block for a refreshable display.</p>
+                   aria-label="Braille cell stream, Unicode Braille patterns">
+                <p class="empty-state-card">No cells yet. Volcan renders the same patch as Unicode Braille in the U+2800 block for a refreshable display. The default is eight-dot code fidelity, one cell per printable character, so <code>(</code>, <code>)</code> and <code>=</code> keep their own cells; six-dot literary Braille is lossy for code, and the server names what it lost in this patch.</p>
               </div>
               <p class="caption" id="brailleCaption"></p>
-              <div class="chips">
+              <div class="chips" role="group" aria-label="Braille fidelity and clipboard">
+                <button type="button" id="fidelityCode" aria-pressed="true"
+                        title="Eight-dot computer Braille: one cell per printable ASCII character, so ( ) and = keep their own cells and the cells decode back to the exact source">Code fidelity, 8-dot</button>
+                <button type="button" id="fidelityLiterary" aria-pressed="false"
+                        title="Six-dot literary Braille with capital and number prefixes: right for prose, lossy for code because ( ) and = share one cell; the response names every collision in this patch">Literary, 6-dot</button>
                 <button type="button" id="copyBraille" title="Copy the Braille cell stream to the clipboard">Copy the cells</button>
               </div>
             </article>
@@ -651,6 +705,108 @@
         </div>
 
         <div id="securityAlert" role="alert"></div>
+      </section>
+
+      <section class="block" id="review" aria-labelledby="review-heading">
+        <h2 id="review-heading">Converse about a pull request, then request changes on it</h2>
+        <p>
+          The journey a blind developer needs from start to finish: open a real pull
+          request, ask what changed in a file, hear the exact numbered source lines, spell
+          one out symbol by symbol, correct a misheard command, and submit a
+          <code>Request changes</code> review bound to the commit that was reviewed. Every
+          turn posts to <code>POST /api/review/turn</code> and reads back what it understood
+          before it acts, so a wrong hearing can be interrupted. Reading a public pull request
+          is a live, unauthenticated GitHub call. The review write is dry-run by default: the
+          server re-reads the head commit, records the exact request it would send, and sends
+          nothing unless it runs with <code>VOLCAN_GITHUB_WRITE=1</code> and a token, and the
+          outcome panel says which of the two happened.
+        </p>
+
+        <div class="gov-grid">
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Talk to it, or type to it</h3>
+              <span class="side" id="micState">microphone off</span>
+            </div>
+
+            <label for="prUrl">Pull request URL</label>
+            <input type="url" id="prUrl" autocomplete="off" spellcheck="false"
+                   placeholder="https://github.com/owner/repo/pull/123" aria-describedby="prUrlHelp">
+            <p class="hint" id="prUrlHelp">A public GitHub pull request, read without a token. Leave it
+              empty and <strong>Open</strong> reviews the patch in the box above instead, which can be
+              discussed line by line but not submitted, because a pasted patch has no pull request
+              behind it.</p>
+
+            <div class="row-actions">
+              <button type="button" id="openReview"
+                      title="Say open: fetch the pull request's head commit and diff from GitHub, or open the pasted patch when the URL is empty">Open</button>
+              <button type="button" id="micToggle" aria-pressed="false"
+                      title="Start or stop listening with the browser's speech recognition. When this browser has none, the button says so and the typed command box works instead">Start listening</button>
+              <button type="button" id="stopSpeech"
+                      title="Interrupt: stop the speech and the earcon now. Escape does the same from anywhere on the page">Stop speaking</button>
+            </div>
+
+            <label for="commandInput">Command, typed or dictated</label>
+            <input type="text" id="commandInput" autocomplete="off"
+                   placeholder="what changed in permissions.py" aria-describedby="commandHelp">
+            <p class="hint" id="commandHelp">Every command works from the keyboard: type it and press
+              <kbd>Enter</kbd>. Say or type <strong>help</strong> for the list. A new command
+              interrupts whatever is still being spoken, and each answer begins by reading back
+              what was understood.</p>
+            <div class="row-actions">
+              <button type="button" id="sayCommand" title="Send the typed command as one turn of the dialogue">Send</button>
+            </div>
+
+            <div class="chips" role="group" aria-label="Common review commands">
+              <button type="button" id="cmdSummary" title="Say summary: the one-sentence digest with the security verdict first">Summary</button>
+              <button type="button" id="cmdFiles" title="Say file by file: every changed file with its counts">File by file</button>
+              <button type="button" id="cmdFindings" title="Say findings: the security findings, or that there are none">Findings</button>
+              <button type="button" id="cmdReadLines" title="Say read the lines: the exact numbered source lines of the current hunk">Read the lines</button>
+              <button type="button" id="cmdNext" title="Say next: the next file, or the next line while reading lines">Next</button>
+              <button type="button" id="cmdPrevious" title="Say previous: the previous file, or the previous line while reading lines">Previous</button>
+              <button type="button" id="cmdSpell" title="Say spell that: every symbol of the current line named, so != cannot be heard as ==">Spell that</button>
+              <button type="button" id="cmdRepeat" title="Say repeat: the last answer again">Repeat</button>
+              <button type="button" id="cmdSlower" title="Say slower: reduce the speech rate the server returns and this page applies">Slower</button>
+              <button type="button" id="cmdFaster" title="Say faster: raise the speech rate">Faster</button>
+              <button type="button" id="cmdWhere" title="Say where am I: the pull request, the file and the line in focus">Where am I</button>
+              <button type="button" id="cmdHelp" title="Say help: the commands the dialogue understands">Help</button>
+            </div>
+
+            <label for="reviewComment">Comment for the request changes review</label>
+            <input type="text" id="reviewComment" autocomplete="off" aria-describedby="reviewCommentHelp"
+                   placeholder="Restore the equality check: != grants deletion to everyone who is not an admin">
+            <p class="hint" id="reviewCommentHelp">Used by <strong>Request changes</strong> below. By voice,
+              say "request changes" followed by the comment. The server binds the review to the head
+              commit it read and waits for <strong>confirm</strong>; nothing leaves this machine until
+              you say it.</p>
+            <div class="chips" role="group" aria-label="Review actions">
+              <button type="button" id="cmdRequestChanges" class="danger"
+                      title="Say request changes with the comment above: stage a REQUEST_CHANGES review bound to the head commit and receive a single-use grant">Request changes</button>
+              <button type="button" id="cmdConfirm"
+                      title="Say confirm: present the grant. The server re-reads the head commit, then records the exact request in a dry run or sends it when its owner enabled the write">Confirm</button>
+              <button type="button" id="cmdCancel" title="Say cancel: drop the staged review without presenting the grant">Cancel</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3>What it heard, understood and answered</h3>
+              <span class="lease" id="dialogueState" data-state="idle">IDLE</span>
+            </div>
+            <p class="visually-hidden" id="reviewStatus" role="status" aria-live="polite"></p>
+            <ol class="dialogue" id="dialogueLog" aria-live="polite" aria-label="Review conversation, oldest first">
+              <li class="empty-state-card">Nothing heard yet. Open a pull request or the pasted patch, then ask what changed. Each turn shows what was heard, what Volcan understood, and what it answered, and the same words are spoken at the rate the server returned.</li>
+            </ol>
+
+            <div class="panel-head">
+              <h3>Review action</h3>
+              <span class="side">POST /api/review/turn</span>
+            </div>
+            <div id="reviewPane" role="status" aria-live="polite">
+              <p class="empty-state-card">No review staged. Say <strong>request changes</strong> followed by your comment. The server binds the review to the head commit it read, issues a single-use grant with a 300 second lease, and waits for <strong>confirm</strong>. The outcome printed here is the server's: submitted, recorded and not sent, or refused with the reason.</p>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="block" id="mcp" aria-labelledby="mcp-heading">
@@ -753,13 +909,17 @@
             <tr><td><kbd>Alt</kbd>+<kbd>1</kbd></td><td>Focus the primary action, <strong>Hear this code review</strong>.</td></tr>
             <tr><td><kbd>Alt</kbd>+<kbd>2</kbd></td><td>Focus the patch box.</td></tr>
             <tr><td><kbd>Alt</kbd>+<kbd>3</kbd></td><td>Focus the Braille cell region, which scrolls by keyboard.</td></tr>
-            <tr><td><kbd>Escape</kbd></td><td>Stop the speech and stop the earcon.</td></tr>
+            <tr><td><kbd>Alt</kbd>+<kbd>4</kbd></td><td>Focus the review command box. Type a command and press <kbd>Enter</kbd> to send it; this is the path that needs no microphone.</td></tr>
+            <tr><td><kbd>Alt</kbd>+<kbd>5</kbd></td><td>Start or stop listening with the browser's speech recognition, when it has one.</td></tr>
+            <tr><td><kbd>Alt</kbd>+<kbd>6</kbd></td><td>Focus the pull request URL box.</td></tr>
+            <tr><td><kbd>Escape</kbd></td><td>Interrupt: stop the speech, stop the earcon, and stop listening.</td></tr>
           </tbody>
         </table>
 
         <ul class="promises">
           <li>Every audio cue carries a written description in the same live region.</li>
           <li>Async results are announced through <code>aria-live</code>, security findings through <code>role="alert"</code>.</li>
+          <li>Every spoken command has a typed twin, and every answer reads back what was understood before it acts.</li>
           <li>The focus ring is a 3px outline offset from the control, in both colour schemes.</li>
           <li><code>prefers-reduced-motion</code> removes every animation and the smooth scroll.</li>
           <li>Light and dark follow <code>prefers-color-scheme</code>, and neither is an afterthought.</li>
@@ -805,7 +965,9 @@
       staged: null,
       leaseTimer: null,
       mcpSession: null,
-      earconUrl: null
+      earconUrl: null,
+      brailleFidelity: "code",
+      reviewPath: null
     };
 
     var START_COMMAND = "python -m src.interfaces.mcp_server";
@@ -903,6 +1065,11 @@
           "GET " + base + "/health answered HTTP " + response.status + " in "
           + elapsed.toFixed(1) + " ms. MCP revision " + mcp + " is served at " + base
           + "/mcp. " + engine);
+        // Whether a confirmed review is sent or recorded is the server's
+        // decision, from two facts it holds and this page never sees. The
+        // review panel prints the conclusion the server drew.
+        State.reviewPath = health.github_review_path || null;
+        renderReviewPath();
         return true;
       } catch (error) {
         State.live = false;
@@ -1037,8 +1204,16 @@
 
     function renderBraille(data, elapsedMs) {
       var region = clear($("brailleOutput"));
+      // The server says which table produced the cells and whether a finger
+      // can trust them character for character. Both are printed beside the
+      // cells, because a lossy rendering that does not say so is a lie a
+      // finger cannot detect.
+      var fidelityWords = data.fidelity === "code"
+        ? "eight-dot code fidelity"
+        : "six-dot literary Braille";
       region.setAttribute("aria-label",
-        "Braille cell stream, " + data.total_lines + " lines, six-dot Unicode");
+        "Braille cell stream, " + data.total_lines + " lines, " + fidelityWords
+        + (data.lossless ? ", lossless" : ", lossy for this patch"));
 
       var summary = el("span", "row");
       summary.setAttribute("data-type", "HEADER");
@@ -1058,7 +1233,35 @@
       $("brailleCaption").textContent = data.total_lines
         + " Braille lines from POST /api/braille/diff_digest in " + elapsedMs.toFixed(1)
         + " ms. Added rows carry dots 3-4-6 and removed rows dots 3-6, so a finger finds "
-        + "the sign of a change before its content.";
+        + "the sign of a change before its content. Fidelity " + data.fidelity
+        + (data.lossless ? ", lossless. " : ", lossy for this patch. ") + (data.disclosure || "");
+    }
+
+    function setBrailleFidelity(fidelity) {
+      State.brailleFidelity = fidelity;
+      $("fidelityCode").setAttribute("aria-pressed", String(fidelity === "code"));
+      $("fidelityLiterary").setAttribute("aria-pressed", String(fidelity === "literary"));
+      if (!State.lastDigest) {
+        $("brailleCaption").textContent = "Fidelity set to " + fidelity
+          + ". Select Hear this code review and the cells arrive in that table.";
+        return;
+      }
+      rerunBraille();
+    }
+
+    async function rerunBraille() {
+      var ready = await requireServer([["brailleOutput", "The Braille cells come from POST /api/braille/diff_digest."]]);
+      if (!ready) { return; }
+      try {
+        var braille = await postJson("/api/braille/diff_digest", {
+          raw_diff: $("diffInput").value, fidelity: State.brailleFidelity
+        });
+        renderBraille(braille.data, braille.elapsedMs);
+        announce("runStatus", "Braille re-rendered in " + braille.data.fidelity + " fidelity. "
+          + (braille.data.disclosure || ""));
+      } catch (error) {
+        clear($("brailleOutput")).appendChild(failureCard("The Braille call failed: " + error.message + "."));
+      }
     }
 
     function renderFindings(findings) {
@@ -1145,7 +1348,9 @@
       try {
         var results = await Promise.all([
           postJson("/api/digest_semantic_diff", { raw_diff: $("diffInput").value, level: 0 }),
-          postJson("/api/braille/diff_digest", { raw_diff: $("diffInput").value })
+          postJson("/api/braille/diff_digest", {
+            raw_diff: $("diffInput").value, fidelity: State.brailleFidelity
+          })
         ]);
         var digest = results[0];
         var braille = results[1];
@@ -1542,6 +1747,297 @@
       refreshAudit();
     }
 
+    /* --- the review dialogue: listen, read back, act --------------------- */
+
+    /* The conversation lives on the server, one state machine per session,
+       driven by transcripts. This page is its ears and its mouth: it collects
+       a transcript from the microphone or the keyboard, posts it, prints and
+       speaks what came back, and interrupts itself when a new command arrives.
+       The recogniser is whatever this browser exposes as SpeechRecognition; a
+       browser with none is told so, and the typed path is always there. */
+    var Review = {
+      sessionId: "web-" + Math.random().toString(36).slice(2, 10),
+      grant: null,
+      pending: null,
+      leaseTimer: null,
+      listening: false,
+      recognition: null
+    };
+
+    var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+    var CUE_TIMEOUT_MS = 1500;
+
+    var DIALOGUE_LABELS = {
+      IDLE: ["idle", "IDLE"],
+      OVERVIEW: ["active", "OVERVIEW"],
+      FILE: ["active", "FILE"],
+      LINES: ["active", "LINES"],
+      CONFIRM_REVIEW: ["active", "AWAITING CONFIRM"],
+      SUBMITTED: ["released", "SUBMITTED TO GITHUB"],
+      RECORDED: ["released", "RECORDED, NOT SENT"],
+      REFUSED: ["refused", "REFUSED"]
+    };
+
+    function setDialogueState(data) {
+      var pair = DIALOGUE_LABELS[data.state] || ["idle", String(data.state)];
+      var label = pair[1];
+      var focus = data.focus || {};
+      if (data.state === "FILE" && focus.file_index !== null && focus.file_index !== undefined) {
+        label += " " + (focus.file_index + 1) + " OF " + focus.total_files;
+      }
+      if (data.state === "LINES" && focus.line_index !== null && focus.line_index !== undefined) {
+        label += " " + (focus.line_index + 1) + " OF " + focus.total_lines;
+      }
+      var tag = $("dialogueState");
+      tag.setAttribute("data-state", pair[0]);
+      tag.textContent = label;
+    }
+
+    function logTurn(kind, text) {
+      var list = $("dialogueLog");
+      var placeholder = list.querySelector(".empty-state-card");
+      if (placeholder) { list.removeChild(placeholder); }
+      var item = el("li", kind, text);
+      list.appendChild(item);
+      list.scrollTop = list.scrollHeight;
+      return item;
+    }
+
+    /* Readback first, then the answer, at the rate the server returned. The
+       readback is a separate utterance so a listener who hears a misheard
+       command can say "no, I said ..." while the answer is still queued. */
+    function speakTurn(data) {
+      if (!("speechSynthesis" in window) || data.silent) { return false; }
+      try {
+        window.speechSynthesis.cancel();
+        [data.readback, data.spoken].forEach(function (text) {
+          if (!text) { return; }
+          var utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = data.speech_rate || 1;
+          window.speechSynthesis.speak(utterance);
+        });
+        return true;
+      } catch (error) { return false; }
+    }
+
+    /* The cue arrives before the words. When the turn carries an earcon the
+       sentence waits for it to end, with a bounded fallback so a browser that
+       blocks autoplay still speaks. */
+    function speakAfterCue(data) {
+      if (!data.earcon || !activeAudio) { speakTurn(data); return; }
+      var spoken = false;
+      function once() { if (!spoken) { spoken = true; speakTurn(data); } }
+      activeAudio.addEventListener("ended", once, { once: true });
+      activeAudio.addEventListener("error", once, { once: true });
+      setTimeout(once, CUE_TIMEOUT_MS);
+    }
+
+    function renderReviewPath() {
+      var path = State.reviewPath;
+      var host = $("reviewPathRow");
+      if (!host) { return; }
+      host.textContent = path
+        ? "Review path reported by GET /health: " + path.resolved_capability + ". " + path.detail
+        : "Review path unknown until GET /health answers.";
+    }
+
+    function startReviewLease(expiresAtEpoch) {
+      clearInterval(Review.leaseTimer);
+      function tick() {
+        var node = $("reviewLease");
+        if (!node) { clearInterval(Review.leaseTimer); return; }
+        var remaining = Math.round(expiresAtEpoch - (Date.now() / 1000));
+        if (remaining <= 0) {
+          clearInterval(Review.leaseTimer);
+          node.textContent = "LEASE EXPIRED: the grant is no longer accepted; say request changes again";
+          Review.grant = null;
+          Review.pending = null;
+          return;
+        }
+        node.textContent = "LEASE ACTIVE " + remaining + "s";
+      }
+      tick();
+      Review.leaseTimer = setInterval(tick, 1000);
+    }
+
+    function renderReviewPane(data) {
+      var pane = clear($("reviewPane"));
+      var pr = data.pull_request;
+      var rows = [];
+      if (pr) {
+        rows.push(["Pull request", pr.owner + "/" + pr.repo + " #" + pr.number + ": " + pr.title]);
+        rows.push(["Head commit", pr.head_sha]);
+      }
+      if (data.pending_review) {
+        rows.push(["Staged review", "REQUEST_CHANGES bound to " + data.pending_review.head_sha]);
+        rows.push(["Comment", data.pending_review.body]);
+        rows.push(["Grant", String(data.approval_grant).slice(0, 32) + "..."]);
+        rows.push(["Payload hash", String(data.pending_review.payload_hash).slice(0, 32)]);
+      }
+      var outcome = data.review_outcome;
+      if (outcome) {
+        var verdict = outcome.submitted
+          ? "submitted to GitHub, review id " + (outcome.response && outcome.response.id)
+          : outcome.dry_run
+            ? "recorded and not sent: a dry run, because the server runs without VOLCAN_GITHUB_WRITE=1"
+            : "refused, " + outcome.refusal_code;
+        rows.push(["Outcome", verdict]);
+        if (outcome.live_head_sha) { rows.push(["Live head re-read", outcome.live_head_sha]); }
+        if (outcome.identity) { rows.push(["Authenticated as", outcome.identity]); }
+      }
+      if (rows.length) { pane.appendChild(govRows(rows)); }
+      else {
+        pane.appendChild(el("p", "empty-state-card",
+          "No review staged. Say request changes followed by your comment once a pull request is open."));
+      }
+      if (data.pending_review) {
+        var lease = el("span", "lease", "LEASE ACTIVE");
+        lease.id = "reviewLease";
+        lease.setAttribute("data-state", "active");
+        pane.appendChild(lease);
+        startReviewLease(data.pending_review.expires_at_epoch);
+      }
+      if (outcome && outcome.request) {
+        pane.appendChild(el("p", "caption", outcome.dry_run
+          ? "The exact request the server recorded and did not send, token redacted:"
+          : "The exact request the server sent, token redacted:"));
+        pane.appendChild(el("pre", "review-request",
+          outcome.request.method + " " + outcome.request.url + "\n"
+          + JSON.stringify(outcome.request.json, null, 2)));
+      }
+      var pathRow = el("p", "caption");
+      pathRow.id = "reviewPathRow";
+      pane.appendChild(pathRow);
+      renderReviewPath();
+    }
+
+    async function sendTranscript(transcript, source) {
+      var text = String(transcript || "").trim();
+      if (!text) {
+        announce("reviewStatus", "Nothing to send. Type a command or say one.");
+        return;
+      }
+      // Interruption: a new command silences whatever is still being spoken
+      // before the server is asked, so the listener is never talked over.
+      stopAudio();
+      logTurn("you", (source === "microphone" ? "Heard: " : "Typed: ") + text);
+      announce("reviewStatus", "Heard: " + text + ". Sending it to the server.");
+
+      var ready = await requireServer([
+        ["reviewPane", "The dialogue needs POST /api/review/turn, and nothing answered on this origin."]
+      ]);
+      if (!ready) {
+        $("dialogueState").setAttribute("data-state", "refused");
+        $("dialogueState").textContent = "NO SERVER";
+        announce("reviewStatus", "No Volcan server answered, so the command was not processed.");
+        return;
+      }
+
+      try {
+        var result = await postJson("/api/review/turn", {
+          session_id: Review.sessionId,
+          user_id: "companion-developer",
+          transcript: text,
+          pr_url: $("prUrl").value.trim() || null,
+          raw_diff: $("diffInput").value || null,
+          approval_grant: Review.grant
+        });
+        var data = result.data;
+
+        logTurn("understood", data.readback);
+        if (data.spoken) {
+          logTurn("volcan", (data.error ? "Not done. " : "")
+            + data.spoken + "   [" + data.state + ", " + result.elapsedMs.toFixed(1) + " ms]");
+        }
+        setDialogueState(data);
+
+        if (data.approval_grant) {
+          Review.grant = data.approval_grant;
+          Review.pending = data.pending_review;
+        }
+        if (data.review_outcome || data.state === "OVERVIEW") {
+          clearInterval(Review.leaseTimer);
+          Review.grant = null;
+          Review.pending = null;
+        }
+        if (data.pending_review || data.review_outcome || data.pull_request) {
+          renderReviewPane(data);
+        }
+        if (data.review_outcome) { refreshAudit(); }
+
+        if (data.earcon) { renderEarcon(data.earcon); }
+        speakAfterCue(data);
+        announce("reviewStatus", data.readback + " " + (data.spoken || ""));
+      } catch (error) {
+        logTurn("you", "The turn failed: " + error.message);
+        clear($("reviewPane")).appendChild(failureCard("The dialogue call failed: " + error.message + "."));
+        announce("reviewStatus", "The turn failed. " + error.message);
+      }
+    }
+
+    function sendTyped() {
+      var box = $("commandInput");
+      var text = box.value;
+      box.value = "";
+      sendTranscript(text, "keyboard");
+    }
+
+    function setListening(on) {
+      Review.listening = on;
+      var button = $("micToggle");
+      button.setAttribute("aria-pressed", on ? "true" : "false");
+      button.textContent = on ? "Stop listening" : "Start listening";
+      $("micState").textContent = on ? "listening" : "microphone off";
+      announce("reviewStatus", on ? "Listening. Speak one command." : "Stopped listening.");
+    }
+
+    function stopListening() {
+      if (Review.listening && Review.recognition) {
+        try { Review.recognition.stop(); } catch (error) { setListening(false); }
+      }
+    }
+
+    function toggleListening() {
+      if (!Recognition) {
+        $("micState").textContent = "no speech recognition in this browser";
+        logTurn("volcan", "This browser exposes no SpeechRecognition API, so the microphone cannot "
+          + "be used here. Type the command in the box and press Enter; every command works that way.");
+        announce("reviewStatus", "No speech recognition in this browser. Type the command instead.");
+        $("commandInput").focus();
+        return;
+      }
+      if (Review.listening) { stopListening(); return; }
+      // Do not listen to our own voice.
+      stopAudio();
+      var recognition = new Recognition();
+      recognition.lang = navigator.language || "en-US";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.continuous = false;
+      recognition.onstart = function () { setListening(true); };
+      recognition.onresult = function (event) {
+        var transcript = event.results[0][0].transcript;
+        sendTranscript(transcript, "microphone");
+      };
+      recognition.onerror = function (event) {
+        logTurn("you", "The recogniser reported: " + event.error + ". Type the command instead.");
+        announce("reviewStatus", "Speech recognition error: " + event.error + ".");
+      };
+      recognition.onend = function () { Review.recognition = null; setListening(false); };
+      Review.recognition = recognition;
+      try {
+        recognition.start();
+      } catch (error) {
+        Review.recognition = null;
+        logTurn("you", "The recogniser could not start: " + error.message + ". Type the command instead.");
+      }
+    }
+
+    function requestChanges() {
+      var comment = $("reviewComment").value.trim();
+      sendTranscript(comment ? "request changes: " + comment : "request changes", "button");
+    }
+
     /* --- presets and wiring ---------------------------------------------- */
 
     /* One patch per shipped syntax-tree rule, plus a control.
@@ -1612,11 +2108,44 @@
     $("preset2").addEventListener("click", function () { loadPreset(2); });
     $("preset3").addEventListener("click", function () { loadPreset(3); });
     $("preset4").addEventListener("click", function () { loadPreset(4); });
+    $("fidelityCode").addEventListener("click", function () { setBrailleFidelity("code"); });
+    $("fidelityLiterary").addEventListener("click", function () { setBrailleFidelity("literary"); });
+
+    $("openReview").addEventListener("click", function () { sendTranscript("open", "button"); });
+    $("micToggle").addEventListener("click", toggleListening);
+    $("stopSpeech").addEventListener("click", function () {
+      stopAudio();
+      stopListening();
+      announce("reviewStatus", "Stopped.");
+    });
+    $("sayCommand").addEventListener("click", sendTyped);
+    $("commandInput").addEventListener("keydown", function (event) {
+      if (event.key === "Enter") { event.preventDefault(); sendTyped(); }
+    });
+    $("cmdSummary").addEventListener("click", function () { sendTranscript("summary", "button"); });
+    $("cmdFiles").addEventListener("click", function () { sendTranscript("file by file", "button"); });
+    $("cmdFindings").addEventListener("click", function () { sendTranscript("findings", "button"); });
+    $("cmdReadLines").addEventListener("click", function () { sendTranscript("read the lines", "button"); });
+    $("cmdNext").addEventListener("click", function () { sendTranscript("next", "button"); });
+    $("cmdPrevious").addEventListener("click", function () { sendTranscript("previous", "button"); });
+    $("cmdSpell").addEventListener("click", function () { sendTranscript("spell that", "button"); });
+    $("cmdRepeat").addEventListener("click", function () { sendTranscript("repeat", "button"); });
+    $("cmdSlower").addEventListener("click", function () { sendTranscript("slower", "button"); });
+    $("cmdFaster").addEventListener("click", function () { sendTranscript("faster", "button"); });
+    $("cmdWhere").addEventListener("click", function () { sendTranscript("where am I", "button"); });
+    $("cmdHelp").addEventListener("click", function () { sendTranscript("help", "button"); });
+    $("cmdRequestChanges").addEventListener("click", requestChanges);
+    $("cmdConfirm").addEventListener("click", function () { sendTranscript("confirm", "button"); });
+    $("cmdCancel").addEventListener("click", function () { sendTranscript("cancel", "button"); });
 
     document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape") { stopAudio(); return; }
+      if (event.key === "Escape") { stopAudio(); stopListening(); return; }
       if (!event.altKey) { return; }
-      var targets = { "1": "runReview", "2": "diffInput", "3": "brailleOutput" };
+      if (event.key === "5") { event.preventDefault(); toggleListening(); return; }
+      var targets = {
+        "1": "runReview", "2": "diffInput", "3": "brailleOutput",
+        "4": "commandInput", "6": "prUrl"
+      };
       var id = targets[event.key];
       var node = id && $(id);
       if (node) { event.preventDefault(); node.focus(); }

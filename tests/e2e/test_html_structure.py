@@ -86,6 +86,9 @@ def test_core_controls_are_present():
         "runReview", "diffInput", "earconWave", "brailleOutput", "auditVault",
         "runMcp", "endMcp", "stageBtn", "approveBtn", "rejectBtn",
         "speakAgain", "level1", "drillDown", "copyBraille", "retryHealth",
+        "prUrl", "openReview", "micToggle", "stopSpeech", "commandInput", "sayCommand",
+        "reviewComment", "cmdRequestChanges", "cmdConfirm", "cmdCancel",
+        "dialogueLog", "dialogueState", "reviewPane", "fidelityCode", "fidelityLiterary",
     ):
         assert f'id="{hook}"' in html, f"missing control hook: {hook}"
 
@@ -126,6 +129,7 @@ REAL_ENDPOINTS = (
     "/api/stage_governed_action",
     "/api/confirm_action",
     "/api/audit_log",
+    "/api/review/turn",
     "/mcp",
 )
 
@@ -185,6 +189,20 @@ def test_the_first_screen_says_a_model_can_answer_and_who_reports_it():
     )
     assert "will be answered by Amazon Bedrock" not in header, (
         "the header may say a model can answer, never that one did"
+    )
+
+
+def test_the_first_screen_says_this_is_not_an_alexa_skill_and_names_the_simulation():
+    """A review round found zero occurrences of 'simulat', 'alexa' or 'skill' in
+    this file while the README claimed the page said so on screen. The label
+    now has to sit in the header, which is read before any button is pressed,
+    and it has to name both halves: what is simulated and what is live."""
+    header = read_html().split("<main", 1)[0].lower()
+    for word in ("alexa", "skill", "simulat"):
+        assert word in header, f"the first screen never says '{word}'"
+    assert "not an alexa skill" in header
+    assert "live" in header and "dry-run" in header, (
+        "the label must say what is live and what is dry-run in the same breath"
     )
 
 
@@ -286,6 +304,105 @@ def test_the_offline_state_explains_itself_and_names_the_command():
     assert "python -m src.interfaces.mcp_server" in html, (
         "an unreachable server must be answered with the command that starts one"
     )
+
+
+# --- the voice loop: listen, read back, act ---------------------------------
+#
+# What these can and cannot prove, stated plainly. The browser's
+# SpeechRecognition API cannot be driven headlessly and no browser runs in this
+# suite, so nothing here proves that a microphone heard anything. The state
+# machine the page drives lives on the server and is proven with injected
+# transcripts in tests/unit/test_review_dialogue.py and over HTTP in
+# tests/integration/test_review_dialogue_api.py. These assertions pin the
+# page's half of the contract: it listens where it can, it always keeps a typed
+# path, it interrupts itself, it reads back before it acts, and it announces
+# every state change.
+
+
+def function_body(name: str) -> str:
+    """The source of one top-level function in the page script."""
+    script = script_body()
+    start = script.index(f"function {name}(")
+    rest = script[start:]
+    following = re.search(r"\n    (?:async )?function ", rest[1:])
+    return rest if following is None else rest[: following.start() + 1]
+
+
+def test_the_page_listens_where_it_can_and_always_keeps_a_typed_path():
+    html = read_html()
+    script = script_body()
+    assert "window.SpeechRecognition || window.webkitSpeechRecognition" in script
+    assert 'id="commandInput"' in html and 'id="sayCommand"' in html, "the typed path must always exist"
+    assert 'event.key === "Enter"' in script, "Enter in the command box must send the command"
+    body = function_body("toggleListening")
+    assert "no SpeechRecognition" in body, "a browser without a recogniser must be told so"
+    assert '$("commandInput").focus()' in body, "and be sent to the typed path"
+    assert "onresult" in body and "sendTranscript(transcript" in body
+
+
+def test_every_command_travels_to_the_server_and_a_new_one_interrupts_speech():
+    body = function_body("sendTranscript")
+    assert '"/api/review/turn"' in body
+    assert body.index("stopAudio()") < body.index('postJson("/api/review/turn"'), (
+        "a new command must silence the current speech before the server is asked"
+    )
+    assert "approval_grant: Review.grant" in body, "a confirm must present the grant the server issued"
+    assert 'event.key === "Escape") { stopAudio(); stopListening();' in script_body()
+
+
+def test_the_readback_precedes_the_answer_and_both_are_spoken_at_the_returned_rate():
+    body = function_body("sendTranscript")
+    assert body.index("data.readback") < body.index("data.spoken"), "readback first"
+    speak = function_body("speakTurn")
+    assert "[data.readback, data.spoken]" in speak
+    assert "utterance.rate = data.speech_rate" in speak, "slower and faster are the server's numbers"
+    assert "data.silent" in speak, "a stop turn must not be spoken over"
+
+
+def test_every_dialogue_state_change_is_announced_through_a_live_region():
+    html = read_html()
+    script = script_body()
+    assert re.search(r'id="reviewStatus"[^>]*role="status"[^>]*aria-live="polite"', html)
+    assert re.search(r'id="dialogueLog"[^>]*aria-live="polite"', html)
+    assert re.search(r'id="reviewPane"[^>]*role="status"[^>]*aria-live="polite"', html)
+    assert 'announce("reviewStatus"' in script
+    assert "setDialogueState(data)" in function_body("sendTranscript")
+    for state in ("IDLE", "OVERVIEW", "FILE", "LINES", "CONFIRM_REVIEW", "SUBMITTED", "RECORDED", "REFUSED"):
+        assert f"{state}:" in script, f"the page has no label for dialogue state {state}"
+
+
+def test_the_review_outcome_is_the_servers_and_a_dry_run_is_never_dressed_as_a_send():
+    script = script_body()
+    pane = function_body("renderReviewPane")
+    assert "outcome.submitted" in pane and "outcome.dry_run" in pane and "outcome.refusal_code" in pane
+    assert "recorded and not sent" in pane
+    assert "VOLCAN_GITHUB_WRITE" in pane, "the dry-run row must name the switch that changes it"
+    assert "github_review_path" in script, "the review path comes from GET /health"
+    assert "GITHUB_TOKEN" not in script and "token_present" not in script, (
+        "the page never handles or displays a token fact of its own"
+    )
+    assert "DRY_RUN_RECORDED" not in script or "renderEarcon(data.earcon)" in script
+
+
+def test_the_keyboard_map_covers_the_dialogue():
+    html = read_html()
+    script = script_body()
+    for key in ("4", "5", "6"):
+        assert f"<kbd>Alt</kbd>+<kbd>{key}</kbd>" in html, f"Alt+{key} is not documented"
+    assert '"4": "commandInput"' in script and '"6": "prUrl"' in script
+    assert 'event.key === "5") { event.preventDefault(); toggleListening();' in script
+    assert "stop listening" in html.lower(), "Escape must be documented as stopping the microphone too"
+
+
+def test_the_braille_panel_prints_the_fidelity_and_the_loss_beside_the_cells():
+    html = read_html()
+    script = script_body()
+    assert "fidelity: State.brailleFidelity" in script, "the page must ask for a fidelity, not assume one"
+    body = function_body("renderBraille")
+    for field in ("data.fidelity", "data.lossless", "data.disclosure"):
+        assert field in body, f"the Braille caption never prints {field}"
+    assert "six-dot Unicode" not in html, "the panel must not hardcode the six-dot table any more"
+    assert 'id="fidelityCode"' in html and 'id="fidelityLiterary"' in html
 
 
 # --- semantic landmarks and roles -------------------------------------------
