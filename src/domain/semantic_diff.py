@@ -28,6 +28,22 @@ class ChangeSignificance(str, Enum):
 
 
 @dataclass(frozen=True)
+class DiffLine:
+    """One line of a hunk, with the line numbers a reviewer would quote.
+
+    ``old_no`` is the line's number in the file before the change and
+    ``new_no`` its number after it. An added line has no old number and a
+    removed line has no new number, which is how a listener is told which side
+    of the change a line sits on without hearing a plus or minus sign.
+    """
+
+    kind: str  # "context", "add" or "remove"
+    text: str  # the source line without its leading marker character
+    old_no: int | None
+    new_no: int | None
+
+
+@dataclass(frozen=True)
 class DiffHunk:
     old_start: int
     old_lines: int
@@ -36,6 +52,13 @@ class DiffHunk:
     header: str
     added_lines: list[str]
     removed_lines: list[str]
+    #: Every line of the hunk in order, numbered. This is what the review
+    #: dialogue reads aloud when a developer asks for the exact source lines,
+    #: so it is the text as written and not a summary of it.
+    lines: list[DiffLine] = field(default_factory=list)
+
+
+HUNK_HEADER = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$")
 
 
 @dataclass(frozen=True)
@@ -52,6 +75,8 @@ class DiffSectionDigest:
     #: One spoken sentence per flag, in the same order. A listener hears these,
     #: so they say what changed rather than which keyword matched.
     security_findings: list[str] = field(default_factory=list)
+    #: The hunks of this file, each with its numbered lines.
+    hunks: list[DiffHunk] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -179,6 +204,72 @@ class UnifiedDiffParser:
                 return path
         return "unknown_file"
 
+    @staticmethod
+    def parse_hunks(chunk: list[str]) -> list[DiffHunk]:
+        """The hunks of one file chunk, with every line numbered.
+
+        Numbering follows the hunk header: the old and new counters start at
+        the header's two start lines, a context line advances both, an added
+        line advances only the new counter and a removed line only the old one.
+        A ``\\ No newline at end of file`` marker belongs to the previous line
+        and is not a line of its own. Anything else ends the hunk.
+        """
+        hunks: list[DiffHunk] = []
+        current: dict | None = None
+
+        def close() -> None:
+            if current is None:
+                return
+            hunks.append(DiffHunk(
+                old_start=current["old_start"],
+                old_lines=current["old_lines"],
+                new_start=current["new_start"],
+                new_lines=current["new_lines"],
+                header=current["header"],
+                added_lines=[line.text for line in current["lines"] if line.kind == "add"],
+                removed_lines=[line.text for line in current["lines"] if line.kind == "remove"],
+                lines=list(current["lines"]),
+            ))
+
+        for raw in chunk:
+            header = HUNK_HEADER.match(raw)
+            if header:
+                close()
+                old_start = int(header.group(1))
+                new_start = int(header.group(3))
+                current = {
+                    "old_start": old_start,
+                    "old_lines": int(header.group(2) or 1),
+                    "new_start": new_start,
+                    "new_lines": int(header.group(4) or 1),
+                    "header": header.group(5).strip(),
+                    "old_no": old_start,
+                    "new_no": new_start,
+                    "lines": [],
+                }
+                continue
+            if current is None:
+                continue
+            if raw.startswith("\\"):
+                continue
+            if raw.startswith("+"):
+                current["lines"].append(DiffLine("add", raw[1:], None, current["new_no"]))
+                current["new_no"] += 1
+            elif raw.startswith("-"):
+                current["lines"].append(DiffLine("remove", raw[1:], current["old_no"], None))
+                current["old_no"] += 1
+            elif raw.startswith(" ") or raw == "":
+                current["lines"].append(
+                    DiffLine("context", raw[1:], current["old_no"], current["new_no"])
+                )
+                current["old_no"] += 1
+                current["new_no"] += 1
+            else:
+                close()
+                current = None
+        close()
+        return hunks
+
     @classmethod
     def parse_patch(cls, raw_diff: str) -> list[DiffSectionDigest]:
         if not raw_diff or not raw_diff.strip():
@@ -191,6 +282,7 @@ class UnifiedDiffParser:
                 continue
 
             file_path = cls._file_path_from(lines)
+            hunks = cls.parse_hunks(lines)
 
             added_lines = [line[1:] for line in lines if line.startswith("+") and not line.startswith("+++")]
             removed_lines = [line[1:] for line in lines if line.startswith("-") and not line.startswith("---")]
@@ -229,8 +321,11 @@ class UnifiedDiffParser:
                 category = ChangeCategory.BUSINESS_LOGIC
                 significance = ChangeSignificance.MEDIUM if len(added_lines) > 20 else ChangeSignificance.LOW
 
+            # Spoken verbatim by the review dialogue, so the count agrees with
+            # its noun and the category is words rather than an identifier.
             summary_spoken = (
-                f"Changed {len(added_lines)} lines in {file_path} focusing on {category.value.lower()}."
+                f"Changed {plural(len(added_lines), 'line')} in {file_path}, "
+                f"{category.value.replace('_', ' ').lower()}."
             )
 
             sections.append(
@@ -244,6 +339,7 @@ class UnifiedDiffParser:
                     removed_count=len(removed_lines),
                     security_flags=security_flags,
                     security_findings=security_findings,
+                    hunks=hunks,
                 )
             )
 
