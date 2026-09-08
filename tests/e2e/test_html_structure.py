@@ -91,11 +91,21 @@ def test_core_controls_are_present():
 
 
 def test_diff_presets_are_well_formed_patches():
+    """Four presets, one per syntax-tree rule plus a control.
+
+    What each one *produces* is asserted in
+    ``tests/e2e/test_shipped_presets_reach_their_rule.py``, which runs them
+    through the production parser. This only checks the page still carries four
+    well-formed patches and four wired chips to load them with.
+    """
     html = read_html()
-    assert "KMS_KEY_ID" in html and "AuthService" in html
-    assert "router.get" in html and "health" in html
-    assert "strip" in html
-    assert html.count("diff --git") >= 3
+    assert html.count("diff --git") >= 4
+    for number in (1, 2, 3, 4):
+        assert f'id="preset{number}"' in html, f"preset chip {number} is missing"
+    assert "user.role" in html, "the inverted authorization patch is gone"
+    assert "allow_origins" in html, "the widened cross-origin patch is gone"
+    assert "verify_signature" in html, "the removed verification call patch is gone"
+    assert "data.strip()" in html, "the benign control patch is gone"
 
 
 def test_lease_countdown_contract():
@@ -204,6 +214,24 @@ def test_the_health_line_does_not_promise_a_model_answer():
     script = script_body()
     assert "may be answered by Amazon Bedrock" not in script, (
         "the page must not predict a model answer from the presence of credentials"
+    )
+
+
+def test_the_connection_line_reads_the_resolved_capability_not_a_half_fact():
+    """Credentials alone cannot say whether a call can even be attempted.
+
+    Without the SDK nothing leaves the server process, so a page that decides
+    from ``bedrock_credentials_present`` tells a reviewer the model path is
+    available on a machine where it cannot run. The server resolves both facts
+    into one field, and the page has to print that one.
+    """
+    script = script_body()
+    assert "bedrock_model_path" in script, (
+        "the connection line must read the resolved capability the server computed"
+    )
+    assert "resolved_capability" in script
+    assert "bedrock_credentials_present" not in script, (
+        "the page still decides from the credential boolean alone"
     )
 
 

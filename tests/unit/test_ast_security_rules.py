@@ -85,6 +85,25 @@ def test_a_wildcard_that_is_not_an_origin_is_refused():
     assert _rule_ids(['    glob_pattern = "*"'], []) == []
 
 
+def test_an_argument_line_is_described_as_an_assignment_not_a_tuple():
+    """The comma that separated the argument from its neighbour is not content.
+
+    ``CORSMiddleware`` is configured over several lines, so the line that
+    changes reaches the patch as ``allow_origins=["*"],``. Parsed with the comma
+    left on, that is a one-element tuple and the sentence a blind reviewer hears
+    reads ``allow_origins = (['*'],)``: true of the fragment and false of the
+    code. This pins the reading of the line, not only the rule that fires on it.
+    """
+    spoken = _spoken(['    allow_origins=["*"],'], ['    allow_origins=["https://console.internal"],'])
+    assert "allow_origins = ['*']" in spoken
+    assert "(['*'],)" not in spoken
+
+
+def test_dropping_the_comma_does_not_invent_a_finding_from_an_empty_line():
+    assert ast_security_rules.parse_fragment(",") is None
+    assert ast_security_rules.parse_fragment("   ,  ") is None
+
+
 # --- Rule 3: a verification call removed ------------------------------------
 
 def test_a_removed_signature_check_is_found():

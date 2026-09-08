@@ -592,14 +592,21 @@
             </div>
             <label for="diffInput">Patch to review</label>
             <textarea id="diffInput" spellcheck="false" aria-describedby="diffHelp"></textarea>
-            <p class="hint" id="diffHelp">Paste any <code>git diff</code> output, or pick one of these three.</p>
+            <p class="hint" id="diffHelp">Paste any <code>git diff</code> output, or pick one of these four.
+              The first three are the change classes a keyword matcher cannot see, one for each
+              syntax-tree rule Volcan ships; the fourth is the control, where the right answer is
+              no finding at all. Each label names the sentence the server will speak back, and
+              <code>tests/e2e/test_shipped_presets_reach_their_rule.py</code> fails the build if a
+              preset stops producing it.</p>
             <div class="chips" role="group" aria-label="Preset patches">
               <button type="button" id="preset1" aria-pressed="true"
-                      title="Load a patch that replaces a hardcoded secret with a KMS key lookup">Auth change</button>
+                      title="Loads the patch Volcan answers with: an authorization comparison was inverted: user.role == 'admin' became user.role != 'admin'">Inverted admin check</button>
               <button type="button" id="preset2" aria-pressed="false"
-                      title="Load a patch that adds a health route">Clean refactor</button>
+                      title="Loads the patch Volcan answers with: a cross-origin policy was widened to accept any origin: allow_origins = ['*']">CORS opened to any origin</button>
               <button type="button" id="preset3" aria-pressed="false"
-                      title="Load a patch that adds a null check">Null-check fix</button>
+                      title="Loads the patch Volcan answers with: the call verify_signature(payload, request.headers['X-Signature']) was removed and nothing replaced it">Signature check deleted</button>
+              <button type="button" id="preset4" aria-pressed="false"
+                      title="Control. Loads a benign patch that changes no security behaviour, so the right answer is no finding at all and the rising DIFF_READY cue rather than the falling one">Clean change, no finding</button>
             </div>
           </div>
 
@@ -625,7 +632,7 @@
                       aria-label="No audio cue has played yet. When one does, its amplitude is drawn here from the audio samples the server returned."></canvas>
               <div id="earconPlayer"></div>
               <p class="caption" id="earconCaption" role="status" aria-live="polite">
-                No cue yet. Volcan sends a rising three-note cue, <code>DIFF_READY</code>, when a digest is ready, and a falling two-note cue, <code>SECURITY_FINDING</code>, when the patch touches security, so the verdict arrives before the sentence does. The two are different audio: switch between preset 1 and preset 3 above and this caption changes with the bytes.
+                No cue yet. Volcan sends a rising three-note cue, <code>DIFF_READY</code>, when a digest is ready, and a falling two-note cue, <code>SECURITY_FINDING</code>, when the patch touches security, so the verdict arrives before the sentence does. The two are different audio: switch between preset 1 and preset 4 above and this caption changes with the bytes.
               </p>
             </article>
 
@@ -882,14 +889,16 @@
         State.apiBase = base;
         State.live = true;
         var mcp = (health.mcp && health.mcp.protocol_version) || "unknown";
-        // Resolving credentials says nothing about whether a model answers.
-        // Only the digest response knows that, so this line points at the
-        // synthesis meter instead of predicting what it will say.
-        var engine = health.bedrock_credentials_present
-          ? "AWS credentials resolved here. Whether a model answered is reported per digest by "
-            + "the synthesis meter, which also prints the reason when none did."
-          : "No AWS credentials resolved here, so digests come from the local heuristic path "
-            + "and the synthesis meter says so.";
+        // Resolving credentials says nothing about whether a model answers, and
+        // on its own it does not even say a call can be attempted: without the
+        // SDK nothing leaves the process. The server now resolves both facts
+        // into one capability and writes the sentence, so this page prints the
+        // server's own words rather than deciding from half the evidence.
+        var path = health.bedrock_model_path || {};
+        var engine = "Model path: " + (path.resolved_capability || "not reported")
+          + ". " + (path.detail || "")
+          + " Whether a model answered is reported per digest by the synthesis meter, which "
+          + "also prints the reason when none did.";
         setConnection("live", "Server reached",
           "GET " + base + "/health answered HTTP " + response.status + " in "
           + elapsed.toFixed(1) + " ms. MCP revision " + mcp + " is served at " + base
@@ -1535,37 +1544,55 @@
 
     /* --- presets and wiring ---------------------------------------------- */
 
+    /* One patch per shipped syntax-tree rule, plus a control.
+       These are the product's own buttons, so the first press has to reach the
+       thing that separates Volcan from a keyword matcher rather than the
+       weakest answer it can give. Presets 1 to 3 each trigger exactly one rule
+       from src/domain/ast_security_rules.py; preset 4 triggers none on purpose,
+       so the refusal path is visible too. The chip labels above quote the
+       sentence each of these produces, and a test compares the two. */
     var PRESETS = {
-      1: "diff --git a/src/auth/service.py b/src/auth/service.py\n"
-        + "index a1b2c3d..e5f6a7b 100644\n"
-        + "--- a/src/auth/service.py\n"
-        + "+++ b/src/auth/service.py\n"
-        + "@@ -10,4 +10,6 @@ class AuthService:\n"
-        + "     def authenticate(self, token: str) -> bool:\n"
-        + "-        return token == \"hardcoded_secret\"\n"
-        + "+        # Replace the hardcoded secret with a KMS key lookup\n"
-        + "+        kms_key = os.environ.get(\"KMS_KEY_ID\")\n"
-        + "+        return verify_kms_token(token, kms_key)",
-      2: "diff --git a/src/routes/api.py b/src/routes/api.py\n"
-        + "--- a/src/routes/api.py\n"
-        + "+++ b/src/routes/api.py\n"
-        + "@@ -15,2 +15,4 @@\n"
-        + "+@router.get(\"/v1/health\")\n"
-        + "+def health():\n"
-        + "+    return {\"status\": \"ok\"}",
-      3: "diff --git a/src/utils/parser.py b/src/utils/parser.py\n"
+      1: "diff --git a/src/auth/permissions.py b/src/auth/permissions.py\n"
+        + "index 4c1a9f2..b7d3e88 100644\n"
+        + "--- a/src/auth/permissions.py\n"
+        + "+++ b/src/auth/permissions.py\n"
+        + "@@ -12,7 +12,7 @@ def can_delete_workspace(user, workspace):\n"
+        + "     if workspace.locked:\n"
+        + "         return False\n"
+        + "-    return user.role == \"admin\"\n"
+        + "+    return user.role != \"admin\"\n",
+      2: "diff --git a/src/api/app.py b/src/api/app.py\n"
+        + "index 9ab21c4..d0e5f31 100644\n"
+        + "--- a/src/api/app.py\n"
+        + "+++ b/src/api/app.py\n"
+        + "@@ -8,7 +8,7 @@ app = FastAPI()\n"
+        + " app.add_middleware(\n"
+        + "     CORSMiddleware,\n"
+        + "-    allow_origins=[\"https://console.internal\"],\n"
+        + "+    allow_origins=[\"*\"],\n"
+        + " )\n",
+      3: "diff --git a/src/webhooks/receiver.py b/src/webhooks/receiver.py\n"
+        + "index 33ac9de..71fb204 100644\n"
+        + "--- a/src/webhooks/receiver.py\n"
+        + "+++ b/src/webhooks/receiver.py\n"
+        + "@@ -19,8 +19,7 @@ def receive(request):\n"
+        + "     payload = request.body\n"
+        + "-    verify_signature(payload, request.headers[\"X-Signature\"])\n"
+        + "     return handle(payload)\n",
+      4: "diff --git a/src/utils/parser.py b/src/utils/parser.py\n"
+        + "index 5f0c1aa..e21b7d9 100644\n"
         + "--- a/src/utils/parser.py\n"
         + "+++ b/src/utils/parser.py\n"
-        + "@@ -4,3 +4,4 @@\n"
+        + "@@ -4,3 +4,5 @@ def normalise(data):\n"
         + "-    return data.strip()\n"
         + "+    if not data:\n"
         + "+        return \"\"\n"
-        + "+    return data.strip()"
+        + "+    return data.strip()\n"
     };
 
     function loadPreset(id) {
       $("diffInput").value = PRESETS[id];
-      for (var n = 1; n <= 3; n++) {
+      for (var n = 1; n <= 4; n++) {
         $("preset" + n).setAttribute("aria-pressed", String(n === id));
       }
     }
@@ -1584,6 +1611,7 @@
     $("preset1").addEventListener("click", function () { loadPreset(1); });
     $("preset2").addEventListener("click", function () { loadPreset(2); });
     $("preset3").addEventListener("click", function () { loadPreset(3); });
+    $("preset4").addEventListener("click", function () { loadPreset(4); });
 
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape") { stopAudio(); return; }

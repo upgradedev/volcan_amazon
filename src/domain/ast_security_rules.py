@@ -91,10 +91,22 @@ def parse_fragment(line: str) -> ast.AST | None:
     those is a SyntaxError for a bare ``ast.parse``, so the fragment is tried in
     increasingly forgiving forms and abandoned quietly when none of them parse.
     A line that is not Python is not evidence of anything.
+
+    A line lifted out of an argument list keeps the comma that separated it from
+    its neighbour, and that comma is not harmless: ``allow_origins=["*"],``
+    parses as a one-element tuple, so the rule below describes it as
+    ``allow_origins = (['*'],)``. That sentence is true of the fragment and
+    false of the code it came from, and a listener hears it. One trailing comma
+    is therefore dropped before parsing, which is how real middleware
+    configuration is written and how it must be read back.
     """
     text = line.strip()
     if not text or text.startswith("#"):
         return None
+    if text.endswith(","):
+        text = text[:-1].rstrip()
+        if not text:
+            return None
 
     candidates = [text]
     if text.endswith(":"):
