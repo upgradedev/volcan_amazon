@@ -16,6 +16,7 @@ import httpx
 import pytest
 
 from src.application.digest_diff_use_case import DigestDiffUseCase
+from src.application.review_authorization import ReviewPrincipal, current_review_principal
 from src.application.review_dialogue_use_case import (
     ACTION_TYPE,
     STAGING_PRINCIPAL,
@@ -30,6 +31,15 @@ from src.infrastructure.github_review_adapter import GitHubReviewAdapter
 from tests.fixtures.fake_github import HEAD, MOVED, PR_URL, FakeGitHub
 
 USER = "blind-developer"
+
+@pytest.fixture(autouse=True)
+def trusted_caller():
+    """These port tests exercise an already authenticated application caller."""
+    token = current_review_principal.set(ReviewPrincipal("blind-developer", frozenset({"octo/demo"})))
+    try:
+        yield
+    finally:
+        current_review_principal.reset(token)
 
 
 def build(fake: FakeGitHub, token: str | None = None, write: bool = False,

@@ -14,6 +14,10 @@ Two halves, with different trust:
   the variable set it sends the request with the token in ``GITHUB_TOKEN`` and
   reports GitHub's answer, refusal included.
 
+A configured HTTP reviewer must also authorize the repository. The service
+GitHub token alone never authenticates a caller; the final write checks the
+request-scoped reviewer independently of the dialogue's session/grant checks.
+
 Before a review leaves this process, live or dry-run, the adapter re-reads the
 pull request's head SHA and refuses with ``STALE_HEAD`` when it no longer equals
 the SHA the review was prepared against. A live send is also refused with
@@ -33,6 +37,10 @@ from typing import Any
 
 import httpx
 
+from src.application.review_authorization import (
+    ReviewAuthorizationError,
+    require_review_principal,
+)
 from src.domain.review_dialogue import PullRequestSnapshot
 
 GITHUB_API = "https://api.github.com"
@@ -133,7 +141,7 @@ class GitHubReviewAdapter:
         if self.write_enabled and token:
             resolved, detail = CAPABILITY_LIVE, (
                 f"{WRITE_FLAG}=1 and a {TOKEN_ENV} are both set, so a confirmed request "
-                "changes review is sent to GitHub for real. Reads need no token."
+                "changes review can be sent to GitHub only after reviewer authorization."
             )
         elif self.write_enabled:
             resolved, detail = CAPABILITY_LIVE_NO_TOKEN, (
@@ -283,6 +291,15 @@ class GitHubReviewAdapter:
             "json": payload,
             "token_present": bool(self.token),
         }
+
+        if self.write_enabled:
+            try:
+                require_review_principal().require_repository(snapshot.owner, snapshot.repo)
+            except ReviewAuthorizationError as exc:
+                return ReviewSubmission(
+                    submitted=False, dry_run=False, refusal_code=exc.code, detail=str(exc),
+                    expected_head_sha=expected_head_sha, live_head_sha=None,
+                )
 
         try:
             live_head = self.head_sha(snapshot.owner, snapshot.repo, snapshot.number)

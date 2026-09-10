@@ -9,6 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response
 
+from src.application.review_authorization import ReviewAuthorizationError
 from src.domain.sonification import EarconType
 from src.interfaces.composition import (
     accessibility_use_case,
@@ -146,14 +147,20 @@ async def rest_review_turn(req: ReviewTurnRequest) -> dict[str, Any]:
     back what was understood, says what happened, and carries the earcon when
     the turn has one.
     """
-    result = await review_dialogue_use_case.handle_turn(
-        session_id=req.session_id,
-        user_id=req.user_id,
-        transcript=req.transcript,
-        pr_url=req.pr_url,
-        raw_diff=req.raw_diff,
-        approval_grant=req.approval_grant,
-    )
+    try:
+        result = await review_dialogue_use_case.handle_turn(
+            session_id=req.session_id,
+            user_id=req.user_id,
+            transcript=req.transcript,
+            pr_url=req.pr_url,
+            raw_diff=req.raw_diff,
+            approval_grant=req.approval_grant,
+        )
+    except ReviewAuthorizationError as exc:
+        raise HTTPException(
+            status_code=exc.status, detail={"code": exc.code, "message": str(exc)},
+            headers={"WWW-Authenticate": "Bearer"} if exc.status == 401 else None,
+        ) from exc
     result.pop("_wav", None)
     return result
 

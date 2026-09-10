@@ -729,6 +729,13 @@
               <span class="side" id="micState">microphone off</span>
             </div>
 
+            <label for="reviewCredential">Reviewer access token for live mode</label>
+            <input type="password" id="reviewCredential" autocomplete="off" spellcheck="false"
+                   aria-describedby="reviewCredentialHelp">
+            <p class="hint" id="reviewCredentialHelp">Leave empty for the public dry-run demo.
+              For live reviews, use your reviewer credential from the server operator, never
+              a GitHub token. It stays in this page's memory and goes only to the review API.
+              Reload to clear it and start a new session when changing reviewer.</p>
             <label for="prUrl">Pull request URL</label>
             <input type="url" id="prUrl" autocomplete="off" spellcheck="false"
                    placeholder="https://github.com/owner/repo/pull/123" aria-describedby="prUrlHelp">
@@ -1288,16 +1295,20 @@
 
     async function postJson(path, payload) {
       var started = performance.now();
+      var headers = { "Content-Type": "application/json" };
+      if (path === "/api/review/turn" && $("reviewCredential").value) {
+        headers.Authorization = "Bearer " + $("reviewCredential").value;
+      }
       var response = await fetch(State.apiBase + path, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: headers,
         body: JSON.stringify(payload)
       });
       var body = await response.json();
       var elapsed = performance.now() - started;
       if (!response.ok) {
         throw new Error("POST " + path + " answered HTTP " + response.status
-          + (body && body.detail ? ": " + body.detail : ""));
+          + (body && body.detail ? ": " + (body.detail.message || body.detail) : ""));
       }
       return { data: body, elapsedMs: elapsed };
     }

@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-421%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-443%20passing-brightgreen.svg)](tests/)
 
 One pull request goes in. Three things a person can actually use come out, and one governed
 action goes back.
@@ -605,9 +605,9 @@ microphone, and every command chip is a real button in the tab order.
 | Opening the pull request | `GET https://api.github.com/repos/<o>/<r>/pulls/<n>` twice, JSON then diff, no token needed for a public repository | nothing |
 | The dialogue itself | The server's state machine, the digest, the earcons, the Braille | Speech output is the browser's `speechSynthesis` |
 | Staging the review | A real HMAC-SHA256 grant with a 300 second lease, sealed in the audit chain on confirm | nothing |
-| Confirming the review | The head SHA is re-read live and a moved head is refused with `STALE_HEAD` | The `POST .../reviews` is **recorded and not sent** unless `VOLCAN_GITHUB_WRITE=1` and `GITHUB_TOKEN` are both set |
+| Confirming the review | The head SHA is re-read live and a moved head is refused with `STALE_HEAD` | Live writes also require a configured reviewer credential, session ownership and repository authorization; the default records and sends nothing |
 
-Two environment variables, both read once at start-up by
+The GitHub adapter uses two environment variables, read once at start-up by
 [`src/infrastructure/github_review_adapter.py`](src/infrastructure/github_review_adapter.py):
 `GITHUB_TOKEN`, a fine-grained token with `pull_requests: write` on the one repository to be
 reviewed, and `VOLCAN_GITHUB_WRITE`, which enables the send only when it is exactly `1`. With
@@ -617,6 +617,22 @@ with a token that lacks the permission GitHub answers 401, 403 or 404 and the se
 `github_review_path.resolved_capability`, one of `dry_run_no_token`, `dry_run_with_token`,
 `live_write_requested_but_no_token` and `live_write_enabled`, and never the token value.
 Measured on the development machine on 2026-09-08 with neither variable set:
+
+Live mode also requires `VOLCAN_REVIEWERS`, a server-only JSON roster, for example
+`{"alice":{"token":"<generate-a-random-secret-of-at-least-32-characters>","repositories":["owner/repo"]}}`.
+Use a distinct random credential per human, keep the GitHub token on the server, and use
+HTTPS outside loopback. Send `Authorization: Bearer <reviewer-token>` on every REST review
+turn or MCP request calling `review_dialogue_turn`. The companion has a password field
+for this reviewer credential; it is not saved in browser storage. Reload before changing
+reviewer. The server derives the approver from the roster and ignores JSON `user_id`
+as authority. A dialogue session and its grant are bound to that identity; another identity,
+an anonymous request, a grant from another session, or a repository outside the exact
+allowlist cannot release the review. Repository matching is case-insensitive; wildcards,
+missing/invalid rosters and duplicate credentials fail closed. Credential removal takes
+effect on the next request. Start a new session after switching between dry-run and live mode.
+The GitHub adapter's live capability describes its token/flag only; reviewer authorization is
+an additional mandatory boundary, including at its write method. Health, other read tools and
+the default dry-run demo remain public. No real GitHub write has been used to validate this fix.
 
 ```json
 "github_review_path": {
@@ -777,7 +793,7 @@ estimate unless it says ESTIMATE.
 | Earcon synthesis latency, mean of 1000 runs | not measured | 2.966 ms | `python scripts/benchmark_suite.py` |
 | MCP protocol conformance | not applicable | **21 of 21 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 421 passing, 7.00 s on the run that produced the count | `python -m pytest tests/ -q` |
+| Automated tests | not applicable | 443 passing; 94.07% statement coverage in 22.95 s on the isolated V-AUTH branch, 2026-09-10 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.4 s | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 117.2 ms on the first press, then 80.5, 42.9 and 58.7 ms, Chrome at 1440x900 on 2026-09-08 | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -868,7 +884,7 @@ exits 0: `41/53 passed, 0 blocking failures, 12 externally blocked`. The excuse 
 script exits 1.
 
 To satisfy yourself that the script is capable of failing rather than decorative, change the
-test count in the README badge from 421 to 422 and run it again. Gate G1 turns red under
+test count in the README badge from 443 to 444 and run it again. Gate G1 turns red under
 `FAILED, BLOCKING`, the summary reads `1 blocking failures`, and the process exits 1.
 
 ---
@@ -883,18 +899,21 @@ test count in the README badge from 421 to 422 and run it again. Gate G1 turns r
   [`src/infrastructure/github_review_adapter.py`](src/infrastructure/github_review_adapter.py)
   is real code, shape-tested against `httpx.MockTransport` for the accepted review, the stale
   head, the missing token, the unauthorized token and the unreachable host, and it has never
-  been run with the flag set. Every confirmed review here was recorded and not sent. The owner
+  been run with the flag set against real GitHub. Authenticated live-mode tests use a mock
+  transport only. Every real GitHub interaction so far was read-only. The owner
   can produce a live receipt against a repository they own, in one terminal, and nothing else
   in this repository needs to change for it:
 
   ```bash
   export GITHUB_TOKEN=<fine-grained token, pull_requests: write on that one repository>
   export VOLCAN_GITHUB_WRITE=1
+  export VOLCAN_REVIEWERS='{"alice":{"token":"<replace-with-a-random-secret-at-least-32-characters>","repositories":["owner/repo"]}}'
   python -m src.interfaces.mcp_server &
   curl -s http://127.0.0.1:8000/health | python -c "import json,sys; print(json.load(sys.stdin)['github_review_path']['resolved_capability'])"   # expect live_write_enabled
   ```
 
-  Then open `http://127.0.0.1:8000/`, paste the pull request URL, type `open`, `request
+  Replace the roster placeholders before starting. Open `http://127.0.0.1:8000/`, enter the
+  same reviewer secret in the reviewer access field, paste the pull request URL, type `open`, `request
   changes: <comment>`, `confirm`. The receipt is the review panel reading `submitted to GitHub,
   review id <n>` and the review appearing on the pull request under the token's account, bound
   to the head commit shown. A token without the permission produces `refused, UNAUTHORIZED`

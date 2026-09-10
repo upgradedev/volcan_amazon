@@ -28,8 +28,8 @@ bedrock_adapter = BedrockSynthesisAdapter()
 dry_run_executor = DryRunExecutor()
 ast_checker = ASTGraphCompletenessChecker()
 #: Reads public pull requests unauthenticated. Writes a review only when
-#: VOLCAN_GITHUB_WRITE=1 and GITHUB_TOKEN are both set; otherwise it records the
-#: exact request it would have sent. Both facts are reported on /health.
+#: VOLCAN_GITHUB_WRITE=1 and GITHUB_TOKEN are set and a configured reviewer is
+#: authorized for the repository. The adapter flag/token are reported on /health.
 github_adapter = GitHubReviewAdapter()
 
 #: Signing secret for approval grants. Set VOLCAN_APPROVAL_SECRET to keep grants

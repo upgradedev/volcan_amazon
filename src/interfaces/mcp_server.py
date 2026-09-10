@@ -31,6 +31,7 @@ from typing import Any
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
+from src.application.review_authorization import current_review_principal
 from src.infrastructure.observability_harness import PrivateObservabilityHarness
 from src.interfaces.composition import allowed_origins, sessions
 from src.interfaces.mcp_protocol import (
@@ -45,6 +46,7 @@ from src.interfaces.mcp_protocol import (
 )
 from src.interfaces.mcp_tools import build_tool_registry
 from src.interfaces.rest_api import router as rest_router
+from src.interfaces.review_authorization import authenticated_reviewer
 from src.interfaces.web_companion import load_companion_html
 
 app = FastAPI(
@@ -56,6 +58,17 @@ app = FastAPI(
     version=SERVER_VERSION,
 )
 app.include_router(rest_router)
+
+
+@app.middleware("http")
+async def review_identity_context(request: Request, call_next):
+    # Both HTTP surfaces receive fresh context; read-only routes remain public.
+    principal = authenticated_reviewer(request.headers.get("authorization"))
+    token = current_review_principal.set(principal)
+    try:
+        return await call_next(request)
+    finally:
+        current_review_principal.reset(token)
 
 
 tool_registry = build_tool_registry()

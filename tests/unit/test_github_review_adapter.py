@@ -10,6 +10,7 @@ import json
 import httpx
 import pytest
 
+from src.application.review_authorization import ReviewPrincipal, current_review_principal
 from src.domain.review_dialogue import PullRequestSnapshot
 from src.infrastructure.github_review_adapter import (
     CAPABILITY_DRY_RUN_NO_TOKEN,
@@ -26,6 +27,15 @@ from src.infrastructure.github_review_adapter import (
 )
 
 HEAD = "a" * 40
+
+@pytest.fixture(autouse=True)
+def trusted_caller():
+    """These port tests exercise an already authenticated application caller."""
+    token = current_review_principal.set(ReviewPrincipal("blind-developer", frozenset({"octo/demo"})))
+    try:
+        yield
+    finally:
+        current_review_principal.reset(token)
 MOVED = "b" * 40
 DIFF = "--- a/x.py\n+++ b/x.py\n@@ -1 +1 @@\n-a = 1\n+a = 2\n"
 

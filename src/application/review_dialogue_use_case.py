@@ -15,8 +15,9 @@ things the domain refuses to do itself:
 
 A human said "confirm" in the same session that staged the review, presenting
 the grant that staging returned, inside the lease. That is the approval. The
-authenticated identity is the GitHub token the port holds, and the commit
-binding is the head SHA in the grant's payload hash, re-read live by the port
+authenticated reviewer comes from the HTTP credential roster, not user_id.
+The GitHub token is separate service authority. The principal and commit
+are bound in the grant's payload hash, with the head re-read by the port
 before anything is sent.
 """
 import asyncio
@@ -26,6 +27,10 @@ import time
 from typing import Any, Protocol
 
 from src.application.digest_diff_use_case import DigestDiffUseCase
+from src.application.review_authorization import (
+    ReviewAuthorizationError,
+    require_review_principal,
+)
 from src.application.sonify_event_use_case import SonifyEventUseCase
 from src.domain.approval_grant import ApprovalGrantIssuer
 from src.domain.governed_action import ActionState, GovernedAction, Principal
@@ -44,6 +49,8 @@ STAGING_PRINCIPAL = "volcan-review-dialogue"
 
 
 class PullRequestReviewPort(Protocol):
+    def parse_pull_request_url(self, url: str) -> tuple[str, str, int]: ...
+
     def fetch_pull_request(self, url: str) -> PullRequestSnapshot: ...
 
     def submit_request_changes(self, snapshot: PullRequestSnapshot, body: str, expected_head_sha: str): ...
@@ -70,6 +77,7 @@ class ReviewDialogueUseCase:
         self._sessions: dict[str, ReviewDialogue] = {}
         self._pending: dict[str, GovernedAction] = {}
         self._staged_count = 0
+        self._session_owners: dict[str, str | None] = {}
 
     def session(self, session_id: str) -> ReviewDialogue:
         if session_id not in self._sessions:
@@ -85,7 +93,20 @@ class ReviewDialogueUseCase:
         raw_diff: str | None = None,
         approval_grant: str | None = None,
     ) -> dict[str, Any]:
+        live = bool(self._github.capability()["write_enabled"])
+        principal = require_review_principal() if live else None
+        owner = principal.identity if principal else None
+        if session_id in self._session_owners and self._session_owners[session_id] != owner:
+            raise ReviewAuthorizationError(
+                "SESSION_OWNER_MISMATCH", 403,
+                "This review session belongs to a different identity or mode; start a new session.",
+            )
+        self._session_owners[session_id] = owner
+        if principal:
+            user_id = principal.identity
         dialogue = self.session(session_id)
+        if principal and dialogue.pull_request is not None:
+            principal.require_repository(dialogue.pull_request.owner, dialogue.pull_request.repo)
         command = parse_command(transcript)
         turn = dialogue.apply(command)
         extra: dict[str, Any] = {}
@@ -109,7 +130,12 @@ class ReviewDialogueUseCase:
         url = command.slots.get("url") or (pr_url or "").strip() or None
         if url:
             try:
+                if self._github.capability()["write_enabled"]:
+                    owner, repo, _number = self._github.parse_pull_request_url(url)
+                    require_review_principal().require_repository(owner, repo)
                 snapshot = await asyncio.to_thread(self._github.fetch_pull_request, url)
+            except ReviewAuthorizationError:
+                raise
             except Exception as exc:  # noqa: BLE001 - the reason is the answer
                 return dialogue._turn(
                     command, command.words,
@@ -136,6 +162,8 @@ class ReviewDialogueUseCase:
         if turn.error:
             return turn, {}
         pr = dialogue.pull_request
+        if self._github.capability()["write_enabled"]:
+            require_review_principal().require_repository(pr.owner, pr.repo)
         self._staged_count += 1
         body_hash = hashlib.sha256(dialogue.pending_body.encode("utf-8")).hexdigest()
         action = GovernedAction.create(
@@ -143,7 +171,7 @@ class ReviewDialogueUseCase:
             action_type=ACTION_TYPE,
             command_or_path=(
                 f"REQUEST_CHANGES {pr.owner}/{pr.repo}#{pr.number} commit {pr.head_sha} "
-                f"body_sha256 {body_hash}"
+                f"body_sha256 {body_hash} reviewer {self._session_owners.get(dialogue.session_id)}"
             ),
             summary_spoken=f"Request changes on {pr.label} at {pr.head_sha[:7]}",
             lease_sec=self._lease_sec,
@@ -178,6 +206,14 @@ class ReviewDialogueUseCase:
             return turn, {"review_outcome": {"refusal_code": "UNKNOWN_ACTION", "submitted": False, "dry_run": False}}
 
         approver = Principal.human(user_id)
+        if self._github.capability()["write_enabled"]:
+            principal = require_review_principal()
+            principal.require_repository(pr.owner, pr.repo)
+            if self._session_owners.get(dialogue.session_id) != principal.identity:
+                raise ReviewAuthorizationError(
+                    "SESSION_OWNER_MISMATCH", 403, "This reviewer does not own the staged review."
+                )
+            approver = Principal.human(principal.identity)
         now = time.time()
         custody = action.check_custody(approver, now)
         if custody is not None:

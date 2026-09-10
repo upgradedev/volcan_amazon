@@ -79,7 +79,7 @@ class ReviewTurnRequest(BaseModel):
     """
 
     session_id: str = Field(..., description="Conversation session identifier")
-    user_id: str = Field("developer", description="Identifier of the human speaking; the review's approver")
+    user_id: str = Field("developer", description="Dry-run display identity; live approver comes only from the authenticated reviewer credential")
     transcript: str = Field(..., description="What was heard or typed, e.g. 'what changed in auth.py'")
     pr_url: str | None = Field(None, description="GitHub pull request URL an 'open' command should fetch")
     raw_diff: str | None = Field(None, description="Pasted unified patch an 'open' command should use when no URL is given")
