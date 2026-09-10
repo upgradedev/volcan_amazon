@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-443%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-468%20passing-brightgreen.svg)](tests/)
 
 One pull request goes in. Three things a person can actually use come out, and one governed
 action goes back.
@@ -793,7 +793,7 @@ estimate unless it says ESTIMATE.
 | Earcon synthesis latency, mean of 1000 runs | not measured | 2.966 ms | `python scripts/benchmark_suite.py` |
 | MCP protocol conformance | not applicable | **21 of 21 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 443 passing; 94.07% statement coverage in 22.95 s on the isolated V-AUTH branch, 2026-09-10 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 468 passing; 94.16% statement coverage in 19.14 s on the isolated ACT-01 branch, 2026-09-10 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.4 s | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 117.2 ms on the first press, then 80.5, 42.9 and 58.7 ms, Chrome at 1440x900 on 2026-09-08 | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -888,6 +888,32 @@ test count in the README badge from 443 to 444 and run it again. Gate G1 turns r
 `FAILED, BLOCKING`, the summary reads `1 blocking failures`, and the process exits 1.
 
 ---
+
+## Operational telemetry
+
+MCP tool calls emit the measured `McpToolDurationMs` as a JSON message through the
+`volcan-voice-ide` Python logger. The payload follows the
+[CloudWatch EMF specification](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Embedded_Metric_Format_Specification.html).
+Local tests capture the real MCP request path; deployed CloudWatch ingestion/readback remains unverified.
+
+| Field | Accepted values |
+|---|---|
+| Metrics | `McpToolDurationMs`, `ASTParseDurationMs` in milliseconds; `BrailleStreamChunks` in counts. Finite, nonnegative numeric values only, within declared bounds. |
+| Harness timing | `TotalExecutionLatencyMs` measures the telemetry harness lifetime, not the whole MCP request. |
+| Dimensions | Fixed `ServiceName`; `Environment` limited to `local`, `test`, `staging`, `production-eu-west-1`, otherwise `unknown`. Set `VOLCAN_ENVIRONMENT` explicitly for a deployment. |
+| Correlation | A new local UUID; caller-provided request IDs are deliberately ignored. It is not a metric dimension. |
+| Event details | Finite actor/action/tool labels and numeric `duration_ms`; other content, tenant identities and nested values are discarded. |
+
+Email, phone, token, secret, actor or tenant text need not match a regular expression: arbitrary
+text is never an accepted log field. The legacy `mask_pii` method conservatively removes its
+entire argument. This is a deliberately limited operational schema, not a general text
+redactor or an identity audit trail. Code review content is still returned to the requesting
+user and may contain their secrets.
+
+This harness does not configure a log collector or guarantee zero cost, data residency,
+retention, deletion or privacy of other application/SDK logs. CloudWatch logs and custom
+metrics can incur charges. Configure raw JSON log emission and verify a deployed record
+before claiming CloudWatch operation.
 
 ## Known limitations
 

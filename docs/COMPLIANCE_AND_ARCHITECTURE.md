@@ -112,19 +112,27 @@ conformity assessment, and no assessment has been performed.
 
 ## 4. GDPR and data residency
 
-* **Personal data processed:** none by design. Volcan receives patches, commands and
-  identifiers the caller chooses. It does not ask for a name, an email or a device id.
-* **Data residency:** nothing is stored. Sessions, staged actions and the audit trail live
-  in process memory and are lost when the process exits. There is no database, no bucket
-  and no log shipping configured in this repository.
-* **Right to erasure:** satisfied trivially while nothing is persisted. Any future
-  persistence would need this section rewritten before it ships.
-* **Telemetry:** `PrivateObservabilityHarness` emits CloudWatch Embedded Metric Format
-  records to stdout with a duration this process measured. It masks email-shaped strings
-  and bearer tokens before emitting. It sends nothing to any third party.
-* **The caller's own content:** a patch may contain secrets. Volcan does not redact patch
-  content, and a deployment that ships stdout to a log sink would ship whatever the caller
-  sent. That is a real gap, and it is stated here rather than omitted.
+* **Caller content:** patches, commands and identifiers can contain personal data or secrets.
+  Volcan processes that content to provide the requested review; it cannot claim that it
+  never processes personal data. The review output may intentionally quote the supplied code.
+* **Application state:** sessions, staged actions and the audit repository currently live
+  in process memory. Logging infrastructure is a separate storage surface. Its residency,
+  retention and deletion settings depend on the deployed logger/collector configuration;
+  this repository does not establish those properties or certify an erasure policy.
+* **Telemetry boundary:** `PrivateObservabilityHarness` emits a bounded EMF object through
+  the Python logger, retaining only known numeric metrics, fixed dimension names/finite
+  environment values, generated correlation IDs and finite actor/action/tool categories.
+  Unknown fields, tenant identities, request IDs, patches, arbitrary text and nested details
+  are omitted or replaced by fixed labels. The legacy `mask_pii` helper redacts the entire
+  supplied value; it does not guess which substrings are sensitive. Public mutable telemetry
+  collections are validated again at emission.
+* **Observed proof:** local tests capture a real MCP request's log message and verify its
+  measured duration and EMF structure, plus adversarial actor/action/tenant/nested/phone/token
+  inputs. They do not prove deployed CloudWatch ingestion. A raw JSON log handler and the
+  deployment's CloudWatch delivery/readback still require operational verification.
+* **Costs and other logs:** no zero-cost or system-wide zero-disclosure guarantee is made.
+  Log ingestion, retention and custom metrics can incur charges. This boundary does not
+  sanitize unrelated server/access/exception logs, external SDK logs or downstream collectors.
 
 ---
 
