@@ -13,7 +13,10 @@ Two rules of the grammar are worth knowing before reading it:
 * Matching is case-insensitive, but a review comment keeps the developer's
   capitals, because it is going onto a pull request under their name.
 * Spoken numbers become digits for a file, a section or a line, up to nine
-  hundred and ninety-nine, so "line one hundred and twelve" is line 112.
+  thousand nine hundred and ninety-nine, so "line one hundred and twelve" is
+  line 112 and "line one thousand five hundred and seven", "line fifteen
+  hundred and seven" and "line fifteen oh seven" are all line 1507. Digits
+  are accepted at any size.
 """
 import re
 from dataclasses import dataclass, field
@@ -44,12 +47,17 @@ class Command:
             return f"request changes, {body}" if body else "request changes"
         if self.name == "open":
             return "open the pull request" if self.slots.get("url") else "open the patch"
+        if self.name == "read_lines":
+            return "read the lines"
+        if self.name == "spell":
+            return "spell that"
         return self.name.replace("_", " ")
 
 
 #: Spoken numbers, as a recogniser hears them. A line number in a real hunk is
-#: often three digits, so this covers zero to nine hundred and ninety-nine, with
-#: hyphens, "and", and the ordinals a person uses for a file ("the second file").
+#: often three or four digits, so this covers zero to nine thousand nine hundred
+#: and ninety-nine, with hyphens, "and", the ordinals a person uses for a file
+#: ("the second file"), and the "fifteen oh seven" reading of a four-digit line.
 _UNITS = {
     "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
     "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13,
@@ -65,7 +73,8 @@ _ORDINALS = {
     "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10,
 }
 _NUMBER_VOCABULARY = sorted(
-    set(_UNITS) | set(_TENS) | set(_ORDINALS) | {"hundred", "and"}, key=len, reverse=True,
+    set(_UNITS) | set(_TENS) | set(_ORDINALS) | {"hundred", "thousand", "and", "oh", "o"},
+    key=len, reverse=True,
 )
 _NUMBER_PHRASE = re.compile(
     r"\b(?P<noun>file|section|line)\s+(?P<phrase>(?:(?:" + "|".join(_NUMBER_VOCABULARY)
@@ -74,24 +83,72 @@ _NUMBER_PHRASE = re.compile(
 
 
 def words_to_number(phrase: str) -> int | None:
-    """``"one hundred and twelve"`` is 112; a phrase with a non-number word is None."""
-    total = 0
+    """``"one hundred and twelve"`` is 112; a phrase with a non-number word is None.
+
+    ``"one thousand five hundred and seven"`` and ``"fifteen hundred and
+    seven"`` are 1507. So is ``"fifteen oh seven"``: an "oh" (or "o") marks
+    the digit-group reading, where each group is written out as digits and
+    the groups are joined, so "twenty three oh five" is 2305.
+    """
+    words = [w for w in re.split(r"[\s-]+", phrase.strip().lower()) if w]
+    if not words:
+        return None
+    if any(w in ("oh", "o") for w in words):
+        return _digit_groups_to_number(words)
+
+    thousands = 0
+    current = 0
     seen = False
-    for word in re.split(r"[\s-]+", phrase.strip().lower()):
-        if not word or word == "and":
+    for word in words:
+        if word == "and":
             continue
         if word in _UNITS:
-            total += _UNITS[word]
+            current += _UNITS[word]
         elif word in _TENS:
-            total += _TENS[word]
+            current += _TENS[word]
         elif word in _ORDINALS:
-            total += _ORDINALS[word]
+            current += _ORDINALS[word]
         elif word == "hundred":
-            total = (total or 1) * 100
+            current = (current or 1) * 100
+        elif word == "thousand":
+            if thousands:
+                return None
+            thousands = (current or 1) * 1000
+            current = 0
         else:
             return None
         seen = True
-    return total if seen else None
+    return thousands + current if seen else None
+
+
+def _digit_groups_to_number(words: list[str]) -> int | None:
+    """``["fifteen", "oh", "seven"]`` is 1507: each group becomes its digits."""
+    digits = ""
+    group: list[str] = []
+
+    def flush() -> bool:
+        nonlocal digits
+        if not group:
+            return True
+        value = words_to_number(" ".join(group))
+        if value is None or value >= 100:
+            return False
+        digits += str(value)
+        group.clear()
+        return True
+
+    for word in words:
+        if word in ("oh", "o"):
+            if not flush():
+                return None
+            digits += "0"
+        elif word == "and":
+            continue
+        else:
+            group.append(word)
+    if not flush() or not digits:
+        return None
+    return int(digits)
 
 
 def _digits_for_spoken_numbers(match: re.Match) -> str:

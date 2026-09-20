@@ -489,13 +489,17 @@ class ReviewDialogue:
         return self._speak_line(command, command.words)
 
     def _read_lines(self, command: Command) -> DialogueTurn:
+        # "Next hunk" lands here too, and the readback must say "next hunk":
+        # a readback that names some other command is the one thing this
+        # product promises never to do, so the words are the command's own.
+        understood = command.words
         if self.state is DialogueState.OVERVIEW:
             if not self.sections:
-                return self._turn(command, "read the lines", "This change touches no files.", error=True)
+                return self._turn(command, understood, "This change touches no files.", error=True)
             self.file_index = 0
         section = self.section
         if not section.hunks:
-            return self._turn(command, "read the lines",
+            return self._turn(command, understood,
                               f"{section.file_path} carries no hunk with line numbers to read.", error=True)
         self.state = DialogueState.LINES
         hunk = self.hunk
@@ -514,7 +518,7 @@ class ReviewDialogue:
             tail = f" {total - LINES_PER_READ} more; say next to continue from line {LINES_PER_READ + 1}."
             self.line_index = LINES_PER_READ - 1
         spoken = head + " ".join(f"{s}." for s in spoken_lines) + tail
-        return self._turn(command, "read the lines", spoken, earcon=earcon_for_section(section),
+        return self._turn(command, understood, spoken, earcon=earcon_for_section(section),
                           line=self._line_dict())
 
     def _line_number(self, command: Command) -> DialogueTurn:
@@ -550,9 +554,9 @@ class ReviewDialogue:
 
     def _spell(self, command: Command) -> DialogueTurn:
         if self.state is not DialogueState.LINES or self.hunk is None:
-            return self._turn(command, "spell that", "No line is selected. Say read the lines first.", error=True)
+            return self._turn(command, command.words, "No line is selected. Say read the lines first.", error=True)
         line = self.hunk.lines[self.line_index]
-        return self._turn(command, "spell that", f"Line {self.line_index + 1}, spelled: {spell_out(line.text)}.",
+        return self._turn(command, command.words, f"Line {self.line_index + 1}, spelled: {spell_out(line.text)}.",
                           line=self._line_dict())
 
     def _line_dict(self) -> dict | None:

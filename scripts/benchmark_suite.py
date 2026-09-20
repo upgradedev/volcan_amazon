@@ -9,8 +9,15 @@ Measures:
   corpus in ``tests/fixtures/diff_corpus.py``
 
 Run command:
-    python scripts/benchmark_suite.py
+    python scripts/benchmark_suite.py            # measure and print, write nothing
+    python scripts/benchmark_suite.py --write    # also refresh benchmarks_summary.json
+
+The plain run never touches the tracked ``benchmarks_summary.json``. It prints
+the fresh figures beside the committed ones so a reviewer can see the drift
+without dirtying the checkout; only ``--write`` replaces the committed record,
+and ``--out PATH`` sends the JSON somewhere else entirely.
 """
+import argparse
 import json
 import os
 import statistics
@@ -90,7 +97,25 @@ def measure_security_detection() -> dict[str, object]:
     }
 
 
-def main() -> None:
+ARTIFACT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "benchmarks_summary.json"))
+
+
+def load_committed_summary(path: str = ARTIFACT_PATH) -> dict | None:
+    """The recorded run, read and never written here."""
+    if not os.path.exists(path):
+        return None
+    with open(path, "r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def main(argv: list[str] | None = None) -> dict:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
+    parser.add_argument("--write", action="store_true",
+                        help="replace the committed benchmarks_summary.json with this run")
+    parser.add_argument("--out", default=None,
+                        help="write this run's JSON to PATH instead of the tracked artifact")
+    args = parser.parse_args(argv)
+
     print("================================================================")
     print("       VOLCAN REPRODUCIBLE BENCHMARK SUITE                       ")
     print("================================================================")
@@ -126,14 +151,26 @@ def main() -> None:
         "security_detection": security,
     }
 
-    out_path = os.path.join(os.path.dirname(__file__), "..", "benchmarks_summary.json")
-    with open(os.path.abspath(out_path), "w", encoding="utf-8") as handle:
-        json.dump(results, handle, indent=2)
-        handle.write("\n")
+    committed = load_committed_summary()
+    if committed:
+        print("\n[4] Drift against the committed benchmarks_summary.json:")
+        for label, key in (("parse mean", "ast_diff_engine"), ("earcon mean", "earcon_synthesizer")):
+            print(f"    - {label}: committed {committed[key]['mean_ms']} ms, this run {results[key]['mean_ms']} ms")
 
+    out_path = args.out
+    if out_path is None and args.write:
+        out_path = ARTIFACT_PATH
     print("\n================================================================")
-    print("  Results written to benchmarks_summary.json")
+    if out_path is None:
+        print("  Nothing written. Pass --write to refresh benchmarks_summary.json,")
+        print("  or --out PATH to keep this run somewhere else.")
+    else:
+        with open(os.path.abspath(out_path), "w", encoding="utf-8") as handle:
+            json.dump(results, handle, indent=2)
+            handle.write("\n")
+        print(f"  Results written to {os.path.abspath(out_path)}")
     print("================================================================")
+    return results
 
 
 if __name__ == "__main__":

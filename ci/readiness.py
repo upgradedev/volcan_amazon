@@ -87,6 +87,33 @@ def read_text(path: str) -> str:
         return handle.read()
 
 
+def working_tree_changes() -> set[str] | None:
+    """Paths ``git status`` reports as changed, or None when git cannot answer."""
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=all"], cwd=REPO_ROOT,
+            capture_output=True, text=True, check=False,
+        )
+    except Exception:
+        return None
+    if result.returncode != 0:
+        return None
+    return {line[3:].strip() for line in result.stdout.splitlines() if line.strip()}
+
+
+def files_the_audit_touched(before: set[str] | None, after: set[str] | None) -> list[str]:
+    """Paths that were clean before the gates ran and are dirty after them.
+
+    A gate that rewrites a tracked artifact or drops a new file into the
+    checkout has mutated the repository it was judging, so the auditor
+    reports itself as a blocking failure instead of leaving a judge to
+    revert the damage.
+    """
+    if before is None or after is None:
+        return []
+    return sorted(after - before)
+
+
 def git_head() -> str:
     try:
         result = subprocess.run(
@@ -177,6 +204,14 @@ def check_j3(readme: str) -> tuple[bool, str]:
     if not stated:
         return False, "no recall or detection percentage stated alongside the sample size"
 
+    # The committed artifact is read here, never written: an auditor that
+    # rewrites a tracked file has changed the thing it was asked to judge.
+    try:
+        with open(os.path.join(REPO_ROOT, "benchmarks_summary.json"), "r", encoding="utf-8") as handle:
+            recorded = json.load(handle)["security_detection"]
+    except (OSError, ValueError, KeyError) as exc:
+        return False, f"benchmarks_summary.json carries no readable security_detection record: {exc}"
+
     sys.path.insert(0, REPO_ROOT)
     try:
         from scripts.benchmark_suite import measure_security_detection
@@ -184,6 +219,12 @@ def check_j3(readme: str) -> tuple[bool, str]:
     except Exception as exc:  # noqa: BLE001 - an unrunnable benchmark is a failure
         return False, f"the benchmark backing the claim did not run: {type(exc).__name__}: {exc}"
 
+    for key in ("n_total", "recall_pct", "false_positive_pct"):
+        if recorded.get(key) != measured[key]:
+            return False, (
+                f"benchmarks_summary.json records {key}={recorded.get(key)} but the corpus "
+                f"recomputes {measured[key]}; run scripts/benchmark_suite.py --write to refresh it"
+            )
     if measured["n_total"] != claimed_n:
         return False, f"README says n={claimed_n}, the corpus holds n={measured['n_total']}"
     if not any(abs(measured["recall_pct"] - value) <= 0.05 for value in stated):
@@ -194,7 +235,8 @@ def check_j3(readme: str) -> tuple[bool, str]:
 
     return True, (
         f"{measured['recall_pct']}% recall over n={measured['n_total']} recomputed from "
-        f"{measured['corpus_file']}, {measured['false_positive_pct']}% false positives"
+        f"{measured['corpus_file']}, {measured['false_positive_pct']}% false positives, "
+        "equal to the committed benchmarks_summary.json"
     )
 
 
@@ -849,7 +891,9 @@ def audit_project() -> list[GateResult]:
 
 
 def main() -> None:
+    tree_before = working_tree_changes()
     results = audit_project()
+    touched = files_the_audit_touched(tree_before, working_tree_changes())
     passed = [r for r in results if r.passed]
     failed = [r for r in results if not r.passed]
 
@@ -879,12 +923,21 @@ def main() -> None:
     if not excused:
         print("  (none)")
 
+    # The auditor is not one of the 53 gates, so it does not count itself in
+    # the summary; it does refuse to exit 0 after changing the checkout it
+    # judged, because a judge should never have to git-revert an audit.
+    print("\n--- SELF-CHECK ---")
+    if touched:
+        print(f"  [FAIL] the audit modified or created files in the checkout: {', '.join(touched)}")
+    else:
+        print("  [PASS] the checkout is exactly as the audit found it")
+
     print("\n" + "=" * 72)
     print(f"  SUMMARY: {len(passed)}/{len(results)} passed, "
           f"{len(blocking)} blocking failures, {len(excused)} externally blocked")
     print("=" * 72)
 
-    if blocking:
+    if blocking or touched:
         sys.exit(1)
     sys.exit(0)
 
