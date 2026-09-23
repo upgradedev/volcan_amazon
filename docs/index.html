@@ -510,8 +510,16 @@
     @media (max-width: 620px) {
       body { font-size: 16px; }
       .shell { padding: 0 14px 56px; }
+      header[role="banner"] { padding: 12px 0 4px; }
+      .wordmark { gap: 6px; margin-bottom: 4px; font-size: 0.7rem; letter-spacing: 0.14em; }
+      h1 { max-width: none; margin-bottom: 6px; font-size: 1.65rem; line-height: 1.04; }
+      .lede { margin-bottom: 8px; font-size: 0.92rem; line-height: 1.35; }
+      .boundary { padding: 6px 9px; margin-bottom: 6px; font-size: 0.82rem; line-height: 1.3; }
+      .hero { padding: 16px; margin-bottom: 18px; }
+      .kicker { margin-bottom: 4px; }
+      .hero h2 { margin-bottom: 6px; font-size: 1.2rem; line-height: 1.2; }
       .meters { grid-template-columns: minmax(0, 1fr); }
-      .cta { width: 100%; justify-content: center; padding: 18px 22px; }
+      .cta { width: 100%; min-height: 58px; justify-content: center; padding: 12px 18px; }
       .row-actions button { width: 100%; }
       .kv dt { min-width: 0; }
       .cells { font-size: 1.2rem; }
@@ -543,16 +551,14 @@
       <p class="wordmark"><span class="flame" aria-hidden="true">&#9650;</span> <b>Volcan</b> <span>Accessible AI agent forge</span></p>
       <h1>Hear your code review <em>instead of scrubbing a diff</em>.</h1>
       <p class="lede">
-        A blind or motor-impaired developer gets one patch back as three things they can
-        use: a spoken digest, an audio cue that arrives before the words, and Braille cells
-        for a refreshable display. Select the one primary action below; the live API returns
-        all three and the browser measures the round trip.
+        A blind or motor-impaired developer receives one patch as a spoken digest, an audio
+        cue and Braille. The live API returns all three in one action.
       </p>
       <p class="boundary" id="notASkill">
         <b>Simulated Alexa+ experience, not an Alexa skill.</b> Browser voice stands in for
-        a device. Live: the server, MCP handshake, public GitHub read and Amazon Bedrock
-        attempt through <code>anthropic[bedrock]</code>. Dry-run: the GitHub write. The
-        <b>Synthesis engine</b> meter reports which path actually answered.
+        a device. Live: server, MCP, GitHub read and Bedrock attempt through
+        <code>anthropic[bedrock]</code>. GitHub write: dry-run. The <b>Synthesis engine</b>
+        meter names the answering path.
       </p>
 
     </header>
