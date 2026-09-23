@@ -152,7 +152,7 @@ security | earcon SECURITY_FINDING | sha256[:16] 22c91bec11e275d1 | 26504 WAV by
 | Requirement | Status |
 |---|---|
 | A skill manifest and interaction model | Not written; the earlier one pointed at a route that returns HTTP 404 and was deleted |
-| A publicly reachable HTTPS endpoint serving `/mcp` | Not available; the deployed endpoint runs an older commit and answers 404 for `/mcp` |
+| A publicly reachable HTTPS endpoint serving `/mcp` | Available at the public deployment; MCP initialize and governed-action tool calls were verified on 2026-09-23 |
 | Account linking for a developer's repository | Not designed |
 | Certification | Not attempted |
 | Testing on an Echo device | Not performed |
