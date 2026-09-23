@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-473%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-479%20passing-brightgreen.svg)](tests/)
 
 One pull request goes in. Three things a person can actually use come out, and one governed
 action goes back.
@@ -320,7 +320,10 @@ the other side: the review is not hard to understand, it is hard to navigate.
    URL, ask what changed in a file, hear the exact numbered source lines of a hunk, spell a
    line out symbol by symbol, correct a misheard command, and request changes. Every turn
    reads back what it understood before it acts, a new command interrupts the current speech,
-   and the review is bound to the head commit and dry-run unless the owner enables the write.
+   and `resume` restores the exact file, hunk, source line and revision. If the pull request
+   changed while interrupted, Volcan refreshes it and explicitly invalidates the old approval.
+   Sessions are bound to one reviewer. The review is bound to the head commit and dry-run
+   unless the owner enables the write.
    See [The review journey](#the-review-journey).
 
 ---
@@ -781,7 +784,8 @@ module disagree (dot numbers, then the Unicode cell):
 
 ## Measured numbers
 
-Every number below was printed by the command beside it on 2026-09-08, on the development
+Every number below was printed by the command beside it (the engine and request-latency
+figures were refreshed on 2026-09-23), on the development
 machine recorded in [`benchmarks_summary.json`](benchmarks_summary.json). Nothing here is an
 estimate unless it says ESTIMATE.
 
@@ -789,11 +793,12 @@ estimate unless it says ESTIMATE.
 |---|---|---|---|
 | Security-flag detection | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **81.8% recall over n=40 labelled patches**, 22 that must flag and 18 that must not, with 0% false positives | `python scripts/benchmark_suite.py` |
 | Digest earcon, benign patch vs security-sensitive patch | **byte-identical until 2026-09-08**: both returned `DIFF_READY`, 19448 WAV bytes, `sha256[:16] 08f48648388bff02` | 19448 bytes `08f48648388bff02` for the benign patch, 26504 bytes `22c91bec11e275d1` for the security-sensitive one | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
-| Patch parse latency, mean of 1000 runs | not measured | 0.209 ms | `python scripts/benchmark_suite.py` |
-| Earcon synthesis latency, mean of 1000 runs | not measured | 2.966 ms | `python scripts/benchmark_suite.py` |
+| Patch parse latency, 1000 steady runs | not measured | mean 0.281 ms; p95 0.448 ms | `python scripts/benchmark_suite.py` |
+| Earcon synthesis latency, 1000 steady runs | not measured | mean 3.592 ms; p95 6.565 ms | `python scripts/benchmark_suite.py` |
+| `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **21 of 21 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 473 passing; 93.25% statement coverage in 20.48 s on the integration branch, 2026-09-20 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 479 passing; 93.07% statement coverage, including a real Chromium judge journey, 2026-09-23 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.4 s | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 117.2 ms on the first press, then 80.5, 42.9 and 58.7 ms, Chrome at 1440x900 on 2026-09-08 | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -832,14 +837,16 @@ recall is 81.8% and not a round hundred:
 recomputes the published figures and pins that list by fixture id, so a new miss fails the
 build and closing one of these means deleting its id from the list.
 
-The two latency figures are the single run recorded in `benchmarks_summary.json`, not a stable
-constant. The parse mean rose from 0.041 ms to roughly a fifth of a millisecond when the
+The engine latency figures are the single run recorded in `benchmarks_summary.json`, not a stable
+constant. The parse mean rose from 0.041 ms to a fraction of a millisecond when the
 syntax-tree pass was added, which is the honest cost of parsing every changed line rather than
-scanning it. Three successive runs of the same script on the same machine printed 0.17 ms,
-0.253 ms and now 0.209 ms for the parse, and 2.562 ms, 2.707 ms and now 2.966 ms for the
-earcon. Each figure replaced the one before it rather than being re-rolled until it flattered,
-and the spread between them is the reason the table is worth less than the command beside it.
-Treat the order of magnitude as the claim and rerun the benchmark on your own hardware.
+scanning it. Every benchmark record now publishes all raw samples and names its percentile
+definition: linear interpolation at index `(n - 1) * q`. The request benchmark records the
+first request separately, performs five warmups, and applies the 300 ms gate only to the p95
+of 100 steady-state requests. Its committed evidence is `request_latency_summary.json`; CI
+reruns it and uploads the new raw-sample artifact for the exact commit. Process cold start
+remains a separate measurement from `scripts/measure_cold_start.py`. Treat the order of
+magnitude as the claim and rerun each command on your own hardware.
 
 ---
 

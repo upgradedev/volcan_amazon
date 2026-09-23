@@ -157,7 +157,7 @@ LINES_PER_READ = 20
 HELP_TEXT = (
     "You can say: open the pull request, or open the patch. Summary. File by file. "
     "What changed in auth dot py. Next, previous. Read the lines. Next line, previous line, "
-    "line fifteen. Spell that. Findings. Repeat. Slower, faster. Stop. "
+    "line fifteen. Spell that. Findings. Repeat. Slower, faster. Stop, resume. "
     "No, I said next line, to correct me. Request changes, followed by your comment; "
     "then confirm or cancel. Where am I. Help."
 )
@@ -268,7 +268,14 @@ class ReviewDialogue:
             )
         else:
             opener = "Opened the pasted patch. No pull request is attached, so a review cannot be submitted from it. "
-        spoken = opener + report.to_voice_summary(level=0) + " Say file by file, or what changed in a file name."
+        spoken = (
+            opener
+            + f"Modified {plural(report.total_files_changed, 'file')} with "
+            + f"{plural(report.total_insertions, 'addition')} and "
+            + f"{plural(report.total_deletions, 'deletion')}; "
+            + f"{plural(len(report.critical_findings), 'security finding')}. "
+            + "Say summary, file by file, or what changed in a file name."
+        )
         # The readback names what was actually opened. "Open the pull request"
         # with the URL typed into a field rather than spoken is still a pull
         # request, and a listener must not hear "the patch" for it.
@@ -287,6 +294,8 @@ class ReviewDialogue:
 
         if name == "stop":
             return self._turn(command, "stop", "Stopped.", silent=True)
+        if name == "resume":
+            return self._turn(command, "resume", "", needs="resume", remember=False)
         if name == "help":
             return self._turn(command, "help", HELP_TEXT, remember=False)
         if name == "repeat":
@@ -380,6 +389,69 @@ class ReviewDialogue:
         if self.last_outcome:
             parts.append(f"The last review was {self.last_outcome}.")
         return " ".join(parts)
+
+    def resume(self, command: Command, *, refreshed_from: str | None = None) -> DialogueTurn:
+        """Speak a compact, exact checkpoint after an interruption.
+
+        The application refreshes an attached pull request first. This method
+        only reports the state it receives, including the file, hunk, source
+        line and immutable revision a listener needs to resume safely.
+        """
+        if self.report is None:
+            return self._turn(command, "resume", "Nothing is open yet.", error=True, remember=False)
+        pr = self.pull_request
+        revision = f" at head commit {pr.head_sha[:7]}" if pr else ""
+        changed = ""
+        if refreshed_from:
+            changed = (
+                f"The pull request changed from {refreshed_from[:7]} to {pr.head_sha[:7]}; "
+                "the old approval was invalidated and the diff was refreshed. "
+            )
+        section = self.section
+        location = f"{plural(len(self.sections), 'file')} changed."
+        line = None
+        if section is not None and self.state in (DialogueState.FILE, DialogueState.LINES):
+            location = f"File {self.file_index + 1} of {len(self.sections)}: {section.file_path}."
+            if self.state is DialogueState.LINES and self.hunk and self.hunk.lines:
+                line = self._line_dict()
+                source_line = spoken_line(
+                    self.hunk.lines[self.line_index], self.line_index, len(self.hunk.lines)
+                ).split(":", 1)[0]
+                location += (
+                    f" Hunk {self.hunk_index + 1} of {len(section.hunks)}; {source_line}."
+                )
+        pending = " A request changes review is waiting for confirmation." if self.pending_body else ""
+        return self._turn(
+            command, "resume", f"{changed}Resuming {pr.label if pr else 'the pasted patch'}{revision}. {location}{pending}",
+            line=line, remember=False,
+        )
+
+    def refresh(self, report: SemanticDiffReport, pull_request: PullRequestSnapshot,
+                command: Command, previous_head: str) -> DialogueTurn:
+        """Replace a changed PR while retaining the closest valid cursor."""
+        old_state = self.state
+        old_path = self.section.file_path if self.section else None
+        old_hunk, old_line = self.hunk_index, self.line_index
+        self.report, self.pull_request = report, pull_request
+        self.pending_body = None
+        self._undo = None
+        self.file_index = 0
+        if old_path:
+            self.file_index = next(
+                (index for index, section in enumerate(self.sections) if section.file_path == old_path), 0
+            )
+        section = self.section
+        if section and section.hunks and old_state is DialogueState.LINES:
+            self.state = DialogueState.LINES
+            self.hunk_index = min(old_hunk, len(section.hunks) - 1)
+            self.line_index = min(old_line, len(self.hunk.lines) - 1)
+        elif section and old_state in (DialogueState.FILE, DialogueState.LINES):
+            self.state = DialogueState.FILE
+            self.hunk_index = self.line_index = 0
+        else:
+            self.state = DialogueState.OVERVIEW
+            self.hunk_index = self.line_index = 0
+        return self.resume(command, refreshed_from=previous_head)
 
     def _summary(self, command: Command) -> DialogueTurn:
         self.state = DialogueState.OVERVIEW

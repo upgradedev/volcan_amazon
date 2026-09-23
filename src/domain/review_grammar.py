@@ -165,6 +165,7 @@ _FILE = r"(?P<file>(?!https?://)[\w./-]*\.\w+)"
 #: and "open auth.py" is a file focus while "open the pull request" is an open.
 GRAMMAR: list[tuple[str, re.Pattern]] = [
     ("stop", re.compile(r"^(?:stop|quiet|silence|hush|be quiet|shush)$")),
+    ("resume", re.compile(r"^(?:resume|continue(?: the)? review|where were we|pick up where (?:i|we) left off)$")),
     ("correction", re.compile(
         r"^(?:no[,.]?\s+i\s+said|no[,.]?\s+i\s+meant|i\s+meant|i\s+said|correction[:,]?|"
         r"not\s+that[,.]?|scratch\s+that[,.]?|sorry[,.]?)\s+(?P<command>.+)$"

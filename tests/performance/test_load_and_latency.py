@@ -1,21 +1,14 @@
 """Load and Latency QA Benchmark for Amazon Developer Hackathon 2026."""
-import time
-
-from fastapi.testclient import TestClient
-
-from src.interfaces.mcp_server import app
+from scripts.measure_request_latency import STEADY_P95_LIMIT_MS, measure
 
 
 def test_concurrent_load_and_latency_benchmark():
-    client = TestClient(app)
-    latencies = []
-    for _ in range(10):
-        start = time.perf_counter()
-        resp = client.get("/health")
-        duration_ms = (time.perf_counter() - start) * 1000
-        assert resp.status_code == 200
-        latencies.append(duration_ms)
-
-    latencies.sort()
-    p95 = latencies[int(len(latencies) * 0.95)]
-    assert p95 < 300.0, f"P95 latency {p95:.2f}ms exceeded threshold"
+    result = measure()
+    steady = result["steady_state"]
+    assert steady["iterations"] == 100
+    assert len(steady["raw_samples_ms"]) == 100
+    assert result["first_request_ms"] >= 0
+    assert steady["p95_ms"] < STEADY_P95_LIMIT_MS, (
+        f"steady-state p95 {steady['p95_ms']:.2f}ms exceeded {STEADY_P95_LIMIT_MS:.0f}ms; "
+        f"raw samples: {steady['raw_samples_ms']}"
+    )

@@ -38,15 +38,25 @@ jobs:
         run: |
           ruff check src/ tests/ --ignore E501
 
+      - name: Install Browser for the Real User Journey
+        run: |
+          python -m playwright install --with-deps chromium
+
       - name: Execute Full Test Suite & Enforce Coverage (>=85%)
         run: |
           python -m pytest tests/ -v --cov=src --cov-report=term-missing --cov-fail-under=85
 
       - name: Run Performance & Latency Benchmark
         run: |
-          if [ -d "tests/performance" ]; then
-            python -m pytest tests/performance/ -v
-          fi
+          python scripts/measure_request_latency.py --out request_latency_summary.json
+          python -m pytest tests/performance/ -v
+
+      - name: Publish Raw Latency Samples
+        uses: actions/upload-artifact@v6
+        with:
+          name: request-latency-${{ github.sha }}
+          path: request_latency_summary.json
+          if-no-files-found: error
 
       - name: Build Local Production Artifacts (Wheel & Sdist)
         run: |

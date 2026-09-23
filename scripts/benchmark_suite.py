@@ -20,12 +20,12 @@ and ``--out PATH`` sends the JSON somewhere else entirely.
 import argparse
 import json
 import os
-import statistics
 import sys
 import time
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from scripts.latency_statistics import latency_stats  # noqa: E402
 from src.domain.semantic_diff import UnifiedDiffParser  # noqa: E402
 from src.domain.sonification import AudioTone, WaveformSynthesizer  # noqa: E402
 from tests.fixtures.diff_corpus import CORPUS, NEGATIVES, POSITIVES  # noqa: E402
@@ -33,18 +33,12 @@ from tests.fixtures.diff_corpus import CORPUS, NEGATIVES, POSITIVES  # noqa: E40
 SAMPLE_DIFF = POSITIVES[0].raw_diff
 
 
-def _latency_stats(latencies_ms: list[float], iterations: int) -> dict[str, float]:
-    ordered = sorted(latencies_ms)
-    return {
-        "iterations": iterations,
-        "mean_ms": round(statistics.mean(ordered), 3),
-        "p50_ms": round(statistics.median(ordered), 3),
-        "p95_ms": round(ordered[min(int(0.95 * len(ordered)), len(ordered) - 1)], 3),
-        "p99_ms": round(ordered[min(int(0.99 * len(ordered)), len(ordered) - 1)], 3),
-    }
+def _latency_stats(latencies_ms: list[float], iterations: int) -> dict[str, object]:
+    assert iterations == len(latencies_ms)
+    return latency_stats(latencies_ms)
 
 
-def benchmark_semantic_diff_parser(iterations: int = 1000) -> dict[str, float]:
+def benchmark_semantic_diff_parser(iterations: int = 1000) -> dict[str, object]:
     latencies_ms: list[float] = []
     for _ in range(iterations):
         t0 = time.perf_counter()
@@ -53,7 +47,7 @@ def benchmark_semantic_diff_parser(iterations: int = 1000) -> dict[str, float]:
     return _latency_stats(latencies_ms, iterations)
 
 
-def benchmark_earcon_synthesis(iterations: int = 1000) -> dict[str, float]:
+def benchmark_earcon_synthesis(iterations: int = 1000) -> dict[str, object]:
     tones = [
         AudioTone(frequency_hz=440.0, duration_ms=50),
         AudioTone(frequency_hz=880.0, duration_ms=80),

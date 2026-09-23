@@ -29,13 +29,17 @@ line with its old and new numbers, the speech rate, and on `confirm` the review 
 | `OVERVIEW` | `open`, `summary`, `file by file`, `findings` | Focus a file by name or number, `next`, `previous` |
 | `FILE` | `what changed in auth.py`, `file 2`, `next`, `previous` | `read the lines`, `line 14`, `next`, `previous` |
 | `LINES` | `read the lines`, `line 14` | `next line`, `previous line`, `next hunk`, `spell that`, `repeat` |
-| `CONFIRM_REVIEW` | `request changes: <comment>` after a pull request is open | `confirm` or `cancel`; every navigation is refused until one is said |
+| `CONFIRM_REVIEW` | `request changes: <comment>` after a pull request is open | `confirm`, `cancel`, or `resume`; every navigation is refused until one is said |
 | `RECORDED`, `SUBMITTED`, `REFUSED` | `confirm`, as the server resolved it | Anything from `OVERVIEW`; `where am I` reports the last outcome |
 
 Three properties hold in every state and each has a test in `tests/unit/test_review_dialogue.py`:
 the readback precedes the action; `no, I said <command>` restores the state before the
 misheard command and applies the meant one, without undoing a `slower` or `faster`; and
-`stop` is silent and changes nothing. The design rule behind the readback is that a
+`stop` is silent and changes nothing. `resume` first re-reads an attached pull request. If its
+head is unchanged, it speaks the saved file, hunk, exact source line and revision. If the head
+moved, it refreshes the diff, keeps the closest valid cursor, drops the pending grant and says
+that the old approval was invalidated. Dry-run and live sessions are both bound to one reviewer,
+so another user cannot inherit a stopped session. The design rule behind the readback is that a
 misheard command is cheap when the listener hears it a second before its consequence, and
 expensive after.
 
