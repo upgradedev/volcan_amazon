@@ -101,8 +101,9 @@ readiness gate verifies by parsing every domain module.
 
 * **Interfaces.** A Model Context Protocol server written by hand to revision **2025-11-25**
   over the **Streamable HTTP** transport: JSON-RPC 2.0 at `POST /mcp`, an SSE stream at
-  `GET /mcp`, session termination at `DELETE /mcp`, cryptographically random session ids,
-  protocol version negotiation, Origin validation, and the full set of JSON-RPC error codes.
+  `GET /mcp`, optional cryptographically random sessions on a single-process host, a stateless
+  public Lambda mode, protocol version negotiation, Origin validation, and the full set of
+  JSON-RPC error codes.
   Twelve tools, each with a JSON Schema generated from the pydantic model that parses its
   arguments, so the published schema cannot drift from the code. A separate REST surface at
   `/api` serves the web companion and is never called MCP.
@@ -208,8 +209,9 @@ those defects became build failures instead of things to remember.
 `python -m src.interfaces.mcp_server` and run
 `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` to watch 21 of 21 protocol
 checks pass. The companion page performs the same `initialize` and `tools/list` handshake in
-the browser and renders the negotiated protocol version, the session id from the response
-header and every published tool schema.
+the browser and renders the negotiated protocol version, the stateful or stateless transport
+choice and every published tool schema. The public Lambda chooses stateless mode so a second
+request cannot be rejected merely because API Gateway routed it to another warm environment.
 
 **Simulated, and labelled on screen and in the README.** The voice experience is a web
 companion, not an Alexa skill. No skill package is submitted, no certification has been

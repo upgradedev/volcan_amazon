@@ -819,8 +819,9 @@
           Streamable HTTP transport, with no MCP SDK. This button performs a real
           <code>initialize</code>, a real <code>notifications/initialized</code> and a real
           <code>tools/list</code> against <code>POST /mcp</code>, then prints what came
-          back: the session identifier from the response headers, and the JSON Schema of
-          every tool exactly as the server published it.
+          back: whether the endpoint chose a stateful identifier or stateless mode, and the
+          JSON Schema of every tool exactly as the server published it. The public Lambda is
+          stateless so API Gateway can route each request independently.
         </p>
 
         <div class="row-actions">

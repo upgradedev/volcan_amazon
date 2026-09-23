@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-491%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-492%20passing-brightgreen.svg)](tests/)
 
 One pull request goes in. Three things a person can actually use come out, and one governed
 action goes back.
@@ -185,9 +185,10 @@ Read this section before anything else. It is the honest boundary of the project
 
 **Real, and you can check it in one command.** Volcan ships a Model Context Protocol server
 written by hand to revision **2025-11-25** over the **Streamable HTTP** transport: JSON-RPC
-2.0 at `POST /mcp`, an SSE stream at `GET /mcp`, session identifiers, protocol version
-negotiation, a tool catalog whose JSON Schemas are generated from the code that parses the
-arguments, and MCP audio content blocks carrying the synthesized earcons.
+2.0 at `POST /mcp`, an SSE stream at `GET /mcp`, protocol version negotiation, optional
+stateful sessions for a single-process host, a stateless public Lambda mode, a tool catalog
+whose JSON Schemas are generated from the code that parses the arguments, and MCP audio
+content blocks carrying the synthesized earcons.
 `python scripts/mcp_conformance.py` runs a full client handshake against a running server
 and prints a pass or fail line for each of its 21 conformance checks.
 
@@ -425,8 +426,11 @@ those.
 | `get_haptic_profile` | A vibration cadence and a visual caption |
 | `check_ast_completeness` | Whether Python source parses, with node, function and class counts |
 
-Protocol behaviour worth checking: `initialize` issues a cryptographically random
-`Mcp-Session-Id`, and a session this server never minted is answered HTTP 404;
+Protocol behaviour worth checking: in the default single-process mode `initialize` issues a
+cryptographically random `Mcp-Session-Id`, and a session this server never minted is answered
+HTTP 404. The public Lambda sets `VOLCAN_MCP_SESSION_MODE=stateless`, so it issues no session
+header and any execution environment can answer the next request. Both modes are permitted
+by revision 2025-11-25 and the conformance runner detects which one answered.
 `MCP-Protocol-Version` is required on every request after initialize and is echoed on every
 response; `notifications/initialized` returns HTTP 202 with no body; JSON-RPC error codes
 `-32700`, `-32600`, `-32601` and `-32602` are all reachable; a failing tool is reported as
@@ -506,7 +510,8 @@ from a list kept by hand here.
 
 The **Run a real MCP handshake** button performs `initialize`, `notifications/initialized`
 and `tools/list` against `POST /mcp` in the browser, then renders the negotiated protocol
-version, the session id taken off the response header, and each published `inputSchema`.
+version, whether the server chose a stateful id or stateless mode, and each published
+`inputSchema`.
 
 Accessibility is enforced rather than asserted. The page has semantic landmarks, a labelled
 and keyboard-scrollable Braille region, `aria-live` on every asynchronous pane and
@@ -779,7 +784,7 @@ estimate unless it says ESTIMATE.
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **21 of 21 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 491 passing; 92.99% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-23 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 492 passing; 92.97% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-23 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.4 s | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 117.2 ms on the first press, then 80.5, 42.9 and 58.7 ms, Chrome at 1440x900 on 2026-09-08 | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |

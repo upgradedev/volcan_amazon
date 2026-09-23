@@ -73,6 +73,31 @@ def test_two_initializations_issue_different_session_ids():
     assert first != second
 
 
+def test_stateless_mode_survives_requests_without_process_affinity(monkeypatch):
+    """The public Lambda must not bind a client to one warm process."""
+    monkeypatch.setenv("VOLCAN_MCP_SESSION_MODE", "stateless")
+    initialized = client.post("/mcp", json={
+        "jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"protocolVersion": PROTOCOL_VERSION, "capabilities": {}},
+    })
+    assert initialized.status_code == 200
+    assert "mcp-session-id" not in initialized.headers
+
+    listed = client.post(
+        "/mcp",
+        headers={"MCP-Protocol-Version": PROTOCOL_VERSION},
+        json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+    )
+    assert listed.status_code == 200
+    assert listed.json()["result"]["tools"]
+
+    deleted = client.delete(
+        "/mcp", headers={"MCP-Protocol-Version": PROTOCOL_VERSION},
+    )
+    assert deleted.status_code == 405
+    assert deleted.json()["error"] == "stateless_transport"
+
+
 def test_initialized_notification_returns_202_with_no_body():
     session_id, _ = initialize()
     response = client.post(
