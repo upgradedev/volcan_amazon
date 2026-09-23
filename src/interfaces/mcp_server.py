@@ -1,378 +1,357 @@
-from pathlib import Path
-from fastapi.responses import FileResponse, JSONResponse
-"""Interfaces Layer: FastMCP / Streamable HTTP Server for Amazon Alexa+ and MCP Clients."""
-import base64
+"""Interfaces Layer: the FastAPI application and the MCP Streamable HTTP transport.
+
+This module owns the ASGI application and the ``/mcp`` endpoint. Everything
+else is composed from focused modules:
+
+* ``src/interfaces/mcp_protocol.py``  JSON-RPC 2.0 and MCP message semantics
+* ``src/interfaces/composition.py``   adapters, use cases and the session registry
+* ``src/interfaces/dto.py``           request models both surfaces validate with
+* ``src/interfaces/operations.py``    application operations both surfaces call
+* ``src/interfaces/rest_api.py``      the REST surface at ``/api`` (not MCP)
+* ``src/interfaces/mcp_tools.py``     the MCP tool catalog
+
+Two surfaces, stated plainly:
+
+1. **MCP** at ``POST /mcp`` and ``GET /mcp``: Model Context Protocol, revision
+   2025-11-25, Streamable HTTP transport, JSON-RPC 2.0 messages, hand-written
+   with no MCP SDK. ``DELETE /mcp`` terminates a session. All three methods are
+   bound to one route so an unsupported method returns 405 with an Allow header
+   naming every method the endpoint really accepts.
+2. **REST** under ``/api/*``: ordinary JSON over HTTP for the web companion.
+
+Run locally, bound to loopback:
+
+    python -m src.interfaces.mcp_server
+    # then: python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp
+"""
+import json
+import time
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Response
-from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, Field
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
-from src.application.digest_diff_use_case import DigestDiffUseCase
-from src.application.governed_execution_use_case import GovernedExecutionUseCase
-from src.application.sonify_event_use_case import SonifyEventUseCase
-from src.application.voice_turn_use_case import VoiceTurnUseCase
-from src.application.ecosystem_companion_use_case import OrchestrateEcosystemCompanionUseCase
-from src.application.braille_diff_use_case import BrailleDiffUseCase
-from src.application.accessibility_use_case import AccessibilityOrchestratorUseCase
-from src.domain.sonification import EarconType
-from src.infrastructure.audit_repository import InMemoryAuditRepository
-from src.infrastructure.bedrock_adapter import BedrockSynthesisAdapter
-from src.infrastructure.git_adapter import LocalGitAdapter
-from src.interfaces.web_companion import COMPANION_HTML
+from src.application.review_authorization import current_review_principal
+from src.infrastructure.observability_harness import PrivateObservabilityHarness
+from src.interfaces.composition import allowed_origins, sessions
+from src.interfaces.mcp_protocol import (
+    INVALID_REQUEST,
+    PARSE_ERROR,
+    PROTOCOL_VERSION,
+    SERVER_NAME,
+    SERVER_VERSION,
+    SUPPORTED_PROTOCOL_VERSIONS,
+    JsonRpcError,
+    McpDispatcher,
+)
+from src.interfaces.mcp_tools import build_tool_registry
+from src.interfaces.rest_api import router as rest_router
+from src.interfaces.review_authorization import authenticated_reviewer
+from src.interfaces.web_companion import load_companion_html
 
 app = FastAPI(
     title="Volcan Accessible AI Agent Forge",
-    description="Streamable HTTP FastMCP Server for Amazon Alexa+ & Accessible AI Coding (Spec 2025-11-25+)",
-    version="0.1.0",
+    description=(
+        "MCP server (revision 2025-11-25, Streamable HTTP) at /mcp, plus a REST "
+        "surface at /api for the web companion."
+    ),
+    version=SERVER_VERSION,
+)
+app.include_router(rest_router)
+
+
+@app.middleware("http")
+async def review_identity_context(request: Request, call_next):
+    # Both HTTP surfaces receive fresh context; read-only routes remain public.
+    principal = authenticated_reviewer(request.headers.get("authorization"))
+    token = current_review_principal.set(principal)
+    try:
+        return await call_next(request)
+    finally:
+        current_review_principal.reset(token)
+
+
+tool_registry = build_tool_registry()
+dispatcher = McpDispatcher(
+    tool_registry,
+    instructions=(
+        "Volcan turns code review into sound and touch for blind and mobility-impaired "
+        "developers. Call digest_semantic_diff first; it returns spoken text and an audio "
+        "earcon. Commands are planned, never executed."
+    ),
 )
 
-# Composition Root
-audit_repo = InMemoryAuditRepository()
-bedrock_adapter = BedrockSynthesisAdapter()
-git_adapter = LocalGitAdapter()
 
-digest_use_case = DigestDiffUseCase(bedrock_adapter)
-sonify_use_case = SonifyEventUseCase()
-ecosystem_use_case = OrchestrateEcosystemCompanionUseCase()
-braille_use_case = BrailleDiffUseCase()
-accessibility_use_case = AccessibilityOrchestratorUseCase()
+# --- MCP Streamable HTTP transport -----------------------------------------
+
+MCP_ALLOW = "GET, POST, DELETE"
 
 
-class ShellExecutor:
-    async def run_command(self, command: str) -> str:
-        # Sandboxed mock execution for demo safety
-        return f"Executed command safely: '{command}'"
+def _rpc_error(request_id: Any, code: int, message: str, data: Any = None, status: int = 200) -> JSONResponse:
+    body = McpDispatcher.error_response(request_id, JsonRpcError(code, message, data))
+    return JSONResponse(status_code=status, content=body, headers={"MCP-Protocol-Version": PROTOCOL_VERSION})
 
 
-governed_use_case = GovernedExecutionUseCase(ShellExecutor(), audit_repo)
-voice_turn_use_case = VoiceTurnUseCase(digest_use_case, governed_use_case, sonify_use_case)
+def _origin_refusal(request: Request) -> JSONResponse | None:
+    """Rejects a present-but-unexpected Origin.
+
+    An absent Origin is allowed: non-browser MCP clients and curl send none.
+    The check exists to stop a hostile page in a browser from driving a server
+    bound to loopback, which is the DNS-rebinding case the specification warns
+    about.
+    """
+    origin = request.headers.get("origin")
+    if origin is None:
+        return None
+    if origin in allowed_origins():
+        return None
+    return JSONResponse(
+        status_code=403,
+        content={
+            "error": "origin_not_allowed",
+            "detail": (
+                f"Origin '{origin}' is not permitted. Set VOLCAN_ALLOWED_ORIGINS to allow it."
+            ),
+            "allowed": sorted(allowed_origins()),
+        },
+    )
 
 
-# --- DTOs ---
-
-class DigestRequest(BaseModel):
-    raw_diff: str = Field(..., description="Unified git patch content")
-    level: int = Field(0, description="Digest detail level (0: Executive, 1: File-by-file, 2: Deep drill-down)")
-
-
-class DrillDownRequest(BaseModel):
-    raw_diff: str
-    section_index: int = Field(0, description="0-indexed section to inspect")
-
-
-class StageActionRequest(BaseModel):
-    action_id: str
-    action_type: str = "TERMINAL_COMMAND"
-    command: str
-    summary_spoken: str
-    lease_sec: float = 300.0
+def _session_refusal(request: Request) -> JSONResponse | None:
+    """A session id this server never issued, or already terminated, is a 404."""
+    session_id = request.headers.get("mcp-session-id")
+    if session_id is None:
+        return None
+    if sessions.exists(session_id):
+        return None
+    return JSONResponse(
+        status_code=404,
+        content={"error": "unknown_session", "detail": "No such MCP session; run initialize again."},
+    )
 
 
-class ConfirmActionRequest(BaseModel):
-    action_id: str
-    voice_token: str
+#: Why a header is refused, and the machine-readable code that goes with it.
+#: The two verbs that carry no JSON-RPC envelope reuse these strings, so the
+#: refusal a client reads is the same sentence whichever method it sent.
+_VERSION_MISSING = (
+    "Missing MCP-Protocol-Version header; it is required on every request after initialize."
+)
 
 
-class VoiceTurnRequest(BaseModel):
-    session_id: str
-    user_id: str
-    repository: str
-    intent: str
-    params: dict[str, Any] = Field(default_factory=dict)
+def _protocol_version_problem(request: Request) -> tuple[str, dict[str, Any]] | None:
+    """(message, data) when the declared protocol version is unusable.
+
+    This is the whole rule, in one place, so no transport verb can quietly opt
+    out of it. It is deliberately stricter than the transport specification,
+    which permits a server that receives no ``MCP-Protocol-Version`` header to
+    assume the older ``2025-03-26`` revision. Assuming it would let a client and
+    this server disagree about the revision they are speaking while both believe
+    the handshake succeeded, which is a failure that surfaces later and
+    somewhere else. Volcan refuses instead and names the header, and the README
+    states that it is required on every request after initialize.
+    """
+    declared = request.headers.get("mcp-protocol-version")
+    if declared is None:
+        return _VERSION_MISSING, {"expected": PROTOCOL_VERSION}
+    if declared not in SUPPORTED_PROTOCOL_VERSIONS:
+        return (
+            f"Unsupported MCP-Protocol-Version '{declared}'.",
+            {"supported": list(SUPPORTED_PROTOCOL_VERSIONS)},
+        )
+    return None
 
 
-class PlayEarconRequest(BaseModel):
-    earcon_type: str
+def _protocol_version_refusal(request: Request, method: str, request_id: Any) -> JSONResponse | None:
+    """The POST form of the rule: a JSON-RPC error against the request id.
+
+    The check runs on the method alone. It does not consult the session, so a
+    request that carries a valid ``Mcp-Session-Id`` and omits the version header
+    is refused exactly like one that carries neither: a conforming client that
+    forgets one header has to see an error, never a successful-looking result
+    with an empty tool list.
+    """
+    if method == "initialize":
+        return None
+    problem = _protocol_version_problem(request)
+    if problem is None:
+        return None
+    message, data = problem
+    return _rpc_error(request_id, INVALID_REQUEST, message, data)
 
 
-# --- Endpoints ---
+def _transport_version_refusal(request: Request) -> JSONResponse | None:
+    """The GET and DELETE form of the rule.
+
+    Neither verb carries a JSON-RPC request, so there is no id to answer and no
+    envelope to put an error member in. They answer at the transport level, the
+    way the Origin and session refusals above already do, and quote the same
+    sentence POST does so a client reads one rule rather than two.
+    """
+    problem = _protocol_version_problem(request)
+    if problem is None:
+        return None
+    message, data = problem
+    return JSONResponse(
+        status_code=400,
+        content={"error": "bad_protocol_version", "detail": message, **data},
+    )
+
+
+@app.api_route("/mcp", methods=["GET", "POST", "DELETE"], include_in_schema=True)
+async def mcp_endpoint(request: Request) -> Response:
+    """The single MCP endpoint of the Streamable HTTP transport.
+
+    All three methods are bound to one route so that an unsupported method such
+    as PUT receives a 405 whose Allow header lists every method this endpoint
+    really accepts, rather than whichever route happened to be registered first.
+    """
+    if request.method == "POST":
+        return await mcp_post(request)
+    if request.method == "GET":
+        return await mcp_get(request)
+    return await mcp_delete(request)
+
+
+async def mcp_post(request: Request) -> Response:
+    refusal = _origin_refusal(request) or _session_refusal(request)
+    if refusal is not None:
+        return refusal
+
+    raw = await request.body()
+    try:
+        message = json.loads(raw) if raw else None
+    except json.JSONDecodeError as exc:
+        return _rpc_error(None, PARSE_ERROR, f"Parse error: {exc.msg} at position {exc.pos}.")
+
+    if message is None:
+        return _rpc_error(None, INVALID_REQUEST, "Request body is empty.")
+
+    request_id = message.get("id") if isinstance(message, dict) else None
+    method = message.get("method") if isinstance(message, dict) else None
+
+    if isinstance(method, str):
+        version_refusal = _protocol_version_refusal(request, method, request_id)
+        if version_refusal is not None:
+            return version_refusal
+
+    started = time.perf_counter()
+    try:
+        outcome = await dispatcher.dispatch(message)
+    except JsonRpcError as exc:
+        # JSON-RPC application errors travel as HTTP 200 with an error member;
+        # HTTP status is reserved for transport-level problems.
+        return _rpc_error(request_id, exc.code, exc.message, exc.data)
+
+    elapsed_ms = (time.perf_counter() - started) * 1000.0
+
+    if outcome.body is None:
+        # A JSON-RPC notification gets no response body at all.
+        return Response(status_code=202, headers={"MCP-Protocol-Version": PROTOCOL_VERSION})
+
+    headers = {"MCP-Protocol-Version": outcome.negotiated_version}
+    if outcome.is_initialize:
+        headers["Mcp-Session-Id"] = sessions.create()
+
+    if isinstance(method, str) and method == "tools/call":
+        _emit_tool_metric(message, elapsed_ms)
+
+    return JSONResponse(status_code=200, content=outcome.body, headers=headers)
+
+
+def _emit_tool_metric(message: dict[str, Any], elapsed_ms: float) -> None:
+    """Emits one genuinely measured CloudWatch EMF record per tool call."""
+    tool_name = "unknown"
+    params = message.get("params")
+    if isinstance(params, dict) and isinstance(params.get("name"), str):
+        tool_name = params["name"]
+    harness = PrivateObservabilityHarness()
+    harness.record_metric("McpToolDurationMs", round(elapsed_ms, 3))
+    harness.add_audit_event(
+        actor="mcp-client",
+        action="tools/call",
+        details={"tool": tool_name, "duration_ms": round(elapsed_ms, 3)},
+    )
+    harness.flush()
+
+
+async def mcp_get(request: Request) -> Response:
+    """Opens the server-to-client SSE stream of the Streamable HTTP transport.
+
+    This server has no long-lived server-initiated traffic to push, so the
+    stream announces itself and closes rather than holding a socket open for a
+    message that will never come. A client that wants request/response traffic
+    uses POST.
+    """
+    refusal = (
+        _origin_refusal(request)
+        or _session_refusal(request)
+        or _transport_version_refusal(request)
+    )
+    if refusal is not None:
+        return refusal
+
+    session_id = request.headers.get("mcp-session-id")
+
+    def event_stream():
+        yield ": volcan mcp stream open\n\n"
+        notice = {
+            "jsonrpc": "2.0",
+            "method": "notifications/message",
+            "params": {
+                "level": "info",
+                "logger": SERVER_NAME,
+                "data": {
+                    "protocolVersion": PROTOCOL_VERSION,
+                    "session": session_id,
+                    "note": (
+                        "Stream opened. This server pushes no unsolicited messages; "
+                        "send JSON-RPC requests to POST /mcp."
+                    ),
+                },
+            },
+        }
+        yield f"event: message\ndata: {json.dumps(notice)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-store",
+            "MCP-Protocol-Version": PROTOCOL_VERSION,
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+async def mcp_delete(request: Request) -> Response:
+    """Terminates an MCP session, as the Streamable HTTP transport allows."""
+    refusal = _origin_refusal(request) or _transport_version_refusal(request)
+    if refusal is not None:
+        return refusal
+    session_id = request.headers.get("mcp-session-id")
+    if session_id is None:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "missing_session", "detail": "DELETE /mcp requires an Mcp-Session-Id header."},
+        )
+    if not sessions.terminate(session_id):
+        return JSONResponse(
+            status_code=404,
+            content={"error": "unknown_session", "detail": "No such MCP session."},
+        )
+    return Response(status_code=204, headers={"MCP-Protocol-Version": PROTOCOL_VERSION})
+
+
+# --- Web companion ----------------------------------------------------------
 
 @app.get("/", response_class=HTMLResponse)
 @app.get("/demo", response_class=HTMLResponse)
-async def demo_ui() -> str:
-    """Zero-setup interactive web companion for judges and developers."""
-    return COMPANION_HTML
-
-
-@app.get("/health")
-async def health_check() -> dict[str, Any]:
-    return {
-        "status": "ok",
-        "service": "volcan-accessible-forge",
-        "mcp_spec": "2025-11-25",
-        "transport": "Streamable HTTP",
-        "supported_earcons": [e.value for e in EarconType],
-    }
-
-
-@app.get("/mcp/resources/audit_log")
-async def get_audit_log_resource() -> dict[str, Any]:
-    """MCP Resource: Immutable audit trail of voice-governed actions."""
-    records = audit_repo.list_records()
-    return {
-        "uri": "volcan://governance/audit_log",
-        "mimeType": "application/json",
-        "total_records": len(records),
-        "records": [
-            {
-                "id": r.record_id,
-                "action": r.action_id,
-                "command": r.command,
-                "payload_hash": r.payload_hash,
-                "state": r.state.value,
-                "timestamp": r.timestamp,
-            }
-            for r in records
-        ],
-    }
-
-
-@app.post("/mcp/tools/digest_semantic_diff")
-async def digest_semantic_diff(req: DigestRequest) -> dict[str, Any]:
-    """MCP Tool: Convert raw git diff into multi-level spoken semantic summaries."""
-    report = await digest_use_case.execute(req.raw_diff)
-    cue, wav_bytes = sonify_use_case.execute(EarconType.DIFF_READY)
-    return {
-        "voice_summary": report.to_voice_summary(level=req.level),
-        "total_files": report.total_files_changed,
-        "insertions": report.total_insertions,
-        "deletions": report.total_deletions,
-        "category_breakdown": report.category_breakdown,
-        "critical_findings": report.critical_findings,
-        "earcon": {
-            "type": cue.earcon_type.value,
-            "spoken_fallback": cue.spoken_fallback,
-            "wav_base64": base64.b64encode(wav_bytes).decode("ascii"),
-        },
-    }
-
-
-@app.post("/mcp/tools/drill_down_section")
-async def drill_down_section(req: DrillDownRequest) -> dict[str, Any]:
-    """MCP Tool: Deep drill-down into a specific file section of the patch."""
-    report = await digest_use_case.execute(req.raw_diff)
-    if req.section_index < 0 or req.section_index >= len(report.sections):
-        raise HTTPException(status_code=404, detail="Section index out of bounds.")
-    
-    sec = report.sections[req.section_index]
-    cue, wav_bytes = sonify_use_case.execute(EarconType.DRILL_DOWN_OPENED)
-    spoken = (
-        f"Inspecting {sec.file_path}. Category: {sec.category.value}. "
-        f"Significance is {sec.significance.value}. {sec.summary_spoken} "
-        f"(Added {sec.added_count} lines, removed {sec.removed_count} lines)."
-    )
-    if sec.security_flags:
-        spoken += f" Security alert: Flagged for {', '.join(sec.security_flags)}."
-
-    return {
-        "spoken_text": spoken,
-        "file_path": sec.file_path,
-        "category": sec.category.value,
-        "significance": sec.significance.value,
-        "security_flags": sec.security_flags,
-        "earcon": {
-            "type": cue.earcon_type.value,
-            "wav_base64": base64.b64encode(wav_bytes).decode("ascii"),
-        },
-    }
-
-
-@app.post("/mcp/tools/stage_governed_action")
-async def stage_governed_action(req: StageActionRequest) -> dict[str, Any]:
-    """MCP Tool: Stage a voice-governed action requiring dual-custody confirmation."""
-    action = governed_use_case.stage_action(
-        req.action_id, req.action_type, req.command, req.summary_spoken, req.lease_sec
-    )
-    cue, wav_bytes = sonify_use_case.execute(EarconType.GOVERNANCE_CHALLENGE)
-    return {
-        "action_id": action.action_id,
-        "state": action.state.value,
-        "payload_hash": action.payload_hash,
-        "spoken_prompt": (
-            f"Volcan staged action: {action.summary_spoken}. "
-            f"Say 'Confirm action' with your voice authorization token."
-        ),
-        "earcon": {
-            "type": cue.earcon_type.value,
-            "wav_base64": base64.b64encode(wav_bytes).decode("ascii"),
-        },
-    }
-
-
-@app.post("/mcp/tools/confirm_action")
-async def confirm_action(req: ConfirmActionRequest) -> dict[str, Any]:
-    """MCP Tool: Confirm and execute a staged action with cryptographic token."""
-    result = await governed_use_case.confirm_and_execute(req.action_id, req.voice_token)
-    if result is None:
-        raise HTTPException(status_code=400, detail="Action not found, expired, or already finalized.")
-    cue, wav_bytes = sonify_use_case.execute(EarconType.ACTION_COMMITTED)
-    return {
-        "status": "EXECUTED",
-        "output": result,
-        "earcon": {
-            "type": cue.earcon_type.value,
-            "wav_base64": base64.b64encode(wav_bytes).decode("ascii"),
-        },
-    }
-
-
-@app.post("/mcp/tools/play_earcon")
-async def play_earcon(req: PlayEarconRequest):
-    """MCP Tool: Return binary audio/wav stream for a given EarconType."""
-    try:
-        etype = EarconType(req.earcon_type)
-    except ValueError:
-        raise HTTPException(status_code=400, detail=f"Unknown earcon type: {req.earcon_type}")
-    
-    cue, wav_bytes = sonify_use_case.execute(etype)
-    return Response(content=wav_bytes, media_type="audio/wav")
-
-
-@app.post("/mcp/tools/voice_turn")
-async def handle_voice_turn(req: VoiceTurnRequest) -> dict[str, Any]:
-    """MCP Tool: Process full conversational turn for Alexa+ multi-modal skill."""
-    return await voice_turn_use_case.handle_turn(
-        session_id=req.session_id,
-        user_id=req.user_id,
-        repo=req.repository,
-        intent=req.intent,
-        params=req.params,
-    )
-
-
-@app.post("/mcp/tools/run_accessible_tests")
-async def run_accessible_tests() -> dict[str, Any]:
-    """MCP Tool: Run local test suite and convert terminal output to spoken digest."""
-    passed, output = git_adapter.run_tests()
-    cue_type = EarconType.TEST_PASSED if passed else EarconType.TEST_FAILED
-    cue, wav_bytes = sonify_use_case.execute(cue_type)
-    
-    status_phrase = "All tests passed successfully." if passed else "Test suite failed with errors."
-    spoken = f"{status_phrase} Processed workspace test execution."
-    return {
-        "passed": passed,
-        "spoken_text": spoken,
-        "output_snippet": output[:300],
-        "earcon": {
-            "type": cue.earcon_type.value,
-            "wav_base64": base64.b64encode(wav_bytes).decode("ascii"),
-        },
-    }
-
-
-class BeeAnnotationRequest(BaseModel):
-    speaker_id: str = Field("developer_voice_1", description="Speaker ID from Bee diarization")
-    transcript: str = Field(..., description="Spoken transcript from Bee wearable")
-    pr_id: str = Field("PR-104", description="Target PR or commit identifier")
-
-
-class FireTvSyncRequest(BaseModel):
-    lease_id: str | None = Field(None, description="Active lease ID")
-    ttl_sec: int = Field(300, description="TTL remaining in seconds")
-    security_flag: bool = Field(False, description="AST security flag")
-    dora_rating: str = Field("ELITE", description="DORA velocity tier")
-
-
-class RingPresenceRequest(BaseModel):
-    sensor_zone: str = Field("Front Door", description="Ring sensor zone")
-    active_lease_id: str | None = Field(None, description="Active release lease ID")
-
-
-@app.post("/mcp/tools/ecosystem/ingest_bee_annotation")
-async def ingest_bee_annotation(req: BeeAnnotationRequest) -> dict[str, Any]:
-    """MCP Tool: Ingest out-of-desk voice note from Bee Wearable into PR review context."""
-    return ecosystem_use_case.attach_bee_ambient_note(
-        speaker_id=req.speaker_id,
-        transcript=req.transcript,
-        pr_id=req.pr_id,
-    )
-
-
-@app.post("/mcp/tools/ecosystem/sync_firetv_wallboard")
-async def sync_firetv_wallboard(req: FireTvSyncRequest) -> dict[str, Any]:
-    """MCP Tool: Broadcast high-contrast 10-foot telemetry to Fire TV ambient screen."""
-    return ecosystem_use_case.sync_firetv_compatibility(
-        lease_id=req.lease_id,
-        ttl_sec=req.ttl_sec,
-        security_flag=req.security_flag,
-        dora_rating=req.dora_rating,
-    )
-
-
-@app.post("/mcp/tools/ecosystem/evaluate_ring_presence")
-async def evaluate_ring_presence(req: RingPresenceRequest) -> dict[str, Any]:
-    """MCP Tool: Evaluate Ring physical presence alert during active dual-custody lease."""
-    return ecosystem_use_case.evaluate_ring_presence(
-        sensor_zone=req.sensor_zone,
-        active_lease_id=req.active_lease_id,
-    )
-
-
-class BrailleTranslateRequest(BaseModel):
-    text: str = Field(..., description="ASCII text or code string to translate to Braille")
-
-
-class BrailleDiffRequest(BaseModel):
-    raw_diff: str = Field(..., description="Unified git patch to format for Braille terminals")
-
-
-@app.post("/mcp/tools/braille/translate_text")
-async def translate_text_to_braille(req: BrailleTranslateRequest) -> dict[str, Any]:
-    """MCP Tool: Translate arbitrary code or text into Unicode Braille patterns (U+2800 - U+28FF)."""
-    return braille_use_case.translate_text(req.text)
-
-
-@app.post("/mcp/tools/braille/diff_digest")
-async def digest_diff_to_braille(req: BrailleDiffRequest) -> dict[str, Any]:
-    """MCP Tool: Format AST diff with tactile markers (+/-) for Refreshable Braille Displays."""
-    return braille_use_case.digest_to_braille(req.raw_diff)
-
-
-class SwitchPulseRequest(BaseModel):
-    input_type: str = Field("SIP_AND_PUFF", description="Input mechanism: SIP_AND_PUFF, SINGLE_BUTTON, FOOT_PEDAL")
-    signal_strength: float = Field(1.0, description="Pressure or analog value (0.0 - 1.0)")
-    duration_ms: int = Field(150, description="Pulse duration in milliseconds")
-    is_long_press: bool = Field(False, description="Whether pulse is held for dwell selection")
-
-
-class HapticRequest(BaseModel):
-    event_type: str = Field("TASK_COMPLETED", description="Event name: TASK_COMPLETED, SECURITY_FLAG, LEASE_TICK")
-
-
-@app.post("/mcp/tools/accessibility/process_switch_pulse")
-async def process_switch_pulse(req: SwitchPulseRequest) -> dict[str, Any]:
-    """MCP Tool: Process binary switch pulse for hands-free and motor-impaired operators."""
-    return accessibility_use_case.process_switch_signal(
-        input_type_str=req.input_type,
-        signal_strength=req.signal_strength,
-        duration_ms=req.duration_ms,
-        is_long_press=req.is_long_press,
-    )
-
-
-@app.post("/mcp/tools/accessibility/get_haptic_profile")
-async def get_haptic_profile(req: HapticRequest) -> dict[str, Any]:
-    """MCP Tool: Format tactile vibration cadence and visual captions for Deaf/HOH and wearables."""
-    return accessibility_use_case.generate_haptic_profile(req.event_type)
+async def demo_ui() -> HTMLResponse:
+    """Serves docs/index.html, the single companion document in this repository."""
+    return HTMLResponse(content=load_companion_html())
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
 
-
-
-
-
-# Serve Companion Web UI & Tourguide
-WEB_DIR = Path(__file__).resolve().parent / "web"
-
-
-@app.get("/")
-@app.get("/web")
-async def serve_dashboard():
-    index_path = WEB_DIR / "index.html"
-    if index_path.exists():
-        return FileResponse(index_path)
-    return JSONResponse({"message": "FastMCP API Live"})
+    uvicorn.run(app, host="127.0.0.1", port=8000)

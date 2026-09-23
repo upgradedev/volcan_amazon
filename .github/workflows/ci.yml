@@ -10,17 +10,17 @@ on:
 jobs:
   test-and-verify:
     name: Test, Security & Build Verification
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         python-version: ["3.11"]
 
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -28,7 +28,11 @@ jobs:
       - name: Install Build & Test Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov ruff build pydantic fastapi httpx boto3
+          # The same command the README quickstart gives a judge, so CI cannot
+          # pass on a dependency set nobody else installs. The bedrock extra is
+          # included deliberately: the model path must be importable here too.
+          pip install -e ".[dev,bedrock]"
+          pip install build
 
       - name: Code Quality & Linting (Ruff)
         run: |

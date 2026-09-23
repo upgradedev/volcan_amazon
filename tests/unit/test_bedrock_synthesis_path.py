@@ -1,0 +1,181 @@
+"""What the Bedrock adapter does, and what it says when it cannot.
+
+There are no AWS credentials in this repository, so the model has never
+answered here. That is exactly why these tests exist: they pin the request the
+adapter builds, the response shapes it can read, and above all the sentence it
+produces when the call fails, because a fallback nobody can explain is
+indistinguishable from a design decision.
+"""
+import asyncio
+from types import SimpleNamespace
+
+import pytest
+
+from src.domain.semantic_diff import ChangeCategory, ChangeSignificance, DiffSectionDigest
+from src.infrastructure.bedrock_adapter import (
+    DEFAULT_MAX_TOKENS,
+    DEFAULT_MODEL_ID,
+    MODE_BEDROCK,
+    MODE_HEURISTIC,
+    BedrockSynthesisAdapter,
+)
+
+SECTION = DiffSectionDigest(
+    file_path="src/api/admin.py",
+    symbol_name="module_scope",
+    category=ChangeCategory.SECURITY_SENSITIVE,
+    significance=ChangeSignificance.CRITICAL,
+    summary_spoken="Changed 1 line.",
+    added_count=1,
+    removed_count=1,
+    security_flags=["authz_comparison_inverted"],
+    security_findings=["an authorization comparison was inverted"],
+)
+
+
+class _StubMessages:
+    def __init__(self, response=None, error=None):
+        self._response = response
+        self._error = error
+        self.seen: dict = {}
+
+    def create(self, **kwargs):
+        self.seen = kwargs
+        if self._error is not None:
+            raise self._error
+        return self._response
+
+
+class _StubClient:
+    def __init__(self, response=None, error=None):
+        self.messages = _StubMessages(response, error)
+
+
+@pytest.fixture
+def with_credentials(monkeypatch):
+    monkeypatch.setattr(BedrockSynthesisAdapter, "credentials_present", lambda self: True)
+
+
+def _run(adapter):
+    return asyncio.run(adapter.summarize_diff("diff --git a/x b/x\n+1\n", [SECTION]))
+
+
+def test_the_pinned_model_id_is_a_current_claude_model_on_bedrock():
+    """The retired snapshot this file used to pin answers ResourceNotFoundException."""
+    assert DEFAULT_MODEL_ID == "anthropic.claude-opus-5"
+    assert "2024" not in DEFAULT_MODEL_ID
+    assert BedrockSynthesisAdapter().model_id == DEFAULT_MODEL_ID
+
+
+def test_the_model_id_can_be_repinned_without_editing_the_source(monkeypatch):
+    monkeypatch.setenv("AWS_BEDROCK_MODEL_ID", "us.anthropic.claude-opus-5")
+    assert BedrockSynthesisAdapter().model_id == "us.anthropic.claude-opus-5"
+
+
+def test_a_model_answer_is_labelled_bedrock_with_no_fallback_reason(with_credentials):
+    client = _StubClient({"content": [{"type": "text", "text": "Authorization check inverted."}]})
+    adapter = BedrockSynthesisAdapter(client_factory=lambda region: client)
+
+    report = _run(adapter)
+
+    assert report.synthesis_mode == MODE_BEDROCK
+    assert report.fallback_reason is None
+    assert adapter.last_fallback_reason is None
+    assert report.executive_spoken_summary == "Authorization check inverted."
+
+
+def test_the_request_carries_the_pinned_model_and_room_to_finish(with_credentials):
+    client = _StubClient({"content": [{"type": "text", "text": "ok"}]})
+    adapter = BedrockSynthesisAdapter(client_factory=lambda region: client)
+
+    _run(adapter)
+
+    assert client.messages.seen["model"] == DEFAULT_MODEL_ID
+    assert client.messages.seen["max_tokens"] == DEFAULT_MAX_TOKENS
+    assert client.messages.seen["max_tokens"] >= 4096, "a small ceiling truncates a thinking model"
+
+
+def test_a_thinking_block_before_the_text_does_not_break_the_digest(with_credentials):
+    """Indexing content[0] would return a thinking block and raise."""
+    client = _StubClient({"content": [
+        {"type": "thinking", "thinking": "weighing the change"},
+        {"type": "text", "text": "One authorization comparison was inverted."},
+    ]})
+    adapter = BedrockSynthesisAdapter(client_factory=lambda region: client)
+
+    report = _run(adapter)
+
+    assert report.synthesis_mode == MODE_BEDROCK
+    assert report.executive_spoken_summary == "One authorization comparison was inverted."
+
+
+def test_sdk_objects_are_read_the_same_way_as_dictionaries(with_credentials):
+    client = _StubClient(SimpleNamespace(content=[
+        SimpleNamespace(type="thinking", thinking="..."),
+        SimpleNamespace(type="text", text="  Spoken by an object.  "),
+    ]))
+    adapter = BedrockSynthesisAdapter(client_factory=lambda region: client)
+
+    assert _run(adapter).executive_spoken_summary == "Spoken by an object."
+
+
+def test_a_response_with_no_text_block_degrades_instead_of_raising(with_credentials):
+    client = _StubClient({"content": [{"type": "thinking", "thinking": "..."}]})
+    adapter = BedrockSynthesisAdapter(client_factory=lambda region: client)
+
+    report = _run(adapter)
+
+    assert report.synthesis_mode == MODE_HEURISTIC
+    assert "ValueError" in report.fallback_reason
+    assert "no text block" in report.fallback_reason
+
+
+def test_a_failed_call_names_the_exception_and_the_model(with_credentials):
+    """The reason a reviewer reads has to be actionable, not 'something failed'."""
+    class ResourceNotFoundException(Exception):
+        pass
+
+    client = _StubClient(error=ResourceNotFoundException("This model is not available"))
+    adapter = BedrockSynthesisAdapter(client_factory=lambda region: client)
+
+    report = _run(adapter)
+
+    assert report.synthesis_mode == MODE_HEURISTIC
+    assert "ResourceNotFoundException" in report.fallback_reason
+    assert DEFAULT_MODEL_ID in report.fallback_reason
+    assert "This model is not available" in report.fallback_reason
+    assert report.fallback_reason == adapter.last_fallback_reason
+
+
+def test_a_missing_sdk_says_which_package_to_install(with_credentials):
+    def _no_sdk(region):
+        raise ImportError("No module named 'anthropic'")
+
+    adapter = BedrockSynthesisAdapter(client_factory=_no_sdk)
+    report = _run(adapter)
+
+    assert report.synthesis_mode == MODE_HEURISTIC
+    assert "anthropic[bedrock]" in report.fallback_reason
+
+
+def test_absent_credentials_are_reported_as_the_reason(monkeypatch):
+    monkeypatch.setattr(BedrockSynthesisAdapter, "credentials_present", lambda self: False)
+    adapter = BedrockSynthesisAdapter()
+
+    report = _run(adapter)
+
+    assert report.synthesis_mode == MODE_HEURISTIC
+    assert "credential" in report.fallback_reason.lower()
+
+
+def test_the_region_reaches_the_client_factory(monkeypatch, with_credentials):
+    monkeypatch.setenv("AWS_REGION", "eu-central-1")
+    seen = {}
+
+    def _factory(region):
+        seen["region"] = region
+        return _StubClient({"content": [{"type": "text", "text": "ok"}]})
+
+    _run(BedrockSynthesisAdapter(client_factory=_factory))
+
+    assert seen["region"] == "eu-central-1"

@@ -1,60 +1,193 @@
-# Amazon Developer Hackathon 2026 — Friction Log: Volcan & Alexa+ Track
+# Friction Log: building an accessibility MCP server for Alexa+
 
-**Track:** Alexa+ (Flagship)  
-**Product:** Volcan (Accessible Voice-First AI Agent Forge)  
-**Evaluator:** Senior Distributed Systems & Accessibility Architect  
-**Submission Bonus:** Stage 1 Friction Log (Up to +10% Bonus Evaluation)
+**Project:** Volcan
+**Written by:** the engineer who wrote the code in this repository
+**Scope rule for this document:** every entry below points at a file in this repository,
+a command you can run, or an error that was actually observed while building it. Nothing
+here describes hardware, an SDK or a device that this project never exercised. Where a
+number appears, the command that printed it appears beside it.
 
----
-
-## 1. Executive Summary
-
-Building an accessible, voice-first agentic infrastructure on **Amazon Alexa+** and **AWS Bedrock** revealed immense potential for voice as the primary interface for software craftsmanship. However, several architectural friction points were identified during local orchestration, Model Context Protocol (MCP) streaming over HTTP, and dual-custody voice leases.
-
-Below is the structured friction log documenting exact pain points, root causes, our engineering workarounds, and concrete recommendations for the Alexa+ product team.
-
----
-
-## 2. Friction Points & Architectural Insights
-
-### Friction Item 1: MCP Streamable HTTP vs Stdio Session Lifecycle
-- **Context:** Volcan connects Alexa+ intent handlers to local/cloud FastMCP agent tools using Streamable HTTP.
-- **Observed Friction:** While local MCP tools commonly use `stdio`, connecting cloud Alexa+ voice runtimes requires persistent SSE (Server-Sent Events) or Streamable HTTP. The transition from stdio to HTTP lacks standardized session re-attachment when a voice interaction pauses during human confirmation.
-- **Impact:** If an engineer takes 45 seconds to voice-confirm a production deployment lease, default HTTP keep-alive connections on API Gateway can drop unless heartbeat SSE frames are actively pumped.
-- **Volcan Workaround:** Implemented a stateless cryptographic Lease Token (`ExecutionLease`) with SHA-256 HMAC and explicit 300s TTL. Even if the HTTP transport drops, the voice session re-authenticates with the token on reconnection.
-- **Amazon Recommendation:** Provide an official AWS Bedrock / Alexa+ MCP Adapter SDK that automatically manages bi-directional SSE heartbeat leases with IAM SigV4 authentication.
+What this project did **not** exercise, and therefore says nothing about: the Alexa Skills
+Kit, the Alexa developer console, skill certification, any Echo device, Alexa Presentation
+Language on real hardware, and the Amazon Bedrock runtime (no credentials were available
+in the build environment). Opinions about those surfaces would be invented, so there are
+none.
 
 ---
 
-### Friction Item 2: SSML Audio Output Bitrate & Custom Earcon Latency
-- **Context:** Volcan synthesizes real-time acoustic earcons (e.g. 440Hz -> 880Hz harmonic sweeps for AST diff status).
-- **Observed Friction:** Alexa Skills Kit (ASK) audio playback via SSML `<audio src="..." />` enforces strict MP3 formatting (16kHz or 24kHz, 48kbps CBR) and introduces a 200–450ms buffering delay when fetching audio from external URLs. For real-time coding feedback, 450ms is perceptible.
-- **Volcan Workaround:** Built an in-memory 16-bit 22.05kHz PCM WAV synthesizer in Python (`src/domain/sonification.py`) that executes in **3.02 ms**, coupled with Web Audio API client-side earcon rendering in the companion interface for zero-latency auditory cues.
-- **Amazon Recommendation:** Enable direct raw PCM/Opus streaming buffers in Alexa+ voice responses to allow sub-50ms acoustic cue playback without intermediate MP3 conversion.
+## 1. MCP revision 2025-11-25 had to be implemented by hand, and the spec leaves status
+codes to the implementer
+
+**Context.** Volcan needed a Model Context Protocol server over Streamable HTTP. No MCP
+SDK was available in the build environment, so the protocol layer was written from the
+specification: `src/interfaces/mcp_protocol.py` for the JSON-RPC semantics and
+`src/interfaces/mcp_server.py` for the transport.
+
+**Observed friction.** The specification is clear about the shape of messages and much
+less clear about what HTTP status a transport should return for each failure. Three cases
+needed a decision with no single normative answer:
+
+* a request carrying a session id the server never issued
+* a request after `initialize` that omits `MCP-Protocol-Version`
+* a top-level JSON array, now that batching has been removed
+
+Volcan answers HTTP 404, a JSON-RPC `-32600`, and a JSON-RPC `-32600` respectively, and
+documents that choice in the module docstring. A different implementer would reasonably
+choose 400 for the second, and two conforming servers would then disagree about what a
+client sees.
+
+**Recommendation for the MCP and Alexa+ teams.** Publish a conformance vector set: a list
+of request fixtures with the expected status code and JSON-RPC error code for each. That
+single artifact would remove the ambiguity without changing the specification's tone.
+`scripts/mcp_conformance.py` in this repository is a small version of what that artifact
+would look like; running it prints a pass or fail line for each of 18 checks.
 
 ---
 
-### Friction Item 3: AST Diff Serialization Limits in Voice Context Windows
-- **Context:** Feeding raw Git unified diffs into LLM prompts quickly saturates token context and yields confusing verbal descriptions for screen readers (e.g. "plus plus plus minus minus").
-- **Observed Friction:** Raw diffs lack semantic hierarchy. A simple 1-line KMS key change can be buried inside a 400-line auto-generated migration file.
-- **Volcan Workaround:** Built an AST-based semantic chunker (`src/domain/semantic_diff.py`) that categorizes diffs into 3 abstraction levels:
-  - *Level 0 (Executive):* 1-sentence spoken summary + security flags (< 0.06 ms latency).
-  - *Level 1 (File/Function):* Structural breakdown by symbol.
-  - *Level 2 (Exhaustive):* Parameterized patch view.
-- **Amazon Recommendation:** Integrate native AST-aware diffing tools into AWS CodeCatalyst / Amazon Q Developer CLI to support voice-first reviews out-of-the-box.
+## 2. A GET stream with nothing to push has no defined way to end
+
+**Context.** The Streamable HTTP transport opens a server-to-client SSE stream at
+`GET /mcp`. Volcan has no unsolicited server-initiated traffic: every result is the reply
+to a `tools/call`.
+
+**Observed error.** The first implementation returned an unbounded generator, which is the
+natural reading of "open a stream". `TestClient.get("/mcp")` then never returned, and the
+test run hung until it was interrupted. The transport was correct by the specification and
+unusable by any client that reads to end of stream.
+
+**Workaround in this repository.** `GET /mcp` emits one comment frame and one
+`notifications/message` frame saying the stream is open and that this server pushes
+nothing, then closes. `tests/integration/test_mcp_conformance.py::test_get_mcp_opens_a_terminating_sse_stream`
+asserts the stream both starts and finishes.
+
+**Recommendation.** State explicitly that a server with no pending server-initiated
+messages MAY close the GET stream immediately after opening it, and that clients must
+tolerate an immediately closed stream. One sentence prevents a class of hangs.
 
 ---
 
-## 3. Developer Experience Scorecard
+## 3. Audio content blocks exist, but nothing expresses "play this before you read that"
 
-| Surface | Rating | Strengths | Areas for Improvement |
-|---|:---:|---|---|
-| **AWS Bedrock Claude 3.5 Integration** | **9.5 / 10** | High inference speed, flawless structured JSON outputs, enterprise IAM security. | Need simpler local emulator for Bedrock tool calls. |
-| **Model Context Protocol (MCP)** | **9.0 / 10** | Clean separation of tools and prompts, rapid FastAPI adapter creation. | Standardization needed for voice session state re-attachment. |
-| **Alexa Voice Service / ASK** | **8.5 / 10** | Rich acoustic speech recognition, great multi-turn dialogue management. | SSML external audio latency and MP3 constraints. |
+**Context.** Volcan's earcons are the product, not decoration. A blind reviewer hears a
+falling two-tone cue and knows a security finding is coming before any words arrive. The
+`audio` content block is exactly the right primitive, and `play_earcon` returns a 16-bit
+PCM WAV through it, verified by
+`tests/integration/test_mcp_conformance.py::test_play_earcon_returns_a_playable_audio_content_block`.
+
+**Observed friction.** A tool result is an ordered list of content blocks, but the ordering
+carries no semantics a client is obliged to honour. Volcan returns text first, then audio,
+then a JSON detail block, and a client is free to render them in any order, or to render
+the text and drop the audio. For a sighted user that is a cosmetic difference. For the user
+this project exists for, the cue arriving after the sentence removes the reason the cue
+exists.
+
+**Recommendation.** Add an optional hint on a content block, something like a `priority` or
+`presentationOrder` field, so a tool can say that a cue is meant to precede its text.
+Accessibility is where content ordering stops being cosmetic.
+
+**The part that was our own bug, not the protocol's.** The paragraph above was true about
+the ordering and false about the cue. Until 2026-09-08 every digest emitted `DIFF_READY`
+regardless of what the parser found, so a benign patch and an AST-confirmed
+security-sensitive patch returned byte-identical audio and there was no falling two-tone cue
+to arrive early or late. A protocol gap is worth reporting; shipping it as cover for a
+one-line defect in our own selection code is not. `src/domain/sonification.py` now chooses
+the cue from the report, one selector shared by the REST, MCP, voice and CLI surfaces, and
+`tests/unit/test_earcon_encodes_the_verdict.py` fails if the two payloads ever match again.
 
 ---
 
-## 4. Conclusion
+## 4. There is no way to exercise Amazon Bedrock without credentials, so the fallback
+path is the one that gets tested
 
-The Alexa+ platform offers an incredible foundation for accessibility. By pairing high-speed AST parsing with pure auditory earcons and cryptographic voice leases, Volcan proves that disabled software engineers can operate at full commercial velocity without visual terminal dependence.
+**Context.** `src/infrastructure/bedrock_adapter.py` calls Claude on Amazon Bedrock through
+the Anthropic SDK's `AnthropicBedrockMantle` client. The build environment has no usable
+Amazon Bedrock access.
+
+**Observed behaviour.** Every digest in this repository was produced by the deterministic
+local path and carries `"synthesis_mode": "heuristic-local"`. The Bedrock branch has never
+run, and this repository says so in its README rather than implying otherwise.
+
+**The part that was worse than the missing credentials.** Until 2026-09-08 the mode field
+was the only thing a reviewer got. `/health` reported `"bedrock_credentials_present": true`
+on the development machine, because boto3 resolves something from the local credential
+chain, and the companion page turned that into "AWS credentials are present, so a digest may
+be answered by Amazon Bedrock". Then every digest came back `heuristic-local` with no
+explanation, which reads as a product decision rather than a failure. The model id pinned at
+the time, `anthropic.claude-3-5-sonnet-20241022-v2:0`, was a retired snapshot and answered
+`ResourceNotFoundException`, and nothing in the codebase ever showed that string to anyone.
+The adapter had been recording the reason on itself the whole time and no caller read it.
+Every response now carries `synthesis_fallback_reason` and the page prints it beside the
+mode. Today it reads:
+
+```
+synthesis_mode: heuristic-local
+synthesis_fallback_reason: the Anthropic SDK is not installed (No module named 'anthropic');
+pip install 'anthropic[bedrock]' to reach Amazon Bedrock
+```
+
+**The second half of the same mistake, corrected on 2026-09-08.** Naming the reason fixed the
+digest and left the health check wrong. `/health` still published
+`"bedrock_credentials_present": true` as a top-level field, and a reviewer reasonably read
+that as "the model path is available here". It was not: credentials resolved and the SDK was
+absent, so no call could be attempted at all, and the two facts were being published one at a
+time. `/health` now publishes a single `bedrock_model_path.resolved_capability` computed from
+both, reading `unavailable_sdk_not_installed` on this machine, with the credential and SDK
+booleans underneath it as the evidence rather than as the headline. The general shape of the
+error is worth naming: a status endpoint that reports one input to a decision, rather than the
+decision, will be read as reporting the decision.
+
+**Friction.** Without a local emulator, the only ways to develop against Bedrock are to
+hold live credentials or to hand-write a double. Both make it easy to ship a "Bedrock
+integration" that has never once called Bedrock, which is a failure mode a reviewer cannot
+see from the outside. The mitigation Volcan uses is a labelled mode field in every response
+payload, so which path ran is visible in the data rather than inferred from the code.
+
+There is a sharper edge to this than a missing convenience. Confirming the integration on this
+machine would have meant installing the SDK where credentials already resolve, and the very
+next digest would have fired a real, billed call against an account whose owner had not been
+asked. The cheapest possible proof that an integration works costs somebody money and needs
+somebody's consent, so the honest option left is to ship the path untested and say so. That is
+what this repository did, and it is why the Bedrock receipt is an owner action with a written
+command rather than a screenshot.
+
+**Recommendation.** Ship a local Bedrock emulator, or a documented offline mode of the SDK
+that returns fixed responses and is impossible to mistake for the real service. A
+first-party emulator would let integrations be tested honestly rather than asserted.
+
+---
+
+## 5. A deployed function gives no way to ask which commit it is running
+
+**Context.** This project's API Gateway endpoint was probed on 2026-09-05. The recorded
+result is in `deploy_teardown_receipt.json`: `GET /health` answered HTTP 200 with
+`{"status": "HEALTHY", "region": "eu-west-1", "serverless": true}`, and `GET /mcp` answered
+HTTP 404 because the deployed bundle predates the MCP endpoint.
+
+**Observed friction.** The only reason that mismatch was catchable is that the receipt
+records a commit SHA the deployer wrote down by hand. Nothing in API Gateway or Lambda
+exposes the source revision a deployed bundle was built from, so "is the thing running the
+thing I am submitting" is a question the platform cannot answer. A reviewer opening a live
+URL has no way to tell which commit produced it.
+
+**Mitigation in this repository.** `ci/readiness.py` gate G2 compares the receipt's
+`deployed_commit_sha` with `git rev-parse HEAD` and reports red when they differ, which it
+does today.
+
+**Recommendation.** Let a deployment carry an immutable revision tag that the runtime can
+read and expose, so a health endpoint can report the exact source revision without the
+deployer having to remember to write it down.
+
+---
+
+## 6. What worked well
+
+* The Model Context Protocol is a good fit for assistive tooling. Because tools are
+  described by JSON Schema, Volcan generates its whole catalog from the pydantic models
+  that parse the arguments, and the published schema cannot drift from the code. That is
+  twelve tools with zero hand-written schema.
+* The `audio` content block means an accessibility cue is a first-class result rather than
+  a side channel, which is the single design decision that made this project possible over
+  a text protocol.
+* Streamable HTTP over one endpoint kept the transport small enough to write by hand and
+  read in one sitting: `src/interfaces/mcp_protocol.py` is 315 lines and has no
+  dependencies beyond pydantic.

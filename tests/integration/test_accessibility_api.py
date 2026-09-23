@@ -1,5 +1,6 @@
 """Integration tests for Switch and Haptic accessibility endpoints."""
 from fastapi.testclient import TestClient
+
 from src.interfaces.mcp_server import app
 
 client = TestClient(app)
@@ -7,7 +8,7 @@ client = TestClient(app)
 
 def test_process_switch_pulse_endpoint():
     resp = client.post(
-        "/mcp/tools/accessibility/process_switch_pulse",
+        "/api/accessibility/process_switch_pulse",
         json={
             "input_type": "SIP_AND_PUFF",
             "signal_strength": 0.85,
@@ -23,7 +24,7 @@ def test_process_switch_pulse_endpoint():
 
 def test_get_haptic_profile_endpoint():
     resp = client.post(
-        "/mcp/tools/accessibility/get_haptic_profile",
+        "/api/accessibility/get_haptic_profile",
         json={"event_type": "SECURITY_FLAG"},
     )
     assert resp.status_code == 200

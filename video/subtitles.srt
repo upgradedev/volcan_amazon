@@ -1,19 +1,19 @@
 1
 00:00:00,000 --> 00:00:20,000
-Autonomous AI coding agents promise to democratize software development. But for blind, visually impaired, or motor-disabled engineers, streaming terminal tokens and visual git diffs create an impossible barrier. This is Volcan.
+An autonomous coding agent just wrote this patch. A sighted reviewer scans it in seconds. A screen reader reads it one plus sign, one minus sign and one hunk header at a time, so the single line that flips an authorization check sounds exactly like everything around it.
 
 2
-00:00:20,000 --> 00:00:50,000
-Volcan connects Amazon Alexa Plus with local coding agents via the open Model Context Protocol over Streamable HTTP. Instead of overwhelming screen readers with raw code patches, Volcan generates hierarchical spoken digests and real-time acoustic earcons.
+00:00:20,000 --> 00:00:58,000
+This is Volcan, running on this machine. One button. It posts that patch to the Volcan API and gets back three things a person can use. The earcon plays first, so the verdict arrives before the sentence. This patch touches security, so the cue falls; a benign one rises. Then the spoken digest, which names the security-sensitive file ahead of the line detail instead of in line order. Then the same patch as six-dot Unicode Braille cells for a refreshable display. The engine label and the round trip are read off the response, measured in this browser.
 
 3
-00:00:50,000 --> 00:01:30,000
-Watch a developer review a pull request using only voice. When asked to summarize changes, Volcan plays a harmonic chime and speaks an executive digest. It detects an altered cryptographic function and highlights the security implication immediately.
+00:00:58,000 --> 00:01:32,000
+The track question is whether the protocol is real. Volcan's Model Context Protocol server is written by hand to revision 2025-11-25 over Streamable HTTP, with no SDK. This button performs a real initialize and a real tools list call against the MCP endpoint, then prints the negotiated version, the session identifier taken from the response header, and the JSON Schema of all twelve tools. The conformance script runs the same handshake from a terminal.
 
 4
-00:01:30,000 --> 00:02:15,000
-When an agent proposes deploying to production, Volcan engages dual-custody governance. It stages the command with a cryptographic SHA-256 hash lock and a five-minute lease. The engineer speaks their confirmation token to execute the action safely.
+00:01:32,000 --> 00:02:08,000
+A high-consequence command is staged behind a single-use grant, bound by HMAC SHA-256 to the command's own payload hash and to a lease. The agent that proposed the action cannot release it. A human presents the grant, and the planner answers: allowlisted, would run git diff HEAD, executed is false. Nothing ran. That holds for the whole product. No file under src imports subprocess or any process spawn, and a test walks every module's syntax tree on each run to keep it that way.
 
 5
-00:02:15,000 --> 00:02:45,000
-Volcan brings software craftsmanship within reach of every developer, regardless of physical ability. Built on Amazon Alexa Plus, Bedrock, and open MCP standards. Build, ship, and shape with Volcan.
+00:02:08,000 --> 00:02:45,000
+Everything shown here is checkable in one command. 421 automated tests. Twenty-one of twenty-one protocol conformance checks. And a readiness script that is allowed to fail, and does: no browser driver runs in continuous integration, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.

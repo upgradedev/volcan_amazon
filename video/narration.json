@@ -1,44 +1,47 @@
 {
   "project": "volcan_amazon",
-  "title": "Volcan: Accessible Voice-First AI Agent Forge",
+  "title": "Volcan: hear your code review instead of scrubbing a diff",
   "target_duration_seconds": 165.0,
   "max_allowed_seconds": 180.0,
-  "voice_id": "21m00Tcm4TlvDq8ikWAM",
+  "narration_audio": {
+    "generated": false,
+    "note": "No narration audio exists. No text-to-speech service has been called from this repository. This file is the script a human or a service would read, and video/SHOT_LIST.md is the matching capture plan."
+  },
   "beats": [
     {
       "beat_id": "beat_01_hook",
       "timestamp_start": 0.0,
       "timestamp_end": 20.0,
-      "narration_text": "Autonomous AI coding agents promise to democratize software development. But for blind, visually impaired, or motor-disabled engineers, streaming terminal tokens and visual git diffs create an impossible barrier. This is Volcan.",
-      "visual_action": "Show terminal with streaming text chaos, juxtaposed with Volcan clean voice architecture diagram."
+      "narration_text": "An autonomous coding agent just wrote this patch. A sighted reviewer scans it in seconds. A screen reader reads it one plus sign, one minus sign and one hunk header at a time, so the single line that flips an authorization check sounds exactly like everything around it.",
+      "visual_action": "Screen recording of a screen reader reading the raw unified diff in the textarea of the companion page at http://127.0.0.1:8000/, with the reader's own speech as the only audio."
     },
     {
-      "beat_id": "beat_02_architecture",
+      "beat_id": "beat_02_one_button",
       "timestamp_start": 20.0,
-      "timestamp_end": 50.0,
-      "narration_text": "Volcan connects Amazon Alexa Plus with local coding agents via the open Model Context Protocol over Streamable HTTP. Instead of overwhelming screen readers with raw code patches, Volcan generates hierarchical spoken digests and real-time acoustic earcons.",
-      "visual_action": "Zoom into Alexa Plus Streamable HTTP connection and FastMCP tool registry in browser."
+      "timestamp_end": 58.0,
+      "narration_text": "This is Volcan, running on this machine. One button. It posts that patch to the Volcan API and gets back three things a person can use. The earcon plays first, so the verdict arrives before the sentence. This patch touches security, so the cue falls; a benign one rises. Then the spoken digest, which names the security-sensitive file ahead of the line detail instead of in line order. Then the same patch as six-dot Unicode Braille cells for a refreshable display. The engine label and the round trip are read off the response, measured in this browser.",
+      "visual_action": "Click the primary button Hear this code review on the companion page. Hold on the earcon audio while it plays, then on the spoken digest, the security finding, the Braille cells, and the three meters filling with the engine name, the measured round trip and the change size."
     },
     {
-      "beat_id": "beat_03_diff_demo",
-      "timestamp_start": 50.0,
-      "timestamp_end": 90.0,
-      "narration_text": "Watch a developer review a pull request using only voice. When asked to summarize changes, Volcan plays a harmonic chime and speaks an executive digest. It detects an altered cryptographic function and highlights the security implication immediately.",
-      "visual_action": "Live demo: Voice query 'Alexa, summarize my workspace diff', audio earcon plays, spoken text appears, security alert badges illuminate."
+      "beat_id": "beat_03_mcp_handshake",
+      "timestamp_start": 58.0,
+      "timestamp_end": 92.0,
+      "narration_text": "The track question is whether the protocol is real. Volcan's Model Context Protocol server is written by hand to revision 2025-11-25 over Streamable HTTP, with no SDK. This button performs a real initialize and a real tools list call against the MCP endpoint, then prints the negotiated version, the session identifier taken from the response header, and the JSON Schema of all twelve tools. The conformance script runs the same handshake from a terminal.",
+      "visual_action": "Click Run a real MCP handshake, hold on the four facts and one expanded tool schema, then cut to a terminal running python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp and its pass lines."
     },
     {
-      "beat_id": "beat_04_governance_demo",
-      "timestamp_start": 90.0,
-      "timestamp_end": 135.0,
-      "narration_text": "When an agent proposes deploying to production, Volcan engages dual-custody governance. It stages the command with a cryptographic SHA-256 hash lock and a five-minute lease. The engineer speaks their confirmation token to execute the action safely.",
-      "visual_action": "Live demo: Staging action, governance challenge earcon, voice confirmation token, green execution output, immutable audit record created."
+      "beat_id": "beat_04_governance",
+      "timestamp_start": 92.0,
+      "timestamp_end": 128.0,
+      "narration_text": "A high-consequence command is staged behind a single-use grant, bound by HMAC SHA-256 to the command's own payload hash and to a lease. The agent that proposed the action cannot release it. A human presents the grant, and the planner answers: allowlisted, would run git diff HEAD, executed is false. Nothing ran. That holds for the whole product. No file under src imports subprocess or any process spawn, and a test walks every module's syntax tree on each run to keep it that way.",
+      "visual_action": "Click Stage an action, hold on the lease countdown, click Approve with the grant, hold on the line that reads Dry run only, nothing was executed, and on the audit row reading plan released, not run. Cut to a terminal running python -m pytest tests/unit/test_no_execution_in_source_tree.py -q."
     },
     {
-      "beat_id": "beat_05_closing",
-      "timestamp_start": 135.0,
+      "beat_id": "beat_05_verification",
+      "timestamp_start": 128.0,
       "timestamp_end": 165.0,
-      "narration_text": "Volcan brings software craftsmanship within reach of every developer, regardless of physical ability. Built on Amazon Alexa Plus, Bedrock, and open MCP standards. Build, ship, and shape with Volcan.",
-      "visual_action": "Full system architecture, GitHub open-source repo URL, Alexa Plus badge, closing title card."
+      "narration_text": "Everything shown here is checkable in one command. 421 automated tests. Twenty-one of twenty-one protocol conformance checks. And a readiness script that is allowed to fail, and does: no browser driver runs in continuous integration, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.",
+      "visual_action": "Terminal running python -m pytest tests/ -q, then python ci/readiness.py scrolled to its red gates, then back to the companion page connection strip stating the resolved model path the server reported, which on the development machine reads unavailable_sdk_not_installed. Close on the page heading."
     }
   ]
 }

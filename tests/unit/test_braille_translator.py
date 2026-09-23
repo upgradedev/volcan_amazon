@@ -1,6 +1,6 @@
 """Unit tests for Braille Translator & Silent Tactile Terminal."""
-from src.domain.braille_translator import text_to_braille, BrailleDiffDigest
 from src.application.braille_diff_use_case import BrailleDiffUseCase
+from src.domain.braille_translator import BrailleDiffDigest, text_to_braille
 
 
 def test_text_to_braille_alphabet_and_capitals():

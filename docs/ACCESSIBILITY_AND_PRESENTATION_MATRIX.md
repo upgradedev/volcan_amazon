@@ -1,111 +1,99 @@
-# Volcan: Universal Multi-Modal Accessibility Matrix & Presentation Pitch Guide
+# Volcan: accessibility matrix and presentation guide
 
-> **Official Design & Presentation Blueprint for Amazon Alexa+ & Multi-Device Developer Ecosystem.**
-
----
-
-## 1. Executive Summary & Vision
-
-Modern autonomous AI coding agents (Claude, Codex, Antigravity) stream thousands of tokens per minute, generate complex side-by-side graphical diffs, and expect continuous mouse-driven confirmation clicks. For software engineers with disabilities, this creates an insurmountable interface barrier:
-- **Blind Developers:** Drowning in noisy ANSI terminal characters and raw git syntax.
-- **Deafblind Developers:** Excluded from voice-only AI interfaces.
-- **Motor-Impaired & Quadriplegic Engineers:** Blocked by mouse clicks, popup confirmations, and fast typing requirements.
-- **Deaf & Hard-of-Hearing Engineers:** Unable to hear acoustic earcon alerts and voice dialogs.
-- **Engineers in Quiet Hours / Shared Offices:** Need zero-acoustic, confidential, hands-on control.
-
-**Volcan solves this universally by combining Amazon Alexa+ as the central voice brain with a multi-device companion network.**
+> **Reading rule for this document.** The matrix separates what Volcan implements from the
+> hardware that implementation is designed for. No device in the right-hand column was
+> connected while this was built. Where a row says "not exercised", that is a statement of
+> fact, not a hedge.
 
 ---
 
-## 2. The Universal Multi-Modal Accessibility Matrix
+## 1. The problem this addresses
 
-| Persona / Need | Input Channel | Output Channel | Supported Hardware / Protocol | Volcan Implementation |
+An autonomous coding agent streams thousands of tokens, produces side-by-side visual
+diffs, and expects a click to confirm. Each of those assumptions excludes somebody:
+
+* A **blind developer** hears every plus sign, minus sign and hunk header as literal
+  characters before any meaning arrives.
+* A **deafblind developer** is excluded from a voice-only interface entirely.
+* A **quadriplegic or severely RSI-limited developer** is blocked by the click, not by the
+  content.
+* A **Deaf or hard-of-hearing developer** cannot hear an audio alert at all.
+* Anyone working in **shared or quiet space** cannot use an audio-only workflow.
+
+---
+
+## 2. Accessibility matrix
+
+| Need | Input Volcan accepts | Output Volcan produces | Implemented in | Target hardware, and whether it was exercised |
 |---|---|---|---|---|
-| **Blind Developers** | Spoken Voice / Perkins Braille | Spoken AST Summaries + 22kHz Harmonic Earcons | Amazon Echo / Alexa+ Headset | `DigestDiffUseCase` + `SonifyEventUseCase` (Pure PCM 22kHz WAV) |
-| **Quiet Hours / Silent Mode** | Perkins Braille Chords (8-key) | **6-Dot / 8-Dot Unicode Braille (`U+2800`–`U+28FF`)** | Refreshable Braille Displays (Focus 40, Orbit Reader, BRLTTY) | `src/domain/braille_translator.py` + `BrailleDiffUseCase` |
-| **Deafblind Developers** | Braille Terminal Keyboard | **Tactile Braille Pins + Haptic Pulses** | Multi-Line Braille Terminals + Wearables | Unicode Braille Stream (`/mcp/tools/braille/diff_digest`) |
-| **Hands-Free / Quadriplegia (ALS, RSI)** | **Voice / Sip-and-Puff / Foot Pedal** | Spoken Audio + Ambient Wallboard | Alexa+ Voice + Sip-and-Puff Switch | `src/domain/adaptive_switch.py` (Puff=Approve, Sip=Reject) |
-| **Deaf & Hard-of-Hearing (HOH)** | Voice / Keyboard / Switch | **Haptic Pulses + Visual Waveforms + Captions** | Bee Wearable, Smartwatch, Fire TV 10-Foot | `src/domain/haptic_feedback.py` (Double Pulse / Triple Buzz) |
+| Blind developers | Typed or spoken command through the companion, or an MCP `tools/call` | Spoken digest plus a 22.05 kHz PCM earcon returned as an MCP `audio` block | `DigestDiffUseCase`, `SonifyEventUseCase`, `src/domain/sonification.py` | Echo or any MCP client. **Not exercised on an Echo device.** |
+| Quiet hours and shared offices | Same as above | Silent Unicode Braille in the U+2800 block | `src/domain/braille_translator.py`, `BrailleDiffUseCase` | Refreshable Braille display. **Not exercised on a physical display.** |
+| Deafblind developers | Braille keyboard through the companion's text fields | Tactile Braille stream from `/api/braille/diff_digest` | Same as above | Multi-line Braille terminal. **Not exercised.** |
+| Hands-free operation, quadriplegia, ALS, severe RSI | Switch pulses submitted to `process_switch_pulse`: sip, puff, single button, foot pedal | The resolved navigation action, with a spoken description | `src/domain/adaptive_switch.py` | Sip-and-puff straw, foot pedal. **Not exercised with a physical switch; the pulse contract is tested.** |
+| Deaf and hard-of-hearing developers | Keyboard or switch | Haptic vibration cadence plus a visual caption for every audio cue | `src/domain/haptic_feedback.py` | Wearable or phone haptics. **Not exercised on a device.** |
+| Keyboard-only operation | Tab, Enter, Space, Alt+1, Alt+2, Alt+3, Escape | Every control reachable, a visible focus ring, results announced through `aria-live` | `docs/index.html`, asserted by `tests/e2e/test_html_structure.py` | A browser. **Not exercised by an automated browser driver.** `tests/e2e/test_html_structure.py` asserts the tab order, the focus ring, the landmarks and the live regions by parsing the document; no driver walks the page, and gate C5 records that as a failure. |
 
 ---
 
-## 3. Multi-Device Ecosystem Architecture (The Symphony)
+## 3. The developer journey
 
-```mermaid
-graph TD
-    User["Developer (Universal Input: Voice / Braille / Sip-and-Puff)"] --> Alexa["Amazon Alexa+ Skill (Core Conductor)"]
-    Alexa -->|"Streamable HTTP (FastMCP Spec 2025-11-25+)"| VolcanMCP["Volcan FastMCP Core Engine"]
-
-    subgraph "Volcan Accessible Core (Hexagonal Pure DDD)"
-        VolcanMCP --> DiffEngine["Semantic AST Diff Synthesizer"]
-        VolcanMCP --> Sonification["Audio Earcon Synthesizer (22kHz PCM)"]
-        VolcanMCP --> BrailleEngine["Tactile Braille Translator (U+2800)"]
-        VolcanMCP --> SwitchEngine["Adaptive Switch Controller (Sip/Puff)"]
-        VolcanMCP --> HapticEngine["Haptic Profile Generator (Bee/Wearables)"]
-        VolcanMCP --> Governance["Dual-Custody Voice Gate (300s Lease)"]
-    end
-
-    subgraph "Amazon Workspace Peripheral Companions"
-        VolcanMCP --> Bee["🐝 Bee Wearable (Ambient Audio Capture & Haptic Taps)"]
-        VolcanMCP --> FireTV["📺 Fire TV (10-Foot Ambient Wallboard & Waveforms)"]
-        VolcanMCP --> Ring["🔔 Ring Sanctuary (Focus Shield & Chime Suppression)"]
-        VolcanMCP --> BraillePad["⌨️ Refreshable Braille Display (BRLTTY / Focus 40)"]
-    end
-```
+1. **Ask.** The developer asks for a digest of the working patch, by typing or speaking in
+   the companion, or by an MCP client calling `digest_semantic_diff`.
+2. **Hear the shape before the words.** A rising three-note cue, `DIFF_READY`, means the
+   digest is ready; a falling two-note cue, `SECURITY_FINDING`, means a security finding is
+   coming. The cue arrives first. It is chosen from the digest result by
+   `earcon_for_report` in `src/domain/sonification.py`, so the two are different audio and
+   not two labels on the same bytes:
+   `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` prints the WAV
+   size and hash of each and fails if they match.
+3. **Read by ear or by touch.** Level 0 is one sentence. Level 1 breaks down by file.
+   Level 2 drills into lines. The same content renders as a Braille cell stream for a
+   refreshable display, with no sound at all.
+4. **Stage, do not execute.** A high-consequence command is staged behind a single-use
+   authorization grant with a lease. Volcan plans the command and shows exactly what it
+   would run.
+5. **Release deliberately.** A human presents the grant. An agent presenting the same grant
+   is refused. The audit trail records who staged and who approved.
 
 ---
 
-## 4. Effortless Developer Journey (The 5-Step Workflow)
+## 4. Presentation beats
 
-1. **Step 1: Spoken Intent (At Desk or On-the-Move):**
-   - At desk: *"Alexa, ask Claude to refactor the auth middleware to use AWS KMS."*
-   - Walking away: Spoken thought captured on **Bee Wearable** and attached as a typed PR annotation.
-2. **Step 2: Zero-Noise Autonomous Background Execution:**
-   - Autonomous AI coding agent executes the task, edits files, and runs the test suite. No continuous token chatter.
-3. **Step 3: Ambient Signal & Haptic Alert:**
-   - **Bee Wearable:** Discrete double-pulse vibration on the wrist.
-   - **Ring Sanctuary:** Ambient light cue and gentle 440Hz arrival earcon.
-4. **Step 4: Rapid Tactile / Audio Inspection:**
-   - **Braille Pad:** Fingers immediately feel the 2-line patch summary (`⠬ ⠅⠍⠎_⠅⠑⠽ = os.environ.get("KMS_KEY_ID")`).
-   - **Audio Mode:** Single 0.15s harmonic earcon (440Hz -> 880Hz) plays on Alexa.
-5. **Step 5: Effortless Governed Approval:**
-   - Say *"Alexa, approve"*, tap **Space+Enter** on the Braille display, or give a gentle **Puff** on the Sip-and-Puff straw.
-   - Dual-custody lease is signed and logged to the immutable SHA-256 vault.
+Each beat below is a claim the repository can back. The command that backs it is named.
 
----
+**Beat 1, the problem (0:00 to 0:30).** An autonomous agent produces a patch in seconds and
+a screen reader takes minutes to get through the syntax. Show a raw patch being read aloud
+character by character.
 
-## 5. Presentation Pitch Script (Video & Live Demo Beats)
+**Beat 2, what Volcan is (0:30 to 1:00).** A Model Context Protocol server, revision
+2025-11-25 over Streamable HTTP, plus a companion that simulates the voice experience. Run
+`python scripts/mcp_conformance.py` on camera and let the 18 pass lines print.
 
-### Beat 1: The Problem (0:00 - 0:30)
-* *"Autonomous AI coding agents stream thousands of tokens and demand continuous visual mouse clicks. For software engineers who are blind, motor-impaired, or deaf, this cutting-edge technology is completely inaccessible."*
+**Beat 3, sonification and Braille (1:00 to 1:40).** Call `digest_semantic_diff` on a patch
+that changes an authentication function. The alert cue plays before the sentence. Show the
+same patch rendered as a Braille cell stream.
 
-### Beat 2: Introducing Volcan on Alexa+ (0:30 - 1:00)
-* *"Meet Volcan: an accessible, voice-first AI agent forge built on Amazon Alexa+, AWS Bedrock, and open FastMCP standards."*
+**Beat 4, hands-free and Deaf or HOH controls (1:40 to 2:15).** Call `process_switch_pulse`
+with a puff and show it resolve to approve. Call `get_haptic_profile` for a security flag
+and show the cadence and its visual caption.
 
-### Beat 3: Live Semantic Sonification & Braille Demo (1:00 - 1:40)
-* *"Instead of forcing a blind developer to scrub through 500 lines of raw diff syntax, Volcan parses the AST, synthesizes a 22kHz harmonic earcon, and formats a silent 6-dot Unicode Braille stream for Refreshable Braille Displays."*
+**Beat 5, governance (2:15 to 2:45).** Stage a command, show the grant, present it as the
+agent and watch it be refused, then present it as the human and watch Volcan report the
+plan it would run and that nothing was executed.
 
-### Beat 4: Universal Hands-Free & Deaf/HOH Controls (1:40 - 2:15)
-* *"For quadriplegic developers, Volcan supports Sip-and-Puff switches: puff to approve, sip to reject. For deaf engineers, Bee Wearables deliver tactile vibration cadences, while Fire TV displays 10-foot high-contrast telemetry."*
-
-### Beat 5: Dual-Custody Governance & Ring Sanctuary (2:15 - 2:45)
-* *"High-consequence production deploys are guarded by 300-second cryptographic SHA-256 leases. When active, Ring Sanctuary suppresses loud chimes to preserve focus."*
-
-### Beat 6: Verification & Conclusion (2:45 - 3:00)
-* *"59 passing tests, 90% code coverage, and zero third-party domain dependencies. Volcan makes autonomous software engineering universal for everyone."*
+**Beat 6, verification (2:45 to 3:00).** Run `python -m pytest tests/ -q` and
+`python ci/readiness.py` on camera, including the gates that are red and why.
 
 ---
 
-## 6. Verification & Test Evidence
+## 5. Reproducing the evidence
 
-To reproduce all tests and benchmarks:
 ```bash
-# Run unit, integration, load, and security test suites (59 tests)
-python -m pytest repos/volcan_amazon/tests/ -v
-
-# Run interactive 40-cell Braille Terminal Simulator
-python repos/volcan_amazon/scripts/braille_terminal_simulator.py
-
-# Audit all 53 canonical readiness gates
-python repos/volcan_amazon/ci/readiness.py
+python -m pytest tests/ -q
+python scripts/benchmark_suite.py
+python scripts/braille_terminal_simulator.py
+python ci/readiness.py
 ```
+
+The readiness auditor reports gates that fail, with the reason for each. That output is
+part of the evidence, not something to hide.

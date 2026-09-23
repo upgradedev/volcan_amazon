@@ -5,12 +5,13 @@ Integrates:
 - Fire TV: 10-foot high-contrast wallboard state broadcaster.
 - Ring: Focus sanctuary presence sensor adapter with acoustic earcon triggers.
 """
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
+
 from src.domain.ecosystem_companion import (
     AmbientVoiceAnnotation,
-    WallboardTelemetryFrame,
-    FocusSanctuaryState,
     CompanionDeviceType,
+    FocusSanctuaryState,
+    WallboardTelemetryFrame,
 )
 
 

@@ -1,5 +1,4 @@
 """Unit tests for Volcan LSP Bridge."""
-import pytest
 from src.interfaces.lsp_bridge import VolcanLspBridge
 
 

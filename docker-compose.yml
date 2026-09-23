@@ -8,9 +8,11 @@ services:
     environment:
       - ENVIRONMENT=production
       - LOG_LEVEL=INFO
-      - ALLOWED_ORIGINS=*
+      # Origins the MCP endpoint accepts from a browser. Listing them is
+      # deliberate: '*' would disable the DNS-rebinding check the spec asks for.
+      - VOLCAN_ALLOWED_ORIGINS=http://127.0.0.1:8000,http://localhost:8000
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/v1/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
       timeout: 3s
       retries: 3

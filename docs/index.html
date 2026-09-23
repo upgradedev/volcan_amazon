@@ -1,656 +1,2169 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="manifest" href="manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#00e5ff">
-    <script src="webmcp_bridge.js"></script>
-    <script src="firetv_nav.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Volcan — Accessible Voice & Braille AI Agent Forge</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <title>Volcan: hear your code review</title>
+  <meta name="description" content="Volcan turns a code patch into a spoken digest, an audio earcon and Braille cells, so a blind or mobility-impaired developer can review an agent's work without reading a diff.">
   <style>
+    /* ------------------------------------------------------------------
+       This document makes no external request. No CDN, no web font, no
+       analytics. The developers this product exists for often work on
+       locked-down or offline machines, and a page that needs the network
+       to render its own type is a page that fails them first.
+       ------------------------------------------------------------------ */
+
     :root {
-      --bg: #070a12;
-      --surface: #0f172a;
-      --surface-border: #1e293b;
-      --primary: #f97316;
-      --primary-glow: rgba(249, 115, 22, 0.35);
-      --secondary: #38bdf8;
-      --secondary-glow: rgba(56, 189, 248, 0.3);
-      --accent-green: #22c55e;
-      --accent-red: #ef4444;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 30px 20px; line-height: 1.6; min-height: 100vh; }
-    .container { max-width: 1200px; margin: 0 auto; }
-    
-    header {
-      display: flex; justify-content: space-between; align-items: center;
-      padding-bottom: 24px; border-bottom: 1px solid var(--surface-border); margin-bottom: 30px;
-      flex-wrap: wrap; gap: 16px;
-    }
-    .brand h1 { font-size: 2rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 12px; }
-    .brand h1 span { color: var(--primary); text-shadow: 0 0 20px var(--primary-glow); }
-    .brand p { color: var(--text-muted); font-size: 0.95rem; margin-top: 4px; }
-    .badges-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .badge {
-      background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3);
-      color: var(--secondary); padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 600;
-      box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
-    }
-    .badge-orange {
-      background: rgba(249, 115, 22, 0.15); border-color: rgba(249, 115, 22, 0.4); color: #fdba74;
-    }
-    .badge-braille {
-      background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe;
-    }
-    
-    .voice-bar {
-      background: linear-gradient(90deg, #1e1b4b 0%, #0f172a 100%);
-      border: 1px solid #4338ca; border-radius: 12px; padding: 14px 20px;
-      margin-bottom: 24px; display: flex; align-items: center; gap: 16px;
-      box-shadow: 0 4px 20px rgba(67, 56, 202, 0.25);
-    }
-    .voice-icon { font-size: 1.5rem; animation: pulse 2s infinite; }
-    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
-    .voice-input-wrap { flex: 1; display: flex; gap: 10px; }
-    .voice-input {
-      flex: 1; background: #070a13; border: 1px solid #334155; border-radius: 8px;
-      padding: 10px 14px; color: #fff; font-size: 0.9rem;
-    }
-    .voice-input:focus { outline: none; border-color: var(--secondary); }
+      color-scheme: light dark;
 
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
-    @media (max-width: 480px) {
-      body { padding: 12px 8px; }
-      header { flex-direction: column; align-items: flex-start; gap: 10px; }
-      .brand h1 { font-size: 1.4rem; }
-      .voice-bar { flex-direction: column; align-items: stretch; padding: 12px; gap: 10px; }
-      .voice-input-wrap { flex-direction: column; }
-      button { width: 100%; justify-content: center; }
-      .actions-bar { flex-direction: column; }
-    }
-    .empty-state-card {
-      background: rgba(15, 23, 42, 0.6); border: 1px dashed #334155; border-radius: 6px;
-      padding: 14px; color: var(--text-muted); font-size: 0.85rem; text-align: center;
-    }
-    
-    .card {
-      background: var(--surface); border: 1px solid var(--surface-border);
-      border-radius: 14px; padding: 24px; position: relative; overflow: hidden;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    }
-    .card h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; color: #fff; display: flex; align-items: center; gap: 10px; }
-    .card-desc { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 18px; }
+      --ground: #fbf7f3;
+      --surface: #ffffff;
+      --surface-2: #f4ece4;
+      --sunk: #f7f1ea;
+      --line: #e2d5c7;
+      --line-strong: #c4ae99;
 
-    .preset-chips { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-    .chip {
-      background: #1e293b; border: 1px solid #334155; color: var(--text-muted);
-      padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
+      --ink: #1b120c;
+      --ink-soft: #5a483b;
+
+      --ember: #b03509;
+      --ember-hot: #8c2a06;
+      --on-ember: #fffaf6;
+
+      --spoken: #8f4300;
+      --earcon: #b03509;
+      --braille: #5b21b6;
+
+      --ok: #14652f;
+      --warn: #825400;
+      --bad: #a51b12;
+
+      --focus: #7c2d12;
+
+      --sans: "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+      --mono: "Cascadia Code", "JetBrains Mono", Consolas, "SF Mono", ui-monospace, monospace;
+      --braille-font: "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "DejaVu Sans", var(--mono);
+
+      --r-s: 8px;
+      --r-m: 14px;
+      --r-l: 22px;
+      --shadow: 0 1px 2px rgba(60, 34, 16, 0.08), 0 12px 30px rgba(60, 34, 16, 0.07);
     }
-    .chip:hover, .chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ground: #100c0a;
+        --surface: #191310;
+        --surface-2: #221912;
+        --sunk: #0b0806;
+        --line: #392a20;
+        --line-strong: #5a4331;
+
+        --ink: #f7efe7;
+        --ink-soft: #c0ab9a;
+
+        --ember: #ff7a29;
+        --ember-hot: #ff9450;
+        --on-ember: #1c0a00;
+
+        --spoken: #ffb454;
+        --earcon: #ff7a29;
+        --braille: #c4b0ff;
+
+        --ok: #5fd18d;
+        --warn: #ffc857;
+        --bad: #ff8a80;
+
+        --focus: #ffd166;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 18px 40px rgba(0, 0, 0, 0.45);
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--ground);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 17px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .shell { max-width: 1240px; margin: 0 auto; padding: 0 20px 72px; }
+
+    /* --- focus and skip link ------------------------------------------ */
+
+    .skip-link {
+      position: absolute; left: -9999px; top: 0; z-index: 50;
+      background: var(--focus); color: var(--ground);
+      padding: 14px 22px; font-weight: 700; border-radius: 0 0 var(--r-m) 0;
+    }
+    .skip-link:focus { left: 0; }
+
+    :focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+
+    a { color: var(--ember); text-underline-offset: 3px; }
+
+    .visually-hidden {
+      position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+
+    /* --- header ------------------------------------------------------- */
+
+    header[role="banner"] { padding: 40px 0 8px; }
+
+    .wordmark {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      font-size: 0.76rem; font-weight: 700; letter-spacing: 0.22em;
+      text-transform: uppercase; color: var(--ink-soft); margin: 0 0 22px;
+    }
+    .wordmark .flame { color: var(--ember); font-size: 1.5rem; line-height: 1; letter-spacing: 0; }
+    .wordmark b { color: var(--ink); }
+
+    h1 {
+      font-size: clamp(1.85rem, 4.6vw, 3.05rem);
+      line-height: 1.08;
+      letter-spacing: -0.022em;
+      font-weight: 750;
+      margin: 0 0 18px;
+      max-width: 20ch;
+    }
+    h1 em { font-style: normal; color: var(--ember); }
+
+    .lede {
+      font-size: clamp(1rem, 1.6vw, 1.12rem);
+      color: var(--ink-soft); max-width: 64ch; margin: 0 0 26px;
+    }
+
+    /* --- connection strip: claims nothing before a real fetch ---------- */
+
+    .conn {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+      border: 1px solid var(--line); border-left: 6px solid var(--line-strong);
+      background: var(--surface); border-radius: var(--r-s);
+      padding: 12px 16px; margin: 0 0 16px; font-size: 0.9rem;
+    }
+    .conn[data-state="live"] { border-left-color: var(--ok); }
+    .conn[data-state="offline"] { border-left-color: var(--warn); }
+    .conn-label { font-weight: 750; text-transform: uppercase; letter-spacing: 0.09em; font-size: 0.72rem; }
+    .conn[data-state="live"] .conn-label { color: var(--ok); }
+    .conn[data-state="offline"] .conn-label { color: var(--warn); }
+    .conn p { margin: 0; color: var(--ink-soft); flex: 1 1 340px; }
+    .conn button { min-height: 38px; padding: 7px 14px; font-size: 0.82rem; }
+
+    /* --- the honest boundary, above the fold ---------------------------- */
+
+    .boundary {
+      border: 1px solid var(--warn); border-left: 6px solid var(--warn);
+      background: var(--surface); border-radius: var(--r-s);
+      padding: 12px 16px; margin: 0 0 16px; font-size: 0.92rem; line-height: 1.5;
+    }
+    .boundary b { color: var(--warn); }
+
+    nav.jump ul {
+      list-style: none; display: flex; flex-wrap: wrap; gap: 6px 20px;
+      padding: 0; margin: 0 0 40px; font-size: 0.86rem;
+    }
+    nav.jump a { color: var(--ink-soft); text-decoration-color: var(--line-strong); }
+    nav.jump a:hover { color: var(--ember); }
+
+    /* --- hero --------------------------------------------------------- */
+
+    .hero {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--r-l);
+      box-shadow: var(--shadow);
+      padding: clamp(22px, 3.4vw, 40px);
+      margin: 0 0 26px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: ""; position: absolute; inset: 0 0 auto 0; height: 4px;
+      background: linear-gradient(90deg, var(--ember) 0%, var(--spoken) 46%, var(--braille) 100%);
+    }
+
+    .kicker {
+      font-size: 0.72rem; font-weight: 750; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--ink-soft); margin: 0 0 10px;
+    }
+
+    .hero h2 {
+      font-size: clamp(1.3rem, 2.4vw, 1.72rem);
+      letter-spacing: -0.015em; margin: 0 0 8px; font-weight: 700;
+    }
+    .hero > p { color: var(--ink-soft); margin: 0 0 24px; max-width: 68ch; }
+
+    .cta {
+      display: inline-flex; align-items: center; gap: 14px;
+      background: var(--ember); color: var(--on-ember);
+      border: 2px solid var(--ember); border-radius: 999px;
+      padding: 18px 34px;
+      font: inherit; font-size: clamp(1.02rem, 1.5vw, 1.16rem); font-weight: 750;
+      letter-spacing: -0.01em;
+      min-height: 66px; cursor: pointer;
+      transition: transform 130ms ease, background 130ms ease;
+    }
+    .cta:hover { background: var(--ember-hot); border-color: var(--ember-hot); transform: translateY(-1px); }
+    .cta:active { transform: translateY(0); }
+    .cta[aria-busy="true"] { cursor: progress; }
+    .cta .glyph { width: 26px; height: 26px; flex: none; }
+
+    .cta-hint { font-size: 0.87rem; color: var(--ink-soft); margin: 14px 0 0; max-width: 62ch; }
+
+    code { font-family: var(--mono); font-size: 0.88em; }
+
+    /* --- measured meters ---------------------------------------------- */
+
+    .meters {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px; background: var(--line);
+      border: 1px solid var(--line); border-radius: var(--r-m);
+      margin: 30px 0 0; overflow: hidden;
+    }
+    .meters > div { background: var(--surface-2); padding: 14px 18px; }
+    .meters dt {
+      font-size: 0.66rem; font-weight: 750; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--ink-soft); margin: 0 0 5px;
+    }
+    .meters dd {
+      margin: 0; font-size: clamp(1rem, 1.9vw, 1.28rem); font-weight: 700;
+      font-family: var(--mono); letter-spacing: -0.02em;
+    }
+    .meters .note {
+      display: block; font-family: var(--sans); font-size: 0.74rem; font-weight: 400;
+      color: var(--ink-soft); margin-top: 4px; letter-spacing: 0; line-height: 1.4;
+    }
+
+    .progress { height: 4px; background: var(--line); border-radius: 999px; margin-top: 22px; overflow: hidden; }
+    .progress[hidden] { display: none; }
+    .progress span {
+      display: block; height: 100%; width: 40%;
+      background: var(--ember); border-radius: 999px;
+      animation: slide 1.05s ease-in-out infinite;
+    }
+    @keyframes slide {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(350%); }
+    }
+
+    /* --- the transformation ------------------------------------------- */
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, 0.92fr) 34px minmax(0, 1.08fr);
+      gap: 20px; align-items: start;
+    }
+
+    .arrow { align-self: center; text-align: center; color: var(--line-strong); font-size: 1.7rem; line-height: 1; margin: 0; }
+
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-m); padding: 20px; }
+
+    .panel-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: 12px; flex-wrap: wrap; margin: 0 0 14px;
+    }
+    .panel h3 { font-size: 1rem; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+    .panel-head .side { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-soft); font-weight: 700; font-family: var(--mono); }
+
+    label { display: block; font-weight: 650; font-size: 0.87rem; margin: 0 0 6px; }
+    .hint { color: var(--ink-soft); font-size: 0.81rem; font-weight: 400; margin: 8px 0 0; }
 
     textarea {
-      width: 100%; height: 140px; background: #070a13; border: 1px solid var(--surface-border);
-      color: #38bdf8; padding: 14px; border-radius: 8px; font-family: 'JetBrains Mono', monospace;
-      font-size: 0.82rem; resize: vertical; line-height: 1.4;
+      width: 100%; min-height: 236px; resize: vertical;
+      background: var(--sunk); color: var(--ink);
+      border: 1px solid var(--line); border-radius: var(--r-s);
+      padding: 14px; font-family: var(--mono); font-size: 0.81rem; line-height: 1.65;
     }
-    textarea:focus { outline: none; border-color: var(--primary); }
 
-    .actions-bar { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+
     button {
-      background: var(--primary); color: white; border: none; padding: 10px 18px;
-      border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.88rem;
-      transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+      font: inherit; cursor: pointer;
+      background: var(--surface-2); color: var(--ink);
+      border: 1px solid var(--line-strong); border-radius: var(--r-s);
+      padding: 10px 16px; font-weight: 650; font-size: 0.89rem;
+      min-height: 44px;
+      transition: border-color 130ms ease, background 130ms ease;
     }
-    button:hover { background: #ea580c; transform: translateY(-1px); box-shadow: 0 4px 15px var(--primary-glow); }
-    .btn-secondary { background: #1e293b; border: 1px solid #334155; color: var(--text); }
-    .btn-secondary:hover { background: #334155; }
-    .btn-purple { background: #7e22ce; color: #fff; }
-    .btn-purple:hover { background: #6b21a8; }
-    .btn-danger { background: #dc2626; }
-    .btn-danger:hover { background: #b91c1c; }
+    button:hover { border-color: var(--ember); }
+    button[aria-pressed="true"] { background: var(--ember); color: var(--on-ember); border-color: var(--ember); }
+    .chips button { min-height: 40px; padding: 8px 14px; font-size: 0.83rem; }
 
-    .console-box {
-      background: #070a13; border: 1px solid var(--surface-border); border-radius: 8px;
-      padding: 16px; margin-top: 16px; min-height: 140px; font-size: 0.9rem;
-    }
-    .console-header {
-      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
-      color: var(--text-muted); margin-bottom: 10px; display: flex; justify-content: space-between;
-    }
-    .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; }
-    .tag-sec { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; }
-    .tag-succ { background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; color: #86efac; }
-    .tag-lease { background: rgba(249, 115, 22, 0.2); border: 1px solid var(--primary); color: #fed7aa; }
-    .tag-braille { background: rgba(168, 85, 247, 0.2); border: 1px solid #a855f7; color: #e9d5ff; }
+    .renderings { display: flex; flex-direction: column; gap: 14px; }
 
-    .braille-stream {
-      font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; letter-spacing: 3px; line-height: 1.8;
-      color: #c084fc; background: #030712; padding: 16px; border-radius: 8px; border: 1px solid #581c87;
-      max-height: 160px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+    .rendering {
+      background: var(--surface); border: 1px solid var(--line);
+      border-left: 5px solid var(--line-strong);
+      border-radius: var(--r-m); padding: 18px 20px;
+    }
+    .rendering h3 {
+      font-size: 0.74rem; font-weight: 750; letter-spacing: 0.13em;
+      text-transform: uppercase; margin: 0 0 12px;
+      display: flex; align-items: center; gap: 9px;
+    }
+    .rendering h3 .num { font-family: var(--mono); font-size: 0.95em; opacity: 0.8; }
+    .r-spoken { border-left-color: var(--spoken); }
+    .r-spoken h3 { color: var(--spoken); }
+    .r-earcon { border-left-color: var(--earcon); }
+    .r-earcon h3 { color: var(--earcon); }
+    .r-braille { border-left-color: var(--braille); }
+    .r-braille h3 { color: var(--braille); }
+
+    .spoken-text {
+      font-size: clamp(1.02rem, 1.9vw, 1.2rem); line-height: 1.45;
+      letter-spacing: -0.012em; margin: 0; font-weight: 600;
     }
 
-    canvas#audioVisualizer {
-      width: 100%; height: 55px; background: #070a13; border: 1px solid var(--surface-border);
-      border-radius: 6px; margin-top: 12px; display: block;
+    .waveform {
+      display: block; width: 100%; height: 74px;
+      background: var(--sunk); border: 1px solid var(--line);
+      border-radius: var(--r-s);
     }
 
-    .audit-list {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--text-muted);
-      max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+    audio { width: 100%; margin-top: 12px; }
+
+    .caption { font-size: 0.84rem; color: var(--ink-soft); margin: 10px 0 0; line-height: 1.5; }
+    .caption:empty { display: none; }
+
+    .cells {
+      font-family: var(--braille-font);
+      font-size: 1.4rem; line-height: 1.7; letter-spacing: 2px;
+      color: var(--braille);
+      background: var(--sunk); border: 1px solid var(--line);
+      border-radius: var(--r-s); padding: 14px;
+      max-height: 215px; overflow: auto;
+      white-space: pre-wrap; word-break: break-all;
     }
-    .audit-item { padding: 5px 10px; background: #070a13; border-radius: 4px; border-left: 3px solid var(--secondary); }
+    .cells .row { display: block; padding: 3px 0; }
+    .cells .row + .row { border-top: 1px solid var(--line); }
+    .cells .plain {
+      display: block; font-family: var(--mono); font-size: 0.66rem;
+      letter-spacing: 0; color: var(--ink-soft); line-height: 1.5; word-break: break-all;
+    }
+    .cells .row[data-type="ADD"] { color: var(--ok); }
+    .cells .row[data-type="REMOVE"] { color: var(--bad); }
+    .cells .row[data-type="HEADER"] { color: var(--warn); }
+
+    .empty-state-card {
+      border: 1px dashed var(--line-strong); border-radius: var(--r-s);
+      padding: 14px; color: var(--ink-soft); font-size: 0.87rem; margin: 0;
+      background: none; font-family: var(--sans); letter-spacing: 0; line-height: 1.5;
+    }
+
+    .error-card {
+      border: 1px solid var(--warn); border-left: 5px solid var(--warn);
+      border-radius: var(--r-s); background: var(--surface-2);
+      padding: 16px 18px; margin: 0; font-family: var(--sans);
+      letter-spacing: 0; font-size: 0.9rem; color: var(--ink); line-height: 1.5;
+    }
+    .error-card h4 { margin: 0 0 8px; font-size: 0.95rem; }
+    .error-card p { margin: 0 0 10px; color: var(--ink-soft); }
+    .error-card pre {
+      margin: 0 0 10px; padding: 12px 14px; background: var(--sunk);
+      border: 1px solid var(--line); border-radius: var(--r-s);
+      font-family: var(--mono); font-size: 0.79rem; overflow-x: auto; color: var(--ink);
+    }
+
+    #securityAlert:empty { display: none; }
+    .finding {
+      display: flex; gap: 14px; align-items: flex-start;
+      border: 1px solid var(--bad); border-left: 5px solid var(--bad);
+      background: var(--surface); border-radius: var(--r-m);
+      padding: 15px 18px; margin: 20px 0 0;
+    }
+    .finding .tag {
+      flex: none; font-size: 0.66rem; font-weight: 750; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--bad); padding-top: 3px;
+    }
+    .finding p { margin: 0 0 6px; font-size: 0.92rem; font-weight: 600; }
+    .finding ul { margin: 0; padding-left: 18px; font-size: 0.88rem; color: var(--ink-soft); }
+
+    /* --- sections ------------------------------------------------------ */
+
+    section.block {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: var(--r-l); padding: clamp(20px, 2.8vw, 32px); margin: 26px 0 0;
+    }
+    section.block > h2 {
+      font-size: clamp(1.18rem, 2.2vw, 1.5rem); margin: 0 0 8px;
+      letter-spacing: -0.015em; font-weight: 700;
+    }
+    section.block > p { color: var(--ink-soft); margin: 0 0 20px; max-width: 76ch; }
+
+    .facts {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 1px; background: var(--line); border: 1px solid var(--line);
+      border-radius: var(--r-m); overflow: hidden; margin: 0 0 18px;
+    }
+    .facts > div { background: var(--surface-2); padding: 13px 16px; }
+    .facts dt { font-size: 0.64rem; font-weight: 750; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 5px; }
+    .facts dd { margin: 0; font-family: var(--mono); font-size: 0.9rem; word-break: break-all; }
+
+    .tools { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+    .tools details { border: 1px solid var(--line); border-radius: var(--r-s); background: var(--surface-2); }
+    .tools summary { padding: 11px 15px; cursor: pointer; font-family: var(--mono); font-size: 0.86rem; font-weight: 600; }
+    .tools summary .what { font-family: var(--sans); font-weight: 400; color: var(--ink-soft); font-size: 0.85rem; }
+    .tools pre { margin: 0; padding: 0 15px 14px; font-family: var(--mono); font-size: 0.75rem; overflow-x: auto; color: var(--ink-soft); }
+
+    .row-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; }
+    .danger { border-color: var(--bad); color: var(--bad); }
+
+    .lease {
+      display: inline-block; font-family: var(--mono); font-size: 0.78rem;
+      font-weight: 700; letter-spacing: 0.06em;
+      border: 1px solid var(--line-strong); border-radius: 999px; padding: 4px 13px;
+    }
+    .lease[data-state="active"] { color: var(--warn); border-color: var(--warn); }
+    .lease[data-state="released"] { color: var(--ok); border-color: var(--ok); }
+    .lease[data-state="refused"] { color: var(--bad); border-color: var(--bad); }
+
+    .gov-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 20px; }
+
+    .kv { margin: 0; font-size: 0.9rem; }
+    .kv > div { display: flex; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+    .kv > div:last-child { border-bottom: 0; }
+    .kv dt { color: var(--ink-soft); min-width: 128px; font-size: 0.81rem; }
+    .kv dd { margin: 0; font-family: var(--mono); font-size: 0.81rem; word-break: break-all; }
+
+    ol.audit {
+      list-style: none; padding: 0; margin: 0; max-height: 258px; overflow: auto;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    ol.audit li {
+      background: var(--sunk); border-left: 3px solid var(--ember);
+      border-radius: 0 var(--r-s) var(--r-s) 0; padding: 8px 12px;
+      font-family: var(--mono); font-size: 0.75rem; color: var(--ink-soft); word-break: break-all;
+    }
+
+    /* --- the review dialogue ----------------------------------------------- */
+
+    input[type="text"], input[type="url"] {
+      width: 100%; min-height: 44px; margin: 0 0 8px;
+      background: var(--sunk); color: var(--ink);
+      border: 1px solid var(--line); border-radius: var(--r-s);
+      padding: 10px 14px; font: inherit; font-size: 0.9rem;
+    }
+
+    ol.dialogue {
+      list-style: none; padding: 0; margin: 0 0 18px; max-height: 320px; overflow: auto;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    ol.dialogue li {
+      background: var(--sunk); border-left: 3px solid var(--line-strong);
+      border-radius: 0 var(--r-s) var(--r-s) 0; padding: 8px 12px;
+      font-size: 0.86rem; line-height: 1.5; word-break: break-word;
+    }
+    ol.dialogue li.you { border-left-color: var(--ink-soft); color: var(--ink-soft); }
+    ol.dialogue li.understood { border-left-color: var(--warn); font-family: var(--mono); font-size: 0.78rem; }
+    ol.dialogue li.volcan { border-left-color: var(--spoken); font-weight: 600; }
+    ol.dialogue li.empty-state-card { border: 1px dashed var(--line-strong); background: none; font-weight: 400; }
+
+    .review-request {
+      margin: 10px 0 0; padding: 12px 14px; background: var(--sunk);
+      border: 1px solid var(--line); border-radius: var(--r-s);
+      font-family: var(--mono); font-size: 0.76rem; color: var(--ink);
+      white-space: pre-wrap; word-break: break-all; overflow-x: auto;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.91rem; }
+    caption { text-align: left; color: var(--ink-soft); font-size: 0.87rem; padding-bottom: 12px; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-soft); }
+    kbd {
+      font-family: var(--mono); font-size: 0.81rem;
+      background: var(--surface-2); border: 1px solid var(--line-strong);
+      border-bottom-width: 2px; border-radius: 5px; padding: 2px 7px;
+    }
+
+    .promises {
+      list-style: none; padding: 0; margin: 20px 0 0; display: grid; gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    }
+    .promises li { font-size: 0.87rem; color: var(--ink-soft); padding-left: 24px; position: relative; }
+    .promises li::before { content: "\2713"; position: absolute; left: 0; color: var(--ok); font-weight: 700; }
+
+    footer[role="contentinfo"] {
+      margin: 46px 0 0; padding: 26px 0 0; border-top: 1px solid var(--line);
+      color: var(--ink-soft); font-size: 0.87rem;
+    }
+
+    /* --- responsive ---------------------------------------------------- */
+
+    @media (max-width: 1000px) {
+      .split { grid-template-columns: minmax(0, 1fr); }
+      .arrow { transform: rotate(90deg); padding: 4px 0; }
+      .gov-grid { grid-template-columns: minmax(0, 1fr); }
+    }
+
+    @media (max-width: 620px) {
+      body { font-size: 16px; }
+      .shell { padding: 0 14px 56px; }
+      .meters { grid-template-columns: minmax(0, 1fr); }
+      .cta { width: 100%; justify-content: center; padding: 18px 22px; }
+      .row-actions button { width: 100%; }
+      .kv dt { min-width: 0; }
+      .cells { font-size: 1.2rem; }
+    }
+
+    /* A developer who asked the operating system for reduced motion gets
+       no animation and no smooth scrolling at all. */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+      }
+      .cta:hover { transform: none; }
+      .progress span { width: 100%; animation: none; }
+    }
+
+    @media (prefers-contrast: more) {
+      :root { --line: var(--line-strong); --ink-soft: var(--ink); }
+    }
   </style>
-    <script src="suite_companion_enhancements.js"></script>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="brand">
-        <h1>🌋 <span>Volcan</span> Voice & Braille Agent Forge</h1>
-        <p>Accessible Multi-Modal AI Infrastructure on Amazon Alexa+, AWS Bedrock & Braille Terminals</p>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <div class="shell">
+    <header role="banner">
+      <p class="wordmark"><span class="flame" aria-hidden="true">&#9650;</span> <b>Volcan</b> <span>Accessible AI agent forge</span></p>
+      <h1>Hear your code review <em>instead of scrubbing a diff</em>.</h1>
+      <p class="lede">
+        A blind or motor-impaired developer gets one patch back as three things they can
+        use: a spoken digest, an audio cue that arrives before the words, and Braille cells
+        for a refreshable display. Every result on this page is produced by the Volcan API
+        on this machine and measured while it runs.
+      </p>
+      <p class="lede">
+        With <code>anthropic[bedrock]</code> installed and AWS credentials present, the
+        digest below is synthesized by a model on Amazon Bedrock. Without either, a
+        deterministic local path answers instead. This page never guesses which one ran:
+        the <b>Synthesis engine</b> meter reports the engine that answered, and prints the
+        reason beside it when no model did.
+      </p>
+      <p class="boundary" id="notASkill">
+        <b>Not an Alexa skill.</b> The voice loop on this page is a simulated voice
+        experience: the browser's own speech recognition and speech synthesis stand in
+        for a device, and every command reaches the same Volcan server an Alexa+
+        integration would call. No skill package is in this repository, none has been
+        certified, and no Echo device has been used. Live on this page: the server, the
+        MCP handshake, and the unauthenticated GitHub read of a public pull request.
+        Dry-run on this page: the <code>Request changes</code> review, which the server
+        records and does not send unless its owner enables the write.
+      </p>
+
+      <div class="conn" id="conn" data-state="checking" role="status" aria-live="polite">
+        <span class="conn-label" id="connLabel">Checking</span>
+        <p id="connDetail">Requesting <code>GET /health</code> on this origin. Nothing here claims a server until that request answers.</p>
+        <button type="button" id="retryHealth" title="Request GET /health again and update the state above">Check again</button>
       </div>
-      <div class="badges-row">
-        <span class="badge badge-orange">Alexa+ Voice First</span>
-        <span class="badge badge-braille">⠠⠃⠗⠁⠊⠇⠇⠑ Braille (U+2800)</span>
-        <span class="badge">Model Context Protocol</span>
-        <span class="badge">Pure PCM Audio 22kHz</span>
-      </div>
+
+      <nav class="jump" aria-label="Sections of this page">
+        <ul>
+          <li><a href="#transform">The transformation</a></li>
+          <li><a href="#review">Review a pull request by voice</a></li>
+          <li><a href="#mcp">MCP handshake</a></li>
+          <li><a href="#governance">Governed actions</a></li>
+          <li><a href="#access">Keyboard map</a></li>
+        </ul>
+      </nav>
     </header>
 
-    <!-- Alexa Voice Query Simulator Bar -->
-    <div class="voice-bar">
-      <div class="voice-icon">🎙️</div>
-      <div class="voice-input-wrap">
-        <input type="text" id="voiceCommandInput" class="voice-input" value="Alexa, summarize my workspace diff" placeholder="Speak or type an Alexa command..." aria-label="Alexa voice command simulation">
-        <button data-testid="primary-hero-action" class="primary-action" title="Click or tap to synthesize voice digest and audio earcon" onclick="executeVoiceCommand()">🎙️ Speak Alexa Query</button>
-      </div>
-      <div class="preset-chips" style="margin-bottom:0;">
-        <span class="chip" onclick="setVoicePrompt('Alexa, summarize my workspace diff')">Diff Summary</span>
-        <span class="chip" onclick="setVoicePrompt('Alexa, stage deploy to production')">Stage Deploy</span>
-        <span class="chip" onclick="setVoicePrompt('Alexa, approve action with token')">Approve Lease</span>
-      </div>
-    </div>
-
-    <div class="grid">
-      <!-- Card 1: Semantic Diff Sonification -->
-      <div class="card">
-        <h2>🎧 AST Diff & Spatial Audio Sonification</h2>
-        <p class="card-desc">
-          Volcan parses AST changes and replaces dense terminal diffs with hierarchical voice digests, synthesized speech, and acoustic earcons.
+    <main id="main">
+      <section class="hero" aria-labelledby="hero-heading">
+        <p class="kicker">One button, one real round trip</p>
+        <h2 id="hero-heading">Turn the patch below into sound and Braille</h2>
+        <p>
+          This calls <code>POST /api/digest_semantic_diff</code> and
+          <code>POST /api/braille/diff_digest</code> on the running server, plays the
+          16-bit PCM WAV the server returns, and reports the round trip this browser
+          measured. No result on this page is written into the markup ahead of time.
         </p>
 
-        <div class="preset-chips">
-          <span class="chip active" onclick="loadPreset(1)">Security Flag (KMS Key)</span>
-          <span class="chip" onclick="loadPreset(2)">Clean Refactor (FastAPI)</span>
-          <span class="chip" onclick="loadPreset(3)">Bugfix (Null Check)</span>
-        </div>
+        <button type="button" class="cta" id="runReview" data-testid="primary-hero-action"
+                title="Send the patch to the Volcan API, play the earcon it returns and render the Braille cells">
+          <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M4 9v6h3l5 4V5L7 9H4z"></path>
+            <path d="M16.5 8.5a5 5 0 0 1 0 7"></path>
+            <path d="M19.5 5.5a9 9 0 0 1 0 13"></path>
+          </svg>
+          Hear this code review
+        </button>
 
-        <textarea id="diffInput"></textarea>
+        <p class="cta-hint" id="runHint">
+          Audio plays through your speakers. The player below keeps a control for replaying
+          it, and every cue also carries a written description in the same live region.
+        </p>
 
-        <div class="actions-bar">
-          <button onclick="synthesizeDiff(0)">🔊 Synthesize Executive (Level 0)</button>
-          <button class="btn-secondary" onclick="synthesizeDiff(1)">Level 1 (Detailed)</button>
-          <button class="btn-secondary" onclick="playPureEarcon('DIFF_READY')">Play Earcon</button>
-        </div>
+        <div class="progress" id="runProgress" hidden><span></span></div>
+        <p class="visually-hidden" id="runStatus" role="status" aria-live="polite"></p>
 
-        <canvas id="audioVisualizer"></canvas>
-
-        <div class="console-box" id="diffConsole">
-          <div class="console-header">
-            <span>Voice Digest & AST Inspection</span>
-            <span id="astLatency">0.056 ms</span>
+        <dl class="meters">
+          <div>
+            <dt>Synthesis engine</dt>
+            <dd id="meterEngine">not run yet<span class="note" id="meterEngineNote">Read from the <code>synthesis_mode</code> field of the response, together with <code>synthesis_fallback_reason</code> when no model answered.</span></dd>
           </div>
-          <div id="diffOutput">Ready. Click synthesize to parse AST, play harmonic earcon, and speak voice summary.</div>
-        </div>
-      </div>
-
-      <!-- Card 2: Dual-Custody Governance -->
-      <div class="card">
-        <h2>🛡️ Dual-Custody Voice Execution Leases</h2>
-        <p class="card-desc">
-          High-consequence actions require cryptographic SHA-256 staging with 300s expiration and Alexa voice token verification.
-        </p>
-
-        <div class="actions-bar" style="margin-top: 0; margin-bottom: 14px;">
-          <button onclick="stageGovernedAction()">Stage Production Deploy</button>
-          <button class="btn-secondary" onclick="confirmVoiceAction()">Approve with Voice Token</button>
-          <button class="btn-danger" onclick="rejectAction()">Reject</button>
-        </div>
-
-        <div class="console-box" id="govConsole">
-          <div class="console-header">
-            <span>Active Execution Lease</span>
-            <span id="leaseTimer" class="tag tag-lease">IDLE</span>
+          <div>
+            <dt>Round trip measured here</dt>
+            <dd id="meterLatency">not run yet<span class="note">Wall clock across <code>fetch</code> and JSON parse, from <code>performance.now()</code>.</span></dd>
           </div>
-          <div id="govOutput">No active execution lease. Stage an action to initiate dual-custody approval.</div>
-        </div>
+          <div>
+            <dt>Change size</dt>
+            <dd id="meterChange">not run yet<span class="note">Counted by the server's unified diff parser, not by this page.</span></dd>
+          </div>
+        </dl>
+      </section>
 
-        <div class="console-header" style="margin-top: 18px; margin-bottom: 6px;">
-          <span>Immutable Governance Vault Audit Log</span>
-          <span>SHA-256 Cryptographic Chain</span>
-        </div>
-        <div class="audit-list" id="auditVault">
-          <div class="audit-item">[GENESIS] Volcan Governance Engine active with least privilege.</div>
-        </div>
-      </div>
-
-      <!-- Card 3: Silent Tactile Braille Terminal -->
-      <div class="card" style="grid-column: 1 / -1;">
-        <h2>⠠⠃⠗⠁⠊⠇⠇⠑ Silent Tactile Braille Terminal (Refreshable Display Output)</h2>
-        <p class="card-desc">
-          For quiet hours, open offices, and deafblind software developers: Volcan converts AST diffs, code tokens, and governance leases directly into standard <strong>Unicode Braille Patterns (U+2800–U+28FF)</strong> for Refreshable Braille Displays (Focus 40, Orbit Reader, BRLTTY) with 100% silent operation.
+      <section class="block" id="transform" aria-labelledby="transform-heading">
+        <h2 id="transform-heading">One patch, three accessible renderings</h2>
+        <p>
+          The left column is what a screen reader reads aloud today, one plus sign and one
+          hunk header at a time. The right column is what Volcan hands back instead.
         </p>
 
-        <div class="actions-bar" style="margin-top: 0; margin-bottom: 14px;">
-          <button class="btn-purple" onclick="translateCurrentDiffToBraille()" title="Translate current AST diff to Braille stream">⠠⠙⠊⠋⠋ Translate Diff to Braille</button>
-          <button class="btn-secondary" onclick="translateCustomPromptToBraille()" title="Translate voice query to Braille">Translate Voice Input</button>
-          <button class="btn-secondary" onclick="copyBrailleStream()" title="Copy Unicode Braille to clipboard">Copy Braille Stream</button>
-        </div>
-
-        <div class="console-header">
-          <span>Tactile Braille Cell Stream (6-Dot Unicode Standard)</span>
-          <span class="tag tag-braille">UEB / Computer Braille</span>
-        </div>
-        <div class="braille-stream" id="brailleOutput">⠠⠧⠕⠇⠉⠁⠝⠀⠃⠗⠁⠊⠇⠇⠑⠀⠞⠑⠗⠍⠊⠝⠁⠇⠀⠗⠑⠁⠙⠽⠲⠀⠠⠉⠇⠊⠉⠅⠀⠁⠃⠕⠧⠑⠀⠞⠕⠀⠞⠗⠁⠝⠎⠇⠁⠞⠑⠀⠁⠝⠽⠀⠉⠕⠙⠑⠀⠕⠗⠀⠙⠊⠋⠋⠲</div>
-      </div>
-
-      <!-- Card 4: Amazon Multi-Device Ecosystem Companions -->
-      <div class="card" style="grid-column: 1 / -1; margin-top: 6px;">
-        <h2>🌐 Amazon Ecosystem Companions (Cross-Device Voice Integration)</h2>
-        <p class="card-desc">
-          Volcan's central Alexa+ voice forge coordinates ambient companion devices across your developer workspace.
-        </p>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 12px;">
-          <!-- Bee Companion -->
-          <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 14px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span style="font-weight: 700; color: #93c5fd;">🐝 Bee Wearable</span>
-              <span class="tag tag-pass">Ambient Voice</span>
+        <div class="split">
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Raw unified diff</h3>
+              <span class="side">input</span>
             </div>
-            <p style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 10px;">
-              Captures spontaneous spoken design decisions when away from the keyboard and attaches them as typed PR annotations.
-            </p>
-            <button class="btn-secondary" style="width: 100%; font-size: 0.82rem;" onclick="simulateBeeAnnotation()" title="Simulate Bee ambient note capture">Ingest Spoken Note</button>
+            <label for="diffInput">Patch to review</label>
+            <textarea id="diffInput" spellcheck="false" aria-describedby="diffHelp"></textarea>
+            <p class="hint" id="diffHelp">Paste any <code>git diff</code> output, or pick one of these four.
+              The first three are the change classes a keyword matcher cannot see, one for each
+              syntax-tree rule Volcan ships; the fourth is the control, where the right answer is
+              no finding at all. Each label names the sentence the server will speak back, and
+              <code>tests/e2e/test_shipped_presets_reach_their_rule.py</code> fails the build if a
+              preset stops producing it.</p>
+            <div class="chips" role="group" aria-label="Preset patches">
+              <button type="button" id="preset1" aria-pressed="true"
+                      title="Loads the patch Volcan answers with: an authorization comparison was inverted: user.role == 'admin' became user.role != 'admin'">Inverted admin check</button>
+              <button type="button" id="preset2" aria-pressed="false"
+                      title="Loads the patch Volcan answers with: a cross-origin policy was widened to accept any origin: allow_origins = ['*']">CORS opened to any origin</button>
+              <button type="button" id="preset3" aria-pressed="false"
+                      title="Loads the patch Volcan answers with: the call verify_signature(payload, request.headers['X-Signature']) was removed and nothing replaced it">Signature check deleted</button>
+              <button type="button" id="preset4" aria-pressed="false"
+                      title="Control. Loads a benign patch that changes no security behaviour, so the right answer is no finding at all and the rising DIFF_READY cue rather than the falling one">Clean change, no finding</button>
+            </div>
           </div>
 
-          <!-- Fire TV Companion -->
-          <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 14px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span style="font-weight: 700; color: #fcd34d;">📺 Fire TV 10-Foot</span>
-              <span class="tag tag-lease">Wallboard</span>
-            </div>
-            <p style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 10px;">
-              Broadcasts high-contrast accessible visual telemetry, waveform frequencies, and lease countdowns to ambient team screens.
-            </p>
-            <button class="btn-secondary" style="width: 100%; font-size: 0.82rem;" onclick="broadcastFireTvWallboard()" title="Broadcast telemetry to Fire TV">Sync Wallboard Frame</button>
-          </div>
+          <p class="arrow" aria-hidden="true">&#10230;</p>
 
-          <!-- Ring Companion -->
-          <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 14px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span style="font-weight: 700; color: #6ee7b7;">🔔 Ring Sanctuary</span>
-              <span class="tag tag-pass">Focus Shield</span>
-            </div>
-            <p style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 10px;">
-              Suppresses abrasive chimes during dual-custody release leases and chimes gentle 440Hz acoustic earcons on door arrival.
-            </p>
-            <button class="btn-secondary" style="width: 100%; font-size: 0.82rem;" onclick="testRingFocusPresence()" title="Test Ring focus presence trigger">Trigger Presence Event</button>
+          <div class="renderings">
+            <article class="rendering r-spoken" aria-labelledby="r-spoken-heading">
+              <h3 id="r-spoken-heading"><span class="num">1</span> Spoken digest</h3>
+              <div id="spokenPane" role="status" aria-live="polite">
+                <p class="empty-state-card">Nothing spoken yet. Select <strong>Hear this code review</strong> and the sentence the server returns appears here.</p>
+              </div>
+              <p class="caption" id="spokenCaption"></p>
+              <div class="chips" role="group" aria-label="Digest detail controls">
+                <button type="button" id="speakAgain" title="Read the current digest aloud again with the browser speech engine">Speak it again</button>
+                <button type="button" id="level1" title="Request the same patch at digest level 1, the file-by-file breakdown">File-by-file</button>
+                <button type="button" id="drillDown" title="Call the drill down endpoint for the first section of the patch">Drill into file 1</button>
+              </div>
+            </article>
+
+            <article class="rendering r-earcon" aria-labelledby="r-earcon-heading">
+              <h3 id="r-earcon-heading"><span class="num">2</span> Earcon</h3>
+              <canvas class="waveform" id="earconWave" role="img"
+                      aria-label="No audio cue has played yet. When one does, its amplitude is drawn here from the audio samples the server returned."></canvas>
+              <div id="earconPlayer"></div>
+              <p class="caption" id="earconCaption" role="status" aria-live="polite">
+                No cue yet. Volcan sends a rising three-note cue, <code>DIFF_READY</code>, when a digest is ready, and a falling two-note cue, <code>SECURITY_FINDING</code>, when the patch touches security, so the verdict arrives before the sentence does. The two are different audio: switch between preset 1 and preset 4 above and this caption changes with the bytes.
+              </p>
+            </article>
+
+            <article class="rendering r-braille" aria-labelledby="r-braille-heading">
+              <h3 id="r-braille-heading"><span class="num">3</span> Braille cells</h3>
+              <div class="cells" id="brailleOutput" role="region" tabindex="0"
+                   aria-label="Braille cell stream, Unicode Braille patterns">
+                <p class="empty-state-card">No cells yet. Volcan renders the same patch as Unicode Braille in the U+2800 block for a refreshable display. The default is eight-dot code fidelity, one cell per printable character, so <code>(</code>, <code>)</code> and <code>=</code> keep their own cells; six-dot literary Braille is lossy for code, and the server names what it lost in this patch.</p>
+              </div>
+              <p class="caption" id="brailleCaption"></p>
+              <div class="chips" role="group" aria-label="Braille fidelity and clipboard">
+                <button type="button" id="fidelityCode" aria-pressed="true"
+                        title="Eight-dot computer Braille: one cell per printable ASCII character, so ( ) and = keep their own cells and the cells decode back to the exact source">Code fidelity, 8-dot</button>
+                <button type="button" id="fidelityLiterary" aria-pressed="false"
+                        title="Six-dot literary Braille with capital and number prefixes: right for prose, lossy for code because ( ) and = share one cell; the response names every collision in this patch">Literary, 6-dot</button>
+                <button type="button" id="copyBraille" title="Copy the Braille cell stream to the clipboard">Copy the cells</button>
+              </div>
+            </article>
           </div>
         </div>
 
-        <div class="console-box" style="margin-top: 14px;" id="ecosystemConsole">
-          <div class="console-header">
-            <span>Ecosystem Companion Event Feed</span>
-            <span class="tag tag-pass">SYNCHRONIZED</span>
+        <div id="securityAlert" role="alert"></div>
+      </section>
+
+      <section class="block" id="review" aria-labelledby="review-heading">
+        <h2 id="review-heading">Converse about a pull request, then request changes on it</h2>
+        <p>
+          The journey a blind developer needs from start to finish: open a real pull
+          request, ask what changed in a file, hear the exact numbered source lines, spell
+          one out symbol by symbol, correct a misheard command, and submit a
+          <code>Request changes</code> review bound to the commit that was reviewed. Every
+          turn posts to <code>POST /api/review/turn</code> and reads back what it understood
+          before it acts, so a wrong hearing can be interrupted. Reading a public pull request
+          is a live, unauthenticated GitHub call. The review write is dry-run by default: the
+          server re-reads the head commit, records the exact request it would send, and sends
+          nothing unless it runs with <code>VOLCAN_GITHUB_WRITE=1</code> and a token, and the
+          outcome panel says which of the two happened.
+        </p>
+
+        <div class="gov-grid">
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Talk to it, or type to it</h3>
+              <span class="side" id="micState">microphone off</span>
+            </div>
+
+            <label for="reviewCredential">Reviewer access token for live mode</label>
+            <input type="password" id="reviewCredential" autocomplete="off" spellcheck="false"
+                   aria-describedby="reviewCredentialHelp">
+            <p class="hint" id="reviewCredentialHelp">Leave empty for the public dry-run demo.
+              For live reviews, use your reviewer credential from the server operator, never
+              a GitHub token. It stays in this page's memory and goes only to the review API.
+              Reload to clear it and start a new session when changing reviewer.</p>
+            <label for="prUrl">Pull request URL</label>
+            <input type="url" id="prUrl" autocomplete="off" spellcheck="false"
+                   placeholder="https://github.com/owner/repo/pull/123" aria-describedby="prUrlHelp">
+            <p class="hint" id="prUrlHelp">A public GitHub pull request, read without a token. Leave it
+              empty and <strong>Open</strong> reviews the patch in the box above instead, which can be
+              discussed line by line but not submitted, because a pasted patch has no pull request
+              behind it.</p>
+
+            <div class="row-actions">
+              <button type="button" id="openReview"
+                      title="Say open: fetch the pull request's head commit and diff from GitHub, or open the pasted patch when the URL is empty">Open</button>
+              <button type="button" id="micToggle" aria-pressed="false"
+                      title="Start or stop listening with the browser's speech recognition. When this browser has none, the button says so and the typed command box works instead">Start listening</button>
+              <button type="button" id="stopSpeech"
+                      title="Interrupt: stop the speech and the earcon now. Escape does the same from anywhere on the page">Stop speaking</button>
+            </div>
+
+            <label for="commandInput">Command, typed or dictated</label>
+            <input type="text" id="commandInput" autocomplete="off"
+                   placeholder="what changed in permissions.py" aria-describedby="commandHelp">
+            <p class="hint" id="commandHelp">Every command works from the keyboard: type it and press
+              <kbd>Enter</kbd>. Say or type <strong>help</strong> for the list. A new command
+              interrupts whatever is still being spoken, and each answer begins by reading back
+              what was understood.</p>
+            <div class="row-actions">
+              <button type="button" id="sayCommand" title="Send the typed command as one turn of the dialogue">Send</button>
+            </div>
+
+            <div class="chips" role="group" aria-label="Common review commands">
+              <button type="button" id="cmdSummary" title="Say summary: the one-sentence digest with the security verdict first">Summary</button>
+              <button type="button" id="cmdFiles" title="Say file by file: every changed file with its counts">File by file</button>
+              <button type="button" id="cmdFindings" title="Say findings: the security findings, or that there are none">Findings</button>
+              <button type="button" id="cmdReadLines" title="Say read the lines: the exact numbered source lines of the current hunk">Read the lines</button>
+              <button type="button" id="cmdNext" title="Say next: the next file, or the next line while reading lines">Next</button>
+              <button type="button" id="cmdPrevious" title="Say previous: the previous file, or the previous line while reading lines">Previous</button>
+              <button type="button" id="cmdSpell" title="Say spell that: every symbol of the current line named, so != cannot be heard as ==">Spell that</button>
+              <button type="button" id="cmdRepeat" title="Say repeat: the last answer again">Repeat</button>
+              <button type="button" id="cmdSlower" title="Say slower: reduce the speech rate the server returns and this page applies">Slower</button>
+              <button type="button" id="cmdFaster" title="Say faster: raise the speech rate">Faster</button>
+              <button type="button" id="cmdWhere" title="Say where am I: the pull request, the file and the line in focus">Where am I</button>
+              <button type="button" id="cmdHelp" title="Say help: the commands the dialogue understands">Help</button>
+            </div>
+
+            <label for="reviewComment">Comment for the request changes review</label>
+            <input type="text" id="reviewComment" autocomplete="off" aria-describedby="reviewCommentHelp"
+                   placeholder="Restore the equality check: != grants deletion to everyone who is not an admin">
+            <p class="hint" id="reviewCommentHelp">Used by <strong>Request changes</strong> below. By voice,
+              say "request changes" followed by the comment. The server binds the review to the head
+              commit it read and waits for <strong>confirm</strong>; nothing leaves this machine until
+              you say it.</p>
+            <div class="chips" role="group" aria-label="Review actions">
+              <button type="button" id="cmdRequestChanges" class="danger"
+                      title="Say request changes with the comment above: stage a REQUEST_CHANGES review bound to the head commit and receive a single-use grant">Request changes</button>
+              <button type="button" id="cmdConfirm"
+                      title="Say confirm: present the grant. The server re-reads the head commit, then records the exact request in a dry run or sends it when its owner enabled the write">Confirm</button>
+              <button type="button" id="cmdCancel" title="Say cancel: drop the staged review without presenting the grant">Cancel</button>
+            </div>
           </div>
-          <div id="ecosystemOutput">Ready. Click any companion trigger above to simulate multi-device ecosystem coordination.</div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3>What it heard, understood and answered</h3>
+              <span class="lease" id="dialogueState" data-state="idle">IDLE</span>
+            </div>
+            <p class="visually-hidden" id="reviewStatus" role="status" aria-live="polite"></p>
+            <ol class="dialogue" id="dialogueLog" aria-live="polite" aria-label="Review conversation, oldest first">
+              <li class="empty-state-card">Nothing heard yet. Open a pull request or the pasted patch, then ask what changed. Each turn shows what was heard, what Volcan understood, and what it answered, and the same words are spoken at the rate the server returned.</li>
+            </ol>
+
+            <div class="panel-head">
+              <h3>Review action</h3>
+              <span class="side">POST /api/review/turn</span>
+            </div>
+            <div id="reviewPane" role="status" aria-live="polite">
+              <p class="empty-state-card">No review staged. Say <strong>request changes</strong> followed by your comment. The server binds the review to the head commit it read, issues a single-use grant with a 300 second lease, and waits for <strong>confirm</strong>. The outcome printed here is the server's: submitted, recorded and not sent, or refused with the reason.</p>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
+
+      <section class="block" id="mcp" aria-labelledby="mcp-heading">
+        <h2 id="mcp-heading">Model Context Protocol, handshaken in your browser</h2>
+        <p>
+          Volcan's MCP server is written by hand against revision 2025-11-25 over the
+          Streamable HTTP transport, with no MCP SDK. This button performs a real
+          <code>initialize</code>, a real <code>notifications/initialized</code> and a real
+          <code>tools/list</code> against <code>POST /mcp</code>, then prints what came
+          back: the session identifier from the response headers, and the JSON Schema of
+          every tool exactly as the server published it.
+        </p>
+
+        <div class="row-actions">
+          <button type="button" id="runMcp" title="Send a real JSON-RPC initialize and tools/list to the MCP endpoint">Run a real MCP handshake</button>
+          <button type="button" id="endMcp" title="Send DELETE /mcp to terminate the session this page opened">End the MCP session</button>
+        </div>
+
+        <p class="visually-hidden" id="mcpStatus" role="status" aria-live="polite"></p>
+
+        <dl class="facts">
+          <div>
+            <dt>Protocol version</dt>
+            <dd id="mcpVersion">not run yet</dd>
+          </div>
+          <div>
+            <dt>Server info</dt>
+            <dd id="mcpServer">not run yet</dd>
+          </div>
+          <div>
+            <dt>Session id from header</dt>
+            <dd id="mcpSession">not run yet</dd>
+          </div>
+          <div>
+            <dt>Tools advertised</dt>
+            <dd id="mcpCount">not run yet</dd>
+          </div>
+        </dl>
+
+        <div id="mcpPane">
+          <p class="empty-state-card">The tool catalog appears here after the handshake. Each entry expands to the exact <code>inputSchema</code> the server published, generated from the model that parses that tool's arguments.</p>
+        </div>
+      </section>
+
+      <section class="block" id="governance" aria-labelledby="gov-heading">
+        <h2 id="gov-heading">Governed action: staged, leased, never executed</h2>
+        <p>
+          A high-consequence command is bound by HMAC-SHA256 to its own payload hash and to
+          a lease. Volcan plans the command and does not run it. The countdown below is
+          computed from the <code>expires_at_epoch</code> the server returned, not from a
+          timer this page invented.
+        </p>
+
+        <div class="row-actions">
+          <button type="button" id="stageBtn" title="Ask the server to stage a command and issue a single-use approval grant">Stage an action</button>
+          <button type="button" id="approveBtn" title="Present the grant the server issued and release the plan">Approve with the grant</button>
+          <button type="button" id="rejectBtn" class="danger" title="Discard the staged action without presenting the grant">Reject</button>
+        </div>
+
+        <div class="gov-grid">
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Lease state</h3>
+              <span class="lease" id="leaseTag" data-state="idle">IDLE</span>
+            </div>
+            <div id="govPane" role="status" aria-live="polite">
+              <p class="empty-state-card">Nothing staged. Select <strong>Stage an action</strong> to open a 300 second lease on the server.</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Audit trail</h3>
+              <span class="side">GET /api/audit_log</span>
+            </div>
+            <ol class="audit" id="auditVault" aria-label="Audit records held by the server, newest first">
+              <li>Not loaded. The server seals a record when a grant is actually presented, so this list fills after <strong>Approve with the grant</strong>, not after staging.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section class="block" id="access" aria-labelledby="access-heading">
+        <h2 id="access-heading">Keyboard map and the accessibility contract</h2>
+        <p>
+          This page is the product's shop window, so it holds itself to the standard the
+          product argues for. <code>tests/e2e/test_html_structure.py</code> fails the build
+          when any promise below stops being true of this file.
+        </p>
+
+        <table>
+          <caption>Every action here is a real button in the tab order. Nothing needs a pointer.</caption>
+          <thead>
+            <tr><th scope="col">Key</th><th scope="col">What it does</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><kbd>Tab</kbd> and <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>Move through every control in reading order.</td></tr>
+            <tr><td><kbd>Enter</kbd> or <kbd>Space</kbd></td><td>Activate the focused button.</td></tr>
+            <tr><td><kbd>Tab</kbd> from the top</td><td>Reveals <strong>Skip to main content</strong>.</td></tr>
+            <tr><td><kbd>Alt</kbd>+<kbd>1</kbd></td><td>Focus the primary action, <strong>Hear this code review</strong>.</td></tr>
+            <tr><td><kbd>Alt</kbd>+<kbd>2</kbd></td><td>Focus the patch box.</td></tr>
+            <tr><td><kbd>Alt</kbd>+<kbd>3</kbd></td><td>Focus the Braille cell region, which scrolls by keyboard.</td></tr>
+            <tr><td><kbd>Alt</kbd>+<kbd>4</kbd></td><td>Focus the review command box. Type a command and press <kbd>Enter</kbd> to send it; this is the path that needs no microphone.</td></tr>
+            <tr><td><kbd>Alt</kbd>+<kbd>5</kbd></td><td>Start or stop listening with the browser's speech recognition, when it has one.</td></tr>
+            <tr><td><kbd>Alt</kbd>+<kbd>6</kbd></td><td>Focus the pull request URL box.</td></tr>
+            <tr><td><kbd>Escape</kbd></td><td>Interrupt: stop the speech, stop the earcon, and stop listening.</td></tr>
+          </tbody>
+        </table>
+
+        <ul class="promises">
+          <li>Every audio cue carries a written description in the same live region.</li>
+          <li>Async results are announced through <code>aria-live</code>, security findings through <code>role="alert"</code>.</li>
+          <li>Every spoken command has a typed twin, and every answer reads back what was understood before it acts.</li>
+          <li>The focus ring is a 3px outline offset from the control, in both colour schemes.</li>
+          <li><code>prefers-reduced-motion</code> removes every animation and the smooth scroll.</li>
+          <li>Light and dark follow <code>prefers-color-scheme</code>, and neither is an afterthought.</li>
+          <li>An empty panel says why it is empty and which control fills it.</li>
+        </ul>
+      </section>
+    </main>
+
+    <footer role="contentinfo">
+      <p>
+        Start the server with <code>python -m src.interfaces.mcp_server</code> and open
+        <code>http://127.0.0.1:8000/</code>. Check the protocol independently with
+        <code>python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp</code>.
+      </p>
+      <p id="footerMode">Connection state is reported in the strip at the top of this page.</p>
+    </footer>
   </div>
 
   <script>
-    const PRESETS = {
-      1: `diff --git a/src/auth/service.py b/src/auth/service.py
-index a1b2c3d..e5f6a7b 100644
---- a/src/auth/service.py
-+++ b/src/auth/service.py
-@@ -10,4 +10,6 @@ class AuthService:
-     def authenticate(self, token: str) -> bool:
--        return token == "hardcoded_secret"
-+        # Replace hardcoded secret with KMS key validation
-+        kms_key = os.environ.get("KMS_KEY_ID")
-+        return verify_kms_token(token, kms_key)`,
-      2: `diff --git a/src/routes/api.py b/src/routes/api.py
---- a/src/routes/api.py
-+++ b/src/routes/api.py
-@@ -15,2 +15,4 @@
-+@router.get("/v1/health")
-+def health():
-+    return {"status": "healthy"}`,
-      3: `diff --git a/src/utils/parser.py b/src/utils/parser.py
---- a/src/utils/parser.py
-+++ b/src/utils/parser.py
-@@ -4,3 +4,4 @@
--    return data.strip()
-+    if not data: return ""
-+    return data.strip()`
+    "use strict";
+
+    /* ==================================================================
+       Volcan companion.
+
+       Four rules this file keeps, because the product's whole argument is
+       that an accessibility claim has to be checkable:
+
+       1. Every value shown came out of an HTTP response in this session.
+          Nothing is precomputed, and there is no second implementation of
+          the product in the browser to fall back on.
+       2. Every duration shown was measured with performance.now() around
+          the request that produced it.
+       3. Nothing is written with innerHTML. Text goes in through
+          textContent, so a server string can never become markup.
+       4. When the server is not reachable the page says so and prints the
+          command that starts it. It does not pretend.
+       ================================================================== */
+
+    var State = {
+      apiBase: null,
+      live: false,
+      lastDigest: null,
+      staged: null,
+      leaseTimer: null,
+      mcpSession: null,
+      earconUrl: null,
+      brailleFidelity: "code",
+      reviewPath: null
     };
 
-    const BRAILLE_MAP = {
-      ' ': '\u2800', 'a': '\u2801', 'b': '\u2803', 'c': '\u2809', 'd': '\u2819',
-      'e': '\u2811', 'f': '\u280b', 'g': '\u281b', 'h': '\u2813', 'i': '\u280a',
-      'j': '\u281a', 'k': '\u2805', 'l': '\u2807', 'm': '\u280d', 'n': '\u281d',
-      'o': '\u2815', 'p': '\u280f', 'q': '\u281f', 'r': '\u2817', 's': '\u280e',
-      't': '\u281e', 'u': '\u2825', 'v': '\u2827', 'w': '\u283a', 'x': '\u282d',
-      'y': '\u283d', 'z': '\u2835', '1': '\u2801', '2': '\u2803', '3': '\u2809',
-      '4': '\u2819', '5': '\u2811', '6': '\u280b', '7': '\u281b', '8': '\u2813',
-      '9': '\u280a', '0': '\u281a', ',': '\u2802', ';': '\u2806', ':': '\u2812',
-      '.': '\u2832', '!': '\u2816', '?': '\u2826', '(': '\u2836', ')': '\u2836',
-      '-': '\u2824', '+': '\u282c', '=': '\u2836', '/': '\u280c', '\\': '\u2821',
-      '*': '\u2814', '#': '\u283c', '@': '\u2804', '_': '\u2820', '{': '\u2838',
-      '}': '\u281c', '[': '\u282a', ']': '\u283a', '<': '\u2818', '>': '\u2810',
-      '"': '\u2810', "'": '\u2804'
-    };
+    var START_COMMAND = "python -m src.interfaces.mcp_server";
+    var STAGED_COMMAND = "git diff HEAD";
+    var LEASE_SEC = 300;
+    var PROTOCOL_VERSION = "2025-11-25";
+    var SAMPLE_RATE = 22050;
 
-    function jsTextToBraille(text) {
-      let res = '';
-      let inNum = false;
-      for (let ch of text) {
-        if (/\d/.test(ch)) {
-          if (!inNum) { res += '\u283c'; inNum = true; }
-          res += BRAILLE_MAP[ch] || '\u2800';
-        } else {
-          inNum = false;
-          if (/[A-Z]/.test(ch)) {
-            res += '\u2820' + (BRAILLE_MAP[ch.toLowerCase()] || '\u2800');
-          } else if (BRAILLE_MAP[ch]) {
-            res += BRAILLE_MAP[ch];
-          } else if (ch === '\n') {
-            res += '\n';
-          } else {
-            res += '\u2800';
-          }
+    function $(id) { return document.getElementById(id); }
+
+    function clear(node) {
+      while (node.firstChild) { node.removeChild(node.firstChild); }
+      return node;
+    }
+
+    function el(tag, className, text) {
+      var node = document.createElement(tag);
+      if (className) { node.className = className; }
+      if (text !== undefined && text !== null) { node.textContent = String(text); }
+      return node;
+    }
+
+    function announce(id, message) { $(id).textContent = message; }
+
+    /* A screen reader speaks these strings verbatim, so a count has to agree
+       with its noun. "1 files" is the defect this whole product exists to
+       stop, and it would be embarrassing to print it on the front page. */
+    function plural(count, noun) {
+      return count === 1 ? count + " " + noun : count + " " + noun + "s";
+    }
+
+    /* --- honest connection state ------------------------------------- */
+
+    /* One card for every unhappy path, so a judge always learns what did not
+       happen and what to type next. The heading distinguishes "no server at
+       all" from "the server answered and the call still failed", because
+       those need different next steps. */
+    function problemCard(heading, reason, hint) {
+      var card = el("div", "error-card");
+      card.appendChild(el("h4", null, heading));
+      card.appendChild(el("p", null, reason));
+      card.appendChild(el("pre", null, START_COMMAND));
+      card.appendChild(el("p", null, hint
+        || "Start the server, then select Check again at the top of this page. Every panel here needs a real response, and none of them will invent one."));
+      return card;
+    }
+
+    function offlineCard(reason, hint) {
+      return problemCard("No Volcan server answered on this origin", reason, hint);
+    }
+
+    function failureCard(reason, hint) {
+      return problemCard("The request reached no usable answer", reason,
+        hint || "The connection strip at the top of this page has been re-checked. Nothing below was filled in, because there is nothing real to fill it with.");
+    }
+
+    function setConnection(state, label, detail) {
+      $("conn").setAttribute("data-state", state);
+      $("connLabel").textContent = label;
+      $("connDetail").textContent = detail;
+      $("footerMode").textContent = state === "live"
+        ? "This page is talking to a Volcan server at " + State.apiBase + "."
+        : "This page has not reached a Volcan server, so no panel below will show a result until one answers.";
+    }
+
+    async function probeHealth() {
+      var base = window.location.origin;
+      if (!base || base === "null" || base.indexOf("file:") === 0) {
+        State.live = false;
+        setConnection("offline", "No server",
+          "This document was opened from a file, so there is no origin to call. Run "
+          + START_COMMAND + " and open http://127.0.0.1:8000/ instead.");
+        return false;
+      }
+      try {
+        var started = performance.now();
+        var response = await fetch(base + "/health", { method: "GET" });
+        var elapsed = performance.now() - started;
+        if (!response.ok) { throw new Error("HTTP " + response.status); }
+        var health = await response.json();
+        State.apiBase = base;
+        State.live = true;
+        var mcp = (health.mcp && health.mcp.protocol_version) || "unknown";
+        // Resolving credentials says nothing about whether a model answers, and
+        // on its own it does not even say a call can be attempted: without the
+        // SDK nothing leaves the process. The server now resolves both facts
+        // into one capability and writes the sentence, so this page prints the
+        // server's own words rather than deciding from half the evidence.
+        var path = health.bedrock_model_path || {};
+        var engine = "Model path: " + (path.resolved_capability || "not reported")
+          + ". " + (path.detail || "")
+          + " Whether a model answered is reported per digest by the synthesis meter, which "
+          + "also prints the reason when none did.";
+        setConnection("live", "Server reached",
+          "GET " + base + "/health answered HTTP " + response.status + " in "
+          + elapsed.toFixed(1) + " ms. MCP revision " + mcp + " is served at " + base
+          + "/mcp. " + engine);
+        // Whether a confirmed review is sent or recorded is the server's
+        // decision, from two facts it holds and this page never sees. The
+        // review panel prints the conclusion the server drew.
+        State.reviewPath = health.github_review_path || null;
+        renderReviewPath();
+        return true;
+      } catch (error) {
+        State.live = false;
+        State.apiBase = null;
+        setConnection("offline", "No server",
+          "GET " + base + "/health did not answer (" + error.message + "). Run "
+          + START_COMMAND + " and select Check again. Nothing below will display a result until it does.");
+        return false;
+      }
+    }
+
+    /* --- audio -------------------------------------------------------- */
+
+    function base64ToBytes(b64) {
+      var binary = window.atob(b64);
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
+      return bytes;
+    }
+
+    /* Finds the data chunk of a RIFF/WAVE container and reads it as 16-bit
+       PCM. The waveform drawn from this is the sound that plays, not an
+       illustration of one. */
+    function pcmSamples(bytes) {
+      for (var i = 12; i < bytes.length - 8; i += 1) {
+        if (bytes[i] === 0x64 && bytes[i + 1] === 0x61
+            && bytes[i + 2] === 0x74 && bytes[i + 3] === 0x61) {
+          var declared = bytes[i + 4] | (bytes[i + 5] << 8) | (bytes[i + 6] << 16) | (bytes[i + 7] << 24);
+          var start = i + 8;
+          var length = Math.min(declared, bytes.length - start);
+          var slice = bytes.slice(start, start + length - (length % 2));
+          return new Int16Array(slice.buffer);
         }
       }
-      return res;
+      return new Int16Array(0);
     }
 
-    function translateCurrentDiffToBraille() {
-      const diff = document.getElementById('diffInput').value;
-      const braille = jsTextToBraille(diff);
-      document.getElementById('brailleOutput').innerText = braille;
-      appendAudit('[BRAILLE] Diff rendered to 6-dot tactile stream for Refreshable Braille Display.');
+    function drawWaveform(canvas, samples) {
+      var ctx = canvas.getContext("2d");
+      var ratio = window.devicePixelRatio || 1;
+      var width = canvas.clientWidth || 320;
+      var height = canvas.clientHeight || 74;
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      if (!samples.length) { return; }
+
+      var accent = getComputedStyle(document.documentElement)
+        .getPropertyValue("--earcon").trim() || "#b03509";
+      ctx.fillStyle = accent;
+
+      var columns = Math.max(1, Math.floor(width / 2));
+      var per = Math.floor(samples.length / columns) || 1;
+      var mid = height / 2;
+      for (var c = 0; c < columns; c++) {
+        var peak = 0;
+        for (var s = c * per; s < (c + 1) * per && s < samples.length; s++) {
+          var v = Math.abs(samples[s]);
+          if (v > peak) { peak = v; }
+        }
+        var h = Math.max(1, (peak / 32767) * (height - 6));
+        ctx.fillRect(c * 2, mid - h / 2, 1.2, h);
+      }
     }
 
-    function translateCustomPromptToBraille() {
-      const text = document.getElementById('voiceCommandInput').value;
-      const braille = jsTextToBraille(text);
-      document.getElementById('brailleOutput').innerText = braille;
-      appendAudit('[BRAILLE] Voice prompt converted to silent Braille stream.');
+    var activeAudio = null;
+
+    function stopAudio() {
+      if (activeAudio) { activeAudio.pause(); activeAudio.currentTime = 0; }
+      if ("speechSynthesis" in window) { window.speechSynthesis.cancel(); }
     }
 
-    function copyBrailleStream() {
-      const text = document.getElementById('brailleOutput').innerText;
-      navigator.clipboard.writeText(text).then(() => {
-        alert('Braille Unicode stream copied to clipboard!');
-      });
-    }
-
-    function loadPreset(id) {
-      document.getElementById('diffInput').value = PRESETS[id];
-      document.querySelectorAll('.chip').forEach((c, idx) => {
-        c.classList.toggle('active', idx === id - 1);
-      });
-    }
-    loadPreset(1);
-
-    function setVoicePrompt(text) {
-      document.getElementById('voiceCommandInput').value = text;
-      executeVoiceCommand();
-    }
-
-    function speakText(text) {
-      if ('speechSynthesis' in window) {
+    function speak(text) {
+      if (!("speechSynthesis" in window)) { return false; }
+      try {
         window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.05;
-        utterance.pitch = 1.0;
+        var utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.03;
         window.speechSynthesis.speak(utterance);
+        return true;
+      } catch (error) { return false; }
+    }
+
+    /* --- rendering the three outputs ---------------------------------- */
+
+    function renderSpoken(data, elapsedMs, label) {
+      State.lastDigest = data;
+      var pane = clear($("spokenPane"));
+      pane.appendChild(el("p", "spoken-text", data.voice_summary));
+      $("spokenCaption").textContent = label + " returned in " + elapsedMs.toFixed(1)
+        + " ms. Synthesis mode reported by the server: " + data.synthesis_mode + ".";
+    }
+
+    function renderEarcon(earcon) {
+      var bytes = base64ToBytes(earcon.wav_base64);
+      var samples = pcmSamples(bytes);
+      var seconds = samples.length / SAMPLE_RATE;
+      var described = earcon.spoken_fallback || (earcon.type + " cue returned by the server.");
+
+      var canvas = $("earconWave");
+      canvas.setAttribute("aria-label",
+        "Amplitude of the " + earcon.type + " cue that just played, drawn from the "
+        + samples.length + " audio samples the server returned.");
+      drawWaveform(canvas, samples);
+
+      if (State.earconUrl) { URL.revokeObjectURL(State.earconUrl); }
+      State.earconUrl = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+
+      var host = clear($("earconPlayer"));
+      var player = document.createElement("audio");
+      player.controls = true;
+      player.src = State.earconUrl;
+      player.setAttribute("aria-label", "Replay the " + earcon.type + " cue");
+      host.appendChild(player);
+      activeAudio = player;
+
+      var caption = $("earconCaption");
+      caption.textContent = "Cue " + earcon.type + ", " + seconds.toFixed(2)
+        + " seconds of 16-bit PCM at " + SAMPLE_RATE + " Hz. Written description: " + described;
+
+      var playing = player.play();
+      if (playing && typeof playing.catch === "function") {
+        playing.catch(function () {
+          caption.textContent = "The browser blocked automatic playback. Use the Play control "
+            + "above to hear the " + earcon.type + " cue, which lasts " + seconds.toFixed(2)
+            + " seconds. Written description: " + described;
+        });
       }
+      return described;
     }
 
-    // Web Audio API pure synthesizer
-    let audioCtx = null;
-    function getAudioContext() {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      return audioCtx;
+    function renderBraille(data, elapsedMs) {
+      var region = clear($("brailleOutput"));
+      // The server says which table produced the cells and whether a finger
+      // can trust them character for character. Both are printed beside the
+      // cells, because a lossy rendering that does not say so is a lie a
+      // finger cannot detect.
+      var fidelityWords = data.fidelity === "code"
+        ? "eight-dot code fidelity"
+        : "six-dot literary Braille";
+      region.setAttribute("aria-label",
+        "Braille cell stream, " + data.total_lines + " lines, " + fidelityWords
+        + (data.lossless ? ", lossless" : ", lossy for this patch"));
+
+      var summary = el("span", "row");
+      summary.setAttribute("data-type", "HEADER");
+      summary.appendChild(document.createTextNode(data.braille_summary));
+      summary.appendChild(el("span", "plain",
+        "summary   +" + data.additions + " / -" + data.deletions + " lines"));
+      region.appendChild(summary);
+
+      data.lines.forEach(function (line) {
+        var row = el("span", "row");
+        row.setAttribute("data-type", line.type);
+        row.appendChild(document.createTextNode(line.braille));
+        row.appendChild(el("span", "plain", line.type + "   " + line.text));
+        region.appendChild(row);
+      });
+
+      $("brailleCaption").textContent = data.total_lines
+        + " Braille lines from POST /api/braille/diff_digest in " + elapsedMs.toFixed(1)
+        + " ms. Added rows carry dots 3-4-6 and removed rows dots 3-6, so a finger finds "
+        + "the sign of a change before its content. Fidelity " + data.fidelity
+        + (data.lossless ? ", lossless. " : ", lossy for this patch. ") + (data.disclosure || "");
     }
 
-    function playPureEarcon(type) {
-      const ctx = getAudioContext();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      drawWaveformAnimation();
-
-      if (type === 'DIFF_READY') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(440, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
-        gain.gain.setValueAtTime(0.3, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.15);
-      } else if (type === 'ALERT') {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(320, ctx.currentTime);
-        osc.frequency.setValueAtTime(640, ctx.currentTime + 0.08);
-        gain.gain.setValueAtTime(0.4, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.2);
-      } else if (type === 'CONFIRM') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(523.25, ctx.currentTime);
-        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.08);
-        osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.16);
-        gain.gain.setValueAtTime(0.3, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.25);
-      }
-    }
-
-    function drawWaveformAnimation() {
-      const canvas = document.getElementById('audioVisualizer');
-      const ctx = canvas.getContext('2d');
-      let start = null;
-      function step(timestamp) {
-        if (!start) start = timestamp;
-        let progress = (timestamp - start) / 350;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        for (let x = 0; x < canvas.width; x += 3) {
-          const y = canvas.height/2 + Math.sin(x*0.12 + progress*12) * Math.sin(progress*Math.PI) * 22;
-          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-        if (progress < 1) requestAnimationFrame(step);
-        else ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-      requestAnimationFrame(step);
-    }
-
-    let stagedAction = null;
-    let timerInterval = null;
-
-    function synthesizeDiff(level) {
-      const diff = document.getElementById('diffInput').value;
-      const hasSecurity = diff.includes('KMS_KEY_ID') || diff.includes('secret');
-      
-      let spoken = '';
-      let html = '<strong>Spoken Digest:</strong> ';
-      if (level === 0) {
-        spoken = "One file modified with two additions. " + (hasSecurity ? "Security alert: Key Management Service token validation updated." : "Standard logic update.");
-        html += '"' + spoken + '"';
-      } else {
-        spoken = "Detailed abstract syntax tree breakdown: service.py updated authenticate method with environment KMS key lookup.";
-        html += '"' + spoken + '"';
-      }
-      html += '<br><br><span class="tag tag-succ">1 File Changed</span> <span class="tag tag-succ">+2 / -1 Lines</span>';
-      if (hasSecurity) {
-        html += ' <span class="tag tag-sec">Security Flag: KMS Token Audit</span>';
-        playPureEarcon('ALERT');
-      } else {
-        playPureEarcon('DIFF_READY');
-      }
-      document.getElementById('diffOutput').innerHTML = html;
-      speakText(spoken);
-    }
-
-    function executeVoiceCommand() {
-      const cmd = document.getElementById('voiceCommandInput').value.toLowerCase();
-      if (cmd.includes('diff') || cmd.includes('summarize')) {
-        synthesizeDiff(0);
-      } else if (cmd.includes('stage') || cmd.includes('deploy')) {
-        stageGovernedAction();
-      } else if (cmd.includes('approve') || cmd.includes('confirm') || cmd.includes('token')) {
-        confirmVoiceAction();
-      } else {
-        speakText("Command received by Volcan FastMCP server.");
-      }
-    }
-
-    function stageGovernedAction() {
-      stagedAction = {
-        id: 'act_' + Math.floor(Math.random()*90000 + 10000),
-        command: 'aws ecs update-service --cluster prod --service volcan-api',
-        hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-        expires: Date.now() + 300000
-      };
-      playPureEarcon('DIFF_READY');
-      
-      let timeLeft = 300;
-      clearInterval(timerInterval);
-      timerInterval = setInterval(() => {
-        timeLeft--;
-        if (timeLeft <= 0) {
-          clearInterval(timerInterval);
-          document.getElementById('leaseTimer').innerText = 'LEASE EXPIRED';
-          document.getElementById('govOutput').innerText = 'Execution lease expired. Staged action discarded.';
-          stagedAction = null;
-        } else {
-          document.getElementById('leaseTimer').innerText = 'LEASE ACTIVE (' + timeLeft + 's)';
-        }
-      }, 1000);
-
-      document.getElementById('govOutput').innerHTML = 
-        '<strong>Staged Action:</strong> ' + stagedAction.id + '<br>' +
-        '<strong>Target:</strong> <code>' + stagedAction.command + '</code><br>' +
-        '<strong>SHA-256 Hash Lock:</strong> <code>' + stagedAction.hash.substring(0, 16) + '...</code><br>' +
-        '<span style="color:#f97316;">Voice Confirmation Required: "Alexa, approve action ' + stagedAction.id + '"</span>';
-      
-      appendAudit('[STAGED] Action ' + stagedAction.id + ' locked under 300s lease (' + stagedAction.hash.substring(0, 8) + ')');
-      speakText("Action " + stagedAction.id + " staged for production. Dual custody lease active for 300 seconds. Awaiting voice confirmation.");
-    }
-
-    function confirmVoiceAction() {
-      if (!stagedAction) {
-        alert('Please stage an action first.');
+    function setBrailleFidelity(fidelity) {
+      State.brailleFidelity = fidelity;
+      $("fidelityCode").setAttribute("aria-pressed", String(fidelity === "code"));
+      $("fidelityLiterary").setAttribute("aria-pressed", String(fidelity === "literary"));
+      if (!State.lastDigest) {
+        $("brailleCaption").textContent = "Fidelity set to " + fidelity
+          + ". Select Hear this code review and the cells arrive in that table.";
         return;
       }
-      clearInterval(timerInterval);
-      document.getElementById('leaseTimer').innerText = 'COMMITTED';
-      document.getElementById('govOutput').innerHTML = 
-        '<span class="tag tag-succ">COMMITTED</span> <strong>Action ' + stagedAction.id + ' successfully deployed!</strong><br>' +
-        'Verified by Alexa Voice Token: <code>VOICE_TOKEN_ALEXA_AUTH_2026</code>';
-      playPureEarcon('CONFIRM');
-      appendAudit('[COMMITTED] Action ' + stagedAction.id + ' approved by voice token. Production updated.');
-      speakText("Voice token verified. Production deployment executed successfully.");
-      stagedAction = null;
+      rerunBraille();
+    }
+
+    async function rerunBraille() {
+      var ready = await requireServer([["brailleOutput", "The Braille cells come from POST /api/braille/diff_digest."]]);
+      if (!ready) { return; }
+      try {
+        var braille = await postJson("/api/braille/diff_digest", {
+          raw_diff: $("diffInput").value, fidelity: State.brailleFidelity
+        });
+        renderBraille(braille.data, braille.elapsedMs);
+        announce("runStatus", "Braille re-rendered in " + braille.data.fidelity + " fidelity. "
+          + (braille.data.disclosure || ""));
+      } catch (error) {
+        clear($("brailleOutput")).appendChild(failureCard("The Braille call failed: " + error.message + "."));
+      }
+    }
+
+    function renderFindings(findings) {
+      var host = clear($("securityAlert"));
+      if (!findings || !findings.length) { return; }
+      var box = el("div", "finding");
+      box.appendChild(el("span", "tag", "Security"));
+      var body = document.createElement("div");
+      body.appendChild(el("p", null, findings.length === 1
+        ? "1 finding was named before the line detail, not after it."
+        : findings.length + " findings were named before the line detail, not after them."));
+      var list = document.createElement("ul");
+      findings.forEach(function (finding) { list.appendChild(el("li", null, finding)); });
+      body.appendChild(list);
+      box.appendChild(body);
+      host.appendChild(box);
+    }
+
+    function paneOffline(id, reason) {
+      clear($(id)).appendChild(offlineCard(reason));
+    }
+
+    /* --- HTTP helpers --------------------------------------------------- */
+
+    async function postJson(path, payload) {
+      var started = performance.now();
+      var headers = { "Content-Type": "application/json" };
+      if (path === "/api/review/turn" && $("reviewCredential").value) {
+        headers.Authorization = "Bearer " + $("reviewCredential").value;
+      }
+      var response = await fetch(State.apiBase + path, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(payload)
+      });
+      var body = await response.json();
+      var elapsed = performance.now() - started;
+      if (!response.ok) {
+        throw new Error("POST " + path + " answered HTTP " + response.status
+          + (body && body.detail ? ": " + (body.detail.message || body.detail) : ""));
+      }
+      return { data: body, elapsedMs: elapsed };
+    }
+
+    function setBusy(button, busy, busyLabel) {
+      button.setAttribute("aria-busy", busy ? "true" : "false");
+      var text = button.lastChild;
+      if (!text || text.nodeType !== 3) { return; }
+      if (busy) {
+        button.dataset.idleLabel = button.dataset.idleLabel || text.nodeValue.trim();
+        text.nodeValue = " " + busyLabel;
+      } else if (button.dataset.idleLabel) {
+        text.nodeValue = " " + button.dataset.idleLabel;
+      }
+    }
+
+    async function requireServer(paneIds) {
+      if (!State.live) { await probeHealth(); }
+      if (State.live) { return true; }
+      (paneIds || []).forEach(function (pair) { paneOffline(pair[0], pair[1]); });
+      return false;
+    }
+
+    /* --- the primary action -------------------------------------------- */
+
+    async function runReview() {
+      var button = $("runReview");
+      setBusy(button, true, "Running the review");
+      $("runProgress").hidden = false;
+      announce("runStatus", "Sending the patch to the Volcan API.");
+
+      var ready = await requireServer([
+        ["spokenPane", "The digest needs POST /api/digest_semantic_diff, and nothing answered on this origin."],
+        ["brailleOutput", "The Braille cells come from POST /api/braille/diff_digest."]
+      ]);
+      if (!ready) {
+        $("runProgress").hidden = true;
+        setBusy(button, false);
+        $("earconCaption").textContent =
+          "No cue. The earcon is 16-bit PCM synthesized by the server, and this page has no browser substitute for it on purpose.";
+        ["meterEngine", "meterLatency", "meterChange"].forEach(function (id) {
+          $(id).firstChild.nodeValue = "no server";
+        });
+        announce("runStatus", "No Volcan server answered. The panels explain how to start one.");
+        return;
+      }
+
+      try {
+        var results = await Promise.all([
+          postJson("/api/digest_semantic_diff", { raw_diff: $("diffInput").value, level: 0 }),
+          postJson("/api/braille/diff_digest", {
+            raw_diff: $("diffInput").value, fidelity: State.brailleFidelity
+          })
+        ]);
+        var digest = results[0];
+        var braille = results[1];
+
+        $("meterEngine").firstChild.nodeValue =
+          digest.data.synthesis_mode === "bedrock" ? "Amazon Bedrock" : "local heuristic";
+        // A mode on its own leaves a reviewer guessing why the model did not
+        // answer. The server reports the reason; this prints it verbatim.
+        var engineNote =
+          "Reported by the server as synthesis_mode: " + digest.data.synthesis_mode + ".";
+        if (digest.data.synthesis_fallback_reason) {
+          engineNote += " No model answered, because: "
+            + digest.data.synthesis_fallback_reason + ".";
+        }
+        $("meterEngineNote").textContent = engineNote;
+        $("meterLatency").firstChild.nodeValue = digest.elapsedMs.toFixed(1) + " ms";
+        $("meterChange").firstChild.nodeValue = plural(digest.data.total_files, "file")
+          + "   +" + digest.data.insertions + " -" + digest.data.deletions;
+
+        renderSpoken(digest.data, digest.elapsedMs, "Level 0 executive digest");
+        var described = renderEarcon(digest.data.earcon);
+        renderBraille(braille.data, braille.elapsedMs);
+        renderFindings(digest.data.critical_findings);
+        speak(digest.data.voice_summary);
+
+        announce("runStatus", "Cue: " + described + " " + digest.data.voice_summary
+          + " Round trip " + digest.elapsedMs.toFixed(1) + " milliseconds.");
+      } catch (error) {
+        clear($("spokenPane")).appendChild(failureCard("The digest call failed: " + error.message + "."));
+        $("earconCaption").textContent = "No cue, because the digest request did not succeed.";
+        ["meterEngine", "meterLatency", "meterChange"].forEach(function (id) {
+          $(id).firstChild.nodeValue = "request failed";
+        });
+        probeHealth();
+        announce("runStatus", "The request failed. " + error.message);
+      } finally {
+        $("runProgress").hidden = true;
+        setBusy(button, false);
+      }
+    }
+
+    async function runLevelOne() {
+      var ready = await requireServer([
+        ["spokenPane", "The file-by-file digest needs POST /api/digest_semantic_diff."]
+      ]);
+      if (!ready) { return; }
+      try {
+        var digest = await postJson("/api/digest_semantic_diff",
+          { raw_diff: $("diffInput").value, level: 1 });
+        renderSpoken(digest.data, digest.elapsedMs, "Level 1 file-by-file digest");
+        renderEarcon(digest.data.earcon);
+        speak(digest.data.voice_summary);
+        announce("runStatus", "Level 1 digest. " + digest.data.voice_summary);
+      } catch (error) {
+        clear($("spokenPane")).appendChild(failureCard("The level 1 digest call failed: " + error.message + "."));
+      }
+    }
+
+    async function runDrillDown() {
+      var ready = await requireServer([
+        ["spokenPane", "The drill down needs POST /api/drill_down_section."]
+      ]);
+      if (!ready) { return; }
+      try {
+        var drill = await postJson("/api/drill_down_section",
+          { raw_diff: $("diffInput").value, section_index: 0 });
+        var pane = clear($("spokenPane"));
+        pane.appendChild(el("p", "spoken-text", drill.data.spoken_text));
+        $("spokenCaption").textContent = "Drill down on " + drill.data.file_path
+          + ", category " + drill.data.category + ", significance " + drill.data.significance
+          + ", returned in " + drill.elapsedMs.toFixed(1) + " ms.";
+        State.lastDigest = { voice_summary: drill.data.spoken_text };
+        renderEarcon(drill.data.earcon);
+        speak(drill.data.spoken_text);
+        announce("runStatus", "Drill down on " + drill.data.file_path + ". " + drill.data.spoken_text);
+      } catch (error) {
+        clear($("spokenPane")).appendChild(failureCard("The drill down call failed: " + error.message + ".",
+          "This patch may have no section at index 0. Run the review first to see how many sections the parser found."));
+      }
+    }
+
+    function speakAgain() {
+      if (!State.lastDigest) {
+        $("spokenCaption").textContent =
+          "There is no digest to read yet. Select Hear this code review first.";
+        return;
+      }
+      if (!speak(State.lastDigest.voice_summary)) {
+        $("spokenCaption").textContent =
+          "This browser exposes no speech engine, so the text above is the whole result.";
+      }
+    }
+
+    function copyBraille() {
+      var note = $("brailleCaption");
+      var rows = $("brailleOutput").querySelectorAll(".row");
+      if (!rows.length) {
+        note.textContent = "There are no cells to copy yet. Select Hear this code review first.";
+        return;
+      }
+      var text = Array.prototype.map.call(rows, function (row) {
+        return row.firstChild.nodeValue;
+      }).join("\n");
+      if (!navigator.clipboard) {
+        note.textContent = "This browser exposed no clipboard. Select the cells and copy them.";
+        return;
+      }
+      navigator.clipboard.writeText(text).then(
+        function () { note.textContent = "Copied " + rows.length + " Braille lines to the clipboard."; },
+        function () { note.textContent = "The browser refused clipboard access. Select the cells and copy them."; }
+      );
+    }
+
+    /* --- MCP handshake -------------------------------------------------- */
+
+    async function rpc(message, extraHeaders) {
+      var headers = { "Content-Type": "application/json" };
+      if (extraHeaders) {
+        Object.keys(extraHeaders).forEach(function (key) {
+          if (extraHeaders[key]) { headers[key] = extraHeaders[key]; }
+        });
+      }
+      var started = performance.now();
+      var response = await fetch(State.apiBase + "/mcp", {
+        method: "POST", headers: headers, body: JSON.stringify(message)
+      });
+      var body = await response.json();
+      return {
+        body: body,
+        elapsedMs: performance.now() - started,
+        sessionId: response.headers.get("Mcp-Session-Id"),
+        negotiated: response.headers.get("MCP-Protocol-Version")
+      };
+    }
+
+    async function runMcpHandshake() {
+      var button = $("runMcp");
+      setBusy(button, true, "Handshaking");
+      announce("mcpStatus", "Sending a JSON-RPC initialize to the MCP endpoint.");
+
+      if (!State.live) { await probeHealth(); }
+      if (!State.live) {
+        setBusy(button, false);
+        clear($("mcpPane")).appendChild(offlineCard(
+          "The handshake needs a live MCP endpoint at POST /mcp on this origin."));
+        announce("mcpStatus", "No server answered, so no handshake was performed.");
+        return;
+      }
+
+      try {
+        var init = await rpc({
+          jsonrpc: "2.0", id: 1, method: "initialize",
+          params: {
+            protocolVersion: PROTOCOL_VERSION,
+            capabilities: {},
+            clientInfo: { name: "volcan-web-companion", version: "1" }
+          }
+        });
+        if (init.body.error) { throw new Error(init.body.error.message); }
+
+        State.mcpSession = init.sessionId;
+        var result = init.body.result;
+        $("mcpVersion").textContent = result.protocolVersion;
+        $("mcpServer").textContent = result.serverInfo.name + " " + result.serverInfo.version;
+        $("mcpSession").textContent = State.mcpSession
+          ? State.mcpSession.slice(0, 14) + "..."
+          : "none returned";
+
+        var headers = {
+          "MCP-Protocol-Version": init.negotiated || PROTOCOL_VERSION,
+          "Mcp-Session-Id": State.mcpSession
+        };
+        var notified = await fetch(State.apiBase + "/mcp", {
+          method: "POST",
+          headers: Object.assign({ "Content-Type": "application/json" }, headers),
+          body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" })
+        });
+
+        var listed = await rpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }, headers);
+        if (listed.body.error) { throw new Error(listed.body.error.message); }
+        var tools = listed.body.result.tools;
+        $("mcpCount").textContent = tools.length;
+
+        var pane = clear($("mcpPane"));
+        pane.appendChild(el("p", "caption",
+          "initialize answered in " + init.elapsedMs.toFixed(1) + " ms. "
+          + "notifications/initialized answered HTTP " + notified.status
+          + ", which is the no-body status a JSON-RPC notification is owed. "
+          + "tools/list answered in " + listed.elapsedMs.toFixed(1) + " ms. "
+          + "Instructions the server sent its client: " + (result.instructions || "none")));
+
+        var list = el("ul", "tools");
+        tools.forEach(function (tool) {
+          var item = document.createElement("li");
+          var details = document.createElement("details");
+          var summary = document.createElement("summary");
+          summary.appendChild(document.createTextNode(tool.name + "   "));
+          summary.appendChild(el("span", "what", tool.title || ""));
+          details.appendChild(summary);
+          details.appendChild(el("pre", null, JSON.stringify(tool.inputSchema, null, 2)));
+          item.appendChild(details);
+          list.appendChild(item);
+        });
+        pane.appendChild(list);
+
+        announce("mcpStatus", "Handshake complete. Protocol " + result.protocolVersion
+          + ", " + tools.length + " tools advertised by " + result.serverInfo.name + ".");
+      } catch (error) {
+        clear($("mcpPane")).appendChild(failureCard(
+          "The handshake failed: " + error.message + ".",
+          "Check the server log. python scripts/mcp_conformance.py runs the same handshake from a terminal."));
+        announce("mcpStatus", "The handshake failed. " + error.message);
+      } finally {
+        setBusy(button, false);
+      }
+    }
+
+    async function endMcpSession() {
+      if (!State.live || !State.mcpSession) {
+        announce("mcpStatus", "There is no open MCP session to end. Run the handshake first.");
+        $("mcpSession").textContent = "no open session";
+        return;
+      }
+      var response = await fetch(State.apiBase + "/mcp", {
+        method: "DELETE",
+        headers: { "Mcp-Session-Id": State.mcpSession, "MCP-Protocol-Version": PROTOCOL_VERSION }
+      });
+      announce("mcpStatus", "DELETE /mcp answered HTTP " + response.status
+        + ". That session identifier is no longer accepted by this server.");
+      $("mcpSession").textContent = "terminated, HTTP " + response.status;
+      State.mcpSession = null;
+    }
+
+    /* --- governed actions ------------------------------------------------ */
+
+    function setLease(state, label) {
+      var tag = $("leaseTag");
+      tag.setAttribute("data-state", state);
+      tag.textContent = label;
+    }
+
+    function startLeaseCountdown(expiresAtEpoch) {
+      clearInterval(State.leaseTimer);
+      function tick() {
+        var remaining = Math.round(expiresAtEpoch - (Date.now() / 1000));
+        if (remaining <= 0) {
+          clearInterval(State.leaseTimer);
+          setLease("idle", "LEASE EXPIRED");
+          clear($("govPane")).appendChild(el("p", "empty-state-card",
+            "The lease the server issued has elapsed, so its grant is no longer accepted. Stage a new action."));
+          State.staged = null;
+          return;
+        }
+        setLease("active", "LEASE ACTIVE " + remaining + "s");
+      }
+      tick();
+      State.leaseTimer = setInterval(tick, 1000);
+    }
+
+    function govRows(pairs) {
+      var dl = el("dl", "kv");
+      pairs.forEach(function (pair) {
+        var row = document.createElement("div");
+        row.appendChild(el("dt", null, pair[0]));
+        row.appendChild(el("dd", null, pair[1]));
+        dl.appendChild(row);
+      });
+      return dl;
+    }
+
+    /* The server's terminal state for a released plan is the string EXECUTED.
+       That is the domain's state machine, not a claim that a command ran. On a
+       page whose headline is that Volcan never runs anything, the bare word
+       would read as a contradiction, so every row carries the plain-language
+       label and the server's own raw value side by side. Nothing is hidden and
+       nothing is renamed on the way through. */
+    var AUDIT_LABELS = {
+      PENDING_APPROVAL: "staged, awaiting a human",
+      APPROVED: "grant accepted",
+      REJECTED: "rejected",
+      EXECUTED: "plan released, not run",
+      FAILED: "planning failed",
+      EXPIRED: "lease expired"
+    };
+
+    function auditLabel(state) {
+      return AUDIT_LABELS[state] || String(state).toLowerCase();
+    }
+
+    async function refreshAudit() {
+      if (!State.live) { return; }
+      try {
+        var response = await fetch(State.apiBase + "/api/audit_log");
+        var data = await response.json();
+        var list = clear($("auditVault"));
+        if (!data.records.length) {
+          list.appendChild(el("li", null, "The server holds no audit records yet."));
+          return;
+        }
+        data.records.slice().reverse().forEach(function (record) {
+          list.appendChild(el("li", null,
+            auditLabel(record.state) + "   [server state " + record.state + "]   "
+            + record.action + "   " + record.command
+            + "   hash " + String(record.payload_hash).slice(0, 12)));
+        });
+      } catch (error) {
+        clear($("auditVault")).appendChild(el("li", null,
+          "The audit log could not be read: " + error.message));
+      }
+    }
+
+    async function stageAction() {
+      var ready = await requireServer([]);
+      if (!ready) {
+        clear($("govPane")).appendChild(offlineCard(
+          "Staging needs POST /api/stage_governed_action. The grant is minted and signed by the server, so there is nothing to show without one."));
+        return;
+      }
+      var actionId = "act_" + Math.floor(Math.random() * 90000 + 10000);
+      try {
+        var staged = await postJson("/api/stage_governed_action", {
+          action_id: actionId,
+          action_type: "TERMINAL_COMMAND",
+          command: STAGED_COMMAND,
+          summary_spoken: "Inspect the working tree diff before release",
+          lease_sec: LEASE_SEC
+        });
+        State.staged = staged.data;
+        startLeaseCountdown(staged.data.expires_at_epoch);
+
+        var pane = clear($("govPane"));
+        pane.appendChild(govRows([
+          ["Action", staged.data.action_id],
+          ["Planned command", STAGED_COMMAND],
+          ["Payload hash", String(staged.data.payload_hash).slice(0, 32)],
+          ["Grant", String(staged.data.approval_grant).slice(0, 32) + "..."],
+          ["Planner verdict", "allowed " + staged.data.plan.allowed + ", executed " + staged.data.plan.executed],
+          ["Round trip", staged.elapsedMs.toFixed(1) + " ms"]
+        ]));
+        pane.appendChild(el("p", "caption", staged.data.spoken_prompt));
+        speak(staged.data.spoken_prompt);
+        refreshAudit();
+      } catch (error) {
+        clear($("govPane")).appendChild(failureCard("Staging failed: " + error.message + "."));
+      }
+    }
+
+    async function approveAction() {
+      if (!State.staged) {
+        clear($("govPane")).appendChild(el("p", "empty-state-card",
+          "Nothing is staged, so there is no grant to present. Select Stage an action first."));
+        return;
+      }
+      clearInterval(State.leaseTimer);
+      try {
+        var confirmed = await postJson("/api/confirm_action", {
+          action_id: State.staged.action_id,
+          approval_grant: State.staged.approval_grant,
+          approver_id: "companion-operator"
+        });
+        var approved = confirmed.data.approved;
+        setLease(approved ? "released" : "refused", approved ? "GRANT ACCEPTED" : "GRANT REFUSED");
+
+        var pane = clear($("govPane"));
+        pane.appendChild(govRows([
+          ["Verdict", approved ? "accepted" : "refused"],
+          ["Server status", confirmed.data.status],
+          ["Refusal code", confirmed.data.refusal_code || "none"],
+          ["Round trip", confirmed.elapsedMs.toFixed(1) + " ms"]
+        ]));
+        pane.appendChild(el("p", "caption", confirmed.data.spoken_text));
+        speak(confirmed.data.spoken_text);
+        State.staged = null;
+        refreshAudit();
+      } catch (error) {
+        clear($("govPane")).appendChild(failureCard("The approval call failed: " + error.message + "."));
+      }
     }
 
     function rejectAction() {
-      if (!stagedAction) return;
-      clearInterval(timerInterval);
-      document.getElementById('leaseTimer').innerText = 'REJECTED';
-      document.getElementById('govOutput').innerHTML = '<span class="tag tag-sec">REJECTED</span> Action discarded by operator.';
-      appendAudit('[REJECTED] Action ' + stagedAction.id + ' aborted.');
-      speakText("Action aborted by operator.");
-      stagedAction = null;
+      if (!State.staged) {
+        clear($("govPane")).appendChild(el("p", "empty-state-card",
+          "Nothing is staged, so there is nothing to reject."));
+        return;
+      }
+      clearInterval(State.leaseTimer);
+      setLease("refused", "REJECTED");
+      var pane = clear($("govPane"));
+      pane.appendChild(el("p", null, "The grant was discarded in this browser and never "
+        + "presented, so the server sealed no audit record for it. The staged action "
+        + "expires on its own when the lease elapses."));
+      speak("Action rejected. The grant was never presented.");
+      State.staged = null;
+      refreshAudit();
     }
 
-    function appendAudit(msg) {
-      const time = new Date().toISOString().substring(11, 19);
-      const div = document.createElement('div');
-      div.className = 'audit-item';
-      div.innerText = '[' + time + '] ' + msg;
-      document.getElementById('auditVault').prepend(div);
+    /* --- the review dialogue: listen, read back, act --------------------- */
+
+    /* The conversation lives on the server, one state machine per session,
+       driven by transcripts. This page is its ears and its mouth: it collects
+       a transcript from the microphone or the keyboard, posts it, prints and
+       speaks what came back, and interrupts itself when a new command arrives.
+       The recogniser is whatever this browser exposes as SpeechRecognition; a
+       browser with none is told so, and the typed path is always there. */
+    var Review = {
+      sessionId: "web-" + Math.random().toString(36).slice(2, 10),
+      grant: null,
+      pending: null,
+      leaseTimer: null,
+      listening: false,
+      recognition: null
+    };
+
+    var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+    var CUE_TIMEOUT_MS = 1500;
+
+    var DIALOGUE_LABELS = {
+      IDLE: ["idle", "IDLE"],
+      OVERVIEW: ["active", "OVERVIEW"],
+      FILE: ["active", "FILE"],
+      LINES: ["active", "LINES"],
+      CONFIRM_REVIEW: ["active", "AWAITING CONFIRM"],
+      SUBMITTED: ["released", "SUBMITTED TO GITHUB"],
+      RECORDED: ["released", "RECORDED, NOT SENT"],
+      REFUSED: ["refused", "REFUSED"]
+    };
+
+    function setDialogueState(data) {
+      var pair = DIALOGUE_LABELS[data.state] || ["idle", String(data.state)];
+      var label = pair[1];
+      var focus = data.focus || {};
+      if (data.state === "FILE" && focus.file_index !== null && focus.file_index !== undefined) {
+        label += " " + (focus.file_index + 1) + " OF " + focus.total_files;
+      }
+      if (data.state === "LINES" && focus.line_index !== null && focus.line_index !== undefined) {
+        label += " " + (focus.line_index + 1) + " OF " + focus.total_lines;
+      }
+      var tag = $("dialogueState");
+      tag.setAttribute("data-state", pair[0]);
+      tag.textContent = label;
     }
 
-    function simulateBeeAnnotation() {
-      const note = "Spoken note from developer Bee Wearable: Remember to verify KMS rotation in staging.";
-      document.getElementById('ecosystemOutput').innerHTML = 
-        '<span class="tag tag-pass">🐝 BEE WEARABLE EVENT</span><br>' +
-        '<strong>Captured Transcript:</strong> "' + note + '"<br>' +
-        '<strong>Status:</strong> Attached to active PR review context. Harmonic earcon queued.';
-      playPureEarcon('PASS');
-      speakText("Ambient voice note captured from Bee Wearable. Attached to PR context.");
-      appendAudit('[BEE-COMPANION] Ambient spoken decision ingested from wearable device.');
+    function logTurn(kind, text) {
+      var list = $("dialogueLog");
+      var placeholder = list.querySelector(".empty-state-card");
+      if (placeholder) { list.removeChild(placeholder); }
+      var item = el("li", kind, text);
+      list.appendChild(item);
+      list.scrollTop = list.scrollHeight;
+      return item;
     }
 
-    function broadcastFireTvWallboard() {
-      const rating = "ELITE";
-      document.getElementById('ecosystemOutput').innerHTML = 
-        '<span class="tag tag-lease">📺 FIRE TV 10-FOOT BROADCAST</span><br>' +
-        '<strong>Telemetry Frame:</strong> Active lease TTL & AST security waveform synced.<br>' +
-        '<strong>DORA Velocity:</strong> ' + rating + ' | High-contrast Leanback theme active.';
-      playPureEarcon('CONFIRM');
-      speakText("Fire TV 10-foot ambient wallboard synchronized.");
-      appendAudit('[FIRETV-COMPANION] 10-foot high contrast frame broadcast to team display.');
+    /* Readback first, then the answer, at the rate the server returned. The
+       readback is a separate utterance so a listener who hears a misheard
+       command can say "no, I said ..." while the answer is still queued. */
+    function speakTurn(data) {
+      if (!("speechSynthesis" in window) || data.silent) { return false; }
+      try {
+        window.speechSynthesis.cancel();
+        [data.readback, data.spoken].forEach(function (text) {
+          if (!text) { return; }
+          var utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = data.speech_rate || 1;
+          window.speechSynthesis.speak(utterance);
+        });
+        return true;
+      } catch (error) { return false; }
     }
 
-    function testRingFocusPresence() {
-      const zone = "Front Door";
-      document.getElementById('ecosystemOutput').innerHTML = 
-        '<span class="tag tag-pass">🔔 RING SANCTUARY SHIELD</span><br>' +
-        '<strong>Motion Detected:</strong> ' + zone + '<br>' +
-        '<strong>Policy:</strong> Dual-custody focus active. Suppressed loud chime & played gentle 440Hz acoustic earcon.';
-      playPureEarcon('PASS');
-      speakText("Gentle notice: Motion at front door. Focus sanctuary active.");
-      appendAudit('[RING-COMPANION] Sanctuary focus shield suppressed loud chime; gentle earcon played.');
+    /* The cue arrives before the words. When the turn carries an earcon the
+       sentence waits for it to end, with a bounded fallback so a browser that
+       blocks autoplay still speaks. */
+    function speakAfterCue(data) {
+      if (!data.earcon || !activeAudio) { speakTurn(data); return; }
+      var spoken = false;
+      function once() { if (!spoken) { spoken = true; speakTurn(data); } }
+      activeAudio.addEventListener("ended", once, { once: true });
+      activeAudio.addEventListener("error", once, { once: true });
+      setTimeout(once, CUE_TIMEOUT_MS);
     }
-  </script>
 
-    <script>
-    window.addEventListener('DOMContentLoaded', () => {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(() => {});
+    function renderReviewPath() {
+      var path = State.reviewPath;
+      var host = $("reviewPathRow");
+      if (!host) { return; }
+      host.textContent = path
+        ? "Review path reported by GET /health: " + path.resolved_capability + ". " + path.detail
+        : "Review path unknown until GET /health answers.";
+    }
+
+    function startReviewLease(expiresAtEpoch) {
+      clearInterval(Review.leaseTimer);
+      function tick() {
+        var node = $("reviewLease");
+        if (!node) { clearInterval(Review.leaseTimer); return; }
+        var remaining = Math.round(expiresAtEpoch - (Date.now() / 1000));
+        if (remaining <= 0) {
+          clearInterval(Review.leaseTimer);
+          node.textContent = "LEASE EXPIRED: the grant is no longer accepted; say request changes again";
+          Review.grant = null;
+          Review.pending = null;
+          return;
         }
-        
-        const bridge = new WebMCPBridge('volcan_agent_forge');
-        bridge.registerTool('synthesize_code_ast', 'Synthesizes code from voice prompt and validates AST tree', { prompt: 'string' }, async (args) => {
-            return { status: 'success', prompt: args.prompt, ast_valid: true, node_count: 24, braille_haptic_unicode: '⠁⠛⠑⠝⠞' };
+        node.textContent = "LEASE ACTIVE " + remaining + "s";
+      }
+      tick();
+      Review.leaseTimer = setInterval(tick, 1000);
+    }
+
+    function renderReviewPane(data) {
+      var pane = clear($("reviewPane"));
+      var pr = data.pull_request;
+      var rows = [];
+      if (pr) {
+        rows.push(["Pull request", pr.owner + "/" + pr.repo + " #" + pr.number + ": " + pr.title]);
+        rows.push(["Head commit", pr.head_sha]);
+      }
+      if (data.pending_review) {
+        rows.push(["Staged review", "REQUEST_CHANGES bound to " + data.pending_review.head_sha]);
+        rows.push(["Comment", data.pending_review.body]);
+        rows.push(["Grant", String(data.approval_grant).slice(0, 32) + "..."]);
+        rows.push(["Payload hash", String(data.pending_review.payload_hash).slice(0, 32)]);
+      }
+      var outcome = data.review_outcome;
+      if (outcome) {
+        var verdict = outcome.submitted
+          ? "submitted to GitHub, review id " + (outcome.response && outcome.response.id)
+          : outcome.dry_run
+            ? "recorded and not sent: a dry run, because the server runs without VOLCAN_GITHUB_WRITE=1"
+            : "refused, " + outcome.refusal_code;
+        rows.push(["Outcome", verdict]);
+        if (outcome.live_head_sha) { rows.push(["Live head re-read", outcome.live_head_sha]); }
+        if (outcome.identity) { rows.push(["Authenticated as", outcome.identity]); }
+      }
+      if (rows.length) { pane.appendChild(govRows(rows)); }
+      else {
+        pane.appendChild(el("p", "empty-state-card",
+          "No review staged. Say request changes followed by your comment once a pull request is open."));
+      }
+      if (data.pending_review) {
+        var lease = el("span", "lease", "LEASE ACTIVE");
+        lease.id = "reviewLease";
+        lease.setAttribute("data-state", "active");
+        pane.appendChild(lease);
+        startReviewLease(data.pending_review.expires_at_epoch);
+      }
+      if (outcome && outcome.request) {
+        pane.appendChild(el("p", "caption", outcome.dry_run
+          ? "The exact request the server recorded and did not send, token redacted:"
+          : "The exact request the server sent, token redacted:"));
+        pane.appendChild(el("pre", "review-request",
+          outcome.request.method + " " + outcome.request.url + "\n"
+          + JSON.stringify(outcome.request.json, null, 2)));
+      }
+      var pathRow = el("p", "caption");
+      pathRow.id = "reviewPathRow";
+      pane.appendChild(pathRow);
+      renderReviewPath();
+    }
+
+    async function sendTranscript(transcript, source) {
+      var text = String(transcript || "").trim();
+      if (!text) {
+        announce("reviewStatus", "Nothing to send. Type a command or say one.");
+        return;
+      }
+      // Interruption: a new command silences whatever is still being spoken
+      // before the server is asked, so the listener is never talked over.
+      stopAudio();
+      logTurn("you", (source === "microphone" ? "Heard: " : "Typed: ") + text);
+      announce("reviewStatus", "Heard: " + text + ". Sending it to the server.");
+
+      var ready = await requireServer([
+        ["reviewPane", "The dialogue needs POST /api/review/turn, and nothing answered on this origin."]
+      ]);
+      if (!ready) {
+        $("dialogueState").setAttribute("data-state", "refused");
+        $("dialogueState").textContent = "NO SERVER";
+        announce("reviewStatus", "No Volcan server answered, so the command was not processed.");
+        return;
+      }
+
+      try {
+        var result = await postJson("/api/review/turn", {
+          session_id: Review.sessionId,
+          user_id: "companion-developer",
+          transcript: text,
+          pr_url: $("prUrl").value.trim() || null,
+          raw_diff: $("diffInput").value || null,
+          approval_grant: Review.grant
         });
-        bridge.registerTool('inspect_syntax_tree', 'Returns the tree-sitter AST nodes for current buffer', {}, async () => {
-            return { classes: ['AgentForge'], functions: ['synthesize', 'render_braille'] };
-        });
-        
+        var data = result.data;
+
+        logTurn("understood", data.readback);
+        if (data.spoken) {
+          logTurn("volcan", (data.error ? "Not done. " : "")
+            + data.spoken + "   [" + data.state + ", " + result.elapsedMs.toFixed(1) + " ms]");
+        }
+        setDialogueState(data);
+
+        if (data.approval_grant) {
+          Review.grant = data.approval_grant;
+          Review.pending = data.pending_review;
+        }
+        if (data.review_outcome || data.state === "OVERVIEW") {
+          clearInterval(Review.leaseTimer);
+          Review.grant = null;
+          Review.pending = null;
+        }
+        if (data.pending_review || data.review_outcome || data.pull_request) {
+          renderReviewPane(data);
+        }
+        if (data.review_outcome) { refreshAudit(); }
+
+        if (data.earcon) { renderEarcon(data.earcon); }
+        speakAfterCue(data);
+        announce("reviewStatus", data.readback + " " + (data.spoken || ""));
+      } catch (error) {
+        logTurn("you", "The turn failed: " + error.message);
+        clear($("reviewPane")).appendChild(failureCard("The dialogue call failed: " + error.message + "."));
+        announce("reviewStatus", "The turn failed. " + error.message);
+      }
+    }
+
+    function sendTyped() {
+      var box = $("commandInput");
+      var text = box.value;
+      box.value = "";
+      sendTranscript(text, "keyboard");
+    }
+
+    function setListening(on) {
+      Review.listening = on;
+      var button = $("micToggle");
+      button.setAttribute("aria-pressed", on ? "true" : "false");
+      button.textContent = on ? "Stop listening" : "Start listening";
+      $("micState").textContent = on ? "listening" : "microphone off";
+      announce("reviewStatus", on ? "Listening. Speak one command." : "Stopped listening.");
+    }
+
+    function stopListening() {
+      if (Review.listening && Review.recognition) {
+        try { Review.recognition.stop(); } catch (error) { setListening(false); }
+      }
+    }
+
+    function toggleListening() {
+      if (!Recognition) {
+        $("micState").textContent = "no speech recognition in this browser";
+        logTurn("volcan", "This browser exposes no SpeechRecognition API, so the microphone cannot "
+          + "be used here. Type the command in the box and press Enter; every command works that way.");
+        announce("reviewStatus", "No speech recognition in this browser. Type the command instead.");
+        $("commandInput").focus();
+        return;
+      }
+      if (Review.listening) { stopListening(); return; }
+      // Do not listen to our own voice.
+      stopAudio();
+      var recognition = new Recognition();
+      recognition.lang = navigator.language || "en-US";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.continuous = false;
+      recognition.onstart = function () { setListening(true); };
+      recognition.onresult = function (event) {
+        var transcript = event.results[0][0].transcript;
+        sendTranscript(transcript, "microphone");
+      };
+      recognition.onerror = function (event) {
+        logTurn("you", "The recogniser reported: " + event.error + ". Type the command instead.");
+        announce("reviewStatus", "Speech recognition error: " + event.error + ".");
+      };
+      recognition.onend = function () { Review.recognition = null; setListening(false); };
+      Review.recognition = recognition;
+      try {
+        recognition.start();
+      } catch (error) {
+        Review.recognition = null;
+        logTurn("you", "The recogniser could not start: " + error.message + ". Type the command instead.");
+      }
+    }
+
+    function requestChanges() {
+      var comment = $("reviewComment").value.trim();
+      sendTranscript(comment ? "request changes: " + comment : "request changes", "button");
+    }
+
+    /* --- presets and wiring ---------------------------------------------- */
+
+    /* One patch per shipped syntax-tree rule, plus a control.
+       These are the product's own buttons, so the first press has to reach the
+       thing that separates Volcan from a keyword matcher rather than the
+       weakest answer it can give. Presets 1 to 3 each trigger exactly one rule
+       from src/domain/ast_security_rules.py; preset 4 triggers none on purpose,
+       so the refusal path is visible too. The chip labels above quote the
+       sentence each of these produces, and a test compares the two. */
+    var PRESETS = {
+      1: "diff --git a/src/auth/permissions.py b/src/auth/permissions.py\n"
+        + "index 4c1a9f2..b7d3e88 100644\n"
+        + "--- a/src/auth/permissions.py\n"
+        + "+++ b/src/auth/permissions.py\n"
+        + "@@ -12,7 +12,7 @@ def can_delete_workspace(user, workspace):\n"
+        + "     if workspace.locked:\n"
+        + "         return False\n"
+        + "-    return user.role == \"admin\"\n"
+        + "+    return user.role != \"admin\"\n",
+      2: "diff --git a/src/api/app.py b/src/api/app.py\n"
+        + "index 9ab21c4..d0e5f31 100644\n"
+        + "--- a/src/api/app.py\n"
+        + "+++ b/src/api/app.py\n"
+        + "@@ -8,7 +8,7 @@ app = FastAPI()\n"
+        + " app.add_middleware(\n"
+        + "     CORSMiddleware,\n"
+        + "-    allow_origins=[\"https://console.internal\"],\n"
+        + "+    allow_origins=[\"*\"],\n"
+        + " )\n",
+      3: "diff --git a/src/webhooks/receiver.py b/src/webhooks/receiver.py\n"
+        + "index 33ac9de..71fb204 100644\n"
+        + "--- a/src/webhooks/receiver.py\n"
+        + "+++ b/src/webhooks/receiver.py\n"
+        + "@@ -19,8 +19,7 @@ def receive(request):\n"
+        + "     payload = request.body\n"
+        + "-    verify_signature(payload, request.headers[\"X-Signature\"])\n"
+        + "     return handle(payload)\n",
+      4: "diff --git a/src/utils/parser.py b/src/utils/parser.py\n"
+        + "index 5f0c1aa..e21b7d9 100644\n"
+        + "--- a/src/utils/parser.py\n"
+        + "+++ b/src/utils/parser.py\n"
+        + "@@ -4,3 +4,5 @@ def normalise(data):\n"
+        + "-    return data.strip()\n"
+        + "+    if not data:\n"
+        + "+        return \"\"\n"
+        + "+    return data.strip()\n"
+    };
+
+    function loadPreset(id) {
+      $("diffInput").value = PRESETS[id];
+      for (var n = 1; n <= 4; n++) {
+        $("preset" + n).setAttribute("aria-pressed", String(n === id));
+      }
+    }
+
+    $("runReview").addEventListener("click", runReview);
+    $("retryHealth").addEventListener("click", probeHealth);
+    $("speakAgain").addEventListener("click", speakAgain);
+    $("level1").addEventListener("click", runLevelOne);
+    $("drillDown").addEventListener("click", runDrillDown);
+    $("copyBraille").addEventListener("click", copyBraille);
+    $("runMcp").addEventListener("click", runMcpHandshake);
+    $("endMcp").addEventListener("click", endMcpSession);
+    $("stageBtn").addEventListener("click", stageAction);
+    $("approveBtn").addEventListener("click", approveAction);
+    $("rejectBtn").addEventListener("click", rejectAction);
+    $("preset1").addEventListener("click", function () { loadPreset(1); });
+    $("preset2").addEventListener("click", function () { loadPreset(2); });
+    $("preset3").addEventListener("click", function () { loadPreset(3); });
+    $("preset4").addEventListener("click", function () { loadPreset(4); });
+    $("fidelityCode").addEventListener("click", function () { setBrailleFidelity("code"); });
+    $("fidelityLiterary").addEventListener("click", function () { setBrailleFidelity("literary"); });
+
+    $("openReview").addEventListener("click", function () { sendTranscript("open", "button"); });
+    $("micToggle").addEventListener("click", toggleListening);
+    $("stopSpeech").addEventListener("click", function () {
+      stopAudio();
+      stopListening();
+      announce("reviewStatus", "Stopped.");
     });
-    </script>
+    $("sayCommand").addEventListener("click", sendTyped);
+    $("commandInput").addEventListener("keydown", function (event) {
+      if (event.key === "Enter") { event.preventDefault(); sendTyped(); }
+    });
+    $("cmdSummary").addEventListener("click", function () { sendTranscript("summary", "button"); });
+    $("cmdFiles").addEventListener("click", function () { sendTranscript("file by file", "button"); });
+    $("cmdFindings").addEventListener("click", function () { sendTranscript("findings", "button"); });
+    $("cmdReadLines").addEventListener("click", function () { sendTranscript("read the lines", "button"); });
+    $("cmdNext").addEventListener("click", function () { sendTranscript("next", "button"); });
+    $("cmdPrevious").addEventListener("click", function () { sendTranscript("previous", "button"); });
+    $("cmdSpell").addEventListener("click", function () { sendTranscript("spell that", "button"); });
+    $("cmdRepeat").addEventListener("click", function () { sendTranscript("repeat", "button"); });
+    $("cmdSlower").addEventListener("click", function () { sendTranscript("slower", "button"); });
+    $("cmdFaster").addEventListener("click", function () { sendTranscript("faster", "button"); });
+    $("cmdWhere").addEventListener("click", function () { sendTranscript("where am I", "button"); });
+    $("cmdHelp").addEventListener("click", function () { sendTranscript("help", "button"); });
+    $("cmdRequestChanges").addEventListener("click", requestChanges);
+    $("cmdConfirm").addEventListener("click", function () { sendTranscript("confirm", "button"); });
+    $("cmdCancel").addEventListener("click", function () { sendTranscript("cancel", "button"); });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") { stopAudio(); stopListening(); return; }
+      if (!event.altKey) { return; }
+      if (event.key === "5") { event.preventDefault(); toggleListening(); return; }
+      var targets = {
+        "1": "runReview", "2": "diffInput", "3": "brailleOutput",
+        "4": "commandInput", "6": "prUrl"
+      };
+      var id = targets[event.key];
+      var node = id && $(id);
+      if (node) { event.preventDefault(); node.focus(); }
+    });
+
+    loadPreset(1);
+    probeHealth();
+  </script>
 </body>
 </html>

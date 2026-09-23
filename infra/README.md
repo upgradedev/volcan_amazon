@@ -8,7 +8,7 @@ Volcan deploys on AWS as a **Pure Serverless Architecture** using **AWS Lambda w
 
 - **Compute:** AWS Lambda (`python3.11`, 256MB) executing the FastMCP ASGI application.
 - **Networking:** HTTPS Lambda Function URL with streaming response mode (`AWS_LWA_INVOKE_MODE = "response_stream"`), eliminating costly Application Load Balancers (ALBs).
-- **Intelligence:** Amazon Bedrock (`anthropic.claude-3-5-sonnet-20241022-v2:0` & `amazon.nova-micro-v1:0`) billed on pure token consumption with zero idle cost.
+- **Intelligence:** Amazon Bedrock (`anthropic.claude-opus-5` & `amazon.nova-micro-v1:0`) billed on pure token consumption with zero idle cost. Neither model has been invoked from this repository, so no token cost has been observed.
 - **Audit Logging:** Amazon CloudWatch Log Group with 14-day retention.
 
 ---

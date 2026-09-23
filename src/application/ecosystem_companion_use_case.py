@@ -1,5 +1,6 @@
 """Application use case for orchestrating Amazon Ecosystem Companions in Volcan."""
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, Optional
+
 from src.infrastructure.ecosystem_adapters import (
     BeeCompanionAdapter,
     FireTvWallboardAdapter,
