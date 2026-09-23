@@ -41,7 +41,7 @@ client sees.
 of request fixtures with the expected status code and JSON-RPC error code for each. That
 single artifact would remove the ambiguity without changing the specification's tone.
 `scripts/mcp_conformance.py` in this repository is a small version of what that artifact
-would look like; running it prints a pass or fail line for each of 18 checks.
+would look like; running it prints a pass or fail line for each of 22 checks.
 
 ---
 
@@ -56,10 +56,11 @@ natural reading of "open a stream". `TestClient.get("/mcp")` then never returned
 test run hung until it was interrupted. The transport was correct by the specification and
 unusable by any client that reads to end of stream.
 
-**Workaround in this repository.** `GET /mcp` emits one comment frame and one
-`notifications/message` frame saying the stream is open and that this server pushes
-nothing, then closes. `tests/integration/test_mcp_conformance.py::test_get_mcp_opens_a_terminating_sse_stream`
-asserts the stream both starts and finishes.
+**Workaround in this repository.** `GET /mcp` emits one SSE comment frame saying the stream
+is open and that this server has no pending messages, then closes. It does not emit an MCP
+`notifications/message`, because the server does not advertise or negotiate the logging
+capability. `tests/integration/test_mcp_conformance.py::test_get_mcp_opens_a_comment_only_terminating_sse_stream`
+asserts the stream starts, contains no protocol message and finishes.
 
 **Recommendation.** State explicitly that a server with no pending server-initiated
 messages MAY close the GET stream immediately after opening it, and that clients must
@@ -185,10 +186,13 @@ The intermittent result was therefore routing-sensitive, not a protocol-message 
 
 **Resolution.** MCP 2025-11-25 lets a Streamable HTTP server choose whether to assign a
 session id. The public deployment now sets `VOLCAN_MCP_SESSION_MODE=stateless`: initialize
-returns no `Mcp-Session-Id`, subsequent requests carry only the negotiated version, and any
-warm environment can answer them. The single-process default remains stateful so its
-creation, unknown-id and termination behaviours stay directly testable. The conformance
-runner accepts and identifies both permitted modes rather than silently retrying a 404.
+returns no `Mcp-Session-Id`, and request-contained calls carry only the negotiated version.
+The single-process default remains stateful so its creation, unknown-id and termination
+behaviours stay directly testable. The conformance runner accepts and identifies both
+permitted modes rather than silently retrying a 404. This resolves transport affinity only:
+dialogue, pending approvals, nonce consumption and audit records remain process-local, and
+dialogue loses context if a later request lands elsewhere. Approval confirmation cannot find
+or release a pending action in that case and fails closed.
 
 **Suggestion.** Put the stateless deployment pattern beside the session-management section
 of the transport guide. A random id plus an in-process set looks correct in local tests and

@@ -62,8 +62,9 @@ python -m pytest tests/ -v
 
 **Precondition:** `python -m src.interfaces.mcp_server` is running on `127.0.0.1:8000`.
 
-1. Run `python scripts/mcp_conformance.py`. Expect 21 of 21 checks to pass. On 2026-09-08 it
-   printed `SUMMARY: 21/21 checks passed, 0 failed`.
+1. Run `python scripts/mcp_conformance.py`. Expect 22 of 22 checks to pass. On 2026-09-08,
+   before the positive comment-only GET vector was added, it printed
+   `SUMMARY: 21/21 checks passed, 0 failed`.
 2. Open `http://127.0.0.1:8000/`. The connection banner must read **Server reached** and quote
    the HTTP status and the round trip it actually measured, plus the resolved model path the
    server reported. On this machine that line reads `unavailable_sdk_not_installed`.

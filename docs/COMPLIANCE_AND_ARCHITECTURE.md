@@ -119,7 +119,11 @@ conformity assessment, and no assessment has been performed.
 * **Application state:** sessions, staged actions and the audit repository currently live
   in process memory. Logging infrastructure is a separate storage surface. Its residency,
   retention and deletion settings depend on the deployed logger/collector configuration;
-  this repository does not establish those properties or certify an erasure policy.
+  this repository does not establish those properties or certify an erasure policy. The
+  public Lambda's stateless MCP setting removes transport-session affinity only; it does not
+  persist dialogue, pending approvals, nonce consumption or audit records. A multi-turn flow
+  that reaches another process loses its dialogue context; an approval confirmation has no
+  prior action to release and fails closed.
 * **Telemetry boundary:** `PrivateObservabilityHarness` emits a bounded EMF object through
   the Python logger, retaining only known numeric metrics, fixed dimension names/finite
   environment values, generated correlation IDs and finite actor/action/tool categories.

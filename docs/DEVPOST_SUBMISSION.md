@@ -102,8 +102,9 @@ readiness gate verifies by parsing every domain module.
 * **Interfaces.** A Model Context Protocol server written by hand to revision **2025-11-25**
   over the **Streamable HTTP** transport: JSON-RPC 2.0 at `POST /mcp`, an SSE stream at
   `GET /mcp`, optional cryptographically random sessions on a single-process host, a stateless
-  public Lambda mode, protocol version negotiation, Origin validation, and the full set of
-  JSON-RPC error codes.
+  public Lambda transport for request-contained calls, protocol version negotiation, Origin
+  validation, and the full set of JSON-RPC error codes. Dialogue and approval state remain
+  process-local and are not described as durable across Lambda environments.
   Twelve tools, each with a JSON Schema generated from the pydantic model that parses its
   arguments, so the published schema cannot drift from the code. A separate REST surface at
   `/api` serves the web companion and is never called MCP.
@@ -151,7 +152,8 @@ covered. We deleted all of it. The page now shows a real result or an honest emp
 
 * **A hand-written MCP server with no SDK.** `python scripts/mcp_conformance.py` runs a
   full client handshake against a running instance and prints a pass or fail line for each of
-  21 checks. All 21 passed on 2026-09-08, including the ones that are easy to get wrong: HTTP
+  22 checks. All 22 passed in both stateful and stateless transport modes on 2026-09-23,
+  including the ones that are easy to get wrong: HTTP
   404 for a session the server never minted, HTTP 202 with no body for
   `notifications/initialized`, `-32602` rather than a transport error for an unknown tool, a
   405 whose `Allow` header names every method the endpoint really accepts, and `-32600` for a
@@ -207,11 +209,14 @@ those defects became build failures instead of things to remember.
 
 **Live, and checkable in one command.** The MCP server. Start it with
 `python -m src.interfaces.mcp_server` and run
-`python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` to watch 21 of 21 protocol
+`python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` to watch 22 of 22 protocol
 checks pass. The companion page performs the same `initialize` and `tools/list` handshake in
 the browser and renders the negotiated protocol version, the stateful or stateless transport
-choice and every published tool schema. The public Lambda chooses stateless mode so a second
-request cannot be rejected merely because API Gateway routed it to another warm environment.
+choice and every published tool schema. The public Lambda chooses stateless transport so an
+independent request is not rejected for lacking a process-specific MCP id. Multi-turn dialogue,
+pending approvals, nonce consumption and audit records remain process-local; if routing loses
+that state, dialogue loses its context and approval confirmation fails closed rather than
+claiming cross-process continuity.
 
 **Simulated, and labelled on screen and in the README.** The voice experience is a web
 companion, not an Alexa skill. No skill package is submitted, no certification has been

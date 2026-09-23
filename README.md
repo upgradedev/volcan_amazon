@@ -190,7 +190,7 @@ stateful sessions for a single-process host, a stateless public Lambda mode, a t
 whose JSON Schemas are generated from the code that parses the arguments, and MCP audio
 content blocks carrying the synthesized earcons.
 `python scripts/mcp_conformance.py` runs a full client handshake against a running server
-and prints a pass or fail line for each of its 21 conformance checks.
+and prints a pass or fail line for each of its 22 conformance checks.
 
 **Simulated, and labelled as such everywhere it appears, the page included.** The voice
 experience is a web companion, not an Alexa skill. There is no Alexa skill package in this
@@ -429,8 +429,11 @@ those.
 Protocol behaviour worth checking: in the default single-process mode `initialize` issues a
 cryptographically random `Mcp-Session-Id`, and a session this server never minted is answered
 HTTP 404. The public Lambda sets `VOLCAN_MCP_SESSION_MODE=stateless`, so it issues no session
-header and any execution environment can answer the next request. Both modes are permitted
-by revision 2025-11-25 and the conformance runner detects which one answered.
+header and request-contained calls do not depend on a process-specific MCP id. Both modes are
+permitted by revision 2025-11-25 and the conformance runner detects which one answered. This
+is transport behaviour only: dialogue, pending approvals, nonce consumption and audit records
+remain process-local. A dialogue routed to another environment loses its context; approval
+confirmation cannot find or release the earlier pending action and fails closed.
 `MCP-Protocol-Version` is required on every request after initialize and is echoed on every
 response; `notifications/initialized` returns HTTP 202 with no body; JSON-RPC error codes
 `-32700`, `-32600`, `-32601` and `-32602` are all reachable; a failing tool is reported as
@@ -782,7 +785,7 @@ estimate unless it says ESTIMATE.
 | Patch parse latency, 1000 steady runs | not measured | mean 0.281 ms; p95 0.448 ms | `python scripts/benchmark_suite.py` |
 | Earcon synthesis latency, 1000 steady runs | not measured | mean 3.592 ms; p95 6.565 ms | `python scripts/benchmark_suite.py` |
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
-| MCP protocol conformance | not applicable | **21 of 21 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
+| MCP protocol conformance | not applicable | **22 of 22 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Automated tests | not applicable | 492 passing; 92.97% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-23 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.4 s | `python scripts/measure_cold_start.py` |
@@ -1010,8 +1013,13 @@ named governed-action calls only.
   footage. Gates E2 and E4 are red for that reason.
 * **Approval grants do not survive a restart.** The signing secret is generated per process
   unless `VOLCAN_APPROVAL_SECRET` is set, so outstanding grants become invalid when the server
-  restarts. That direction of failure is the safe one.
-* **Sessions and the audit trail live in memory.** Nothing is persisted between runs.
+  restarts. Nonce consumption is also process-local. Both conditions fail closed because the
+  corresponding pending action is process-local too.
+* **Dialogue, pending actions and the audit trail live in memory.** Nothing is persisted
+  between processes or runs. The public Lambda's sessionless MCP transport prevents transport
+  affinity errors for request-contained tools; it does not make multi-turn application state
+  durable. A later turn routed elsewhere starts without the earlier context and cannot confirm
+  its pending action.
 * **Braille output is computer Braille, not contracted Grade 2, and the code table is
   unreviewed.** Code fidelity maps each printable ASCII character to its own eight-dot cell
   and is proven lossless by round trip; literary fidelity is six-dot and lossy for code, and

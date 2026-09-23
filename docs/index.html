@@ -821,7 +821,9 @@
           <code>tools/list</code> against <code>POST /mcp</code>, then prints what came
           back: whether the endpoint chose a stateful identifier or stateless mode, and the
           JSON Schema of every tool exactly as the server published it. The public Lambda is
-          stateless so API Gateway can route each request independently.
+          transport-stateless, so request-contained calls need no process-specific MCP id.
+          Dialogue and pending approval state remain process-local and are not durable across
+          Lambda environments.
         </p>
 
         <div class="row-actions">

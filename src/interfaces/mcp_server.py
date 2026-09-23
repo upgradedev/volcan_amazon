@@ -38,7 +38,6 @@ from src.interfaces.mcp_protocol import (
     INVALID_REQUEST,
     PARSE_ERROR,
     PROTOCOL_VERSION,
-    SERVER_NAME,
     SERVER_VERSION,
     SUPPORTED_PROTOCOL_VERSIONS,
     JsonRpcError,
@@ -282,9 +281,10 @@ async def mcp_get(request: Request) -> Response:
     """Opens the server-to-client SSE stream of the Streamable HTTP transport.
 
     This server has no long-lived server-initiated traffic to push, so the
-    stream announces itself and closes rather than holding a socket open for a
-    message that will never come. A client that wants request/response traffic
-    uses POST.
+    stream emits an SSE comment and closes rather than holding a socket open
+    for a message that will never come. A comment is transport metadata, not an
+    MCP logging notification; the server does not advertise logging capability.
+    A client that wants request/response traffic uses POST.
     """
     refusal = (
         _origin_refusal(request)
@@ -294,27 +294,10 @@ async def mcp_get(request: Request) -> Response:
     if refusal is not None:
         return refusal
 
-    session_id = request.headers.get("mcp-session-id")
+    mode = mcp_session_mode()
 
     def event_stream():
-        yield ": volcan mcp stream open\n\n"
-        notice = {
-            "jsonrpc": "2.0",
-            "method": "notifications/message",
-            "params": {
-                "level": "info",
-                "logger": SERVER_NAME,
-                "data": {
-                    "protocolVersion": PROTOCOL_VERSION,
-                    "session": session_id,
-                    "note": (
-                        "Stream opened. This server pushes no unsolicited messages; "
-                        "send JSON-RPC requests to POST /mcp."
-                    ),
-                },
-            },
-        }
-        yield f"event: message\ndata: {json.dumps(notice)}\n\n"
+        yield f": volcan mcp stream open ({mode}); no pending server messages\n\n"
 
     return StreamingResponse(
         event_stream(),

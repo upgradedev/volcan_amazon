@@ -65,8 +65,9 @@ def mcp_session_mode() -> str:
     """Return the configured MCP transport mode.
 
     Stateful mode is useful for a single local process. The public Lambda uses
-    stateless mode because consecutive requests are not guaranteed to hit the
-    same execution environment.
+    a stateless *transport* because consecutive requests are not guaranteed to
+    hit the same execution environment. This setting does not persist dialogue,
+    pending approvals, nonces or audit records across processes.
     """
     mode = os.getenv("VOLCAN_MCP_SESSION_MODE", "stateful").strip().lower()
     if mode not in {"stateful", "stateless"}:

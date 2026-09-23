@@ -120,6 +120,21 @@ def main(url: str) -> int:
     if tools:
         print("        " + ", ".join(sorted(tool["name"] for tool in tools)))
 
+    status, stream_headers, stream_body = call(url, None, session_headers, method="GET")
+    content_type = stream_headers.get("Content-Type") or stream_headers.get("content-type") or ""
+    comment_only = (
+        isinstance(stream_body, str)
+        and stream_body.startswith(":")
+        and "event:" not in stream_body
+        and "data:" not in stream_body
+        and "notifications/message" not in stream_body
+    )
+    report.check(
+        status == 200 and "text/event-stream" in content_type and comment_only,
+        "GET /mcp returns a comment-only terminating SSE stream",
+        f"status {status}, content-type {content_type or '(absent)'}",
+    )
+
     print("\n3. Tool invocation")
     status, _, body = call(url, {
         "jsonrpc": "2.0", "id": 3, "method": "tools/call",

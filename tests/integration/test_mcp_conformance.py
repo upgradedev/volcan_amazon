@@ -73,8 +73,8 @@ def test_two_initializations_issue_different_session_ids():
     assert first != second
 
 
-def test_stateless_mode_survives_requests_without_process_affinity(monkeypatch):
-    """The public Lambda must not bind a client to one warm process."""
+def test_stateless_transport_omits_session_affinity(monkeypatch):
+    """Transport requests work without an MCP id; app state is still process-local."""
     monkeypatch.setenv("VOLCAN_MCP_SESSION_MODE", "stateless")
     initialized = client.post("/mcp", json={
         "jsonrpc": "2.0", "id": 1, "method": "initialize",
@@ -435,16 +435,16 @@ def test_delete_terminates_the_session_and_a_second_delete_is_404():
 
 # --- transport --------------------------------------------------------------
 
-def test_get_mcp_opens_a_terminating_sse_stream():
+def test_get_mcp_opens_a_comment_only_terminating_sse_stream():
     session_id, _ = initialize()
     response = client.get("/mcp", headers=headers_for(session_id))
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
     body = response.text
-    assert "event: message" in body
-    payload = json.loads(body.split("data: ", 1)[1].split("\n", 1)[0])
-    assert payload["jsonrpc"] == "2.0"
-    assert payload["method"] == "notifications/message"
+    assert body.startswith(": volcan mcp stream open")
+    assert "event:" not in body
+    assert "data:" not in body
+    assert "notifications/message" not in body
 
 
 @pytest.mark.parametrize("method", ["put", "patch"])

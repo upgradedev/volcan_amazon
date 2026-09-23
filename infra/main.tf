@@ -113,8 +113,10 @@ resource "aws_lambda_function" "volcan_mcp_function" {
       VOLCAN_GITHUB_WRITE    = "0"
       VOLCAN_ALLOWED_ORIGINS = "https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com"
       # API Gateway may route consecutive requests to different Lambda
-      # environments. MCP 2025-11-25 makes session assignment optional, so the
-      # public endpoint stays stateless and any warm environment can answer.
+      # environments. MCP 2025-11-25 makes transport sessions optional, so
+      # request-contained calls need no process-affine MCP id. Dialogue,
+      # pending approvals, nonces and audit records remain process-local; an
+      # environment without a pending approval cannot release that action.
       VOLCAN_MCP_SESSION_MODE = "stateless"
       AWS_LWA_INVOKE_MODE     = "response_stream"
     }
