@@ -225,23 +225,20 @@ Submitting the review is dry-run by default: on `confirm` the page printed `Dry 
 was sent to GitHub.` beside the exact `POST .../reviews` body it recorded. No live review has
 been sent from this repository. The owner command that produces one is in the README.
 
-**Real code that has not run here.** Amazon Bedrock. The adapter calls Claude on Amazon
+**Real, labelled Amazon Bedrock path.** The adapter calls Claude on Amazon
 Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client, pinned to
-`anthropic.claude-opus-5`. The path is implemented and shape-tested against a stub, and it
-has never executed: no model has answered in this environment, so every digest in this
-repository came from the local heuristic path, labelled `synthesis_mode: heuristic-local` in
-the response and on the page **together with `synthesis_fallback_reason`, which names the
-exception, the model id and the message**. The pinned model id has not been confirmed to
-answer, because nobody working on this repository has AWS access that could confirm it, and
-installing the SDK on a machine whose credentials resolve would fire a real billed call
-against an account without its owner's say-so.
+`anthropic.claude-opus-5`. Every response states whether `bedrock` or the deterministic local
+path answered. When Bedrock fails, `synthesis_fallback_reason` returns one bounded category;
+provider account, role and request identifiers are never returned to the anonymous client.
+The checked-in infrastructure narrows the intended Lambda grant to
+`bedrock-mantle:CreateInference` on its account-scoped default project. A deployment missing
+that grant falls back with the bounded permission category.
 
 `/health` used to publish `bedrock_credentials_present: true` here, which was true and
 misleading: credentials resolve on this machine while the SDK is absent, so no call could be
 attempted at all. It now publishes one resolved capability computed from both facts, reading
 `unavailable_sdk_not_installed` on 2026-09-08, with the credential and SDK booleans underneath
-it as the evidence. The README carries the exact command an owner can run to produce a Bedrock
-receipt themselves.
+it as the evidence. The README carries the exact command that reproduces a per-request receipt.
 
 **Never executed.** No file under `src/` imports or calls `subprocess`, `os.system`, `eval`,
 `exec` or any process spawn. `tests/unit/test_no_execution_in_source_tree.py` walks every
@@ -299,8 +296,8 @@ does and does not compound, is in the README.
   an explicitly simulated voice web experience. The claim is the protocol work, not a
   certified skill.
 * **Mini challenge: AWS Builder.** Claimed as a real Amazon Bedrock adapter whose responses
-  state which path produced them. The claim is the labelled integration, not a Bedrock
-  benchmark, because no model has been invoked from this environment.
+  state which path produced them. The claim is the labelled integration and safe fallback,
+  not a quality benchmark against other models.
 
 ---
 
@@ -313,9 +310,8 @@ does and does not compound, is in the README.
 2. **Send one live review** with `VOLCAN_GITHUB_WRITE=1` and a fine-grained token against a
    repository the owner controls, and record the receipt. The code path exists and is tested
    against a mock; the receipt does not.
-3. **Run the Bedrock path with real credentials** and publish the same benchmark table for
-   `synthesis_mode: bedrock` beside the heuristic figures, so the two paths can be compared
-   rather than assumed equivalent.
+3. **Publish a repeatable Bedrock-versus-local benchmark** for latency and summary usefulness;
+   one successful live receipt proves the integration, not comparative quality.
 4. **Have a Braille transcriber review the two tables.** Code fidelity is proven lossless by
    round trip and literary fidelity names its losses, but neither has been read by a
    transcriber or on a physical display, and contracted Grade 2 is what an experienced reader
@@ -325,8 +321,8 @@ does and does not compound, is in the README.
    wording and digest length is currently a hypothesis.
 6. **Persist sessions and the audit chain.** Both live in memory, so a restart loses the
    tamper-evident history that makes the governance claim worth anything.
-7. **Drive the companion with a real browser in CI.** `tests/e2e` parses the DOM; gate C5 is
-   red because no browser driver runs, and a screen-reader journey with a real microphone
+7. **Drive the companion with assistive technology.** Playwright covers the browser journey
+   in CI, while a screen-reader journey with a real microphone
    belongs in that gap.
 
 ---

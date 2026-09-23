@@ -1,7 +1,8 @@
 """Structural, accessibility and honesty assertions over the companion document.
 
-These are static DOM assertions parsed with the standard library, not a browser
-journey: no browser driver runs here, and gate C5 records that honestly.
+These are static DOM assertions parsed with the standard library. The separate
+``test_browser_journey.py`` process drives Chromium; this file checks structural
+contracts that are faster and clearer to diagnose without a browser.
 
 Two things are being defended.
 
@@ -69,6 +70,15 @@ def test_the_five_second_read_is_above_the_fold():
     headline = re.sub(r"<[^>]+>", "", h1.group(1)).strip()
     assert "Hear your code review" in headline
     assert html.index("<h1") < html.index('id="runReview"'), "the sentence must precede the button"
+
+
+def test_the_primary_action_precedes_secondary_navigation_and_proof_panels():
+    """A first-time visitor should reach the product before the evidence console."""
+    html = read_html()
+    hero = html.index('id="runReview"')
+    assert hero < html.index('class="jump"')
+    assert hero < html.index('id="mcp"')
+    assert hero < html.index('id="governance"')
 
 
 def test_exactly_one_primary_action_is_marked_as_the_hero():

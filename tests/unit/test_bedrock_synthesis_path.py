@@ -1,10 +1,9 @@
 """What the Bedrock adapter does, and what it says when it cannot.
 
-There are no AWS credentials in this repository, so the model has never
-answered here. That is exactly why these tests exist: they pin the request the
-adapter builds, the response shapes it can read, and above all the sentence it
-produces when the call fails, because a fallback nobody can explain is
-indistinguishable from a design decision.
+These tests pin the request the adapter builds, the response shapes it can read,
+and the bounded public sentence it produces when the call fails. A fallback
+nobody can explain is indistinguishable from a design decision; a raw provider
+payload can disclose cloud identity and request data.
 """
 import asyncio
 from types import SimpleNamespace
@@ -126,36 +125,81 @@ def test_a_response_with_no_text_block_degrades_instead_of_raising(with_credenti
     report = _run(adapter)
 
     assert report.synthesis_mode == MODE_HEURISTIC
-    assert "ValueError" in report.fallback_reason
-    assert "no text block" in report.fallback_reason
+    assert report.fallback_reason == (
+        "Amazon Bedrock returned no usable text block; "
+        "the local deterministic digest answered instead"
+    )
 
 
-def test_a_failed_call_names_the_exception_and_the_model(with_credentials):
-    """The reason a reviewer reads has to be actionable, not 'something failed'."""
+def test_a_failed_call_is_actionable_without_leaking_the_provider_payload(with_credentials):
+    """Provider errors can carry account, role and request identifiers."""
     class ResourceNotFoundException(Exception):
         pass
 
-    client = _StubClient(error=ResourceNotFoundException("This model is not available"))
+    secret_payload = (
+        "This model is not available; User arn:aws:sts::123456789012:assumed-role/demo; "
+        "request_id=req_sensitive_123"
+    )
+    client = _StubClient(error=ResourceNotFoundException(secret_payload))
     adapter = BedrockSynthesisAdapter(client_factory=lambda region: client)
 
     report = _run(adapter)
 
     assert report.synthesis_mode == MODE_HEURISTIC
-    assert "ResourceNotFoundException" in report.fallback_reason
-    assert DEFAULT_MODEL_ID in report.fallback_reason
-    assert "This model is not available" in report.fallback_reason
+    assert "configured Amazon Bedrock model is unavailable" in report.fallback_reason
+    for sensitive in ("123456789012", "assumed-role", "req_sensitive_123", secret_payload):
+        assert sensitive not in report.fallback_reason
     assert report.fallback_reason == adapter.last_fallback_reason
+
+
+def test_a_permission_failure_never_returns_aws_identity_or_request_ids(with_credentials):
+    class PermissionDeniedError(Exception):
+        pass
+
+    client = _StubClient(error=PermissionDeniedError(
+        "User arn:aws:sts::123456789012:assumed-role/volcan/session is not authorized; "
+        "request_id=req_private"
+    ))
+    report = _run(BedrockSynthesisAdapter(client_factory=lambda region: client))
+
+    assert report.fallback_reason.startswith("Amazon Bedrock access is not authorized")
+    assert "123456789012" not in report.fallback_reason
+    assert "assumed-role" not in report.fallback_reason
+    assert "req_private" not in report.fallback_reason
+
+
+@pytest.mark.parametrize(
+    ("provider_message", "public_fragment"),
+    [
+        ("ThrottlingException: rate limit exceeded", "temporarily throttled"),
+        ("request timed out", "before the request deadline"),
+        ("service unavailable", "unavailable in this deployment"),
+        ("unexpected transport failure", "did not complete the synthesis request"),
+    ],
+)
+def test_every_provider_failure_category_is_bounded(
+    with_credentials, provider_message, public_fragment,
+):
+    private_suffix = " account=123456789012 request_id=req_private"
+    client = _StubClient(error=RuntimeError(provider_message + private_suffix))
+
+    report = _run(BedrockSynthesisAdapter(client_factory=lambda region: client))
+
+    assert public_fragment in report.fallback_reason
+    assert "123456789012" not in report.fallback_reason
+    assert "req_private" not in report.fallback_reason
 
 
 def test_a_missing_sdk_says_which_package_to_install(with_credentials):
     def _no_sdk(region):
-        raise ImportError("No module named 'anthropic'")
+        raise ImportError("No module named 'anthropic'; private_path=C:/operator/home")
 
     adapter = BedrockSynthesisAdapter(client_factory=_no_sdk)
     report = _run(adapter)
 
     assert report.synthesis_mode == MODE_HEURISTIC
     assert "anthropic[bedrock]" in report.fallback_reason
+    assert "private_path" not in report.fallback_reason
 
 
 def test_absent_credentials_are_reported_as_the_reason(monkeypatch):

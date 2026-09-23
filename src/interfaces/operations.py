@@ -38,8 +38,9 @@ async def op_digest(req: DigestRequest) -> dict[str, Any]:
     return {
         "voice_summary": report.to_voice_summary(level=req.level),
         "synthesis_mode": report.synthesis_mode,
-        # Null when a model answered. Otherwise the exception, the model id and
-        # the message, so a reviewer reads why rather than guessing.
+        # Null when a model answered. Otherwise a bounded product-owned category
+        # explains why the deterministic path answered. Provider payloads can
+        # contain cloud identity and request identifiers and never cross the API.
         "synthesis_fallback_reason": report.fallback_reason,
         "total_files": report.total_files_changed,
         "insertions": report.total_insertions,

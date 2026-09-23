@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-482%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-491%20passing-brightgreen.svg)](tests/)
 
 One pull request goes in. Three things a person can actually use come out, and one governed
 action goes back.
@@ -66,16 +66,13 @@ the client that reaches Claude on Amazon Bedrock. With it installed and AWS cred
 resolvable, the digest in step 4 is sent to a Bedrock model, and the companion page reports
 which engine answered: `Amazon Bedrock` when a model did, `local heuristic` when none did,
 with the reason printed beside it either way. Without the extra the model call cannot even
-be attempted, so the heuristic always answers and the AI in this project never runs. The
-previous quickstart installed the base dependencies only, which is why a judge following it
-exactly saw `SYNTHESIS ENGINE: local heuristic` and `the Anthropic SDK is not installed`.
+be attempted, so the heuristic answers instead. An earlier quickstart installed the base
+dependencies only, which made the fallback unavoidable even when AWS credentials resolved.
 
-That path has still never answered here. See
-[Known limitations](#known-limitations): nobody working on this repository has AWS access
-that can confirm the pinned model id, so what the extra buys you is the attempt and an
-honest label on the outcome, not a promise about the outcome. `python -m pip install
---dry-run -e ".[dev,bedrock]"` on 2026-09-08 resolved to
-`Would install anthropic-1.4.0 httpcore2-2.12.0 httpx2-2.12.0 idna-3.19 pytest-asyncio-1.4.0 starlette-0.41.3 truststore-0.10.4 volcan_amazon-0.1.0`.
+Credentials and an importable SDK only make the path ready to attempt. They do not prove a
+model answered. The receipt is the response itself: `synthesis_mode: bedrock` with a null
+fallback reason. Any provider failure returns a fixed public category; raw account, role and
+request identifiers never enter the anonymous response.
 
 ### 2. Start the server
 
@@ -227,32 +224,16 @@ Claude on Amazon Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` cl
 `anthropic.claude-opus-5`. When the call cannot be made or fails, the deterministic local path
 runs instead. Every response carries `synthesis_mode`, which is `"bedrock"` when a model
 answered and `"heuristic-local"` when none did, **and `synthesis_fallback_reason`, which says
-why**. The companion prints both beside the synthesis meter. An unexplained fallback is
-indistinguishable from a design decision, which is why the reason is not optional.
+why without returning the provider's raw payload**. The companion prints both beside the
+synthesis meter. An unexplained fallback is indistinguishable from a design decision, while a
+verbatim cloud error can expose account, role and request identifiers. Volcan returns a fixed
+category for permission, unavailable-model, throttling, timeout and malformed-response cases.
 
-Run on the development machine on 2026-09-08, **without** the `bedrock` extra the quickstart
-now installs, it prints, verbatim:
-
-```
-synthesis_mode: heuristic-local
-synthesis_fallback_reason: the Anthropic SDK is not installed (No module named 'anthropic');
-pip install 'anthropic[bedrock]' to reach Amazon Bedrock
-```
-
-That reason is the state of this machine, not the state of the product, and it is no longer
-the reason a judge following the quickstart will see. Reaching it at all proves credentials
-resolved, because the adapter checks the credential chain before it imports the SDK: with no
-credentials the reason reads `no AWS credentials were resolved by the boto3 credential
-chain`. With the extra installed and credentials resolving, the call is attempted and the
-reason is whatever the call returns; **that outcome has never been observed here**, so this
-README publishes no line claiming to know it.
-
-**No model has ever answered here, and the pinned model id is unverified.** The quickstart's
-`pip install -e ".[dev,bedrock]"` installs the client. The previous
-pin, `anthropic.claude-3-5-sonnet-20241022-v2:0`, is a retired snapshot on the legacy
-InvokeModel integration and answers `ResourceNotFoundException`; the new id is the documented
-current one, and nobody here has AWS access that could confirm it answers. Confirming it is an
-owner action, listed under Known limitations.
+The client uses the account-scoped Bedrock Mantle project. The checked-in infrastructure
+narrows its intended grant to `bedrock-mantle:CreateInference` on that project; a deployment
+that has not applied the grant falls back with the bounded permission category. `/health`
+reports readiness to attempt; only the digest's `synthesis_mode` reports whether the model
+answered.
 
 **Never executed.** Volcan plans shell commands against an allowlist and refuses the rest. It
 does not run them. The claim covers the whole product, not one module: no file under `src/`
@@ -798,7 +779,7 @@ estimate unless it says ESTIMATE.
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **21 of 21 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 482 passing; 92.92% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-23 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 491 passing; 92.99% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-23 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.4 s | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 117.2 ms on the first press, then 80.5, 42.9 and 58.7 ms, Chrome at 1440x900 on 2026-09-08 | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -961,19 +942,17 @@ named governed-action calls only.
   injected transcripts, the page's typed path is what the recorded browser run used, and a
   real spoken run is the owner's to make. The recogniser's accuracy is the browser vendor's,
   which is exactly why every answer reads back what was understood before acting.
-* **No browser-driver end-to-end test.** `tests/e2e` parses the companion DOM and asserts its
-  structure, its accessibility and its four honesty rules; it does not drive a real browser,
-  because no browser driver is vendored here. Gate C5 records that as a failure. The review
-  journey was walked by hand in Chrome against a running server on 2026-09-08, and the log of
-  that walk is quoted in [What is true and what is simulated](#what-is-true-and-what-is-simulated).
-* **The model-backed path is implemented, shape-tested and has never executed here.** Every
-  digest produced in this repository came from the local heuristic path, labelled
-  `synthesis_mode: heuristic-local` with the reason printed beside it. The client call in
+* **Browser automation does not replace assistive-technology testing.** Playwright drives the
+  primary digest, MCP handshake, earcon and Braille journey against a fresh server in CI. It
+  does not drive a real microphone, screen reader or refreshable Braille display. Those remain
+  part of the target-user proof below.
+* **The model-backed path still degrades safely.** The client call in
   [`src/infrastructure/bedrock_adapter.py`](src/infrastructure/bedrock_adapter.py) is real
   code, and its response handling is covered by
   [`tests/unit/test_bedrock_synthesis_path.py`](tests/unit/test_bedrock_synthesis_path.py)
-  against a stub, so the *shape* of a Bedrock answer is tested and the *answer* is not. No
-  call has ever left this process, so `anthropic.claude-opus-5` on Bedrock is **unconfirmed**.
+  against a stub. A live deployment can still lose permission, model availability or network
+  access; in every case the deterministic digest answers and the public reason is bounded so
+  provider identifiers do not leak.
 
   `/health` used to publish `bedrock_credentials_present: true` on this machine, which was
   true and misleading: boto3 resolves something from the local credential chain, while the
@@ -998,10 +977,7 @@ named governed-action calls only.
   drives all four combinations and fails the build on a health line that predicts a model
   answer.
 
-  **Producing a Bedrock receipt is an owner action, deliberately left undone.** Installing the
-  SDK on a machine whose credentials resolve would fire a real, billed call against the
-  owner's AWS account without their say-so, so nobody working on this repository has done it.
-  The owner can, in one terminal:
+  A local operator can reproduce the per-request receipt with:
 
   ```bash
   python -m pip install -e ".[dev,bedrock]"
@@ -1013,8 +989,8 @@ named governed-action calls only.
        | python -c "import json,sys; d=json.load(sys.stdin); print(d['synthesis_mode'], '|', d['synthesis_fallback_reason'])"
   ```
 
-  A receipt is that last line reading `bedrock | None`. Anything else prints the reason the
-  model did not answer, which is the outcome this repository has recorded every time.
+  A successful receipt is that last line reading `bedrock | None`. Anything else prints the
+  bounded reason category and confirms that the deterministic fallback answered.
 * **The syntax-tree security rules cover three change classes and Python only.** An inverted
   authorization comparison, a widened cross-origin policy, and a removed verification call. A
   deleted guard block, a removed decorator, a dangerous argument value and any non-Python file

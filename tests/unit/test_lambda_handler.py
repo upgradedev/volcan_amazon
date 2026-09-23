@@ -27,6 +27,18 @@ def test_terraform_handler_resolves_to_the_committed_callable():
     assert module_name == "src.interfaces.lambda_handler"
 
 
+def test_terraform_matches_the_mantle_client_and_browser_transport():
+    text = (ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
+    quoted_literals = set(re.findall(r'"([^"]+)"', text))
+    assert '"bedrock-mantle:CreateInference"' in text
+    assert "bedrock:InvokeModel" not in quoted_literals
+    assert "project/default" in text
+    assert re.search(
+        r'VOLCAN_ALLOWED_ORIGINS\s*=\s*"https://[^\"]+\.execute-api\.eu-west-1\.amazonaws\.com"',
+        text,
+    )
+
+
 def test_health_runs_through_the_lambda_bridge_and_exposes_revision(monkeypatch):
     monkeypatch.setenv("SOURCE_REVISION", "abc123def456")
     response = handler(event("GET", "/health"))
