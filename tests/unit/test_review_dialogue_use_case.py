@@ -16,7 +16,11 @@ import httpx
 import pytest
 
 from src.application.digest_diff_use_case import DigestDiffUseCase
-from src.application.review_authorization import ReviewPrincipal, current_review_principal
+from src.application.review_authorization import (
+    ReviewAuthorizationError,
+    ReviewPrincipal,
+    current_review_principal,
+)
 from src.application.review_dialogue_use_case import (
     ACTION_TYPE,
     STAGING_PRINCIPAL,
@@ -186,6 +190,49 @@ def test_a_correction_and_a_stop_travel_through_the_use_case_unchanged():
     assert stopped["state"] == "FILE"
 
 
+def test_stop_then_resume_retains_exact_file_line_and_revision():
+    use_case, _, _, _, opened_turn = opened()
+    assert len(opened_turn["spoken"].split()) < 45, "the initial answer stays short"
+    say(use_case, "what changed in permissions dot py")
+    say(use_case, "line 14")
+    say(use_case, "stop")
+
+    resumed = say(use_case, "resume")
+
+    assert resumed["state"] == "LINES"
+    assert resumed["readback"] == "Understood: resume."
+    assert "permissions.py" in resumed["spoken"]
+    assert "new line 14" in resumed["spoken"]
+    assert "head commit aaaaaaa" in resumed["spoken"]
+    assert resumed["line"]["new_no"] == 14
+
+
+def test_resume_refreshes_a_moved_head_and_invalidates_the_old_approval():
+    fake = FakeGitHub()
+    use_case, github, _, fake, stage = staged(fake)
+    fake.head = MOVED
+
+    resumed = say(use_case, "resume")
+
+    assert resumed["state"] == "OVERVIEW"
+    assert "changed from aaaaaaa to bbbbbbb" in resumed["spoken"]
+    assert "old approval was invalidated" in resumed["spoken"]
+    assert resumed["pull_request"]["head_sha"] == MOVED
+    assert resumed["awaiting_confirmation"] is False
+    later = say(use_case, "confirm", approval_grant=stage["approval_grant"])
+    assert later["error"] is True and later["review_outcome"] is None
+    assert github.recorded_requests == []
+
+
+def test_dry_run_sessions_are_bound_to_the_declared_user():
+    use_case, _, _, _, _ = opened()
+    with pytest.raises(ReviewAuthorizationError) as raised:
+        asyncio.run(use_case.handle_turn(
+            session_id="s1", user_id="different-developer", transcript="resume",
+        ))
+    assert getattr(raised.value, "code", None) == "SESSION_OWNER_MISMATCH"
+
+
 def test_sessions_do_not_share_a_pending_review():
     use_case, _, _, _, stage = staged()
     other = say(use_case, "confirm", session="s2", approval_grant=stage["approval_grant"])
@@ -225,9 +272,18 @@ def test_a_grant_for_a_different_review_is_refused_as_the_wrong_action():
 
 
 def test_the_approver_cannot_be_the_principal_that_staged_the_review():
-    use_case, _, audit, _, stage = staged()
+    fake = FakeGitHub()
+    use_case, _, audit = build(fake)
+    asyncio.run(use_case.handle_turn(
+        session_id="agent-session", user_id=STAGING_PRINCIPAL,
+        transcript="open", pr_url=PR_URL,
+    ))
+    stage = asyncio.run(use_case.handle_turn(
+        session_id="agent-session", user_id=STAGING_PRINCIPAL,
+        transcript="request changes: restore the equality check",
+    ))
     turn = asyncio.run(use_case.handle_turn(
-        session_id="s1", user_id=STAGING_PRINCIPAL, transcript="confirm",
+        session_id="agent-session", user_id=STAGING_PRINCIPAL, transcript="confirm",
         approval_grant=stage["approval_grant"],
     ))
     assert turn["review_outcome"]["refusal_code"] == "SELF_APPROVAL"

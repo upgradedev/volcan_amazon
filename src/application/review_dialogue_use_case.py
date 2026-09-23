@@ -95,7 +95,7 @@ class ReviewDialogueUseCase:
     ) -> dict[str, Any]:
         live = bool(self._github.capability()["write_enabled"])
         principal = require_review_principal() if live else None
-        owner = principal.identity if principal else None
+        owner = principal.identity if principal else user_id.strip()
         if session_id in self._session_owners and self._session_owners[session_id] != owner:
             raise ReviewAuthorizationError(
                 "SESSION_OWNER_MISMATCH", 403,
@@ -113,6 +113,8 @@ class ReviewDialogueUseCase:
 
         if turn.needs == "open":
             turn = await self._open(dialogue, command, pr_url, raw_diff)
+        elif turn.needs == "resume":
+            turn = await self._resume(dialogue, command)
         elif turn.needs == "request_changes":
             turn, extra = self._stage(dialogue, command)
         elif turn.needs == "confirm":
@@ -122,6 +124,24 @@ class ReviewDialogueUseCase:
             turn = dialogue.cancel_review(command)
 
         return self._serialise(dialogue, turn, extra)
+
+    async def _resume(self, dialogue: ReviewDialogue, command: Command) -> DialogueTurn:
+        pr = dialogue.pull_request
+        if pr is None:
+            return dialogue.resume(command)
+        try:
+            live = await asyncio.to_thread(self._github.fetch_pull_request, pr.url)
+        except Exception as exc:  # noqa: BLE001 - the reason is the answer
+            return dialogue._turn(
+                command, "resume",
+                f"The pull request could not be refreshed. {type(exc).__name__}: {exc}",
+                error=True, earcon=EarconType.TEST_FAILED, remember=False,
+            )
+        if live.head_sha == pr.head_sha:
+            return dialogue.resume(command)
+        report = await self._digest.execute(live.diff)
+        self._pending.pop(dialogue.session_id, None)
+        return dialogue.refresh(report, live, command, previous_head=pr.head_sha)
 
     # -- open ------------------------------------------------------------------
 
