@@ -5,6 +5,7 @@ the Model Context Protocol and is never described as MCP; the MCP surface lives
 at /mcp and speaks JSON-RPC.
 """
 import base64
+import os
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response
@@ -59,6 +60,7 @@ async def health_check() -> dict[str, Any]:
         "status": "ok",
         "service": SERVER_NAME,
         "version": SERVER_VERSION,
+        "source_revision": os.getenv("SOURCE_REVISION", "unavailable"),
         "mcp": {
             "endpoint": "/mcp",
             "protocol_version": PROTOCOL_VERSION,
