@@ -31,6 +31,7 @@ from typing import Any
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
+from src.application.durable_state import DurableStateError, SessionOwnerMismatch, StateConflict
 from src.application.review_authorization import current_review_principal
 from src.infrastructure.observability_harness import PrivateObservabilityHarness
 from src.interfaces.composition import allowed_origins, mcp_session_mode, sessions
@@ -57,6 +58,27 @@ app = FastAPI(
     version=SERVER_VERSION,
 )
 app.include_router(rest_router)
+
+
+@app.exception_handler(SessionOwnerMismatch)
+async def session_owner_mismatch(_request: Request, exc: SessionOwnerMismatch) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"error": "session_owner_mismatch", "detail": str(exc)})
+
+
+@app.exception_handler(StateConflict)
+async def durable_state_conflict(_request: Request, exc: StateConflict) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"error": "state_conflict", "detail": str(exc)})
+
+
+@app.exception_handler(DurableStateError)
+async def durable_state_unavailable(_request: Request, _exc: DurableStateError) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": "durable_state_unavailable",
+            "detail": "Durable state is unavailable; no new action was released. Retry later.",
+        },
+    )
 
 
 @app.middleware("http")

@@ -10,6 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response
 
+from src.application.durable_state import DurableStateError, SessionOwnerMismatch, StateConflict
 from src.application.review_authorization import ReviewAuthorizationError
 from src.domain.sonification import EarconType
 from src.interfaces.composition import (
@@ -18,6 +19,7 @@ from src.interfaces.composition import (
     bedrock_adapter,
     braille_use_case,
     dry_run_executor,
+    durable_state_capability,
     ecosystem_use_case,
     github_adapter,
     mcp_session_mode,
@@ -57,8 +59,9 @@ router = APIRouter()
 
 @router.get("/health")
 async def health_check() -> dict[str, Any]:
+    durable = durable_state_capability()
     return {
-        "status": "ok",
+        "status": "degraded" if durable.get("reachable") is False else "ok",
         "service": SERVER_NAME,
         "version": SERVER_VERSION,
         "source_revision": os.getenv("SOURCE_REVISION", "unavailable"),
@@ -71,6 +74,7 @@ async def health_check() -> dict[str, Any]:
             "active_sessions": sessions.count,
         },
         "rest_prefix": "/api",
+        "durable_state": durable,
         # One field, not two half-facts. ``bedrock_credentials_present`` used to
         # sit here on its own and was read as a promise that a model would
         # answer: credentials resolve on the development machine, where the SDK
@@ -87,7 +91,14 @@ async def health_check() -> dict[str, Any]:
 
 @router.get("/api/audit_log")
 async def rest_audit_log() -> dict[str, Any]:
-    return op_audit_log()
+    try:
+        return op_audit_log()
+    except ReviewAuthorizationError as exc:
+        raise HTTPException(
+            status_code=exc.status,
+            detail={"code": exc.code, "message": str(exc)},
+            headers={"WWW-Authenticate": "Bearer"} if exc.status == 401 else None,
+        ) from exc
 
 
 @router.post("/api/digest_semantic_diff")
@@ -133,13 +144,29 @@ async def rest_play_earcon(req: PlayEarconRequest) -> Response:
 
 @router.post("/api/voice_turn")
 async def rest_voice_turn(req: VoiceTurnRequest) -> dict[str, Any]:
-    return await voice_turn_use_case.handle_turn(
-        session_id=req.session_id,
-        user_id=req.user_id,
-        repo=req.repository,
-        intent=req.intent,
-        params=req.params,
-    )
+    try:
+        return await voice_turn_use_case.handle_turn(
+            session_id=req.session_id,
+            user_id=req.user_id,
+            repo=req.repository,
+            intent=req.intent,
+            params=req.params,
+        )
+    except ReviewAuthorizationError as exc:
+        raise HTTPException(
+            status_code=exc.status,
+            detail={"code": exc.code, "message": str(exc)},
+            headers={"WWW-Authenticate": "Bearer"} if exc.status == 401 else None,
+        ) from exc
+    except SessionOwnerMismatch as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except StateConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except DurableStateError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Durable state is unavailable; no action was executed. Retry later.",
+        ) from exc
 
 
 @router.post("/api/review/turn")
@@ -164,6 +191,13 @@ async def rest_review_turn(req: ReviewTurnRequest) -> dict[str, Any]:
         raise HTTPException(
             status_code=exc.status, detail={"code": exc.code, "message": str(exc)},
             headers={"WWW-Authenticate": "Bearer"} if exc.status == 401 else None,
+        ) from exc
+    except StateConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except DurableStateError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Durable state is unavailable; no new action was released. Retry later.",
         ) from exc
     result.pop("_wav", None)
     return result

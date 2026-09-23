@@ -194,6 +194,20 @@ dialogue, pending approvals, nonce consumption and audit records remain process-
 dialogue loses context if a later request lands elsewhere. Approval confirmation cannot find
 or release a pending action in that case and fails closed.
 
+**Application-state follow-up (source candidate, 2026-09-23).** The next failure was ours,
+not MCP's: stateless transport did not make the application stateless. The Terraform candidate
+now provisions one encrypted, pay-per-request DynamoDB table. Review and voice session keys are
+opaque and owner-scoped; durable voice ownership comes from the Bearer roster rather than the
+JSON `user_id`; review and voice actions use opaque owner/repository/session namespaces;
+staging writes the session and action together; approval claims the
+action and nonce together; terminal state and its reviewer/repository-scoped audit record
+advance together. Local mode remains in memory and `/health` reports configured/reachable
+status without AWS identifiers. Cold-start and concurrent-worker tests exercise the candidate,
+but it is not called deployed until an exact source revision reports reachable DynamoDB and
+completes the cross-worker journey. A crash after an action is claimed and before GitHub's
+response is known deliberately leaves an ambiguous `APPROVED` state for operator reconciliation
+rather than retrying a possible write.
+
 **Suggestion.** Put the stateless deployment pattern beside the session-management section
 of the transport guide. A random id plus an in-process set looks correct in local tests and
 fails only after a load balancer sends the next request elsewhere.

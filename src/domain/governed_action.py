@@ -64,6 +64,10 @@ class AuditLogRecord:
     timestamp: str
     staged_by: str = "unknown"
     approved_by: str = "unapproved"
+    # Durable repositories use this value to select an isolated hash chain.
+    # It is deliberately part of the record seal; moving a record between
+    # scopes after the fact therefore breaks verification.
+    audit_scope: str = "local"
     #: Position in the tamper-evident chain, filled in when the record is sealed
     #: by src/domain/audit_chain.py. -1 means the record has not been sealed.
     sequence: int = -1
@@ -85,6 +89,7 @@ class GovernedAction:
     approval_token: str | None = None
     approved_by: Principal | None = None
     execution_result: str | None = None
+    audit_scope: str = "local"
 
     @classmethod
     def create(
@@ -95,23 +100,29 @@ class GovernedAction:
         summary_spoken: str,
         lease_sec: float = 300.0,
         staged_by: Principal | None = None,
+        audit_scope: str = "local",
     ) -> "GovernedAction":
         return cls(
             action_id=action_id,
             action_type=action_type,
             command_or_path=command_or_path,
-            payload_hash=cls.compute_payload_hash(action_type, command_or_path),
+            payload_hash=cls.compute_payload_hash(action_type, command_or_path, audit_scope),
             summary_spoken=summary_spoken,
             staged_by=staged_by or Principal.agent(),
             state=ActionState.PENDING_APPROVAL,
             created_at_epoch=time.time(),
             lease_duration_sec=lease_sec,
+            audit_scope=audit_scope,
         )
 
     @staticmethod
-    def compute_payload_hash(action_type: str, command_or_path: str) -> str:
+    def compute_payload_hash(
+        action_type: str, command_or_path: str, binding_context: str = "local"
+    ) -> str:
         """The content binding an approval grant is signed over."""
-        return hashlib.sha256(f"{action_type}:{command_or_path}".encode()).hexdigest()
+        return hashlib.sha256(
+            f"{action_type}:{command_or_path}:{binding_context}".encode()
+        ).hexdigest()
 
     @property
     def expires_at_epoch(self) -> float:
@@ -165,4 +176,5 @@ class GovernedAction:
             timestamp=datetime.now(timezone.utc).isoformat(),
             staged_by=self.staged_by.principal_id,
             approved_by=self.approved_by.principal_id if self.approved_by else "unapproved",
+            audit_scope=self.audit_scope,
         )

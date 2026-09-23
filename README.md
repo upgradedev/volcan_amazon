@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-492%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-515%20passing-brightgreen.svg)](tests/)
 
 One pull request goes in. Three things a person can actually use come out, and one governed
 action goes back.
@@ -231,10 +231,11 @@ verbatim cloud error can expose account, role and request identifiers. Volcan re
 category for permission, unavailable-model, throttling, timeout and malformed-response cases.
 
 The client uses the account-scoped Bedrock Mantle project. The checked-in infrastructure
-narrows its intended grant to `bedrock-mantle:CreateInference` on that project; a deployment
-that has not applied the grant falls back with the bounded permission category. `/health`
-reports readiness to attempt; only the digest's `synthesis_mode` reports whether the model
-answered.
+defines that permission as a separate policy behind `enable_bedrock_mantle=false`; the
+durable-state plan does not add model authority by default. Enabling it is a separate owner
+decision. A deployment without the grant falls back with the bounded permission category.
+`/health` reports readiness to attempt; only the digest's `synthesis_mode` reports whether
+the model answered.
 
 **Never executed.** Volcan plans shell commands against an allowlist and refuses the rest. It
 does not run them. The claim covers the whole product, not one module: no file under `src/`
@@ -398,6 +399,10 @@ broke. It is tamper-evident, not tamper-proof: nothing here stops someone who ca
 whole chain from re-sealing it end to end, because the head hash is not published anywhere
 the writer cannot reach. `python -m pytest tests/unit/test_audit_chain.py -v` covers each
 detection path.
+In durable mode there is one chain per authenticated reviewer and repository, selected by a
+hashed partition key. `/api/audit_log` requires a reviewer credential and derives the only
+readable scopes from the server-side repository roster; it never accepts a caller-provided
+scope or exposes a global audit listing.
 
 ---
 
@@ -430,10 +435,21 @@ Protocol behaviour worth checking: in the default single-process mode `initializ
 cryptographically random `Mcp-Session-Id`, and a session this server never minted is answered
 HTTP 404. The public Lambda sets `VOLCAN_MCP_SESSION_MODE=stateless`, so it issues no session
 header and request-contained calls do not depend on a process-specific MCP id. Both modes are
-permitted by revision 2025-11-25 and the conformance runner detects which one answered. This
-is transport behaviour only: dialogue, pending approvals, nonce consumption and audit records
-remain process-local. A dialogue routed to another environment loses its context; approval
-confirmation cannot find or release the earlier pending action and fails closed.
+permitted by revision 2025-11-25 and the conformance runner detects which one answered. The
+Terraform Lambda additionally sets `VOLCAN_STATE_TABLE`: review and voice sessions, pending
+actions, spent nonces and scoped audit records then use one encrypted DynamoDB table shared by
+every worker. Staging commits the session and action together; approval claims the action and
+nonce together; finalization commits the terminal action and audit line together. Local runs
+without that variable deliberately remain process-memory only. `/health` reports configuration
+and successful reachability without publishing AWS resource identifiers, so transport
+statelessness or configuration alone is never presented as state durability.
+
+Durable voice turns also require the existing `VOLCAN_REVIEWERS` Bearer roster. The server
+derives the owner and allowed `owner/repository` from that credential, ignores the JSON
+`user_id` for ownership and gives each owner/repository/session an opaque action namespace.
+This prevents caller-selected session or action ids from reading, approving or rejecting
+another reviewer's staged action. Local process-memory demos retain the unauthenticated
+simulated voice flow.
 `MCP-Protocol-Version` is required on every request after initialize and is echoed on every
 response; `notifications/initialized` returns HTTP 202 with no body; JSON-RPC error codes
 `-32700`, `-32600`, `-32601` and `-32602` are all reachable; a failing tool is reported as
@@ -613,11 +629,13 @@ Measured on the development machine on 2026-09-08 with neither variable set:
 Live mode also requires `VOLCAN_REVIEWERS`, a server-only JSON roster, for example
 `{"alice":{"token":"<generate-a-random-secret-of-at-least-32-characters>","repositories":["owner/repo"]}}`.
 Use a distinct random credential per human, keep the GitHub token on the server, and use
-HTTPS outside loopback. Send `Authorization: Bearer <reviewer-token>` on every REST review
-turn or MCP request calling `review_dialogue_turn`. The companion has a password field
+HTTPS outside loopback. Send `Authorization: Bearer <reviewer-token>` on every durable voice
+or REST review turn, and every MCP request calling `voice_turn` or `review_dialogue_turn`.
+The companion has a password field
 for this reviewer credential; it is not saved in browser storage. Reload before changing
 reviewer. The server derives the approver from the roster and ignores JSON `user_id`
-as authority. A dialogue session and its grant are bound to that identity; another identity,
+as authority. A durable voice session, dialogue session and grant are bound to that identity;
+another identity,
 an anonymous request, a grant from another session, or a repository outside the exact
 allowlist cannot release the review. Repository matching is case-insensitive; wildcards,
 missing/invalid rosters and duplicate credentials fail closed. Credential removal takes
@@ -787,7 +805,7 @@ estimate unless it says ESTIMATE.
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **22 of 22 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 492 passing; 92.97% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-23 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 515 passing; 91.26% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-24 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.4 s | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 117.2 ms on the first press, then 80.5, 42.9 and 58.7 ms, Chrome at 1440x900 on 2026-09-08 | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -1011,15 +1029,28 @@ named governed-action calls only.
 * **No video has been recorded.** [`video/SHOT_LIST.md`](video/SHOT_LIST.md) is a beat sheet
   in which every beat is an action this repository can perform today, and `video/` holds no
   footage. Gates E2 and E4 are red for that reason.
-* **Approval grants do not survive a restart.** The signing secret is generated per process
-  unless `VOLCAN_APPROVAL_SECRET` is set, so outstanding grants become invalid when the server
-  restarts. Nonce consumption is also process-local. Both conditions fail closed because the
-  corresponding pending action is process-local too.
-* **Dialogue, pending actions and the audit trail live in memory.** Nothing is persisted
-  between processes or runs. The public Lambda's sessionless MCP transport prevents transport
-  affinity errors for request-contained tools; it does not make multi-turn application state
-  durable. A later turn routed elsewhere starts without the earlier context and cannot confirm
-  its pending action.
+* **Durability is deployment-dependent and bounded.** A local run without
+  `VOLCAN_STATE_TABLE` keeps dialogue, actions, spent nonces and audit records in process
+  memory, and a restart loses them. The Terraform deployment passes only an existing
+  `VOLCAN_APPROVAL_SECRET_ARN`; Lambda reads the 32-byte-or-longer SecretString from Secrets
+  Manager at cold start. Terraform never receives the value, and durable mode refuses a direct
+  secret environment value or an unavailable/short secret. `/health.durable_state` reports
+  configuration and reachability for the running instance without exposing the table, ARN or
+  account. The state document limit is 320,000 bytes, so a larger review is refused at the
+  persistence boundary instead of silently becoming process-local.
+* **A claimed external write is fail-closed, not magically exactly-once.** The pending action
+  and grant nonce move in one transaction before a GitHub write is attempted. A concurrent
+  request or retry therefore cannot send the review twice. Terminal state and its scoped audit
+  line also commit together, so an audit failure never leaves `EXECUTED` or `FAILED` without a
+  chain record. If a worker dies after claim but before the external response is known, the
+  durable action remains `APPROVED` and cannot be retried automatically; an operator must
+  reconcile it against GitHub. That ambiguous crash window is preserved rather than guessed
+  away.
+* **Durable review state contains supplied code.** The semantic report includes source lines
+  needed for exact spoken navigation. Terraform stores it encrypted at rest in DynamoDB with
+  a two-hour TTL on session items and point-in-time recovery on the table. DynamoDB TTL is
+  asynchronous and backups can retain deleted state, so this is not an immediate-erasure
+  promise. Deployers must set retention and access policy for their own data obligations.
 * **Braille output is computer Braille, not contracted Grade 2, and the code table is
   unreviewed.** Code fidelity maps each printable ASCII character to its own eight-dot cell
   and is proven lossless by round trip; literary fidelity is six-dot and lossy for code, and

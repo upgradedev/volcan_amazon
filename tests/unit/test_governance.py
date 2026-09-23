@@ -13,7 +13,7 @@ from src.domain.approval_grant import ApprovalGrantIssuer, GrantRefusal
 from src.domain.governed_action import ActionState, GovernedAction, Principal
 from src.infrastructure.audit_repository import InMemoryAuditRepository
 
-SECRET = b"volcan-test-signing-secret-0001"
+SECRET = b"volcan-test-signing-secret-0001-x"
 
 
 class RecordingExecutor:
@@ -84,7 +84,7 @@ def test_grant_minted_with_a_different_secret_is_refused():
     async def _run():
         use_case, executor, _ = make_use_case()
         ticket = use_case.stage_action("act-other-key", "RUN_PYTEST", "pytest tests/unit", "Run tests")
-        rogue = ApprovalGrantIssuer(b"an-entirely-different-secret-x").issue(
+        rogue = ApprovalGrantIssuer(b"an-entirely-different-secret-xxxx").issue(
             "act-other-key", ticket.action.payload_hash, time.time() + 300,
         )
         outcome = await use_case.confirm_and_execute("act-other-key", rogue, Principal.human("attacker"))

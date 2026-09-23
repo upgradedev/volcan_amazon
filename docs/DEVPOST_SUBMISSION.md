@@ -103,8 +103,8 @@ readiness gate verifies by parsing every domain module.
   over the **Streamable HTTP** transport: JSON-RPC 2.0 at `POST /mcp`, an SSE stream at
   `GET /mcp`, optional cryptographically random sessions on a single-process host, a stateless
   public Lambda transport for request-contained calls, protocol version negotiation, Origin
-  validation, and the full set of JSON-RPC error codes. Dialogue and approval state remain
-  process-local and are not described as durable across Lambda environments.
+  validation, and the full set of JSON-RPC error codes. Transport is stateless on Lambda;
+  application state is shared only when `/health.durable_state.backend` reports `dynamodb`.
   Twelve tools, each with a JSON Schema generated from the pydantic model that parses its
   arguments, so the published schema cannot drift from the code. A separate REST surface at
   `/api` serves the web companion and is never called MCP.
@@ -119,7 +119,13 @@ readiness gate verifies by parsing every domain module.
   why. An allowlisted dry-run planner that imports no execution primitive at all. A GitHub
   adapter over `httpx` whose read is live and whose write is dry-run by default, tested against
   a mock transport for the accepted review, the moved head, the missing token and the
-  unauthorized token.
+  unauthorized token. The Terraform candidate adds versioned DynamoDB dialogue state,
+  atomic session/action staging, atomic action/nonce claims and reviewer/repository-scoped
+  audit chains whose terminal action and record advance in one transaction;
+  durable voice ownership and action namespaces come from the authenticated server roster,
+  never the caller's `user_id`;
+  cold-start and concurrency tests use independent adapter instances rather than shared Python
+  objects.
 * **The companion page.** One self-contained HTML file, served by FastAPI at `/` and `/demo`.
   It holds no second implementation of the product: pressing its one primary button posts the
   patch to the running server, plays the WAV the server returned, draws the waveform from
@@ -213,10 +219,13 @@ those defects became build failures instead of things to remember.
 checks pass. The companion page performs the same `initialize` and `tools/list` handshake in
 the browser and renders the negotiated protocol version, the stateful or stateless transport
 choice and every published tool schema. The public Lambda chooses stateless transport so an
-independent request is not rejected for lacking a process-specific MCP id. Multi-turn dialogue,
-pending approvals, nonce consumption and audit records remain process-local; if routing loses
-that state, dialogue loses its context and approval confirmation fails closed rather than
-claiming cross-process continuity.
+independent request is not rejected for lacking a process-specific MCP id. The Terraform
+candidate also provisions encrypted DynamoDB state for multi-turn dialogue, pending actions,
+spent nonces and scoped transactional audit chains. Its Lambda environment carries only a
+Secrets Manager ARN, while the signing value is fetched at cold start and never enters
+Terraform. Local mode remains in-memory. A running instance proves configured and reachable
+state through `/health.durable_state` without AWS identifiers; this text does not treat
+committed Terraform as a deployment receipt.
 
 **Simulated, and labelled on screen and in the README.** The voice experience is a web
 companion, not an Alexa skill. No skill package is submitted, no certification has been
@@ -326,8 +335,11 @@ does and does not compound, is in the README.
 5. **Test with the people this is for.** Nothing here has been through a session with a blind
    or motor-impaired developer, and every design decision about cue ordering, readback
    wording and digest length is currently a hypothesis.
-6. **Persist sessions and the audit chain.** Both live in memory, so a restart loses the
-   tamper-evident history that makes the governance claim worth anything.
+6. **Deploy and fault-test the durable-state candidate.** The cold-start and concurrent-worker
+   suite proves the conditional DynamoDB model with an in-process double. The remaining proof
+   is an exact-SHA deployment and a cross-container dialogue/approval run. Local tests already
+   inject stage/finalization failures and response loss; a post-claim external-write crash still
+   requires the documented operator-reconciliation state.
 7. **Drive the companion with assistive technology.** Playwright covers the browser journey
    in CI, while a screen-reader journey with a real microphone
    belongs in that gap.
