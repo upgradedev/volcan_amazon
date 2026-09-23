@@ -449,6 +449,32 @@ def test_loopback_origin_is_accepted():
     assert response.status_code == 200
 
 
+def test_the_companion_can_initialize_mcp_on_its_configured_origin(monkeypatch):
+    """The deployed page and MCP endpoint share one origin.
+
+    A fixed loopback allowlist made the terminal probe pass while the browser
+    received 403. The deployment allowlist is the security boundary for this
+    case; the request Host is deliberately not trusted.
+    """
+    monkeypatch.setenv("VOLCAN_ALLOWED_ORIGINS", "https://volcan.example.com")
+    response = client.post(
+        "/mcp", headers={"Origin": "https://volcan.example.com"},
+        json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+    )
+    assert response.status_code == 200
+    assert response.json()["result"]["protocolVersion"] == PROTOCOL_VERSION
+
+
+def test_matching_origin_and_host_are_not_trusted_without_configuration():
+    """A rebinding page can control both Origin and Host; neither grants access."""
+    response = client.post(
+        "/mcp",
+        headers={"Origin": "https://rebound.example", "Host": "rebound.example"},
+        json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+    )
+    assert response.status_code == 403
+
+
 def test_absent_origin_is_accepted_for_non_browser_clients():
     response = client.post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
     assert response.status_code == 200

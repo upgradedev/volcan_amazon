@@ -103,6 +103,10 @@ def _origin_refusal(request: Request) -> JSONResponse | None:
     origin = request.headers.get("origin")
     if origin is None:
         return None
+    # A browser calling the companion sends an Origin even when the page and
+    # endpoint share an origin. That public origin must still be configured
+    # explicitly: trusting Host/request.base_url would reopen the DNS-rebinding
+    # case this check exists to prevent.
     if origin in allowed_origins():
         return None
     return JSONResponse(

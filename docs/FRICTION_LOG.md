@@ -96,16 +96,15 @@ the cue from the report, one selector shared by the REST, MCP, voice and CLI sur
 
 ---
 
-## 4. There is no way to exercise Amazon Bedrock without credentials, so the fallback
-path is the one that gets tested
+## 4. A partial readiness signal hid why the Amazon Bedrock path fell back
 
-**Context.** `src/infrastructure/bedrock_adapter.py` calls Claude on Amazon Bedrock through
-the Anthropic SDK's `AnthropicBedrockMantle` client. The build environment has no usable
-Amazon Bedrock access.
+**Historical context (2026-09-08).** `src/infrastructure/bedrock_adapter.py` calls Claude on
+Amazon Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client. The original
+development environment could resolve AWS credentials but did not include the SDK, so only
+the deterministic local path ran.
 
-**Observed behaviour.** Every digest in this repository was produced by the deterministic
-local path and carries `"synthesis_mode": "heuristic-local"`. The Bedrock branch has never
-run, and this repository says so in its README rather than implying otherwise.
+**Observed behaviour then.** Digests carried `"synthesis_mode": "heuristic-local"`, but the
+page did not explain why. That made a missing dependency look like a product decision.
 
 **The part that was worse than the missing credentials.** Until 2026-09-08 the mode field
 was the only thing a reviewer got. `/health` reported `"bedrock_credentials_present": true`
@@ -117,13 +116,8 @@ the time, `anthropic.claude-3-5-sonnet-20241022-v2:0`, was a retired snapshot an
 `ResourceNotFoundException`, and nothing in the codebase ever showed that string to anyone.
 The adapter had been recording the reason on itself the whole time and no caller read it.
 Every response now carries `synthesis_fallback_reason` and the page prints it beside the
-mode. Today it reads:
-
-```
-synthesis_mode: heuristic-local
-synthesis_fallback_reason: the Anthropic SDK is not installed (No module named 'anthropic');
-pip install 'anthropic[bedrock]' to reach Amazon Bedrock
-```
+mode. A local environment without the optional dependency reports a fixed, actionable
+category rather than exposing provider internals.
 
 **The second half of the same mistake, corrected on 2026-09-08.** Naming the reason fixed the
 digest and left the health check wrong. `/health` still published
@@ -142,13 +136,14 @@ integration" that has never once called Bedrock, which is a failure mode a revie
 see from the outside. The mitigation Volcan uses is a labelled mode field in every response
 payload, so which path ran is visible in the data rather than inferred from the code.
 
-There is a sharper edge to this than a missing convenience. Confirming the integration on this
-machine would have meant installing the SDK where credentials already resolve, and the very
-next digest would have fired a real, billed call against an account whose owner had not been
-asked. The cheapest possible proof that an integration works costs somebody money and needs
-somebody's consent, so the honest option left is to ship the path untested and say so. That is
-what this repository did, and it is why the Bedrock receipt is an owner action with a written
-command rather than a screenshot.
+**Live follow-up (2026-09-23).** The deployed function includes the Bedrock client and reaches
+the provider boundary. Its execution role, however, lacks
+`bedrock-mantle:CreateInference` for the account's default project, so the request falls back.
+The Terraform policy now names the action and resource the Mantle client actually uses. The
+public response maps provider failures to fixed categories, so account, role, resource ARN
+and request identifiers cannot leak through the anonymous demo. Applying that production IAM
+change remains an operator-authorized deployment step; the response receipt remains the proof
+of whichever engine answered a particular request.
 
 **Recommendation.** Ship a local Bedrock emulator, or a documented offline mode of the SDK
 that returns fixed responses and is impossible to mistake for the real service. A

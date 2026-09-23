@@ -8,10 +8,10 @@ Every scenario below maps to an automated test that exists in this repository an
 can run. Where a scenario cannot be automated here, it says so and names what is missing,
 rather than describing an outcome nobody observed.
 
-No scenario in this document involves an Echo device, a physical Braille display, a
-sip-and-puff switch or an Amazon Bedrock call, because none of those were available while
-this was built. The behaviour those devices would drive is tested through the API they
-would call.
+No scenario in this document claims an Echo device, physical Braille display, sip-and-puff
+switch or target-user result. Those need the corresponding hardware or consenting user. The
+automated scenarios test the browser, protocol and API behaviour those surfaces would drive;
+the per-request receipt separately records whether Bedrock or the deterministic path answered.
 
 ---
 
@@ -39,7 +39,7 @@ would call.
 | UAT-18 | The companion never claims a connection it did not make | The initial state is `checking`, the state comes from a real `GET /health`, and browser-only results are tagged | `tests/e2e/test_html_structure.py::test_the_page_makes_no_connection_claim_before_a_real_fetch` |
 | UAT-19 | The earcon says which verdict the digest reached | A security-sensitive patch and a benign one return different WAV bytes: the falling `SECURITY_FINDING` cue and the rising `DIFF_READY` cue, on the REST, MCP, voice and drill-down paths alike | `tests/unit/test_earcon_encodes_the_verdict.py` |
 | UAT-20 | A benign patch does not sound the alarm | The cue stays `DIFF_READY` when there is no critical finding and no `SECURITY_SENSITIVE` section | `tests/unit/test_earcon_encodes_the_verdict.py::test_a_benign_patch_still_gets_the_rising_ready_cue` |
-| UAT-21 | The quickstart installs the model path without promising its output | The install line carries the `bedrock` extra, pyproject declares it, and the README keeps saying no model has answered here | `tests/unit/test_quickstart_reaches_the_model_path.py` |
+| UAT-21 | The quickstart installs the model path without promising its output | The install line carries the `bedrock` extra, pyproject declares it, the receipt distinguishes a Bedrock answer from fallback, and public provider failures stay bounded | `tests/unit/test_quickstart_reaches_the_model_path.py` |
 | UAT-22 | Every preset the demo ships reaches the rule its label promises | Each of the four shipped patches is lifted out of `docs/index.html`, run through the production parser, and produces exactly the rule its chip names; the control produces none; and no rule ships without a preset | `tests/e2e/test_shipped_presets_reach_their_rule.py` |
 | UAT-23 | A request missing the protocol version header is refused whether or not it holds a session | Both requests return `-32600` with the same message, neither carries a `result` member, and `GET` and `DELETE` refuse with HTTP 400 | `tests/integration/test_mcp_conformance.py::test_a_valid_session_never_excuses_a_missing_protocol_version` |
 | UAT-24 | `/health` never implies a model will answer | The resolved capability is the conjunction of credentials and SDK presence, the ready state promises an attempt rather than an answer, and detecting the SDK does not import it | `tests/unit/test_health_reports_the_resolved_model_path.py` |
@@ -103,10 +103,10 @@ python -m pytest tests/ -v
 
 | Gap | Why it is not covered | What would close it |
 |---|---|---|
-| Real browser journey | No browser driver is vendored in this environment | Add playwright and a scripted walk of the companion |
+| Real assistive-technology journey | Playwright drives the primary digest, MCP, earcon and Braille path, but cannot establish real screen-reader or refreshable-display usability | Run the scripted task with a consenting target user and record completion, errors, time and feedback |
 | Echo device dialogue | No Alexa skill exists and none was submitted | Build and certify a skill, then test on hardware |
 | Refreshable Braille display | No display was available | Verify the U+2800 stream on a Focus 40 or an Orbit Reader |
 | Sip-and-puff switch | No switch was available | Feed real pulse timings through `process_switch_pulse` |
 | A live `REQUEST_CHANGES` review on GitHub | The write is dry-run by default and the flag has never been set here; sending one needs a token with `pull_requests: write` on a repository the owner controls | Start the server with `VOLCAN_GITHUB_WRITE=1` and `GITHUB_TOKEN`, run scenario 8, and keep the review id the panel prints; the README's Known limitations carries the exact commands |
 | A spoken command through a real microphone | `SpeechRecognition` cannot be driven headlessly and no browser runs in the suite; the dialogue is proven with injected transcripts and the browser walk used the typed path | Say the scenario 8 commands aloud in Chrome or Edge and record the dialogue log |
-| Amazon Bedrock synthesis | The path is implemented and shape-tested against a stub, and has never executed. The quickstart installs the client with `pip install -e ".[dev,bedrock]"`, but nobody working on this repository has AWS access that can confirm the pinned model id, and installing the SDK where credentials resolve would fire a real billed call against an account without its owner's say-so. `/health` reports the resolved capability, `unavailable_sdk_not_installed` here, and every digest says why in `synthesis_fallback_reason` | Run the quickstart install with working credentials, rerun one digest, confirm `synthesis_mode` reads `bedrock` and the reason is null. The exact command is in the README's Known limitations |
+| Repeatable Bedrock quality comparison | The live path and fallback are separately labelled, but one successful call does not compare summary usefulness or latency across representative patches | Run a fixed, disclosed patch corpus through both modes; publish raw latency and blinded usefulness ratings without treating within-system fixtures as user evidence |

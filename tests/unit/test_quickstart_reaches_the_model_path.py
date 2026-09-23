@@ -8,8 +8,8 @@ exactly therefore saw ``SYNTHESIS ENGINE: local heuristic`` and
 uninstalled rather than absent.
 
 These tests hold the install line and the honesty that has to travel with it.
-The second one is the control: making the first pass by promising a Bedrock
-answer the repository has never observed would be worse than the bug.
+Readiness to attempt is not presented as proof that a model answered, and raw
+provider errors are not presented as acceptable public diagnostics.
 """
 import os
 import re
@@ -58,36 +58,16 @@ def test_the_quickstart_install_line_pulls_in_the_bedrock_extra():
             assert f"{name} = [" in pyproject, f"README asks for an extra pyproject does not declare: {name}"
 
 
-def test_the_readme_still_refuses_to_claim_a_model_answered_here():
-    """The control. Installing the client is not the same as being answered.
-
-    Nobody working on this repository has AWS access that can confirm the
-    pinned model id, so the README must keep saying so next to the install
-    instruction. A quickstart that reads as a promise of Bedrock output would
-    close the gap by lying about it.
-    """
+def test_the_readme_uses_the_response_as_the_model_receipt():
+    """Installing the client or passing health is not the same as an answer."""
     readme = _read("README.md")
-    assert "No model has ever answered here" in readme
-    assert "the pinned model id is unverified" in readme
-
-    # The Known limitations entry has to keep its teeth wherever it is worded
-    # from, so this reads the section rather than one fixed sentence.
-    limitations = readme.split("## Known limitations", 1)[1].split("\n## ", 1)[0]
-    assert "has never executed here" in limitations, (
-        "Known limitations must still say the model-backed path has never run here"
-    )
-    assert "unconfirmed" in limitations, (
-        "Known limitations must still say the pinned model id is unconfirmed"
-    )
+    install_context = readme.split("### 2.", 1)[0]
+    assert "ready to attempt" in install_context
+    assert "synthesis_mode: bedrock" in install_context
+    assert "do not prove" in install_context
 
 
-def test_the_owner_is_given_the_exact_command_that_would_produce_a_receipt():
-    """"Never executed" is only useful beside the way to change it.
-
-    A limitation with no route out of it reads as an excuse. The entry has to
-    carry the commands an owner with AWS access can run, and it has to say what
-    a receipt looks like, so the claim is falsifiable by somebody other than us.
-    """
+def test_an_operator_is_given_the_exact_command_that_reproduces_a_receipt():
     limitations = _read("README.md").split("## Known limitations", 1)[1].split("\n## ", 1)[0]
     assert 'pip install -e ".[dev,bedrock]"' in limitations, (
         "the receipt procedure must name the install that reaches the model path"
@@ -100,32 +80,15 @@ def test_the_owner_is_given_the_exact_command_that_would_produce_a_receipt():
     )
 
 
-def test_the_readme_states_why_the_receipt_was_not_produced_here():
-    """Not "we forgot". Running it would have spent somebody else's money."""
+def test_the_readme_states_the_live_path_can_fail_without_breaking_the_digest():
     limitations = _read("README.md").split("## Known limitations", 1)[1].split("\n## ", 1)[0]
-    assert "billed" in limitations, (
-        "the entry must say that producing a receipt fires a real billed call"
-    )
-    assert "owner action" in limitations.lower(), (
-        "the entry must say whose action it is"
-    )
+    assert "permission, model availability or network" in limitations
+    assert "deterministic digest answers" in limitations
+    assert "provider identifiers do not leak" in limitations
 
 
-def test_the_published_fallback_transcript_says_which_machine_state_produced_it():
-    """A verbatim block is only honest while its conditions are stated.
-
-    The transcript in the README was produced without the extra installed. Now
-    that the quickstart installs it, the block has to name that condition or a
-    reader will take a stale local state for the product's behaviour.
-    """
+def test_the_public_diagnostics_explicitly_reject_raw_provider_payloads():
     readme = _read("README.md")
-    transcript_intro = readme.split("synthesis_fallback_reason: the Anthropic SDK", 1)[0]
-    tail = transcript_intro.rsplit("Run on", 1)[-1]
-    # The condition, not merely a word that could survive an unrelated rewrite:
-    # the transcript is only honest while it names the missing extra.
-    assert "without" in tail.lower() and "`bedrock` extra" in tail, (
-        "the verbatim fallback transcript must say it was measured without the bedrock extra"
-    )
-    assert "has never been observed here" in readme, (
-        "the README must still say the model-answered outcome has not been seen here"
-    )
+    assert "raw account, role and" in readme
+    assert "request identifiers never enter the anonymous response" in readme
+    assert "fixed public category" in readme

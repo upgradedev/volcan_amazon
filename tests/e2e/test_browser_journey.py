@@ -1,4 +1,5 @@
 """A real Chromium walks the primary judge journey against the running app."""
+import os
 import socket
 import subprocess
 import sys
@@ -17,11 +18,14 @@ def _free_port() -> int:
 def test_browser_walks_the_primary_digest_sound_and_braille_journey():
     port = _free_port()
     base_url = f"http://127.0.0.1:{port}"
+    server_env = os.environ.copy()
+    server_env["VOLCAN_ALLOWED_ORIGINS"] = base_url
     server = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "src.interfaces.mcp_server:app",
          "--host", "127.0.0.1", "--port", str(port)],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        env=server_env,
     )
     try:
         deadline = time.monotonic() + 15

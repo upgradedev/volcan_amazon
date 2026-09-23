@@ -11,14 +11,15 @@ interchangeable and are never presented as if they were, so every report carries
 * ``"heuristic-local"`` no model was invoked; the local heuristic produced it
 
 A mode on its own leaves a reviewer guessing why, so every report also carries
-``fallback_reason``: the exception class, the model id and the message, or the
-sentence explaining that no credentials resolved. The API and the web companion
-surface both fields. An unexplained fallback looked like a design choice; a
-named one is a fact a reviewer can act on.
+``fallback_reason``: a bounded public explanation, or the sentence explaining
+that no credentials resolved. Provider payloads can contain account, role and
+request identifiers, so the API never returns an exception message verbatim.
+The API and the web companion surface the bounded explanation. An unexplained
+fallback looked like a design choice; a safe, named category is a fact a
+reviewer can act on.
 
-**This path has never answered in this repository.** There are no AWS
-credentials here, so the model id and the client below are unexercised code. See
-the Known limitations section of the README.
+Runtime evidence belongs to the deployment, not this module. ``synthesis_mode``
+is the per-request receipt: only ``bedrock`` means a model answered.
 """
 import asyncio
 import importlib.util
@@ -196,6 +197,47 @@ class BedrockSynthesisAdapter:
         )
         return self._first_text_block(message)
 
+    @staticmethod
+    def _public_failure_reason(exc: Exception) -> str:
+        """Return an actionable category without leaking the provider payload.
+
+        Bedrock and the Anthropic client include request ids, account ids and
+        assumed-role ARNs in some exception strings. Those belong in private
+        operator telemetry, never in an anonymous response or screen reader
+        announcement. Classification therefore uses the exception type and
+        message internally but returns only fixed product-owned sentences.
+        """
+        category = f"{type(exc).__name__} {exc}".lower()
+        if "permission" in category or "accessdenied" in category or "unauthorized" in category:
+            return (
+                "Amazon Bedrock access is not authorized for the configured model; "
+                "the local deterministic digest answered instead"
+            )
+        if "notfound" in category or "not found" in category or "unavailable" in category:
+            return (
+                "The configured Amazon Bedrock model is unavailable in this deployment; "
+                "the local deterministic digest answered instead"
+            )
+        if "throttl" in category or "rate limit" in category:
+            return (
+                "Amazon Bedrock temporarily throttled this request; "
+                "the local deterministic digest answered instead"
+            )
+        if "timeout" in category or "timed out" in category:
+            return (
+                "Amazon Bedrock did not answer before the request deadline; "
+                "the local deterministic digest answered instead"
+            )
+        if isinstance(exc, ValueError) and "no text block" in category:
+            return (
+                "Amazon Bedrock returned no usable text block; "
+                "the local deterministic digest answered instead"
+            )
+        return (
+            "Amazon Bedrock did not complete the synthesis request; "
+            "the local deterministic digest answered instead"
+        )
+
     async def summarize_diff(self, raw_diff: str, sections: list[DiffSectionDigest]) -> SemanticDiffReport:
         if not self.credentials_present():
             return self._heuristic_fallback(
@@ -207,17 +249,16 @@ class BedrockSynthesisAdapter:
             # The client is synchronous. Calling it directly would block the
             # event loop for the whole round trip, stalling every other request.
             content_text = await asyncio.to_thread(self._invoke, raw_diff)
-        except ImportError as exc:
+        except ImportError:
             return self._heuristic_fallback(
                 raw_diff, sections,
-                f"the Anthropic SDK is not installed ({exc}); "
+                "the Anthropic SDK is not installed; "
                 "pip install 'anthropic[bedrock]' to reach Amazon Bedrock",
             )
         except Exception as exc:  # noqa: BLE001 - any failure degrades to the labelled fallback
             return self._heuristic_fallback(
                 raw_diff, sections,
-                f"{type(exc).__name__} calling Amazon Bedrock with model "
-                f"{self.model_id}: {exc}",
+                self._public_failure_reason(exc),
             )
 
         self.last_fallback_reason = None

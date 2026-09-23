@@ -67,15 +67,12 @@ resource "aws_iam_policy" "volcan_serverless_policy" {
       {
         Effect = "Allow"
         Action = [
-          "bedrock:InvokeModel",
-          "bedrock:InvokeModelWithResponseStream"
+          "bedrock-mantle:CreateInference"
         ]
-        # Kept narrow on purpose: one model, named. A region-scoped inference
-        # profile is a different ARN and would have to be added here as well.
-        Resource = [
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/anthropic.claude-opus-5",
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-micro-v1:0"
-        ]
+        # AnthropicBedrockMantle invokes through the account-scoped default
+        # project. The previous bedrock:InvokeModel grant targeted a different
+        # service and left every real request at PermissionDenied.
+        Resource = "arn:aws:bedrock-mantle:${var.aws_region}:${data.aws_caller_identity.current.account_id}:project/default"
       },
       {
         Effect = "Allow"
@@ -89,6 +86,8 @@ resource "aws_iam_policy" "volcan_serverless_policy" {
     ]
   })
 }
+
+data "aws_caller_identity" "current" {}
 
 resource "aws_iam_role_policy_attachment" "volcan_attach" {
   role       = aws_iam_role.volcan_lambda_role.name
@@ -112,6 +111,7 @@ resource "aws_lambda_function" "volcan_mcp_function" {
       VOLCAN_ENVIRONMENT  = "production-eu-west-1"
       SOURCE_REVISION     = var.source_revision
       VOLCAN_GITHUB_WRITE = "0"
+      VOLCAN_ALLOWED_ORIGINS = "https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com"
       AWS_LWA_INVOKE_MODE = "response_stream"
     }
   }
