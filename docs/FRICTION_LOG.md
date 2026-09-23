@@ -158,7 +158,7 @@ first-party emulator would let integrations be tested honestly rather than asser
 
 ## 5. A deployed function gives no way to ask which commit it is running
 
-**Context.** This project's API Gateway endpoint was probed on 2026-09-05. The recorded
+**Historical context.** This project's API Gateway endpoint was probed on 2026-09-05. The recorded
 result is in `deploy_teardown_receipt.json`: `GET /health` answered HTTP 200 with
 `{"status": "HEALTHY", "region": "eu-west-1", "serverless": true}`, and `GET /mcp` answered
 HTTP 404 because the deployed bundle predates the MCP endpoint.
@@ -169,9 +169,10 @@ exposes the source revision a deployed bundle was built from, so "is the thing r
 thing I am submitting" is a question the platform cannot answer. A reviewer opening a live
 URL has no way to tell which commit produced it.
 
-**Mitigation in this repository.** `ci/readiness.py` gate G2 compares the receipt's
-`deployed_commit_sha` with `git rev-parse HEAD` and reports red when they differ, which it
-does today.
+**Resolution on 2026-09-23.** The Lambda now receives `SOURCE_REVISION` during deployment,
+exposes it through `/health`, and carries the same immutable revision as an AWS resource tag.
+The public MCP and REST paths were executed against that revision. The old receipt remains
+labelled as a superseded historical probe rather than being rewritten as current evidence.
 
 **Recommendation.** Let a deployment carry an immutable revision tag that the runtime can
 read and expose, so a health endpoint can report the exact source revision without the

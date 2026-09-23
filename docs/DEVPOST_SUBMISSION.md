@@ -252,9 +252,10 @@ rest.
 which every beat is an action this repository can perform today, and readiness gates E2 and
 E4 report red until footage exists.
 
-**Stale.** A deployed AWS endpoint answers `GET /health`, but it runs an ancestor commit and
-returns 404 for `/mcp`. `deploy_teardown_receipt.json` records that probe, and gates D2 and
-G2 are red for it. Run the server locally to exercise the MCP surface.
+**Deployed.** On 2026-09-23 the public endpoint served `GET /health`, the current companion,
+the REST digest and MCP initialize/tool calls. Health exposes the immutable source revision.
+A governed action remained a dry-run and its bounded EMF records were read back from
+CloudWatch. Alexa skill certification, Echo testing and a live GitHub write remain absent.
 
 ---
 

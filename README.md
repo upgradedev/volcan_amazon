@@ -876,17 +876,16 @@ magnitude as the claim and rerun each command on your own hardware.
 | Code-fidelity Braille is one to one over 95 characters and literary names its losses | `python -m pytest tests/unit/test_braille_code_fidelity.py -v` |
 | A missing version header is refused for every method, session or not | `python -m pytest tests/integration/test_mcp_conformance.py -k version -v` |
 
-`ci/readiness.py` is written so that it can fail, and it does. On 2026-09-08 it printed
-`45/53 passed, 0 blocking failures, 8 externally blocked`. The eight red gates are the absent
-video and its sync check, the absent browser-driver journey, the deployed endpoint running an
-older commit than HEAD, and three actions only the owner can perform. Each failure is printed
-with its reason rather than hidden.
+`ci/readiness.py` is written so that it can fail, and it does. On 2026-09-23 it printed
+`42/53 passed, 0 blocking failures, 11 externally blocked`. The remaining red gates require
+the final deployment receipt, video, persona evidence or owner submission actions. Each
+failure is printed with its reason rather than hidden.
 
-**You will see 41, not 45, and that is expected.** Four of those gates read the persona review
+Four of those gates read the persona review
 out of `STATE.md`, a coordination file that lives one directory above this repository and is
 deliberately never committed. From a standalone clone or a CI runner there is no copy to read,
 so gates I1 to I4 report themselves externally blocked with that reason and the script still
-exits 0: `41/53 passed, 0 blocking failures, 12 externally blocked`. The excuse is narrow. If
+exits 0. The excuse is narrow. If
 `STATE.md` is present and does not record the review, those four gates fail as blocking and the
 script exits 1.
 
@@ -901,7 +900,12 @@ test count in the README badge from 443 to 444 and run it again. Gate G1 turns r
 MCP tool calls emit the measured `McpToolDurationMs` as a JSON message through the
 `volcan-voice-ide` Python logger. The payload follows the
 [CloudWatch EMF specification](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Embedded_Metric_Format_Specification.html).
-Local tests capture the real MCP request path; deployed CloudWatch ingestion/readback remains unverified.
+Local tests capture the real MCP request path. On 2026-09-23 the public deployment emitted
+`stage_governed_action` and `confirm_governed_action` records to the `Volcan/VoiceIDE`
+namespace; CloudWatch listed both `McpToolDurationMs` and `TotalExecutionLatencyMs` with
+`Environment=production-eu-west-1`. Reproduce the readback with
+`aws logs tail /aws/lambda/volcan-mcp-euw1-prod --since 15m` and
+`aws cloudwatch list-metrics --namespace Volcan/VoiceIDE --recently-active PT3H`.
 
 | Field | Accepted values |
 |---|---|
@@ -917,10 +921,10 @@ entire argument. This is a deliberately limited operational schema, not a genera
 redactor or an identity audit trail. Code review content is still returned to the requesting
 user and may contain their secrets.
 
-This harness does not configure a log collector or guarantee zero cost, data residency,
+This harness does not guarantee zero cost, data residency,
 retention, deletion or privacy of other application/SDK logs. CloudWatch logs and custom
-metrics can incur charges. Configure raw JSON log emission and verify a deployed record
-before claiming CloudWatch operation.
+metrics can incur charges. The deployment proof verifies ingestion and readback for the two
+named governed-action calls only.
 
 ## Known limitations
 
@@ -1016,10 +1020,10 @@ before claiming CloudWatch operation.
   deleted guard block, a removed decorator, a dangerous argument value and any non-Python file
   are outside them, which is what the four named misses in Measured numbers are. A line that
   does not parse as Python produces no finding rather than a guess.
-* **The deployed endpoint is stale.** `deploy_teardown_receipt.json` records a real probe
-  performed on 2026-09-05: the endpoint answered `GET /health` with HTTP 200, but it runs
-  commit `38668ad`, an ancestor of HEAD, and returns 404 for `/mcp`. Gates D2 and G2 are red
-  for exactly that reason. Run the server locally to exercise the MCP surface.
+* **The public endpoint is deployed, while Alexa hardware remains untested.** On 2026-09-23
+  `GET /health`, `/`, the REST digest and the MCP initialize/tool path answered successfully.
+  `/health` exposes `source_revision` so the deployed candidate can be compared with Git
+  directly. No Alexa skill or Echo-device execution is inferred from that server proof.
 * **No video has been recorded.** [`video/SHOT_LIST.md`](video/SHOT_LIST.md) is a beat sheet
   in which every beat is an action this repository can perform today, and `video/` holds no
   footage. Gates E2 and E4 are red for that reason.

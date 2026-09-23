@@ -6,11 +6,12 @@ exists and the intent is documented) or **Not verified** (the claim has not been
 in any environment available here). There is no "100% PASS" anywhere, because no such
 measurement was taken.
 
-**Deployment reality, as probed on 2026-09-05 and recorded in
-`deploy_teardown_receipt.json`:** the endpoint at
-`https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com` answered `GET /health` with HTTP
-200, and answered `GET /mcp` with HTTP 404 because it runs commit `38668ad`, an ancestor of
-HEAD that predates the MCP endpoint. Run the server locally to exercise the MCP surface.
+**Deployment reality, verified on 2026-09-23:** the endpoint at
+`https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com` serves the current companion,
+REST API and MCP Streamable HTTP surface. `GET /health` reports the immutable
+`source_revision`. A staged and confirmed dry-run governed action produced bounded EMF logs
+and the two declared metrics in CloudWatch. This proves that deployment only; it does not
+prove Alexa hardware, a live GitHub write or a human accessibility outcome.
 
 ---
 
@@ -128,8 +129,10 @@ conformity assessment, and no assessment has been performed.
   collections are validated again at emission.
 * **Observed proof:** local tests capture a real MCP request's log message and verify its
   measured duration and EMF structure, plus adversarial actor/action/tenant/nested/phone/token
-  inputs. They do not prove deployed CloudWatch ingestion. A raw JSON log handler and the
-  deployment's CloudWatch delivery/readback still require operational verification.
+  inputs. The 2026-09-23 deployment additionally emitted and read back bounded EMF records
+  for `stage_governed_action` and `confirm_governed_action`; CloudWatch listed both declared
+  metrics under `Environment=production-eu-west-1`. This is one deployment receipt, not an
+  availability or retention study.
 * **Costs and other logs:** no zero-cost or system-wide zero-disclosure guarantee is made.
   Log ingestion, retention and custom metrics can incur charges. This boundary does not
   sanitize unrelated server/access/exception logs, external SDK logs or downstream collectors.

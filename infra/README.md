@@ -2,13 +2,16 @@
 
 ---
 
-## 1. Cloud Architecture: 100% Pure Serverless
+## 1. Cloud Architecture
 
-Volcan deploys on AWS as a **Pure Serverless Architecture** using **AWS Lambda with Function URLs (Response Streaming)**, providing sub-second cold starts, infinite concurrency scaling, and exact **$0.00 monthly idle costs**.
+Volcan runs on AWS Lambda behind an API Gateway HTTP API. The Terraform in this directory
+declares the same Lambda plus a Function URL as a reproducible alternate ingress. The active
+API Gateway endpoint was updated and probed on 2026-09-23; its health response carries the
+deployed Git revision.
 
 - **Compute:** AWS Lambda (`python3.11`, 256MB) executing the FastMCP ASGI application.
-- **Networking:** HTTPS Lambda Function URL with streaming response mode (`AWS_LWA_INVOKE_MODE = "response_stream"`), eliminating costly Application Load Balancers (ALBs).
-- **Intelligence:** Amazon Bedrock (`anthropic.claude-opus-5` & `amazon.nova-micro-v1:0`) billed on pure token consumption with zero idle cost. Neither model has been invoked from this repository, so no token cost has been observed.
+- **Networking:** Active ingress is API Gateway HTTP API. Terraform declares an HTTPS Lambda Function URL without an always-on load balancer.
+- **Intelligence:** Amazon Bedrock is attempted when the configured model is available; each response reports `bedrock` or a labelled local fallback reason.
 - **Audit Logging:** Amazon CloudWatch Log Group with 14-day retention.
 
 ---
@@ -22,7 +25,7 @@ Volcan deploys on AWS as a **Pure Serverless Architecture** using **AWS Lambda w
 | AST Semantic Synthesis | Amazon Bedrock (Pay-per-token, $0.00 idle) | **$0.00** | 2026-09-02 |
 | Audit Trail Logs | Amazon CloudWatch (<5GB Free Tier) | **$0.00** | 2026-09-02 |
 | Identity & Access | AWS IAM | **$0.00** | 2026-09-02 |
-| **TOTAL MONTHLY IDLE COST** | | **$0.00** | **2026-09-02** |
+| **TOTAL MONTHLY IDLE COST** | | **$0.00 ESTIMATE** | **2026-09-02** |
 
 ---
 
@@ -37,7 +40,7 @@ terraform init
 terraform validate
 
 # Plan and Apply
-terraform plan -out=tfplan
+terraform plan -var="source_revision=$(git rev-parse HEAD)" -out=tfplan
 terraform apply tfplan
 
 # Teardown / Destroy all resources
