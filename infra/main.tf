@@ -27,6 +27,17 @@ variable "environment" {
   description = "Environment tier"
 }
 
+variable "lambda_package_path" {
+  type        = string
+  default     = "../dist/volcan_lambda.zip"
+  description = "Path to the built Lambda deployment package"
+}
+
+variable "source_revision" {
+  type        = string
+  description = "Immutable Git commit deployed in the Lambda package"
+}
+
 # 1. IAM Execution Role for AWS Lambda (Least Privilege)
 resource "aws_iam_role" "volcan_lambda_role" {
   name = "volcan-lambda-role-euw1-${var.environment}"
@@ -89,13 +100,18 @@ resource "aws_lambda_function" "volcan_mcp_function" {
   function_name = "volcan-mcp-euw1-${var.environment}"
   role          = aws_iam_role.volcan_lambda_role.arn
   runtime       = "python3.11"
-  handler       = "src.interfaces.mcp_server.handler"
+  handler       = "src.interfaces.lambda_handler.handler"
+  filename      = var.lambda_package_path
+  source_code_hash = filebase64sha256(var.lambda_package_path)
   memory_size   = 256
   timeout       = 30
 
   environment {
     variables = {
       ENVIRONMENT         = var.environment
+      VOLCAN_ENVIRONMENT  = "production-eu-west-1"
+      SOURCE_REVISION     = var.source_revision
+      VOLCAN_GITHUB_WRITE = "0"
       AWS_LWA_INVOKE_MODE = "response_stream"
     }
   }
