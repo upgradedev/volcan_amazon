@@ -829,7 +829,7 @@
       <section class="hero" id="stage" aria-labelledby="hero-heading">
         <h2 id="hero-heading" class="visually-hidden">Turn the patch into sound and Braille</h2>
 
-        <div class="stage">
+        <div class="stage" id="transform">
           <div class="bench">
             <div class="patch">
               <div class="patch-head">
@@ -871,6 +871,7 @@
           </div>
 
           <div class="channels">
+            <h3 id="transform-heading" class="visually-hidden">One patch, three accessible renderings</h3>
             <article class="rendering r-earcon" aria-labelledby="r-earcon-heading">
               <h3 id="r-earcon-heading">Earcon</h3>
               <div class="wave-row">
@@ -1229,8 +1230,10 @@
               drawn from the 16-bit PCM samples of the WAV the server returned, and the contour beside
               it is measured from those same samples by counting zero crossings in each note. The two
               cues are different audio: switch between the first and the fourth patch and the
-              waveform, the contour and the caption all change with the bytes. Every cue also carries
-              a written description from the server in the same live region.</p>
+              waveform, the contour and the caption all change with the bytes.</p>
+            <p id="runHint">Audio plays through your speakers. <strong>Replay the cue</strong> plays it
+              again, and every cue also carries a written description from the server in the same
+              live region.</p>
             <h3>The spoken sentence</h3>
             <p>Words brighten as the browser's speech engine reports reaching them. When the engine
               reports no word positions, the whole sentence brightens when speech starts; when it has

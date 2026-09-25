@@ -26,9 +26,9 @@ exercised on Windows 11 with Python 3.11.0 on 2026-09-06.
 | 1 | `python -m pip install -e ".[dev,bedrock]"` | Dependencies resolve. This is off camera. |
 | 2 | `python -m pytest tests/ -q` | Prints `421 passed`. If it does not, stop and fix that first. |
 | 3 | `python -m src.interfaces.mcp_server` | Leave it running in terminal 1, off camera. |
-| 4 | Open `http://127.0.0.1:8000/` in a fresh profile at 1280x900 | The connection strip reads **SERVER REACHED** with a real `GET /health` duration. If it reads **NO SERVER**, the recording is wrong before it starts. |
+| 4 | Open `http://127.0.0.1:8000/` in a fresh profile at 1280x900 | The status pill in the top bar reads **Online**, and the connection strip in **Evidence**, tab **Server and MCP**, reads **SERVER REACHED** with a real `GET /health` duration. If it reads **NO SERVER**, the recording is wrong before it starts. |
 | 5 | System audio capture on, microphone off | The earcon in beat 2 is the product speaking. It must reach the recording. |
-| 6 | Reset the page with a reload | Every meter must read `not run yet` on the first frame of beat 2, so a judge watches the values arrive. |
+| 6 | Reset the page with a reload | The three channels must be empty and the meters under the button absent on the first frame of beat 2, so a judge watches the values arrive. |
 
 Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
 
@@ -83,8 +83,8 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
 ## Beat 3, `beat_03_mcp_handshake`. A real MCP handshake, 58 to 92 seconds
 
 * **Platform:** browser first, then terminal 2.
-* **Exact action, browser:** scroll to **Model Context Protocol, handshaken in your
-  browser** and press **Run a real MCP handshake**. Expand the first tool in the catalog.
+* **Exact action, browser:** scroll to **Evidence**, keep the **Server and MCP** tab, find
+  **Model Context Protocol, handshaken in your browser** and press **Run a real MCP handshake**. Expand the first tool in the catalog.
 * **On screen:** the four facts fill in with `2025-11-25`, `volcan-accessible-forge 0.1.0`,
   a truncated session id taken from the `Mcp-Session-Id` response header, and `11` tools.
   The expanded entry shows the published `inputSchema` JSON.
@@ -97,7 +97,8 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
 ## Beat 4, `beat_04_governance`. Staged, leased, never executed, 92 to 128 seconds
 
 * **Platform:** browser, then terminal 2.
-* **Exact action, browser:** press **Stage an action**, wait for the lease tag to show a
+* **Exact action, browser:** in **Evidence**, select the **Governed actions** tab, press
+  **Stage an action**, wait for the lease tag to show a
   countdown, then press **Approve with the grant**.
 * **On screen after staging:** the lease tag reads a live countdown computed from the
   `expires_at_epoch` the server returned.
@@ -120,7 +121,7 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
   crop the failures out. The gates that were red on 2026-09-08 are the absent video and its
   sync check, the absent browser-driver journey, the deployed endpoint running an older
   commit, and three actions only the owner can perform.
-* **Exact action, browser:** scroll to the connection strip at the top of the page.
+* **Exact action, browser:** scroll to the connection strip in **Evidence**, tab **Server and MCP**.
 * **On screen:** the connection strip's model path sentence. The page prints whatever the
   server resolved into the single `bedrock_model_path.resolved_capability` field on
   `/health`, and you record the one your machine produces. On the development machine on
