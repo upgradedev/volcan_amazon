@@ -75,7 +75,8 @@ python -m pytest tests/ -v
 1. Run `python scripts/mcp_conformance.py`. Expect 22 of 22 checks to pass. On 2026-09-08,
    before the positive comment-only GET vector was added, it printed
    `SUMMARY: 21/21 checks passed, 0 failed`.
-2. Open `http://127.0.0.1:8000/`. The connection banner must read **Server reached** and quote
+2. Open `http://127.0.0.1:8000/`. The status pill in the top bar must read **Online**, and the
+   connection banner in **Evidence**, tab **Server and MCP**, must read **Server reached** and quote
    the HTTP status and the round trip it actually measured, plus the resolved model path the
    server reported. On this machine that line reads `unavailable_sdk_not_installed`.
 3. Press Tab once. The **Skip to main content** link must appear with a visible focus ring.
@@ -87,10 +88,10 @@ python -m pytest tests/ -v
 5. Press **Clean change, no finding**, then **Hear this code review** again. The cue must
    change to the rising `DIFF_READY` and the findings panel must stay empty. That pair is the
    demonstration that the detector can refuse.
-6. Select **Stage an action**. A lease countdown starts and a grant beginning `v1.` appears.
+6. In **Evidence**, open the **Governed actions** tab and select **Stage an action**. A lease countdown starts and a grant beginning `v1.` appears.
 7. Select **Approve with the grant**. The result must say the command was planned and that
    nothing was executed.
-8. In **Converse about a pull request**, paste the URL of a public GitHub pull request, press
+8. In **Talk through a real pull request**, paste the URL of a public GitHub pull request, press
    <kbd>Alt</kbd>+<kbd>4</kbd>, type `open` and press Enter. The log must show `Typed: open`,
    then `Understood: open the pull request.`, then the overview naming the head commit. Type
    `file 1`, `read the lines`, `next`, `no, I said previous`, `spell that`, then

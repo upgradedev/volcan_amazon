@@ -2,6 +2,12 @@
 
 > **Volcan lets blind and mobility-impaired software developers review autonomous coding agents by ear and by touch instead of by reading a diff.**
 
+![The companion page's first screen at 1280 by 720 in the daylight theme: the headline "Hear your code review instead of scrubbing a diff", the disclosure "Simulated Alexa+ experience, not an Alexa skill" with what is live and that the GitHub write is dry-run, the patch whose last two lines turn user.role == "admin" into user.role != "admin", one ember "Hear this code review" button, and three empty channels for the earcon, the speech and the Braille cells.](docs/assets/volcan-first-viewport.png)
+
+![The same screen in the basalt dark theme after one press against a local server: the waveform drawn from the returned WAV with a measured falling contour for SECURITY_FINDING, the spoken sentence lighting word by word as the browser speaks it, and the meters reporting the local heuristic engine, the reason no model answered, and the measured round trip.](docs/assets/volcan-after-one-press.png)
+
+*Both screenshots are unedited headless Chromium captures of `docs/index.html` served locally by the FastAPI app in `src/interfaces/mcp_server.py`; the second shows a real response from a machine without the `bedrock` extra, so the engine reads local heuristic.*
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
@@ -141,7 +147,7 @@ and is not measured here.
 
 ### 5. Review a real pull request by voice or by keyboard
 
-On the same page, scroll to **Converse about a pull request**, or press
+On the same page, scroll to **Talk through a real pull request**, or press
 <kbd>Alt</kbd>+<kbd>6</kbd>, paste the URL of any public GitHub pull request, then press
 <kbd>Alt</kbd>+<kbd>4</kbd> and type `open` <kbd>Enter</kbd>. The server reads the pull
 request's head commit and diff from GitHub without a token, and the page reads back
@@ -537,10 +543,23 @@ and keyboard-scrollable Braille region, `aria-live` on every asynchronous pane a
 `role="alert"` on security findings, a 3px focus ring in both colour schemes, a written
 description of every audio cue taken from the server's own `spoken_fallback`, and no control
 that ships disabled. `prefers-reduced-motion` removes every animation and the smooth scroll;
-`prefers-color-scheme` selects a designed light or dark palette. The page loads nothing from
-the network, so it renders whole on a locked-down machine.
+`prefers-color-scheme` selects a designed light or dark palette. The one request the page
+makes to another origin is its typeface, Atkinson Hyperlegible, which the Braille Institute
+drew for readers with low vision. That stylesheet loads without blocking the first paint and
+every font stack ends in local faces, so on a locked-down or offline machine the page still
+renders at once and works completely, in a system font.
 
-The **Converse about a pull request** panel is the page's half of the review journey below.
+The first screen is one stage. The patch is drawn as changed lines beside a single primary
+action, and three channels fill only when the server answers: the earcon's waveform, drawn
+from the returned samples with a playhead that follows the audio element's own clock and a
+pitch contour measured from those samples; the spoken sentence, whose words brighten only
+when the browser's speech engine reports reaching them; and the Braille, drawn as large dot
+cells from the server's own Unicode code points, with the cell that differs between the
+removed and the added line marked. Code is set with ligatures off, so `!=` can never be drawn
+as a single glyph. Every proof panel below the story sits in an **Evidence** tab set, and `?`
+opens the keyboard map from anywhere outside a text box.
+
+The **Talk through a real pull request** section is the page's half of the review journey below.
 It has a microphone button that uses `window.SpeechRecognition` where the browser exposes one
 and says so when it does not, a typed command box that always works, one button per common
 command so nothing depends on being heard, a dialogue log that shows what was heard, what was
