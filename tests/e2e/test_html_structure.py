@@ -641,12 +641,33 @@ def test_the_audit_row_never_reads_as_a_command_that_ran():
 
 # --- self-containment -------------------------------------------------------
 
-def test_the_page_loads_nothing_from_the_network():
-    """A locked-down or offline machine must still get the whole page."""
+FONT_ORIGINS = ("https://fonts.googleapis.com", "https://fonts.gstatic.com")
+
+
+def test_the_page_loads_nothing_from_the_network_except_a_non_blocking_typeface():
+    """A locked-down or offline machine must still get the whole page.
+
+    The one request to another origin is the typeface, Atkinson Hyperlegible,
+    which the Braille Institute drew for low-vision readers. It may not block
+    the first paint, may not carry script or data, and every font stack must
+    end in local faces, so a blocked request costs the letterforms and
+    nothing else.
+    """
     html = read_html()
     external = re.findall(r'(?:src|href)="(https?://[^"]+)"', html)
-    assert external == [], f"external asset references: {external}"
-    assert "cdn." not in html and "googleapis" not in html
+    strays = [url for url in external if not url.startswith(FONT_ORIGINS)]
+    assert strays == [], f"external asset references beyond the typeface: {strays}"
+    assert "cdn." not in html
+    assert not re.search(r"<script\b[^>]*\bsrc=", html), "no script may load from anywhere"
+    assert "@import" not in html, "an @import would block the first paint"
+    for sheet in re.findall(r"<link\b[^>]*rel=\"stylesheet\"[^>]*>", html):
+        assert 'media="print"' in sheet and "onload=\"this.media='all'\"" in sheet, (
+            f"a remote stylesheet must load without blocking the first paint: {sheet}"
+        )
+    for stack in re.findall(r"--(?:sans|mono):\s*([^;]+);", html):
+        assert re.search(r"(?:sans-serif|monospace)\s*$", stack.strip()), (
+            f"a font stack must end in a local generic family: {stack}"
+        )
 
 
 # --- structural validity ----------------------------------------------------

@@ -5,104 +5,138 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Volcan: hear your code review</title>
   <meta name="description" content="Volcan turns a code patch into a spoken digest, an audio earcon and Braille cells, so a blind or mobility-impaired developer can review an agent's work without reading a diff.">
+  <meta name="theme-color" content="#f6f2e9" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d0e10" media="(prefers-color-scheme: dark)">
+  <!-- The typeface is the only thing this page requests from another origin,
+       and it never blocks the first paint: the stylesheet loads as print
+       media and swaps in when it arrives. Blocked or offline, the page
+       renders at once in the local fallback stack and works completely. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" media="print" onload="this.media='all'">
   <style>
     /* ------------------------------------------------------------------
-       This document makes no external request. No CDN, no web font, no
-       analytics. The developers this product exists for often work on
-       locked-down or offline machines, and a page that needs the network
-       to render its own type is a page that fails them first.
+       Volcan, "the forge that speaks".
+
+       The people this page is for are blind or have low vision, so it is
+       built audio-first and keyboard-first, and its visuals aim to be the
+       most legible thing on a judge's screen. Type is Atkinson
+       Hyperlegible, drawn by the Braille Institute for low-vision readers.
+       The ground is basalt, the text is braille ivory, and molten ember is
+       spent on two things only: the primary action and the sound.
        ------------------------------------------------------------------ */
 
     :root {
       color-scheme: light dark;
 
-      --ground: #fbf7f3;
-      --surface: #ffffff;
-      --surface-2: #f4ece4;
-      --sunk: #f7f1ea;
-      --line: #e2d5c7;
-      --line-strong: #c4ae99;
+      /* Daylight: a high-contrast paper theme, for the many low-vision
+         readers who prefer dark text on a light ground. */
+      --ground: #f6f2e9;
+      --surface: #fffdf8;
+      --surface-2: #eee8dc;
+      --sunk: #f1ece1;
+      --line: #d9d0bf;
+      --line-strong: #8a8172;
 
-      --ink: #1b120c;
-      --ink-soft: #5a483b;
+      --ink: #15120e;
+      --ink-soft: #473f36;
+      --ink-faint: #7d7466;
 
-      --ember: #b03509;
-      --ember-hot: #8c2a06;
-      --on-ember: #fffaf6;
+      --ember: #b23a00;
+      --ember-hot: #8f2e00;
+      --ember-wash: #fbe6d8;
+      --on-ember: #ffffff;
+      --earcon: #b23a00;
+      --wave-rest: #b8ad9a;
 
-      --spoken: #8f4300;
-      --earcon: #b03509;
-      --braille: #5b21b6;
+      --dot-on: #15120e;
+      --dot-off: #d6ccba;
 
-      --ok: #14652f;
-      --warn: #825400;
-      --bad: #a51b12;
+      --ok: #11683a;
+      --warn: #7a5000;
+      --bad: #b0231a;
+      --simulated: #1d5a8e;
 
-      --focus: #7c2d12;
+      --focus: #0a4bd6;
+      --texture: rgba(21, 18, 14, 0.075);
 
-      --sans: "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-      --mono: "Cascadia Code", "JetBrains Mono", Consolas, "SF Mono", ui-monospace, monospace;
+      --sans: "Atkinson Hyperlegible", "Atkinson Hyperlegible Next", Verdana, "Segoe UI", system-ui, -apple-system, sans-serif;
+      --mono: "JetBrains Mono", "Cascadia Code", Consolas, "SF Mono", ui-monospace, monospace;
       --braille-font: "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "DejaVu Sans", var(--mono);
+
+      --t-xs: 0.875rem;
+      --t-sm: 1rem;
+      --t-md: 1.125rem;
+      --t-lg: 1.375rem;
+      --t-xl: 1.75rem;
+      --t-hero: clamp(2.1rem, 1.15rem + 3.1vw, 3.4rem);
 
       --r-s: 8px;
       --r-m: 14px;
-      --r-l: 22px;
-      --shadow: 0 1px 2px rgba(60, 34, 16, 0.08), 0 12px 30px rgba(60, 34, 16, 0.07);
+      --r-l: 20px;
+      --measure: 65ch;
     }
 
     @media (prefers-color-scheme: dark) {
       :root {
-        --ground: #100c0a;
-        --surface: #191310;
-        --surface-2: #221912;
-        --sunk: #0b0806;
-        --line: #392a20;
-        --line-strong: #5a4331;
+        --ground: #0d0e10;
+        --surface: #15171a;
+        --surface-2: #1d2024;
+        --sunk: #0a0b0d;
+        --line: #2b2f35;
+        --line-strong: #5d646e;
 
-        --ink: #f7efe7;
-        --ink-soft: #c0ab9a;
+        --ink: #f3ecdb;
+        --ink-soft: #c2baa9;
+        --ink-faint: #8b8476;
 
-        --ember: #ff7a29;
-        --ember-hot: #ff9450;
-        --on-ember: #1c0a00;
+        --ember: #ff7a38;
+        --ember-hot: #ff9760;
+        --ember-wash: #2b170b;
+        --on-ember: #1a0900;
+        --earcon: #ff7a38;
+        --wave-rest: #4b525b;
 
-        --spoken: #ffb454;
-        --earcon: #ff7a29;
-        --braille: #c4b0ff;
+        --dot-on: #f3ecdb;
+        --dot-off: #31363d;
 
-        --ok: #5fd18d;
-        --warn: #ffc857;
-        --bad: #ff8a80;
+        --ok: #77d9a0;
+        --warn: #f3c552;
+        --bad: #ff8b7b;
+        --simulated: #9fc6ea;
 
-        --focus: #ffd166;
-        --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 18px 40px rgba(0, 0, 0, 0.45);
+        --focus: #ffd24d;
+        --texture: rgba(243, 236, 219, 0.07);
       }
     }
 
     *, *::before, *::after { box-sizing: border-box; }
 
-    html { scroll-behavior: smooth; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     body {
       margin: 0;
       background: var(--ground);
       color: var(--ink);
       font-family: var(--sans);
-      font-size: 17px;
+      font-size: var(--t-md);
       line-height: 1.55;
       -webkit-font-smoothing: antialiased;
     }
 
-    .shell { max-width: 1240px; margin: 0 auto; padding: 0 20px 72px; }
+    h1, h2, h3, h4 { text-wrap: balance; }
+    p { text-wrap: pretty; }
+
+    .shell { max-width: 1240px; margin: 0 auto; padding: 0 28px 72px; }
 
     /* --- focus and skip link ------------------------------------------ */
 
     .skip-link {
-      position: absolute; left: -9999px; top: 0; z-index: 50;
+      position: absolute; left: 0; top: 0; z-index: 50; transform: translateY(-110%);
       background: var(--focus); color: var(--ground);
       padding: 14px 22px; font-weight: 700; border-radius: 0 0 var(--r-m) 0;
     }
-    .skip-link:focus { left: 0; }
+    .skip-link:focus { transform: none; }
 
     :focus-visible {
       outline: 3px solid var(--focus);
@@ -110,423 +144,616 @@
       border-radius: 4px;
     }
 
-    a { color: var(--ember); text-underline-offset: 3px; }
+    a { color: var(--ink); text-decoration-color: var(--line-strong); text-underline-offset: 4px; }
+    a:hover { text-decoration-color: var(--ink); }
 
     .visually-hidden {
       position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
       overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
     }
 
-    /* --- header ------------------------------------------------------- */
+    /* No ligatures in code, ever: != drawn as one glyph is the exact confusion
+       this product exists to prevent. */
+    code, kbd, pre, textarea, .patch-file, .bchar, .side, .meters dd, .facts dd, .kv dd {
+      font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0;
+    }
+    code { font-family: var(--mono); font-size: 0.86em; }
 
-    header[role="banner"] { padding: 24px 0 8px; }
+    kbd {
+      font-family: var(--mono); font-size: 0.82em;
+      background: var(--surface-2); border: 1px solid var(--line-strong);
+      border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px;
+      color: var(--ink);
+    }
 
+    /* --- controls ------------------------------------------------------ */
+
+    button {
+      font: inherit; cursor: pointer;
+      background: var(--surface); color: var(--ink);
+      border: 1px solid var(--line-strong); border-radius: var(--r-s);
+      padding: 9px 16px; font-weight: 700; font-size: var(--t-sm);
+      min-height: 44px;
+      transition: border-color 130ms ease, background 130ms ease, color 130ms ease;
+    }
+    button:hover { border-color: var(--ink); }
+    button[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+    .danger { color: var(--bad); border-color: var(--bad); }
+    .danger:hover { border-color: var(--bad); background: var(--surface-2); }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+    .chips button { min-height: 40px; padding: 7px 14px; font-size: var(--t-xs); }
+
+    label { display: block; font-weight: 700; font-size: var(--t-sm); margin: 0 0 6px; }
+    .hint { color: var(--ink-soft); font-size: var(--t-xs); margin: 6px 0 0; max-width: var(--measure); }
+
+    input[type="text"], input[type="url"], input[type="password"], textarea {
+      width: 100%; min-height: 46px;
+      background: var(--sunk); color: var(--ink);
+      border: 1px solid var(--line-strong); border-radius: var(--r-s);
+      padding: 10px 14px; font: inherit; font-size: var(--t-sm);
+    }
+    textarea {
+      min-height: 220px; resize: vertical;
+      font-family: var(--mono); font-size: var(--t-xs); line-height: 1.7;
+    }
+    ::placeholder { color: var(--ink-faint); opacity: 1; }
+
+    /* --- masthead ------------------------------------------------------- */
+
+    header[role="banner"] { padding: 0; }
+
+    .bar {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 16px 0 10px;
+    }
     .wordmark {
-      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-      font-size: 0.76rem; font-weight: 700; letter-spacing: 0.22em;
-      text-transform: uppercase; color: var(--ink-soft); margin: 0 0 10px;
+      display: flex; align-items: center; gap: 12px; margin: 0;
+      font-size: var(--t-md); font-weight: 700; letter-spacing: 0.01em;
     }
-    .wordmark .flame { color: var(--ember); font-size: 1.5rem; line-height: 1; letter-spacing: 0; }
-    .wordmark b { color: var(--ink); }
+    .wordmark svg { width: 70px; height: 16px; flex: none; }
+    .wordmark .raised { fill: var(--ink); }
+    .wordmark .raised.first { fill: var(--ember); }
+    .wordmark .flat { fill: var(--dot-off); }
+    .wordmark .tagline { font-weight: 400; color: var(--ink-soft); font-size: var(--t-sm); }
 
+    .bar-right { display: flex; align-items: center; gap: 10px; }
+
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px; margin: 0;
+      padding: 6px 13px; min-height: 36px;
+      border: 1px solid var(--line); border-radius: 999px;
+      background: var(--surface); color: var(--ink-soft);
+      font-size: var(--t-xs); font-weight: 700; white-space: nowrap;
+    }
+    .pill .led { width: 9px; height: 9px; border-radius: 50%; background: var(--line-strong); flex: none; }
+    .pill[data-state="live"] .led { background: var(--ok); }
+    .pill[data-state="live"] { color: var(--ink); }
+    .pill[data-state="offline"] .led { background: var(--warn); }
+
+    .keys-btn { min-height: 36px; padding: 5px 12px; font-size: var(--t-xs); background: transparent; border-color: var(--line); }
+    .keys-btn kbd { font-size: var(--t-sm); padding: 0 7px; }
+
+    .intro {
+      display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+      gap: 20px 40px; align-items: end; padding: 14px 0 22px;
+    }
     h1 {
-      font-size: clamp(1.85rem, 4.6vw, 3.05rem);
-      line-height: 1.08;
-      letter-spacing: -0.022em;
-      font-weight: 750;
-      margin: 0 0 10px;
-      max-width: 20ch;
+      font-size: var(--t-hero); line-height: 1.04; letter-spacing: -0.02em;
+      font-weight: 700; margin: 0; max-width: 17ch;
     }
-    h1 em { font-style: normal; color: var(--ember); }
-
-    .lede {
-      font-size: clamp(1rem, 1.6vw, 1.12rem);
-      color: var(--ink-soft); max-width: 64ch; margin: 0 0 12px;
-    }
-
-    /* --- connection strip: claims nothing before a real fetch ---------- */
-
-    .conn {
-      display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
-      border: 1px solid var(--line); border-left: 6px solid var(--line-strong);
-      background: var(--surface); border-radius: var(--r-s);
-      padding: 12px 16px; margin: 0 0 16px; font-size: 0.9rem;
-    }
-    .conn[data-state="live"] { border-left-color: var(--ok); }
-    .conn[data-state="offline"] { border-left-color: var(--warn); }
-    .conn-label { font-weight: 750; text-transform: uppercase; letter-spacing: 0.09em; font-size: 0.72rem; }
-    .conn[data-state="live"] .conn-label { color: var(--ok); }
-    .conn[data-state="offline"] .conn-label { color: var(--warn); }
-    .conn p { margin: 0; color: var(--ink-soft); flex: 1 1 340px; }
-    .conn button { min-height: 38px; padding: 7px 14px; font-size: 0.82rem; }
-
-    /* --- the honest boundary, above the fold ---------------------------- */
+    h1 em { font-style: normal; color: var(--ink-soft); }
 
     .boundary {
-      border: 1px solid var(--warn); border-left: 6px solid var(--warn);
-      background: var(--surface); border-radius: var(--r-s);
-      padding: 8px 12px; margin: 0 0 8px; font-size: 0.84rem; line-height: 1.4;
+      margin: 0; font-size: var(--t-xs); line-height: 1.5; color: var(--ink-soft);
+      max-width: 48ch; padding: 12px 0 0; border-top: 3px solid var(--simulated);
     }
-    .boundary b { color: var(--warn); }
+    .boundary > span { display: block; }
+    .boundary .sim { color: var(--simulated); font-weight: 700; font-size: var(--t-sm); margin-bottom: 2px; }
+    .boundary b { color: var(--ink); }
+    .boundary code { color: var(--ink); }
 
-    nav.jump ul {
-      list-style: none; display: flex; flex-wrap: wrap; gap: 6px 20px;
-      padding: 0; margin: 0 0 40px; font-size: 0.86rem;
-    }
-    nav.jump a { color: var(--ink-soft); text-decoration-color: var(--line-strong); }
-    nav.jump a:hover { color: var(--ember); }
-
-    /* --- hero --------------------------------------------------------- */
+    /* --- the forge: patch in, sound and touch out ----------------------- */
 
     .hero {
+      position: relative; isolation: isolate;
       background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: var(--r-l);
-      box-shadow: var(--shadow);
-      padding: clamp(22px, 3.4vw, 40px);
-      margin: 0 0 26px;
-      position: relative;
-      overflow: hidden;
+      border: 1px solid var(--line); border-radius: var(--r-l);
+      padding: 22px 24px 20px;
+      margin: 0 0 20px;
     }
+    /* A quiet field of six-dot cells behind the forge, the product's motif. */
     .hero::before {
-      content: ""; position: absolute; inset: 0 0 auto 0; height: 4px;
-      background: linear-gradient(90deg, var(--ember) 0%, var(--spoken) 46%, var(--braille) 100%);
+      content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+      background: var(--texture);
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='34'%3E%3Cg fill='black'%3E%3Ccircle cx='7' cy='7' r='1.5'/%3E%3Ccircle cx='7' cy='15' r='1.5'/%3E%3Ccircle cx='7' cy='23' r='1.5'/%3E%3Ccircle cx='15' cy='7' r='1.5'/%3E%3Ccircle cx='15' cy='15' r='1.5'/%3E%3Ccircle cx='15' cy='23' r='1.5'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 26px 34px repeat;
+              mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='34'%3E%3Cg fill='black'%3E%3Ccircle cx='7' cy='7' r='1.5'/%3E%3Ccircle cx='7' cy='15' r='1.5'/%3E%3Ccircle cx='7' cy='23' r='1.5'/%3E%3Ccircle cx='15' cy='7' r='1.5'/%3E%3Ccircle cx='15' cy='15' r='1.5'/%3E%3Ccircle cx='15' cy='23' r='1.5'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 26px 34px repeat;
+      pointer-events: none;
     }
 
-    .kicker {
-      font-size: 0.72rem; font-weight: 750; letter-spacing: 0.16em;
-      text-transform: uppercase; color: var(--ink-soft); margin: 0 0 10px;
+    .stage {
+      display: grid; grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+      gap: 28px; align-items: start;
     }
 
-    .hero h2 {
-      font-size: clamp(1.3rem, 2.4vw, 1.72rem);
-      letter-spacing: -0.015em; margin: 0 0 8px; font-weight: 700;
+    .bench { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+    .patch {
+      background: var(--sunk); border: 1px solid var(--line);
+      border-radius: var(--r-m); overflow: hidden;
     }
-    .hero > p { color: var(--ink-soft); margin: 0 0 24px; max-width: 68ch; }
-    .hero > p.hero-detail { margin: 16px 0 0; font-size: 0.9rem; }
+    .patch-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 8px 8px 8px 16px; border-bottom: 1px solid var(--line);
+    }
+    .patch-file {
+      font-family: var(--mono); font-size: var(--t-xs); font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+    }
+    .edit-btn {
+      display: inline-flex; align-items: center; gap: 6px; flex: none;
+      min-height: 36px; padding: 5px 11px; font-size: var(--t-xs);
+      background: transparent; border-color: var(--line);
+    }
+    .edit-btn svg { width: 16px; height: 16px; }
+
+    pre.patch-view {
+      margin: 0; padding: 12px 0; overflow-x: auto;
+      font-family: var(--mono); font-size: 0.95rem; line-height: 1.8;
+    }
+    .patch-view .ln { display: block; position: relative; padding: 0 16px 0 38px; white-space: pre; }
+    .patch-view .ln::before {
+      position: absolute; left: 16px; width: 12px; text-align: center; font-weight: 600;
+      content: "";
+    }
+    .patch-view .fn { color: var(--ink-soft); }
+    .patch-view .del { background: color-mix(in srgb, var(--bad) 13%, transparent); }
+    .patch-view .add { background: color-mix(in srgb, var(--ok) 14%, transparent); }
+    .patch-view .del::before { content: "\2212"; content: "\2212" / ""; color: var(--bad); }
+    .patch-view .add::before { content: "+"; content: "+" / ""; color: var(--ok); }
 
     .cta {
-      display: inline-flex; align-items: center; gap: 14px;
+      display: flex; align-items: center; justify-content: center; gap: 14px;
+      width: 100%; min-height: 66px; padding: 14px 28px;
       background: var(--ember); color: var(--on-ember);
-      border: 2px solid var(--ember); border-radius: 999px;
-      padding: 18px 34px;
-      font: inherit; font-size: clamp(1.02rem, 1.5vw, 1.16rem); font-weight: 750;
-      letter-spacing: -0.01em;
-      min-height: 66px; cursor: pointer;
-      transition: transform 130ms ease, background 130ms ease;
+      border: 2px solid var(--ember); border-radius: var(--r-m);
+      font: inherit; font-size: var(--t-lg); font-weight: 700; letter-spacing: -0.005em;
+      cursor: pointer;
+      transition: background 130ms ease, transform 130ms ease;
     }
-    .cta:hover { background: var(--ember-hot); border-color: var(--ember-hot); transform: translateY(-1px); }
-    .cta:active { transform: translateY(0); }
+    .cta:hover { background: var(--ember-hot); border-color: var(--ember-hot); }
+    .cta:active { transform: translateY(1px); }
     .cta[aria-busy="true"] { cursor: progress; }
-    .cta .glyph { width: 26px; height: 26px; flex: none; }
+    .cta .glyph { width: 28px; height: 28px; flex: none; }
 
-    .cta-hint { font-size: 0.87rem; color: var(--ink-soft); margin: 14px 0 0; max-width: 62ch; }
-
-    code { font-family: var(--mono); font-size: 0.88em; }
-
-    /* --- measured meters ---------------------------------------------- */
-
-    .meters {
-      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1px; background: var(--line);
-      border: 1px solid var(--line); border-radius: var(--r-m);
-      margin: 30px 0 0; overflow: hidden;
-    }
-    .meters > div { background: var(--surface-2); padding: 14px 18px; }
-    .meters dt {
-      font-size: 0.66rem; font-weight: 750; letter-spacing: 0.12em;
-      text-transform: uppercase; color: var(--ink-soft); margin: 0 0 5px;
-    }
-    .meters dd {
-      margin: 0; font-size: clamp(1rem, 1.9vw, 1.28rem); font-weight: 700;
-      font-family: var(--mono); letter-spacing: -0.02em;
-    }
-    .meters .note {
-      display: block; font-family: var(--sans); font-size: 0.74rem; font-weight: 400;
-      color: var(--ink-soft); margin-top: 4px; letter-spacing: 0; line-height: 1.4;
-    }
-
-    .progress { height: 4px; background: var(--line); border-radius: 999px; margin-top: 22px; overflow: hidden; }
+    .progress { height: 4px; background: var(--line); border-radius: 999px; overflow: hidden; margin: -4px 0 0; }
     .progress[hidden] { display: none; }
     .progress span {
-      display: block; height: 100%; width: 40%;
+      display: block; height: 100%; width: 35%;
       background: var(--ember); border-radius: 999px;
       animation: slide 1.05s ease-in-out infinite;
     }
     @keyframes slide {
       0% { transform: translateX(-100%); }
-      100% { transform: translateX(350%); }
+      100% { transform: translateX(300%); }
     }
 
-    /* --- the transformation ------------------------------------------- */
+    /* --- the three channels ---------------------------------------------- */
 
-    .split {
-      display: grid;
-      grid-template-columns: minmax(0, 0.92fr) 34px minmax(0, 1.08fr);
-      gap: 20px; align-items: start;
-    }
-
-    .arrow { align-self: center; text-align: center; color: var(--line-strong); font-size: 1.7rem; line-height: 1; margin: 0; }
-
-    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-m); padding: 20px; }
-
-    .panel-head {
-      display: flex; justify-content: space-between; align-items: baseline;
-      gap: 12px; flex-wrap: wrap; margin: 0 0 14px;
-    }
-    .panel h3 { font-size: 1rem; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
-    .panel-head .side { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-soft); font-weight: 700; font-family: var(--mono); }
-
-    label { display: block; font-weight: 650; font-size: 0.87rem; margin: 0 0 6px; }
-    .hint { color: var(--ink-soft); font-size: 0.81rem; font-weight: 400; margin: 8px 0 0; }
-
-    textarea {
-      width: 100%; min-height: 236px; resize: vertical;
-      background: var(--sunk); color: var(--ink);
-      border: 1px solid var(--line); border-radius: var(--r-s);
-      padding: 14px; font-family: var(--mono); font-size: 0.81rem; line-height: 1.65;
-    }
-
-    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
-
-    button {
-      font: inherit; cursor: pointer;
-      background: var(--surface-2); color: var(--ink);
-      border: 1px solid var(--line-strong); border-radius: var(--r-s);
-      padding: 10px 16px; font-weight: 650; font-size: 0.89rem;
-      min-height: 44px;
-      transition: border-color 130ms ease, background 130ms ease;
-    }
-    button:hover { border-color: var(--ember); }
-    button[aria-pressed="true"] { background: var(--ember); color: var(--on-ember); border-color: var(--ember); }
-    .chips button { min-height: 40px; padding: 8px 14px; font-size: 0.83rem; }
-
-    .renderings { display: flex; flex-direction: column; gap: 14px; }
+    .channels { display: flex; flex-direction: column; min-width: 0; }
 
     .rendering {
-      background: var(--surface); border: 1px solid var(--line);
-      border-left: 5px solid var(--line-strong);
-      border-radius: var(--r-m); padding: 18px 20px;
+      display: grid; grid-template-columns: 88px minmax(0, 1fr);
+      gap: 8px 18px; padding: 16px 0; border-top: 1px solid var(--line);
     }
+    .rendering:first-child { border-top: 0; padding-top: 2px; }
+    .rendering > * { grid-column: 2; min-width: 0; }
     .rendering h3 {
-      font-size: 0.74rem; font-weight: 750; letter-spacing: 0.13em;
-      text-transform: uppercase; margin: 0 0 12px;
-      display: flex; align-items: center; gap: 9px;
-    }
-    .rendering h3 .num { font-family: var(--mono); font-size: 0.95em; opacity: 0.8; }
-    .r-spoken { border-left-color: var(--spoken); }
-    .r-spoken h3 { color: var(--spoken); }
-    .r-earcon { border-left-color: var(--earcon); }
-    .r-earcon h3 { color: var(--earcon); }
-    .r-braille { border-left-color: var(--braille); }
-    .r-braille h3 { color: var(--braille); }
-
-    .spoken-text {
-      font-size: clamp(1.02rem, 1.9vw, 1.2rem); line-height: 1.45;
-      letter-spacing: -0.012em; margin: 0; font-weight: 600;
+      grid-column: 1; grid-row: 1 / span 4; margin: 2px 0 0;
+      font-size: var(--t-xs); font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--ink-soft);
     }
 
+    .wave-row {
+      display: flex; align-items: center; gap: 14px;
+      background: var(--sunk); border: 1px solid var(--line); border-radius: var(--r-s);
+      padding: 6px 12px;
+    }
     .waveform {
-      display: block; width: 100%; height: 74px;
-      background: var(--sunk); border: 1px solid var(--line);
-      border-radius: var(--r-s);
+      display: block; flex: 1 1 0; min-width: 0; height: 64px;
+      background: radial-gradient(circle, var(--wave-rest) 1.3px, transparent 1.8px) 0 50% / 9px 9px repeat-x;
+    }
+    .contour { display: flex; align-items: center; gap: 8px; flex: none; margin: 0; }
+    .contour[hidden] { display: none; }
+    .contour svg { width: 46px; height: 30px; }
+    .contour polyline { fill: none; stroke: var(--earcon); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .contour circle { fill: var(--earcon); }
+    .contour strong { font-size: var(--t-sm); }
+
+    #earconPlayer { display: flex; }
+    #earconPlayer:empty { display: none; }
+    .replay { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 6px 14px; font-size: var(--t-xs); }
+    .replay svg { width: 14px; height: 14px; }
+
+    .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+    .legend .cue { display: inline-flex; align-items: center; gap: 6px; }
+    .legend svg { width: 30px; height: 18px; flex: none; }
+    .legend polyline { fill: none; stroke: var(--ink); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+    .legend circle { fill: var(--ink); }
+
+    .caption { font-size: var(--t-xs); color: var(--ink-soft); margin: 4px 0 0; line-height: 1.5; max-width: var(--measure); }
+    .caption code, .boundary code, .hint code { font-size: 0.93em; }
+    .caption:empty { display: none; }
+
+    #spokenPane { min-height: 3.4rem; }
+    .spoken-text {
+      margin: 0; font-size: clamp(1.2rem, 0.98rem + 0.6vw, 1.45rem); line-height: 1.34;
+      font-weight: 700; letter-spacing: -0.01em; max-width: 36ch;
+    }
+    .spoken-text .w { color: var(--ink-faint); transition: color 180ms ease; }
+    .spoken-text .w.said { color: var(--ink); }
+
+    .empty-state-card {
+      margin: 0; color: var(--ink-soft); font-size: var(--t-sm);
+      font-family: var(--sans); letter-spacing: 0; line-height: 1.5;
+    }
+    .empty-state-card.boxed {
+      border: 1px dashed var(--line-strong); border-radius: var(--r-s); padding: 14px;
     }
 
-    audio { width: 100%; margin-top: 12px; }
-
-    .caption { font-size: 0.84rem; color: var(--ink-soft); margin: 10px 0 0; line-height: 1.5; }
-    .caption:empty { display: none; }
+    /* Braille, drawn as cells a finger would find, from the server's own
+       Unicode patterns: dot n is bit n-1 of the code point. */
+    .dotcells { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 4px; min-height: 58px; }
+    .bwrap { display: inline-flex; flex-direction: column; align-items: center; gap: 5px; }
+    .bcell {
+      display: grid; grid-template-columns: repeat(2, 8px); grid-auto-rows: 8px;
+      gap: 5px; padding: 6px 5px; border-radius: 6px;
+    }
+    .bdot { width: 8px; height: 8px; border-radius: 50%; background: var(--dot-off); }
+    .bdot.on { background: var(--dot-on); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
+    .bwrap.hot .bcell { background: var(--ember-wash); }
+    .bwrap.hot .bdot.on { background: var(--ember); }
+    .bchar { font-family: var(--mono); font-size: var(--t-xs); line-height: 1; color: var(--ink-soft); min-height: 1em; }
+    .bwrap.hot .bchar { color: var(--ink); font-weight: 600; }
+    .bmore { align-self: center; color: var(--ink-soft); font-size: var(--t-xs); padding: 0 4px; }
+    .bwrap.rise { animation: rise 460ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+    @keyframes rise {
+      from { transform: translateY(12px); opacity: 0; }
+      to { transform: none; opacity: 1; }
+    }
 
     .cells {
       font-family: var(--braille-font);
-      font-size: 1.4rem; line-height: 1.7; letter-spacing: 2px;
-      color: var(--braille);
+      font-size: 1.2rem; line-height: 1.6; letter-spacing: 2px;
+      color: var(--ink);
       background: var(--sunk); border: 1px solid var(--line);
-      border-radius: var(--r-s); padding: 14px;
-      max-height: 215px; overflow: auto;
+      border-radius: var(--r-s); padding: 8px 12px; margin-top: 4px;
+      max-height: 7.2rem; overflow: auto;
       white-space: pre-wrap; word-break: break-all;
     }
+    .cells:has(> .empty-state-card) { background: none; border-style: dashed; white-space: normal; }
     .cells .row { display: block; padding: 3px 0; }
     .cells .row + .row { border-top: 1px solid var(--line); }
     .cells .plain {
-      display: block; font-family: var(--mono); font-size: 0.66rem;
+      display: block; font-family: var(--mono); font-size: var(--t-xs);
       letter-spacing: 0; color: var(--ink-soft); line-height: 1.5; word-break: break-all;
     }
     .cells .row[data-type="ADD"] { color: var(--ok); }
     .cells .row[data-type="REMOVE"] { color: var(--bad); }
     .cells .row[data-type="HEADER"] { color: var(--warn); }
 
-    .empty-state-card {
-      border: 1px dashed var(--line-strong); border-radius: var(--r-s);
-      padding: 14px; color: var(--ink-soft); font-size: 0.87rem; margin: 0;
-      background: none; font-family: var(--sans); letter-spacing: 0; line-height: 1.5;
+    .meters {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px 12px; margin: 2px 0 0; padding: 0;
     }
+    .meters > div:first-child { grid-column: 1 / -1; }
+    .meters > div { border-left: 2px solid var(--line-strong); padding-left: 10px; min-width: 0; }
+    .meters[hidden] { display: none; }
+    .meters dt { font-size: var(--t-xs); color: var(--ink-soft); margin: 0 0 2px; }
+    .meters dd { margin: 0; font-family: var(--mono); font-size: var(--t-sm); font-weight: 600; }
+    .meters .note {
+      display: block; font-family: var(--sans); font-size: var(--t-xs); font-weight: 400;
+      color: var(--ink-soft); margin-top: 3px; line-height: 1.45;
+    }
+    .meters .note:empty { display: none; }
 
     .error-card {
-      border: 1px solid var(--warn); border-left: 5px solid var(--warn);
-      border-radius: var(--r-s); background: var(--surface-2);
-      padding: 16px 18px; margin: 0; font-family: var(--sans);
-      letter-spacing: 0; font-size: 0.9rem; color: var(--ink); line-height: 1.5;
+      border: 1px solid var(--warn); border-radius: var(--r-s); background: var(--surface-2);
+      padding: 14px 16px; margin: 0; font-family: var(--sans);
+      letter-spacing: 0; font-size: var(--t-xs); color: var(--ink); line-height: 1.5;
     }
-    .error-card h4 { margin: 0 0 8px; font-size: 0.95rem; }
-    .error-card p { margin: 0 0 10px; color: var(--ink-soft); }
+    .error-card h4 { margin: 0 0 6px; font-size: var(--t-sm); }
+    .error-card p { margin: 0 0 8px; color: var(--ink-soft); }
     .error-card pre {
-      margin: 0 0 10px; padding: 12px 14px; background: var(--sunk);
+      margin: 0 0 8px; padding: 10px 12px; background: var(--sunk);
       border: 1px solid var(--line); border-radius: var(--r-s);
-      font-family: var(--mono); font-size: 0.79rem; overflow-x: auto; color: var(--ink);
+      font-family: var(--mono); font-size: var(--t-xs); overflow-x: auto; color: var(--ink);
     }
 
     #securityAlert:empty { display: none; }
     .finding {
-      display: flex; gap: 14px; align-items: flex-start;
-      border: 1px solid var(--bad); border-left: 5px solid var(--bad);
-      background: var(--surface); border-radius: var(--r-m);
-      padding: 15px 18px; margin: 20px 0 0;
+      display: flex; gap: 12px; align-items: flex-start;
+      border: 2px solid var(--bad); border-radius: var(--r-s);
+      background: var(--surface); padding: 12px 14px; margin: 8px 0 0;
     }
     .finding .tag {
-      flex: none; font-size: 0.66rem; font-weight: 750; letter-spacing: 0.1em;
-      text-transform: uppercase; color: var(--bad); padding-top: 3px;
+      flex: none; font-size: var(--t-xs); font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--bad);
     }
-    .finding p { margin: 0 0 6px; font-size: 0.92rem; font-weight: 600; }
-    .finding ul { margin: 0; padding-left: 18px; font-size: 0.88rem; color: var(--ink-soft); }
+    .finding p { margin: 0 0 4px; font-size: var(--t-xs); font-weight: 700; }
+    .finding ul { margin: 0; padding-left: 18px; font-size: var(--t-xs); color: var(--ink-soft); }
+
+    /* --- below the stage: try another patch, and more of the same answer -- */
+
+    .stage-tools {
+      display: flex; flex-wrap: wrap; gap: 16px 32px;
+      margin: 18px 0 0; padding: 16px 0 0; border-top: 1px solid var(--line);
+    }
+    .tool-group { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .tool-group > span { font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); }
+
+    .patch-editor { margin: 18px 0 0; }
+    .patch-editor[hidden] { display: none; }
+
+    /* --- chapter nav --------------------------------------------------- */
+
+    nav.jump ul {
+      list-style: none; display: flex; flex-wrap: wrap; gap: 6px 24px;
+      padding: 0; margin: 0 0 56px; font-size: var(--t-sm);
+    }
+    nav.jump a { color: var(--ink-soft); }
+    nav.jump a:hover { color: var(--ink); }
 
     /* --- sections ------------------------------------------------------ */
 
-    section.block {
-      background: var(--surface); border: 1px solid var(--line);
-      border-radius: var(--r-l); padding: clamp(20px, 2.8vw, 32px); margin: 26px 0 0;
+    section.chapter { margin: 0 0 64px; }
+    .chapter-head { margin: 0 0 24px; max-width: 72ch; }
+    .eyebrow {
+      display: flex; align-items: center; gap: 10px; margin: 0 0 8px;
+      font-size: var(--t-xs); font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--ink-soft);
     }
-    section.block > h2 {
-      font-size: clamp(1.18rem, 2.2vw, 1.5rem); margin: 0 0 8px;
-      letter-spacing: -0.015em; font-weight: 700;
+    .eyebrow svg { width: 26px; height: 14px; }
+    .eyebrow svg circle { fill: var(--ink-soft); }
+    section.chapter h2, section.block > h2 {
+      font-size: var(--t-xl); line-height: 1.15; letter-spacing: -0.015em;
+      font-weight: 700; margin: 0 0 10px;
     }
-    section.block > p { color: var(--ink-soft); margin: 0 0 20px; max-width: 76ch; }
+    .chapter-head p, section.block > p { color: var(--ink-soft); margin: 0; max-width: var(--measure); }
 
-    .facts {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-      gap: 1px; background: var(--line); border: 1px solid var(--line);
-      border-radius: var(--r-m); overflow: hidden; margin: 0 0 18px;
+    /* How it works: four steps along one line of time. */
+    .steps {
+      list-style: none; margin: 0; padding: 0;
+      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px;
+      counter-reset: step;
     }
-    .facts > div { background: var(--surface-2); padding: 13px 16px; }
-    .facts dt { font-size: 0.64rem; font-weight: 750; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 5px; }
-    .facts dd { margin: 0; font-family: var(--mono); font-size: 0.9rem; word-break: break-all; }
+    .steps li { padding-top: 16px; border-top: 2px solid var(--line-strong); }
+    .steps li:first-child { border-top-color: var(--ember); }
+    .steps h3 { font-size: var(--t-md); margin: 10px 0 6px; line-height: 1.3; }
+    .steps p { margin: 0; color: var(--ink-soft); font-size: var(--t-sm); }
+    .steps svg { width: 44px; height: 26px; display: block; }
+    .steps svg .ink { fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+    .steps svg .hot { fill: none; stroke: var(--ember); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+    .steps svg .dot { fill: var(--ink); }
+    .steps svg .dot.off { fill: var(--dot-off); }
 
-    .tools { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
-    .tools details { border: 1px solid var(--line); border-radius: var(--r-s); background: var(--surface-2); }
-    .tools summary { padding: 11px 15px; cursor: pointer; font-family: var(--mono); font-size: 0.86rem; font-weight: 600; }
-    .tools summary .what { font-family: var(--sans); font-weight: 400; color: var(--ink-soft); font-size: 0.85rem; }
-    .tools pre { margin: 0; padding: 0 15px 14px; font-family: var(--mono); font-size: 0.75rem; overflow-x: auto; color: var(--ink-soft); }
+    /* The review, as a conversation. */
+    .review-grid {
+      display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 24px; align-items: start;
+    }
+    .convo {
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l);
+      display: flex; flex-direction: column; min-width: 0;
+    }
+    .convo-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+      padding: 14px 20px; border-bottom: 1px solid var(--line);
+    }
+    .convo-head h3 { margin: 0; font-size: var(--t-md); }
+    .side { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-soft); }
 
-    .row-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; }
-    .danger { border-color: var(--bad); color: var(--bad); }
+    ol.dialogue {
+      list-style: none; margin: 0; padding: 18px 20px;
+      display: flex; flex-direction: column; gap: 10px;
+      min-height: 260px; max-height: 420px; overflow: auto;
+    }
+    ol.dialogue li { font-size: var(--t-sm); line-height: 1.5; word-break: break-word; max-width: 88%; }
+    ol.dialogue li.you {
+      align-self: flex-end; background: var(--surface-2);
+      border-radius: 16px 16px 4px 16px; padding: 9px 14px;
+    }
+    ol.dialogue li.understood {
+      align-self: flex-start; font-family: var(--mono); font-size: var(--t-xs);
+      color: var(--ink-soft); padding: 0 2px;
+    }
+    ol.dialogue li.volcan {
+      align-self: flex-start; background: var(--sunk); border: 1px solid var(--line);
+      border-radius: 16px 16px 16px 4px; padding: 11px 15px;
+    }
+    ol.dialogue li.empty-state-card { align-self: stretch; max-width: none; border: 1px dashed var(--line-strong); border-radius: var(--r-m); padding: 14px 16px; }
+
+    .composer { border-top: 1px solid var(--line); padding: 16px 20px 18px; }
+    .composer-row { display: flex; gap: 8px; align-items: stretch; }
+    .composer-row button { white-space: nowrap; }
+    .composer-row input { margin: 0; flex: 1 1 auto; min-width: 0; }
+    .mic {
+      display: inline-flex; align-items: center; gap: 8px; flex: none;
+    }
+    .mic svg { width: 18px; height: 18px; }
+    .mic[aria-pressed="true"] { background: var(--ink); color: var(--ground); }
+    .composer .chips { margin-top: 12px; }
+    .composer .chips-label { font-size: var(--t-xs); color: var(--ink-soft); font-weight: 700; margin: 14px 0 6px; }
+
+    .rail { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+    .rail-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); padding: 18px 20px; }
+    .rail-card h3 { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; font-size: var(--t-md); }
+    .rail-card h3 .n { font-family: var(--mono); color: var(--ink-faint); font-size: var(--t-sm); }
+    .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
+    .rail-card input { margin: 0; }
+    details.token { margin: 14px 0 0; }
+    details.token summary { cursor: pointer; font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); }
+    details.token[open] summary { margin-bottom: 10px; }
+
+    .keymini { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; font-size: var(--t-xs); }
+    .keymini li { display: flex; justify-content: space-between; gap: 12px; color: var(--ink-soft); }
+    .keymini li span:first-child { white-space: nowrap; }
 
     .lease {
-      display: inline-block; font-family: var(--mono); font-size: 0.78rem;
-      font-weight: 700; letter-spacing: 0.06em;
-      border: 1px solid var(--line-strong); border-radius: 999px; padding: 4px 13px;
+      display: inline-block; font-family: var(--mono); font-size: var(--t-xs);
+      font-weight: 600; letter-spacing: 0.04em;
+      border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px 12px;
     }
     .lease[data-state="active"] { color: var(--warn); border-color: var(--warn); }
     .lease[data-state="released"] { color: var(--ok); border-color: var(--ok); }
     .lease[data-state="refused"] { color: var(--bad); border-color: var(--bad); }
 
-    .gov-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 20px; }
+    .review-request {
+      margin: 10px 0 0; padding: 12px 14px; background: var(--sunk);
+      border: 1px solid var(--line); border-radius: var(--r-s);
+      font-family: var(--mono); font-size: var(--t-xs); color: var(--ink);
+      white-space: pre-wrap; word-break: break-all; overflow-x: auto;
+    }
 
-    .kv { margin: 0; font-size: 0.9rem; }
+    .kv { margin: 0 0 8px; font-size: var(--t-xs); }
     .kv > div { display: flex; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
     .kv > div:last-child { border-bottom: 0; }
-    .kv dt { color: var(--ink-soft); min-width: 128px; font-size: 0.81rem; }
-    .kv dd { margin: 0; font-family: var(--mono); font-size: 0.81rem; word-break: break-all; }
+    .kv dt { color: var(--ink-soft); min-width: 120px; }
+    .kv dd { margin: 0; font-family: var(--mono); word-break: break-all; }
+
+    /* --- evidence ------------------------------------------------------- */
+
+    section.evidence { border-top: 1px solid var(--line-strong); padding-top: 40px; margin: 0; }
+    [role="tablist"] {
+      display: flex; flex-wrap: wrap; gap: 4px; margin: 24px 0 0;
+      border-bottom: 1px solid var(--line);
+    }
+    [role="tab"] {
+      background: none; border: 0; border-bottom: 3px solid transparent; border-radius: 0;
+      color: var(--ink-soft); padding: 10px 16px; margin-bottom: -1px; min-height: 48px;
+    }
+    [role="tab"]:hover { color: var(--ink); border-bottom-color: var(--line-strong); }
+    [role="tab"][aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+    [role="tabpanel"] { padding: 28px 0 0; }
+    [role="tabpanel"][hidden] { display: none; }
+
+    section.block { margin: 0 0 36px; }
+    section.block > h2 { font-size: var(--t-lg); }
+    section.block > p { margin: 0 0 18px; }
+
+    .conn {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+      border: 1px solid var(--line); border-radius: var(--r-m);
+      background: var(--surface); padding: 14px 16px; margin: 0 0 32px; font-size: var(--t-xs);
+    }
+    .conn-label { font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+    .conn[data-state="live"] .conn-label { color: var(--ok); }
+    .conn[data-state="offline"] .conn-label { color: var(--warn); }
+    .conn p { margin: 0; color: var(--ink-soft); flex: 1 1 340px; }
+    .conn button { min-height: 40px; font-size: var(--t-xs); }
+
+    .facts {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 1px; background: var(--line); border: 1px solid var(--line);
+      border-radius: var(--r-m); overflow: hidden; margin: 18px 0;
+    }
+    .facts > div { background: var(--surface); padding: 12px 16px; }
+    .facts dt { font-size: var(--t-xs); color: var(--ink-soft); margin: 0 0 4px; }
+    .facts dd { margin: 0; font-family: var(--mono); font-size: var(--t-sm); word-break: break-all; }
+
+    .tools { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+    .tools details { border: 1px solid var(--line); border-radius: var(--r-s); background: var(--surface); }
+    .tools summary { padding: 10px 14px; cursor: pointer; font-family: var(--mono); font-size: var(--t-xs); font-weight: 600; }
+    .tools summary .what { font-family: var(--sans); font-weight: 400; color: var(--ink-soft); }
+    .tools pre { margin: 0; padding: 0 14px 12px; font-family: var(--mono); font-size: var(--t-xs); overflow-x: auto; color: var(--ink-soft); }
+
+    .gov-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 20px; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-m); padding: 18px; min-width: 0; }
+    .panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; }
+    .panel h3 { font-size: var(--t-sm); margin: 0; }
 
     ol.audit {
       list-style: none; padding: 0; margin: 0; max-height: 258px; overflow: auto;
       display: flex; flex-direction: column; gap: 6px;
     }
     ol.audit li {
-      background: var(--sunk); border-left: 3px solid var(--ember);
-      border-radius: 0 var(--r-s) var(--r-s) 0; padding: 8px 12px;
-      font-family: var(--mono); font-size: 0.75rem; color: var(--ink-soft); word-break: break-all;
+      background: var(--sunk); border-radius: var(--r-s); padding: 8px 12px;
+      font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-soft); word-break: break-all;
     }
 
-    /* --- the review dialogue ----------------------------------------------- */
+    .prose { max-width: var(--measure); }
+    .prose h3 { font-size: var(--t-md); margin: 26px 0 6px; }
+    .prose h3:first-child { margin-top: 0; }
+    .prose p { color: var(--ink-soft); margin: 0 0 10px; }
 
-    input[type="text"], input[type="url"] {
-      width: 100%; min-height: 44px; margin: 0 0 8px;
-      background: var(--sunk); color: var(--ink);
-      border: 1px solid var(--line); border-radius: var(--r-s);
-      padding: 10px 14px; font: inherit; font-size: 0.9rem;
-    }
+    /* --- keyboard map dialog ------------------------------------------ */
 
-    ol.dialogue {
-      list-style: none; padding: 0; margin: 0 0 18px; max-height: 320px; overflow: auto;
-      display: flex; flex-direction: column; gap: 6px;
+    dialog.keymap {
+      width: min(760px, calc(100% - 32px)); max-height: calc(100% - 48px);
+      padding: 0; border: 1px solid var(--line-strong); border-radius: var(--r-l);
+      background: var(--surface); color: var(--ink);
     }
-    ol.dialogue li {
-      background: var(--sunk); border-left: 3px solid var(--line-strong);
-      border-radius: 0 var(--r-s) var(--r-s) 0; padding: 8px 12px;
-      font-size: 0.86rem; line-height: 1.5; word-break: break-word;
-    }
-    ol.dialogue li.you { border-left-color: var(--ink-soft); color: var(--ink-soft); }
-    ol.dialogue li.understood { border-left-color: var(--warn); font-family: var(--mono); font-size: 0.78rem; }
-    ol.dialogue li.volcan { border-left-color: var(--spoken); font-weight: 600; }
-    ol.dialogue li.empty-state-card { border: 1px dashed var(--line-strong); background: none; font-weight: 400; }
+    dialog.keymap::backdrop { background: rgba(8, 8, 10, 0.62); }
+    dialog.keymap section.block { margin: 0; padding: 24px 26px 26px; }
+    .dialog-head { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
 
-    .review-request {
-      margin: 10px 0 0; padding: 12px 14px; background: var(--sunk);
-      border: 1px solid var(--line); border-radius: var(--r-s);
-      font-family: var(--mono); font-size: 0.76rem; color: var(--ink);
-      white-space: pre-wrap; word-break: break-all; overflow-x: auto;
-    }
-
-    table { width: 100%; border-collapse: collapse; font-size: 0.91rem; }
-    caption { text-align: left; color: var(--ink-soft); font-size: 0.87rem; padding-bottom: 12px; }
-    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
-    th { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-soft); }
-    kbd {
-      font-family: var(--mono); font-size: 0.81rem;
-      background: var(--surface-2); border: 1px solid var(--line-strong);
-      border-bottom-width: 2px; border-radius: 5px; padding: 2px 7px;
-    }
+    table { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+    caption { text-align: left; color: var(--ink-soft); font-size: var(--t-xs); padding-bottom: 10px; }
+    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); }
+    td:first-child { white-space: nowrap; }
 
     .promises {
-      list-style: none; padding: 0; margin: 20px 0 0; display: grid; gap: 10px;
-      grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+      list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     }
-    .promises li { font-size: 0.87rem; color: var(--ink-soft); padding-left: 24px; position: relative; }
-    .promises li::before { content: "\2713"; position: absolute; left: 0; color: var(--ok); font-weight: 700; }
+    .promises li { font-size: var(--t-xs); color: var(--ink-soft); padding-left: 22px; position: relative; }
+    .promises li::before { content: "\2713" / ""; position: absolute; left: 0; color: var(--ok); font-weight: 700; }
 
     footer[role="contentinfo"] {
-      margin: 46px 0 0; padding: 26px 0 0; border-top: 1px solid var(--line);
-      color: var(--ink-soft); font-size: 0.87rem;
+      margin: 56px 0 0; padding: 24px 0 0; border-top: 1px solid var(--line);
+      color: var(--ink-soft); font-size: var(--t-xs);
     }
+    footer p { margin: 0 0 8px; max-width: 90ch; }
 
     /* --- responsive ---------------------------------------------------- */
 
     @media (max-width: 1000px) {
-      .split { grid-template-columns: minmax(0, 1fr); }
-      .arrow { transform: rotate(90deg); padding: 4px 0; }
+      .intro { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+      .stage { grid-template-columns: minmax(0, 1fr); }
+      .review-grid { grid-template-columns: minmax(0, 1fr); }
       .gov-grid { grid-template-columns: minmax(0, 1fr); }
+      .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
 
     @media (max-width: 620px) {
-      body { font-size: 16px; }
-      .shell { padding: 0 14px 56px; }
-      header[role="banner"] { padding: 12px 0 4px; }
-      .wordmark { gap: 6px; margin-bottom: 4px; font-size: 0.7rem; letter-spacing: 0.14em; }
-      h1 { max-width: none; margin-bottom: 6px; font-size: 1.65rem; line-height: 1.04; }
-      .lede { margin-bottom: 8px; font-size: 0.92rem; line-height: 1.35; }
-      .boundary { padding: 6px 9px; margin-bottom: 6px; font-size: 0.82rem; line-height: 1.3; }
-      .hero { padding: 16px; margin-bottom: 18px; }
-      .kicker { margin-bottom: 4px; }
-      .hero h2 { margin-bottom: 6px; font-size: 1.2rem; line-height: 1.2; }
-      .meters { grid-template-columns: minmax(0, 1fr); }
-      .cta { width: 100%; min-height: 58px; justify-content: center; padding: 12px 18px; }
-      .row-actions button { width: 100%; }
+      body { font-size: var(--t-sm); }
+      .shell { padding: 0 16px 56px; }
+      .bar { padding: 12px 0 6px; }
+      .wordmark .tagline { display: none; }
+      .wordmark svg { width: 56px; height: 13px; }
+      .keys-btn { display: none; }
+      h1 { font-size: 2.05rem; max-width: none; }
+      .intro { padding: 8px 0 18px; }
+      .hero { padding: 14px 14px 16px; border-radius: var(--r-m); }
+      .patch-view .fn { display: none; }
+      .cta { font-size: var(--t-md); min-height: 64px; padding: 12px 16px; gap: 10px; }
+      .edit-btn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+      .rendering { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+      .rendering h3 { grid-row: auto; }
+      .rendering > * { grid-column: 1; }
+      .steps { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+      .composer-row { flex-wrap: wrap; }
+      .composer-row input { flex-basis: 100%; }
       .kv dt { min-width: 0; }
-      .cells { font-size: 1.2rem; }
+      .row-actions button { flex: 1 1 auto; }
+      dialog.keymap section.block { padding: 18px; }
+      td:first-child { white-space: normal; }
     }
 
     /* A developer who asked the operating system for reduced motion gets
-       no animation and no smooth scrolling at all. */
+       no animation and no smooth scrolling at all: every state still
+       changes, instantly. */
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
       *, *::before, *::after {
@@ -534,12 +761,19 @@
         animation-iteration-count: 1 !important;
         transition-duration: 0.001ms !important;
       }
-      .cta:hover { transform: none; }
+      .cta:active { transform: none; }
       .progress span { width: 100%; animation: none; }
+      .bwrap.rise { animation: none; }
     }
 
     @media (prefers-contrast: more) {
-      :root { --line: var(--line-strong); --ink-soft: var(--ink); }
+      :root { --line: var(--line-strong); --ink-soft: var(--ink); --ink-faint: var(--ink-soft); }
+    }
+
+    @media (forced-colors: active) {
+      .bdot.on { background: CanvasText; }
+      .bdot { background: GrayText; }
+      .cta { border: 2px solid ButtonText; }
     }
   </style>
 </head>
@@ -548,102 +782,140 @@
 
   <div class="shell">
     <header role="banner">
-      <p class="wordmark"><span class="flame" aria-hidden="true">&#9650;</span> <b>Volcan</b> <span>Accessible AI agent forge</span></p>
-      <h1>Hear your code review <em>instead of scrubbing a diff</em>.</h1>
-      <p class="lede">
-        A blind or motor-impaired developer receives one patch as a spoken digest, an audio
-        cue and Braille. The live API returns all three in one action.
-      </p>
-      <p class="boundary" id="notASkill">
-        <b>Simulated Alexa+ experience, not an Alexa skill.</b> Browser voice stands in for
-        a device. Live: server, MCP, GitHub read and Bedrock attempt through
-        <code>anthropic[bedrock]</code>. GitHub write: dry-run. The <b>Synthesis engine</b>
-        meter names the answering path.
-      </p>
+      <div class="bar">
+        <p class="wordmark">
+          <!-- "volcan" in six-dot Braille: v 1236, o 135, l 123, c 14, a 1, n 1345 -->
+          <svg viewBox="0 0 70 16" aria-hidden="true" focusable="false">
+            <g class="flat">
+              <circle cx="2" cy="2" r="1.1"></circle><circle cx="7" cy="2" r="1.1"></circle><circle cx="2" cy="8" r="1.1"></circle><circle cx="7" cy="8" r="1.1"></circle><circle cx="2" cy="14" r="1.1"></circle><circle cx="7" cy="14" r="1.1"></circle>
+              <circle cx="14" cy="2" r="1.1"></circle><circle cx="19" cy="2" r="1.1"></circle><circle cx="14" cy="8" r="1.1"></circle><circle cx="19" cy="8" r="1.1"></circle><circle cx="14" cy="14" r="1.1"></circle><circle cx="19" cy="14" r="1.1"></circle>
+              <circle cx="26" cy="2" r="1.1"></circle><circle cx="31" cy="2" r="1.1"></circle><circle cx="26" cy="8" r="1.1"></circle><circle cx="31" cy="8" r="1.1"></circle><circle cx="26" cy="14" r="1.1"></circle><circle cx="31" cy="14" r="1.1"></circle>
+              <circle cx="38" cy="2" r="1.1"></circle><circle cx="43" cy="2" r="1.1"></circle><circle cx="38" cy="8" r="1.1"></circle><circle cx="43" cy="8" r="1.1"></circle><circle cx="38" cy="14" r="1.1"></circle><circle cx="43" cy="14" r="1.1"></circle>
+              <circle cx="50" cy="2" r="1.1"></circle><circle cx="55" cy="2" r="1.1"></circle><circle cx="50" cy="8" r="1.1"></circle><circle cx="55" cy="8" r="1.1"></circle><circle cx="50" cy="14" r="1.1"></circle><circle cx="55" cy="14" r="1.1"></circle>
+              <circle cx="62" cy="2" r="1.1"></circle><circle cx="67" cy="2" r="1.1"></circle><circle cx="62" cy="8" r="1.1"></circle><circle cx="67" cy="8" r="1.1"></circle><circle cx="62" cy="14" r="1.1"></circle><circle cx="67" cy="14" r="1.1"></circle>
+            </g>
+            <g class="raised first">
+              <circle cx="2" cy="2" r="2"></circle><circle cx="2" cy="8" r="2"></circle><circle cx="2" cy="14" r="2"></circle><circle cx="7" cy="14" r="2"></circle>
+            </g>
+            <g class="raised">
+              <circle cx="14" cy="2" r="2"></circle><circle cx="14" cy="14" r="2"></circle><circle cx="19" cy="8" r="2"></circle>
+              <circle cx="26" cy="2" r="2"></circle><circle cx="26" cy="8" r="2"></circle><circle cx="26" cy="14" r="2"></circle>
+              <circle cx="38" cy="2" r="2"></circle><circle cx="43" cy="2" r="2"></circle>
+              <circle cx="50" cy="2" r="2"></circle>
+              <circle cx="62" cy="2" r="2"></circle><circle cx="62" cy="14" r="2"></circle><circle cx="67" cy="2" r="2"></circle><circle cx="67" cy="8" r="2"></circle>
+            </g>
+          </svg>
+          <b>Volcan</b>
+        </p>
+        <div class="bar-right">
+          <p class="pill" id="connPill" data-state="checking" role="status" aria-live="polite"><span class="led" aria-hidden="true"></span><span class="visually-hidden">Volcan server: </span><span id="connPillText">Checking</span></p>
+          <button type="button" class="keys-btn" id="keymapOpen" aria-haspopup="dialog" aria-label="Keyboard map"
+                  title="Open the keyboard map. The question mark key opens it from anywhere on the page"><kbd>?</kbd></button>
+        </div>
+      </div>
 
+      <div class="intro">
+        <h1>Hear your code review <em>instead of scrubbing a diff.</em></h1>
+        <p class="boundary" id="notASkill">
+          <span class="sim">Simulated Alexa+ experience, not an Alexa skill</span>
+          <span>Live: server, MCP, GitHub read, Bedrock attempt through <code>anthropic[bedrock]</code></span>
+          <span>GitHub write: dry-run</span>
+          <span><b>Synthesis engine</b> names who answered</span>
+        </p>
+      </div>
     </header>
 
     <main id="main">
-      <section class="hero" aria-labelledby="hero-heading">
-        <p class="kicker">One button, one real round trip</p>
-        <h2 id="hero-heading">Turn the patch below into sound and Braille</h2>
+      <section class="hero" id="stage" aria-labelledby="hero-heading">
+        <h2 id="hero-heading" class="visually-hidden">Turn the patch into sound and Braille</h2>
 
-        <button type="button" class="cta" id="runReview" data-testid="primary-hero-action"
-                title="Send the patch to the Volcan API, play the earcon it returns and render the Braille cells">
-          <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-            <path d="M4 9v6h3l5 4V5L7 9H4z"></path>
-            <path d="M16.5 8.5a5 5 0 0 1 0 7"></path>
-            <path d="M19.5 5.5a9 9 0 0 1 0 13"></path>
-          </svg>
-          Hear this code review
-        </button>
-
-        <p class="hero-detail">
-          Calls the live digest and Braille endpoints, plays the returned WAV and reports
-          this browser's measured round trip. No result is prewritten into the page.
-        </p>
-
-        <p class="cta-hint" id="runHint">
-          Audio plays through your speakers. The player below keeps a control for replaying
-          it, and every cue also carries a written description in the same live region.
-        </p>
-
-        <div class="progress" id="runProgress" hidden><span></span></div>
-        <p class="visually-hidden" id="runStatus" role="status" aria-live="polite"></p>
-
-        <dl class="meters">
-          <div>
-            <dt>Synthesis engine</dt>
-            <dd id="meterEngine">not run yet<span class="note" id="meterEngineNote">Read from the <code>synthesis_mode</code> field of the response, together with <code>synthesis_fallback_reason</code> when no model answered.</span></dd>
-          </div>
-          <div>
-            <dt>Round trip measured here</dt>
-            <dd id="meterLatency">not run yet<span class="note">Wall clock across <code>fetch</code> and JSON parse, from <code>performance.now()</code>.</span></dd>
-          </div>
-          <div>
-            <dt>Change size</dt>
-            <dd id="meterChange">not run yet<span class="note">Counted by the server's unified diff parser, not by this page.</span></dd>
-          </div>
-        </dl>
-      </section>
-
-      <div class="conn" id="conn" data-state="checking" role="status" aria-live="polite">
-        <span class="conn-label" id="connLabel">Checking</span>
-        <p id="connDetail">Requesting <code>GET /health</code> on this origin. Nothing here claims a server until that request answers.</p>
-        <button type="button" id="retryHealth" title="Request GET /health again and update the state above">Check again</button>
-      </div>
-
-      <nav class="jump" aria-label="Sections of this page">
-        <ul>
-          <li><a href="#transform">The transformation</a></li>
-          <li><a href="#review">Review a pull request by voice</a></li>
-          <li><a href="#mcp">MCP handshake</a></li>
-          <li><a href="#governance">Governed actions</a></li>
-          <li><a href="#access">Keyboard map</a></li>
-        </ul>
-      </nav>
-
-      <section class="block" id="transform" aria-labelledby="transform-heading">
-        <h2 id="transform-heading">One patch, three accessible renderings</h2>
-        <p>
-          The left column is what a screen reader reads aloud today, one plus sign and one
-          hunk header at a time. The right column is what Volcan hands back instead.
-        </p>
-
-        <div class="split">
-          <div class="panel">
-            <div class="panel-head">
-              <h3>Raw unified diff</h3>
-              <span class="side">input</span>
+        <div class="stage">
+          <div class="bench">
+            <div class="patch">
+              <div class="patch-head">
+                <span class="patch-file" id="patchFile">src/auth/permissions.py</span>
+                <button type="button" class="edit-btn" id="editPatch" aria-expanded="false" aria-controls="patchEditor" aria-label="Edit the patch"
+                        title="Show the patch box, where you can paste any git diff or edit this one. Alt and 2 does the same">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg>
+                  <span id="editPatchLabel">Edit</span>
+                </button>
+              </div>
+              <pre class="patch-view" id="patchView" tabindex="0" aria-label="The patch that will be reviewed, as changed lines"></pre>
             </div>
-            <label for="diffInput">Patch to review</label>
-            <textarea id="diffInput" spellcheck="false" aria-describedby="diffHelp"></textarea>
-            <p class="hint" id="diffHelp">Paste any <code>git diff</code> output, or pick one of these four.
-              The first three are the change classes a keyword matcher cannot see, one for each
-              syntax-tree rule Volcan ships; the fourth is the control, where the right answer is
-              no finding at all. Each label names the sentence the server will speak back, and
-              <code>tests/e2e/test_shipped_presets_reach_their_rule.py</code> fails the build if a
-              preset stops producing it.</p>
+
+            <button type="button" class="cta" id="runReview" data-testid="primary-hero-action"
+                    title="Send the patch to the Volcan API, play the earcon it returns, speak the digest and render the Braille cells">
+              <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                <path d="M4 9v6h3l5 4V5L7 9H4z"></path>
+                <path d="M16.5 8.5a5 5 0 0 1 0 7"></path>
+                <path d="M19.5 5.5a9 9 0 0 1 0 13"></path>
+              </svg>
+              Hear this code review
+            </button>
+            <div class="progress" id="runProgress" hidden><span></span></div>
+            <p class="visually-hidden" id="runStatus" role="status" aria-live="polite"></p>
+            <dl class="meters" id="meters" hidden>
+              <div>
+                <dt>Synthesis engine</dt>
+                <dd id="meterEngine">not run yet<span class="note" id="meterEngineNote"></span></dd>
+              </div>
+              <div>
+                <dt>Round trip, measured here</dt>
+                <dd id="meterLatency">not run yet</dd>
+              </div>
+              <div>
+                <dt>Change size</dt>
+                <dd id="meterChange">not run yet</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div class="channels">
+            <article class="rendering r-earcon" aria-labelledby="r-earcon-heading">
+              <h3 id="r-earcon-heading">Earcon</h3>
+              <div class="wave-row">
+                <canvas class="waveform" id="earconWave" role="img"
+                        aria-label="No audio cue has played yet. When one does, its amplitude is drawn here from the audio samples the server returned."></canvas>
+                <p class="contour" id="earconContour" aria-hidden="true" hidden></p>
+              </div>
+              <div id="earconPlayer"></div>
+              <p class="caption legend" id="earconCaption" role="status" aria-live="polite"><span class="cue"><svg viewBox="0 0 30 18" aria-hidden="true" focusable="false"><polyline points="5,5 25,13"></polyline><circle cx="5" cy="5" r="3"></circle><circle cx="25" cy="13" r="3"></circle></svg><span class="visually-hidden">falling: </span><code>SECURITY_FINDING</code></span> <span class="cue"><svg viewBox="0 0 30 18" aria-hidden="true" focusable="false"><polyline points="4,14 15,9 26,4"></polyline><circle cx="4" cy="14" r="3"></circle><circle cx="15" cy="9" r="3"></circle><circle cx="26" cy="4" r="3"></circle></svg><span class="visually-hidden">rising: </span><code>DIFF_READY</code></span></p>
+            </article>
+
+            <article class="rendering r-spoken" aria-labelledby="r-spoken-heading">
+              <h3 id="r-spoken-heading">Speech</h3>
+              <div id="spokenPane" role="status" aria-live="polite">
+                <p class="empty-state-card">Nothing spoken yet.<span class="visually-hidden"> Select Hear this code review and the sentence the server returns appears here as it is spoken.</span></p>
+              </div>
+              <p class="caption" id="spokenCaption"></p>
+              <div id="securityAlert" role="alert"></div>
+            </article>
+
+            <article class="rendering r-braille" aria-labelledby="r-braille-heading">
+              <h3 id="r-braille-heading">Braille</h3>
+              <div class="dotcells" id="brailleCells" aria-hidden="true"></div>
+              <div class="cells" id="brailleOutput" role="region" tabindex="0"
+                   aria-label="Braille cell stream, Unicode Braille patterns"><p class="empty-state-card">No cells yet.<span class="visually-hidden"> Select Hear this code review and the server's Braille for this patch arrives here, one row per line, for a refreshable display.</span></p></div>
+              <p class="caption" id="brailleCaption"></p>
+            </article>
+
+          </div>
+        </div>
+
+        <div class="patch-editor" id="patchEditor" hidden>
+          <label for="diffInput">Patch to review</label>
+          <textarea id="diffInput" spellcheck="false" aria-describedby="diffHelp"></textarea>
+          <p class="hint" id="diffHelp">Paste any <code>git diff</code> output, or pick one of the four patches below.
+            The first three are the change classes a keyword matcher cannot see, one for each
+            syntax-tree rule Volcan ships; the fourth is the control, where the right answer is
+            no finding at all. Each label names the sentence the server will speak back, and
+            <code>tests/e2e/test_shipped_presets_reach_their_rule.py</code> fails the build if a
+            preset stops producing it.</p>
+        </div>
+
+        <div class="stage-tools">
+          <div class="tool-group">
+            <span id="presetsLabel">Try another patch</span>
             <div class="chips" role="group" aria-label="Preset patches">
               <button type="button" id="preset1" aria-pressed="true"
                       title="Loads the patch Volcan answers with: an authorization comparison was inverted: user.role == 'admin' became user.role != 'admin'">Inverted admin check</button>
@@ -655,282 +927,329 @@
                       title="Control. Loads a benign patch that changes no security behaviour, so the right answer is no finding at all and the rising DIFF_READY cue rather than the falling one">Clean change, no finding</button>
             </div>
           </div>
-
-          <p class="arrow" aria-hidden="true">&#10230;</p>
-
-          <div class="renderings">
-            <article class="rendering r-spoken" aria-labelledby="r-spoken-heading">
-              <h3 id="r-spoken-heading"><span class="num">1</span> Spoken digest</h3>
-              <div id="spokenPane" role="status" aria-live="polite">
-                <p class="empty-state-card">Nothing spoken yet. Select <strong>Hear this code review</strong> and the sentence the server returns appears here.</p>
-              </div>
-              <p class="caption" id="spokenCaption"></p>
-              <div class="chips" role="group" aria-label="Digest detail controls">
-                <button type="button" id="speakAgain" title="Read the current digest aloud again with the browser speech engine">Speak it again</button>
-                <button type="button" id="level1" title="Request the same patch at digest level 1, the file-by-file breakdown">File-by-file</button>
-                <button type="button" id="drillDown" title="Call the drill down endpoint for the first section of the patch">Drill into file 1</button>
-              </div>
-            </article>
-
-            <article class="rendering r-earcon" aria-labelledby="r-earcon-heading">
-              <h3 id="r-earcon-heading"><span class="num">2</span> Earcon</h3>
-              <canvas class="waveform" id="earconWave" role="img"
-                      aria-label="No audio cue has played yet. When one does, its amplitude is drawn here from the audio samples the server returned."></canvas>
-              <div id="earconPlayer"></div>
-              <p class="caption" id="earconCaption" role="status" aria-live="polite">
-                No cue yet. Volcan sends a rising three-note cue, <code>DIFF_READY</code>, when a digest is ready, and a falling two-note cue, <code>SECURITY_FINDING</code>, when the patch touches security, so the verdict arrives before the sentence does. The two are different audio: switch between preset 1 and preset 4 above and this caption changes with the bytes.
-              </p>
-            </article>
-
-            <article class="rendering r-braille" aria-labelledby="r-braille-heading">
-              <h3 id="r-braille-heading"><span class="num">3</span> Braille cells</h3>
-              <div class="cells" id="brailleOutput" role="region" tabindex="0"
-                   aria-label="Braille cell stream, Unicode Braille patterns">
-                <p class="empty-state-card">No cells yet. Volcan renders the same patch as Unicode Braille in the U+2800 block for a refreshable display. The default is eight-dot code fidelity, one cell per printable character, so <code>(</code>, <code>)</code> and <code>=</code> keep their own cells; six-dot literary Braille is lossy for code, and the server names what it lost in this patch.</p>
-              </div>
-              <p class="caption" id="brailleCaption"></p>
-              <div class="chips" role="group" aria-label="Braille fidelity and clipboard">
-                <button type="button" id="fidelityCode" aria-pressed="true"
-                        title="Eight-dot computer Braille: one cell per printable ASCII character, so ( ) and = keep their own cells and the cells decode back to the exact source">Code fidelity, 8-dot</button>
-                <button type="button" id="fidelityLiterary" aria-pressed="false"
-                        title="Six-dot literary Braille with capital and number prefixes: right for prose, lossy for code because ( ) and = share one cell; the response names every collision in this patch">Literary, 6-dot</button>
-                <button type="button" id="copyBraille" title="Copy the Braille cell stream to the clipboard">Copy the cells</button>
-              </div>
-            </article>
+          <div class="tool-group">
+            <span>Ask for more</span>
+            <div class="chips" role="group" aria-label="Digest detail controls">
+              <button type="button" id="speakAgain" title="Read the current digest aloud again with the browser speech engine">Speak it again</button>
+              <button type="button" id="level1" title="Request the same patch at digest level 1, the file-by-file breakdown">File-by-file</button>
+              <button type="button" id="drillDown" title="Call the drill down endpoint for the first section of the patch">Drill into file 1</button>
+            </div>
+          </div>
+          <div class="tool-group">
+            <span>Braille table</span>
+            <div class="chips" role="group" aria-label="Braille fidelity and clipboard">
+              <button type="button" id="fidelityCode" aria-pressed="true"
+                      title="Eight-dot computer Braille: one cell per printable ASCII character, so ( ) and = keep their own cells and the cells decode back to the exact source">Code, 8-dot</button>
+              <button type="button" id="fidelityLiterary" aria-pressed="false"
+                      title="Six-dot literary Braille with capital and number prefixes: right for prose, lossy for code because ( ) and = share one cell; the response names every collision in this patch">Literary, 6-dot</button>
+              <button type="button" id="copyBraille" title="Copy the Braille cell stream to the clipboard">Copy the cells</button>
+            </div>
           </div>
         </div>
-
-        <div id="securityAlert" role="alert"></div>
       </section>
 
-      <section class="block" id="review" aria-labelledby="review-heading">
-        <h2 id="review-heading">Converse about a pull request, then request changes on it</h2>
-        <p>
-          The journey a blind developer needs from start to finish: open a real pull
-          request, ask what changed in a file, hear the exact numbered source lines, spell
-          one out symbol by symbol, correct a misheard command, and submit a
-          <code>Request changes</code> review bound to the commit that was reviewed. Every
-          turn posts to <code>POST /api/review/turn</code> and reads back what it understood
-          before it acts, so a wrong hearing can be interrupted. Reading a public pull request
-          is a live, unauthenticated GitHub call. The review write is dry-run by default: the
-          server re-reads the head commit, records the exact request it would send, and sends
-          nothing unless it runs with <code>VOLCAN_GITHUB_WRITE=1</code> and a token, and the
-          outcome panel says which of the two happened.
-        </p>
+      <nav class="jump" aria-label="Sections of this page">
+        <ul>
+          <li><a href="#how">How one press works</a></li>
+          <li><a href="#review">Talk through a pull request</a></li>
+          <li><a href="#evidence">Evidence</a></li>
+        </ul>
+      </nav>
 
-        <div class="gov-grid">
-          <div class="panel">
-            <div class="panel-head">
-              <h3>Talk to it, or type to it</h3>
-              <span class="side" id="micState">microphone off</span>
-            </div>
+      <section class="chapter" id="how" aria-labelledby="how-heading">
+        <div class="chapter-head">
+          <p class="eyebrow">How one press works</p>
+          <h2 id="how-heading">The verdict first, then the words, then the code under a fingertip</h2>
+        </div>
+        <ol class="steps">
+          <li>
+            <svg viewBox="0 0 44 26" aria-hidden="true" focusable="false"><polyline class="hot" points="4,6 22,13 40,21"></polyline></svg>
+            <h3>A cue you hear before any word</h3>
+            <p>The server returns a WAV. Its pitch falls for a security finding and rises for a clean patch.</p>
+          </li>
+          <li>
+            <svg viewBox="0 0 44 26" aria-hidden="true" focusable="false"><path class="ink" d="M4 7h36M4 13h28M4 19h32"></path></svg>
+            <h3>One sentence, security named first</h3>
+            <p>The digest leads with what matters. Ask for the exact numbered lines only when you want them.</p>
+          </li>
+          <li>
+            <svg viewBox="0 0 44 26" aria-hidden="true" focusable="false"><circle class="dot" cx="6" cy="5" r="3"></circle><circle class="dot" cx="6" cy="13" r="3"></circle><circle class="dot off" cx="6" cy="21" r="3"></circle><circle class="dot off" cx="15" cy="5" r="3"></circle><circle class="dot" cx="15" cy="13" r="3"></circle><circle class="dot" cx="15" cy="21" r="3"></circle><circle class="dot" cx="29" cy="5" r="3"></circle><circle class="dot off" cx="29" cy="13" r="3"></circle><circle class="dot" cx="29" cy="21" r="3"></circle><circle class="dot off" cx="38" cy="5" r="3"></circle><circle class="dot" cx="38" cy="13" r="3"></circle><circle class="dot off" cx="38" cy="21" r="3"></circle></svg>
+            <h3>Braille that keeps every symbol</h3>
+            <p>Eight-dot code cells give <code>!=</code> and <code>==</code> different dots, so a finger cannot confuse them.</p>
+          </li>
+          <li>
+            <svg viewBox="0 0 44 26" aria-hidden="true" focusable="false"><path class="ink" d="M6 13l8 8L38 5"></path></svg>
+            <h3>A review that waits for you</h3>
+            <p>Request changes is bound to the commit you heard, read back, and dry-run unless its owner enables the write.</p>
+          </li>
+        </ol>
+      </section>
 
-            <label for="reviewCredential">Reviewer access token for live mode</label>
-            <input type="password" id="reviewCredential" autocomplete="off" spellcheck="false"
-                   aria-describedby="reviewCredentialHelp">
-            <p class="hint" id="reviewCredentialHelp">Leave empty for the public dry-run demo.
-              For live reviews, use your reviewer credential from the server operator, never
-              a GitHub token. It stays in this page's memory and goes only to the review API.
-              Reload to clear it and start a new session when changing reviewer.</p>
-            <label for="prUrl">Pull request URL</label>
-            <input type="url" id="prUrl" autocomplete="off" spellcheck="false"
-                   placeholder="https://github.com/owner/repo/pull/123" aria-describedby="prUrlHelp">
-            <p class="hint" id="prUrlHelp">A public GitHub pull request, read without a token. Leave it
-              empty and <strong>Open</strong> reviews the patch in the box above instead, which can be
-              discussed line by line but not submitted, because a pasted patch has no pull request
-              behind it.</p>
+      <section class="chapter" id="review" aria-labelledby="review-heading">
+        <div class="chapter-head">
+          <p class="eyebrow">By voice or by keyboard</p>
+          <h2 id="review-heading">Talk through a real pull request, then request changes</h2>
+          <p>
+            Open a public pull request, ask what changed, hear the exact lines, spell one out
+            symbol by symbol. Every turn posts to <code>POST /api/review/turn</code> and reads back
+            what it understood before it acts. The review write is dry-run by default: the server
+            re-reads the head commit, records the exact request it would send, and sends nothing
+            unless it runs with <code>VOLCAN_GITHUB_WRITE=1</code> and a token.
+          </p>
+        </div>
 
-            <div class="row-actions">
-              <button type="button" id="openReview"
-                      title="Say open: fetch the pull request's head commit and diff from GitHub, or open the pasted patch when the URL is empty">Open</button>
-              <button type="button" id="micToggle" aria-pressed="false"
-                      title="Start or stop listening with the browser's speech recognition. When this browser has none, the button says so and the typed command box works instead">Start listening</button>
-              <button type="button" id="stopSpeech"
-                      title="Interrupt: stop the speech and the earcon now. Escape does the same from anywhere on the page">Stop speaking</button>
-            </div>
-
-            <label for="commandInput">Command, typed or dictated</label>
-            <input type="text" id="commandInput" autocomplete="off"
-                   placeholder="what changed in permissions.py" aria-describedby="commandHelp">
-            <p class="hint" id="commandHelp">Every command works from the keyboard: type it and press
-              <kbd>Enter</kbd>. Say or type <strong>help</strong> for the list. A new command
-              interrupts whatever is still being spoken, and each answer begins by reading back
-              what was understood.</p>
-            <div class="row-actions">
-              <button type="button" id="sayCommand" title="Send the typed command as one turn of the dialogue">Send</button>
-            </div>
-
-            <div class="chips" role="group" aria-label="Common review commands">
-              <button type="button" id="cmdSummary" title="Say summary: the one-sentence digest with the security verdict first">Summary</button>
-              <button type="button" id="cmdFiles" title="Say file by file: every changed file with its counts">File by file</button>
-              <button type="button" id="cmdFindings" title="Say findings: the security findings, or that there are none">Findings</button>
-              <button type="button" id="cmdReadLines" title="Say read the lines: the exact numbered source lines of the current hunk">Read the lines</button>
-              <button type="button" id="cmdNext" title="Say next: the next file, or the next line while reading lines">Next</button>
-              <button type="button" id="cmdPrevious" title="Say previous: the previous file, or the previous line while reading lines">Previous</button>
-              <button type="button" id="cmdSpell" title="Say spell that: every symbol of the current line named, so != cannot be heard as ==">Spell that</button>
-              <button type="button" id="cmdRepeat" title="Say repeat: the last answer again">Repeat</button>
-              <button type="button" id="cmdSlower" title="Say slower: reduce the speech rate the server returns and this page applies">Slower</button>
-              <button type="button" id="cmdFaster" title="Say faster: raise the speech rate">Faster</button>
-              <button type="button" id="cmdWhere" title="Say where am I: the pull request, the file and the line in focus">Where am I</button>
-              <button type="button" id="cmdHelp" title="Say help: the commands the dialogue understands">Help</button>
-            </div>
-
-            <label for="reviewComment">Comment for the request changes review</label>
-            <input type="text" id="reviewComment" autocomplete="off" aria-describedby="reviewCommentHelp"
-                   placeholder="Restore the equality check: != grants deletion to everyone who is not an admin">
-            <p class="hint" id="reviewCommentHelp">Used by <strong>Request changes</strong> below. By voice,
-              say "request changes" followed by the comment. The server binds the review to the head
-              commit it read and waits for <strong>confirm</strong>; nothing leaves this machine until
-              you say it.</p>
-            <div class="chips" role="group" aria-label="Review actions">
-              <button type="button" id="cmdRequestChanges" class="danger"
-                      title="Say request changes with the comment above: stage a REQUEST_CHANGES review bound to the head commit and receive a single-use grant">Request changes</button>
-              <button type="button" id="cmdConfirm"
-                      title="Say confirm: present the grant. The server re-reads the head commit, then records the exact request in a dry run or sends it when its owner enabled the write">Confirm</button>
-              <button type="button" id="cmdCancel" title="Say cancel: drop the staged review without presenting the grant">Cancel</button>
-            </div>
-          </div>
-
-          <div class="panel">
-            <div class="panel-head">
+        <div class="review-grid">
+          <div class="convo">
+            <div class="convo-head">
               <h3>What it heard, understood and answered</h3>
               <span class="lease" id="dialogueState" data-state="idle">IDLE</span>
             </div>
             <p class="visually-hidden" id="reviewStatus" role="status" aria-live="polite"></p>
             <ol class="dialogue" id="dialogueLog" aria-live="polite" aria-label="Review conversation, oldest first">
-              <li class="empty-state-card">Nothing heard yet. Open a pull request or the pasted patch, then ask what changed. Each turn shows what was heard, what Volcan understood, and what it answered, and the same words are spoken at the rate the server returned.</li>
+              <li class="empty-state-card">Nothing heard yet. Open a pull request or the patch above, then ask what changed. Each turn shows what was heard, what Volcan understood, and what it answered, and the same words are spoken at the rate the server returned.</li>
             </ol>
 
-            <div class="panel-head">
-              <h3>Review action</h3>
-              <span class="side">POST /api/review/turn</span>
+            <div class="composer">
+              <label for="commandInput">Command, typed or dictated</label>
+              <div class="composer-row">
+                <input type="text" id="commandInput" autocomplete="off"
+                       placeholder="what changed in permissions.py" aria-describedby="commandHelp">
+                <button type="button" id="sayCommand" title="Send the typed command as one turn of the dialogue">Send</button>
+                <button type="button" class="mic" id="micToggle" aria-pressed="false"
+                        title="Start or stop listening with the browser's speech recognition. When this browser has none, the button says so and the typed command box works instead">Start listening</button>
+                <button type="button" id="stopSpeech"
+                        title="Interrupt: stop the speech and the earcon now. Escape does the same from anywhere on the page">Stop speaking</button>
+              </div>
+              <p class="hint" id="commandHelp">Press <kbd>Enter</kbd> to send. Say or type <strong>help</strong>
+                for the list. A new command interrupts whatever is still being spoken. Microphone:
+                <span class="side" id="micState">microphone off</span></p>
+              <p class="chips-label" id="chipsLabel">Or say one of these</p>
+              <div class="chips" role="group" aria-label="Common review commands">
+                <button type="button" id="cmdSummary" title="Say summary: the one-sentence digest with the security verdict first">Summary</button>
+                <button type="button" id="cmdFiles" title="Say file by file: every changed file with its counts">File by file</button>
+                <button type="button" id="cmdFindings" title="Say findings: the security findings, or that there are none">Findings</button>
+                <button type="button" id="cmdReadLines" title="Say read the lines: the exact numbered source lines of the current hunk">Read the lines</button>
+                <button type="button" id="cmdNext" title="Say next: the next file, or the next line while reading lines">Next</button>
+                <button type="button" id="cmdPrevious" title="Say previous: the previous file, or the previous line while reading lines">Previous</button>
+                <button type="button" id="cmdSpell" title="Say spell that: every symbol of the current line named, so != cannot be heard as ==">Spell that</button>
+                <button type="button" id="cmdRepeat" title="Say repeat: the last answer again">Repeat</button>
+                <button type="button" id="cmdSlower" title="Say slower: reduce the speech rate the server returns and this page applies">Slower</button>
+                <button type="button" id="cmdFaster" title="Say faster: raise the speech rate">Faster</button>
+                <button type="button" id="cmdWhere" title="Say where am I: the pull request, the file and the line in focus">Where am I</button>
+                <button type="button" id="cmdHelp" title="Say help: the commands the dialogue understands">Help</button>
+              </div>
             </div>
-            <div id="reviewPane" role="status" aria-live="polite">
-              <p class="empty-state-card">No review staged. Say <strong>request changes</strong> followed by your comment. The server binds the review to the head commit it read, issues a single-use grant with a 300 second lease, and waits for <strong>confirm</strong>. The outcome printed here is the server's: submitted, recorded and not sent, or refused with the reason.</p>
+          </div>
+
+          <div class="rail">
+            <div class="rail-card">
+              <h3><span class="n">1</span> Open a pull request</h3>
+              <label for="prUrl">Pull request URL</label>
+              <input type="url" id="prUrl" autocomplete="off" spellcheck="false"
+                     placeholder="https://github.com/owner/repo/pull/123" aria-describedby="prUrlHelp">
+              <p class="hint" id="prUrlHelp">A public GitHub pull request, read without a token. Leave it
+                empty and <strong>Open</strong> reviews the patch above instead, which can be discussed
+                line by line but not submitted, because a pasted patch has no pull request behind it.</p>
+              <div class="row-actions">
+                <button type="button" id="openReview"
+                        title="Say open: fetch the pull request's head commit and diff from GitHub, or open the pasted patch when the URL is empty">Open</button>
+              </div>
+              <details class="token">
+                <summary>Live mode: reviewer access token</summary>
+                <label for="reviewCredential">Reviewer access token for live mode</label>
+                <input type="password" id="reviewCredential" autocomplete="off" spellcheck="false"
+                       aria-describedby="reviewCredentialHelp">
+                <p class="hint" id="reviewCredentialHelp">Leave empty for the public dry-run demo.
+                  For live reviews, use your reviewer credential from the server operator, never
+                  a GitHub token. It stays in this page's memory and goes only to the review API.
+                  Reload to clear it and start a new session when changing reviewer.</p>
+              </details>
+            </div>
+
+            <div class="rail-card">
+              <h3><span class="n">2</span> Request changes</h3>
+              <label for="reviewComment">Comment for the request changes review</label>
+              <input type="text" id="reviewComment" autocomplete="off" aria-describedby="reviewCommentHelp"
+                     placeholder="Restore the equality check: != grants deletion to everyone who is not an admin">
+              <p class="hint" id="reviewCommentHelp">By voice, say "request changes" followed by the comment.
+                The server binds the review to the head commit it read and waits for
+                <strong>confirm</strong>; nothing leaves this machine until you say it.</p>
+              <div class="row-actions" role="group" aria-label="Review actions">
+                <button type="button" id="cmdRequestChanges" class="danger"
+                        title="Say request changes with the comment above: stage a REQUEST_CHANGES review bound to the head commit and receive a single-use grant">Request changes</button>
+                <button type="button" id="cmdConfirm"
+                        title="Say confirm: present the grant. The server re-reads the head commit, then records the exact request in a dry run or sends it when its owner enabled the write">Confirm</button>
+                <button type="button" id="cmdCancel" title="Say cancel: drop the staged review without presenting the grant">Cancel</button>
+              </div>
+              <div class="panel-head" style="margin-top: 16px">
+                <h4 class="visually-hidden">Review action</h4>
+                <span class="side">POST /api/review/turn</span>
+              </div>
+              <div id="reviewPane" role="status" aria-live="polite">
+                <p class="empty-state-card">No review staged. Say <strong>request changes</strong> followed by your comment. The server binds the review to the head commit it read, issues a single-use grant with a 300 second lease, and waits for <strong>confirm</strong>. The outcome printed here is the server's: submitted, recorded and not sent, or refused with the reason.</p>
+              </div>
+            </div>
+
+            <div class="rail-card">
+              <h3>Hands on the keyboard</h3>
+              <ul class="keymini">
+                <li><span><kbd>Alt</kbd>+<kbd>4</kbd></span><span>command box</span></li>
+                <li><span><kbd>Alt</kbd>+<kbd>5</kbd></span><span>start or stop listening</span></li>
+                <li><span><kbd>Alt</kbd>+<kbd>6</kbd></span><span>pull request URL</span></li>
+                <li><span><kbd>Escape</kbd></span><span>interrupt everything</span></li>
+              </ul>
+              <button type="button" id="keymapOpenReview" aria-haspopup="dialog"
+                      title="Open the full keyboard map. The question mark key does the same">Full keyboard map <kbd>?</kbd></button>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="block" id="mcp" aria-labelledby="mcp-heading">
-        <h2 id="mcp-heading">Model Context Protocol, handshaken in your browser</h2>
-        <p>
-          Volcan's MCP server is written by hand against revision 2025-11-25 over the
-          Streamable HTTP transport, with no MCP SDK. This button performs a real
-          <code>initialize</code>, a real <code>notifications/initialized</code> and a real
-          <code>tools/list</code> against <code>POST /mcp</code>, then prints what came
-          back: whether the endpoint chose a stateful identifier or stateless mode, and the
-          JSON Schema of every tool exactly as the server published it. The public Lambda is
-          transport-stateless, so request-contained calls need no process-specific MCP id.
-          Dialogue and pending approval state remain process-local and are not durable across
-          Lambda environments.
-        </p>
-
-        <div class="row-actions">
-          <button type="button" id="runMcp" title="Send a real JSON-RPC initialize and tools/list to the MCP endpoint">Run a real MCP handshake</button>
-          <button type="button" id="endMcp" title="Send DELETE /mcp to terminate the session this page opened">End the MCP session</button>
+      <section class="evidence" id="evidence" aria-labelledby="evidence-heading">
+        <div class="chapter-head">
+          <p class="eyebrow">For reviewers</p>
+          <h2 id="evidence-heading">Evidence</h2>
+          <p>Every claim above, checkable against the server this page is talking to. Nothing here is prewritten: each panel fills from a real response.</p>
         </div>
 
-        <p class="visually-hidden" id="mcpStatus" role="status" aria-live="polite"></p>
-
-        <dl class="facts">
-          <div>
-            <dt>Protocol version</dt>
-            <dd id="mcpVersion">not run yet</dd>
-          </div>
-          <div>
-            <dt>Server info</dt>
-            <dd id="mcpServer">not run yet</dd>
-          </div>
-          <div>
-            <dt>Session id from header</dt>
-            <dd id="mcpSession">not run yet</dd>
-          </div>
-          <div>
-            <dt>Tools advertised</dt>
-            <dd id="mcpCount">not run yet</dd>
-          </div>
-        </dl>
-
-        <div id="mcpPane">
-          <p class="empty-state-card">The tool catalog appears here after the handshake. Each entry expands to the exact <code>inputSchema</code> the server published, generated from the model that parses that tool's arguments.</p>
-        </div>
-      </section>
-
-      <section class="block" id="governance" aria-labelledby="gov-heading">
-        <h2 id="gov-heading">Governed action: staged, leased, never executed</h2>
-        <p>
-          A high-consequence command is bound by HMAC-SHA256 to its own payload hash and to
-          a lease. Volcan plans the command and does not run it. The countdown below is
-          computed from the <code>expires_at_epoch</code> the server returned, not from a
-          timer this page invented.
-        </p>
-
-        <div class="row-actions">
-          <button type="button" id="stageBtn" title="Ask the server to stage a command and issue a single-use approval grant">Stage an action</button>
-          <button type="button" id="approveBtn" title="Present the grant the server issued and release the plan">Approve with the grant</button>
-          <button type="button" id="rejectBtn" class="danger" title="Discard the staged action without presenting the grant">Reject</button>
+        <div role="tablist" id="evidenceTabs" aria-label="Evidence panels">
+          <button type="button" role="tab" id="tabServer" aria-selected="true" aria-controls="panelServer"
+                  title="The health check and a real Model Context Protocol handshake">Server and MCP</button>
+          <button type="button" role="tab" id="tabGov" aria-selected="false" aria-controls="panelGov" tabindex="-1"
+                  title="A staged, leased, signed action and the audit trail the server keeps">Governed actions</button>
+          <button type="button" role="tab" id="tabRender" aria-selected="false" aria-controls="panelRender" tabindex="-1"
+                  title="How the earcon, the Braille and the numbers on the stage are produced">How the outputs are made</button>
         </div>
 
-        <div class="gov-grid">
-          <div class="panel">
-            <div class="panel-head">
-              <h3>Lease state</h3>
-              <span class="lease" id="leaseTag" data-state="idle">IDLE</span>
+        <div role="tabpanel" id="panelServer" aria-labelledby="tabServer" tabindex="0">
+          <div class="conn" id="conn" data-state="checking">
+            <span class="conn-label" id="connLabel">Checking</span>
+            <p id="connDetail">Requesting <code>GET /health</code> on this origin. Nothing here claims a server until that request answers.</p>
+            <button type="button" id="retryHealth" title="Request GET /health again and update the state above">Check again</button>
+          </div>
+
+          <section class="block" id="mcp" aria-labelledby="mcp-heading">
+            <h2 id="mcp-heading">Model Context Protocol, handshaken in your browser</h2>
+            <p>
+              Volcan's MCP server is written by hand against revision 2025-11-25 over the
+              Streamable HTTP transport, with no MCP SDK. This button performs a real
+              <code>initialize</code>, a real <code>notifications/initialized</code> and a real
+              <code>tools/list</code> against <code>POST /mcp</code>, then prints what came
+              back: whether the endpoint chose a stateful identifier or stateless mode, and the
+              JSON Schema of every tool exactly as the server published it. The public Lambda is
+              transport-stateless, so request-contained calls need no process-specific MCP id.
+              Dialogue and pending approval state remain process-local and are not durable across
+              Lambda environments. Check it independently with
+              <code>python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp</code>.
+            </p>
+
+            <div class="row-actions">
+              <button type="button" id="runMcp" title="Send a real JSON-RPC initialize and tools/list to the MCP endpoint">Run a real MCP handshake</button>
+              <button type="button" id="endMcp" title="Send DELETE /mcp to terminate the session this page opened">End the MCP session</button>
             </div>
-            <div id="govPane" role="status" aria-live="polite">
-              <p class="empty-state-card">Nothing staged. Select <strong>Stage an action</strong> to open a 300 second lease on the server.</p>
-            </div>
-          </div>
 
-          <div class="panel">
-            <div class="panel-head">
-              <h3>Audit trail</h3>
-              <span class="side">GET /api/audit_log</span>
+            <p class="visually-hidden" id="mcpStatus" role="status" aria-live="polite"></p>
+
+            <dl class="facts">
+              <div>
+                <dt>Protocol version</dt>
+                <dd id="mcpVersion">not run yet</dd>
+              </div>
+              <div>
+                <dt>Server info</dt>
+                <dd id="mcpServer">not run yet</dd>
+              </div>
+              <div>
+                <dt>Session id from header</dt>
+                <dd id="mcpSession">not run yet</dd>
+              </div>
+              <div>
+                <dt>Tools advertised</dt>
+                <dd id="mcpCount">not run yet</dd>
+              </div>
+            </dl>
+
+            <div id="mcpPane">
+              <p class="empty-state-card boxed">The tool catalog appears here after the handshake. Each entry expands to the exact <code>inputSchema</code> the server published, generated from the model that parses that tool's arguments.</p>
             </div>
-            <ol class="audit" id="auditVault" aria-label="Audit records held by the server, newest first">
-              <li>Not loaded. The server seals a record when a grant is actually presented, so this list fills after <strong>Approve with the grant</strong>, not after staging.</li>
-            </ol>
+          </section>
+        </div>
+
+        <div role="tabpanel" id="panelGov" aria-labelledby="tabGov" tabindex="0" hidden>
+          <section class="block" id="governance" aria-labelledby="gov-heading">
+            <h2 id="gov-heading">Governed action: staged, leased, never executed</h2>
+            <p>
+              A high-consequence command is bound by HMAC-SHA256 to its own payload hash and to
+              a lease. Volcan plans the command and does not run it. The countdown below is
+              computed from the <code>expires_at_epoch</code> the server returned, not from a
+              timer this page invented.
+            </p>
+
+            <div class="row-actions" style="margin-bottom: 18px">
+              <button type="button" id="stageBtn" title="Ask the server to stage a command and issue a single-use approval grant">Stage an action</button>
+              <button type="button" id="approveBtn" title="Present the grant the server issued and release the plan">Approve with the grant</button>
+              <button type="button" id="rejectBtn" class="danger" title="Discard the staged action without presenting the grant">Reject</button>
+            </div>
+
+            <div class="gov-grid">
+              <div class="panel">
+                <div class="panel-head">
+                  <h3>Lease state</h3>
+                  <span class="lease" id="leaseTag" data-state="idle">IDLE</span>
+                </div>
+                <div id="govPane" role="status" aria-live="polite">
+                  <p class="empty-state-card boxed">Nothing staged. Select <strong>Stage an action</strong> to open a 300 second lease on the server.</p>
+                </div>
+              </div>
+
+              <div class="panel">
+                <div class="panel-head">
+                  <h3>Audit trail</h3>
+                  <span class="side">GET /api/audit_log</span>
+                </div>
+                <ol class="audit" id="auditVault" aria-label="Audit records held by the server, newest first">
+                  <li>Not loaded. The server seals a record when a grant is actually presented, so this list fills after <strong>Approve with the grant</strong>, not after staging.</li>
+                </ol>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div role="tabpanel" id="panelRender" aria-labelledby="tabRender" tabindex="0" hidden>
+          <div class="prose">
+            <h3>One press, one real round trip</h3>
+            <p><strong>Hear this code review</strong> calls the live digest and Braille endpoints,
+              plays the returned WAV and reports this browser's measured round trip. No result is
+              prewritten into the page, and there is no second implementation of the product in the
+              browser to fall back on.</p>
+            <h3>The earcon</h3>
+            <p>Volcan sends a rising three-note cue, <code>DIFF_READY</code>, when a digest is ready,
+              and a falling two-note cue, <code>SECURITY_FINDING</code>, when the patch touches
+              security, so the verdict arrives before the sentence does. The waveform on the stage is
+              drawn from the 16-bit PCM samples of the WAV the server returned, and the contour beside
+              it is measured from those same samples by counting zero crossings in each note. The two
+              cues are different audio: switch between the first and the fourth patch and the
+              waveform, the contour and the caption all change with the bytes. Every cue also carries
+              a written description from the server in the same live region.</p>
+            <h3>The spoken sentence</h3>
+            <p>Words brighten as the browser's speech engine reports reaching them. When the engine
+              reports no word positions, the whole sentence brightens when speech starts; when it has
+              no voice at all, the sentence is shown in full at once. No word timing is invented.</p>
+            <h3>The Braille</h3>
+            <p>Volcan renders the patch as Unicode Braille in the U+2800 block for a refreshable
+              display. The default is eight-dot code fidelity, one cell per printable character, so
+              <code>(</code>, <code>)</code> and <code>=</code> keep their own cells; six-dot literary
+              Braille is lossy for code, and the server names what it lost in this patch. The large
+              cells on the stage are the server's own code points drawn dot by dot, and the cells
+              that differ between the removed and the added line are marked.</p>
+            <h3>The three numbers</h3>
+            <p><strong>Synthesis engine</strong> is read from the <code>synthesis_mode</code> field of
+              the response, with <code>synthesis_fallback_reason</code> printed when no model answered.
+              <strong>Round trip</strong> is wall clock across <code>fetch</code> and the JSON parse,
+              from <code>performance.now()</code>. <strong>Change size</strong> is counted by the
+              server's unified diff parser, not by this page.</p>
           </div>
         </div>
-      </section>
-
-      <section class="block" id="access" aria-labelledby="access-heading">
-        <h2 id="access-heading">Keyboard map and the accessibility contract</h2>
-        <p>
-          This page is the product's shop window, so it holds itself to the standard the
-          product argues for. <code>tests/e2e/test_html_structure.py</code> fails the build
-          when any promise below stops being true of this file.
-        </p>
-
-        <table>
-          <caption>Every action here is a real button in the tab order. Nothing needs a pointer.</caption>
-          <thead>
-            <tr><th scope="col">Key</th><th scope="col">What it does</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><kbd>Tab</kbd> and <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>Move through every control in reading order.</td></tr>
-            <tr><td><kbd>Enter</kbd> or <kbd>Space</kbd></td><td>Activate the focused button.</td></tr>
-            <tr><td><kbd>Tab</kbd> from the top</td><td>Reveals <strong>Skip to main content</strong>.</td></tr>
-            <tr><td><kbd>Alt</kbd>+<kbd>1</kbd></td><td>Focus the primary action, <strong>Hear this code review</strong>.</td></tr>
-            <tr><td><kbd>Alt</kbd>+<kbd>2</kbd></td><td>Focus the patch box.</td></tr>
-            <tr><td><kbd>Alt</kbd>+<kbd>3</kbd></td><td>Focus the Braille cell region, which scrolls by keyboard.</td></tr>
-            <tr><td><kbd>Alt</kbd>+<kbd>4</kbd></td><td>Focus the review command box. Type a command and press <kbd>Enter</kbd> to send it; this is the path that needs no microphone.</td></tr>
-            <tr><td><kbd>Alt</kbd>+<kbd>5</kbd></td><td>Start or stop listening with the browser's speech recognition, when it has one.</td></tr>
-            <tr><td><kbd>Alt</kbd>+<kbd>6</kbd></td><td>Focus the pull request URL box.</td></tr>
-            <tr><td><kbd>Escape</kbd></td><td>Interrupt: stop the speech, stop the earcon, and stop listening.</td></tr>
-          </tbody>
-        </table>
-
-        <ul class="promises">
-          <li>Every audio cue carries a written description in the same live region.</li>
-          <li>Async results are announced through <code>aria-live</code>, security findings through <code>role="alert"</code>.</li>
-          <li>Every spoken command has a typed twin, and every answer reads back what was understood before it acts.</li>
-          <li>The focus ring is a 3px outline offset from the control, in both colour schemes.</li>
-          <li><code>prefers-reduced-motion</code> removes every animation and the smooth scroll.</li>
-          <li>Light and dark follow <code>prefers-color-scheme</code>, and neither is an afterthought.</li>
-          <li>An empty panel says why it is empty and which control fills it.</li>
-        </ul>
       </section>
     </main>
 
@@ -940,9 +1259,56 @@
         <code>http://127.0.0.1:8000/</code>. Check the protocol independently with
         <code>python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp</code>.
       </p>
-      <p id="footerMode">Connection state is reported in the strip at the top of this page.</p>
+      <p id="footerMode">Connection state is reported at the top of this page.</p>
+      <p>Set in Atkinson Hyperlegible, a typeface the Braille Institute drew for readers with low vision, with code in JetBrains Mono. Volcan, the Accessible AI agent forge, is named for the one disabled god of the pantheon, who built machines to work beside him at the forge.</p>
     </footer>
   </div>
+
+  <dialog class="keymap" id="keymapDialog" aria-labelledby="access-heading">
+    <section class="block" id="access" aria-labelledby="access-heading">
+      <div class="dialog-head">
+        <h2 id="access-heading">Keyboard map and the accessibility contract</h2>
+        <button type="button" id="keymapClose" title="Close the keyboard map and return to where you were. Escape does the same">Close</button>
+      </div>
+      <p>
+        This page is the product's shop window, so it holds itself to the standard the
+        product argues for. <code>tests/e2e/test_html_structure.py</code> fails the build
+        when any promise below stops being true of this file.
+      </p>
+
+      <table>
+        <caption>Every action here is a real button in the tab order. Nothing needs a pointer.</caption>
+        <thead>
+          <tr><th scope="col">Key</th><th scope="col">What it does</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><kbd>Tab</kbd> and <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>Move through every control in reading order.</td></tr>
+          <tr><td><kbd>Enter</kbd> or <kbd>Space</kbd></td><td>Activate the focused button.</td></tr>
+          <tr><td><kbd>Tab</kbd> from the top</td><td>Reveals <strong>Skip to main content</strong>.</td></tr>
+          <tr><td><kbd>?</kbd></td><td>Open this keyboard map from anywhere outside a text box.</td></tr>
+          <tr><td><kbd>Alt</kbd>+<kbd>1</kbd></td><td>Focus the primary action, <strong>Hear this code review</strong>.</td></tr>
+          <tr><td><kbd>Alt</kbd>+<kbd>2</kbd></td><td>Open and focus the patch box.</td></tr>
+          <tr><td><kbd>Alt</kbd>+<kbd>3</kbd></td><td>Focus the Braille cell region, which scrolls by keyboard.</td></tr>
+          <tr><td><kbd>Alt</kbd>+<kbd>4</kbd></td><td>Focus the review command box. Type a command and press <kbd>Enter</kbd> to send it; this is the path that needs no microphone.</td></tr>
+          <tr><td><kbd>Alt</kbd>+<kbd>5</kbd></td><td>Start or stop listening with the browser's speech recognition, when it has one.</td></tr>
+          <tr><td><kbd>Alt</kbd>+<kbd>6</kbd></td><td>Focus the pull request URL box.</td></tr>
+          <tr><td><kbd>Left</kbd> and <kbd>Right</kbd></td><td>Move between the Evidence tabs once one has focus.</td></tr>
+          <tr><td><kbd>Escape</kbd></td><td>Interrupt: stop the speech, stop the earcon, and stop listening. Closes this map.</td></tr>
+        </tbody>
+      </table>
+
+      <ul class="promises">
+        <li>Every audio cue carries a written description in the same live region.</li>
+        <li>Async results are announced through <code>aria-live</code>, security findings through <code>role="alert"</code>.</li>
+        <li>Every spoken command has a typed twin, and every answer reads back what was understood before it acts.</li>
+        <li>The focus ring is a 3px outline offset from the control, in both colour schemes.</li>
+        <li><code>prefers-reduced-motion</code> removes every animation and the smooth scroll; every state still changes, instantly.</li>
+        <li>Light and dark follow <code>prefers-color-scheme</code>, and neither is an afterthought.</li>
+        <li>An empty panel says why it is empty and which control fills it.</li>
+        <li>Words light up only when the speech engine reports reaching them; no timing is invented.</li>
+      </ul>
+    </section>
+  </dialog>
 
   <script>
     "use strict";
@@ -973,7 +1339,10 @@
       mcpSession: null,
       earconUrl: null,
       brailleFidelity: "code",
-      reviewPath: null
+      reviewPath: null,
+      lastWords: null,
+      lastSamples: null,
+      cueHeard: false
     };
 
     var START_COMMAND = "python -m src.interfaces.mcp_server";
@@ -1034,6 +1403,8 @@
       $("conn").setAttribute("data-state", state);
       $("connLabel").textContent = label;
       $("connDetail").textContent = detail;
+      $("connPill").setAttribute("data-state", state);
+      $("connPillText").textContent = state === "live" ? "Online" : state === "offline" ? "Offline" : label;
       $("footerMode").textContent = state === "live"
         ? "This page is talking to a Volcan server at " + State.apiBase + "."
         : "This page has not reached a Volcan server, so no panel below will show a result until one answers.";
@@ -1113,22 +1484,25 @@
       return new Int16Array(0);
     }
 
-    function drawWaveform(canvas, samples) {
+    /* progress is the share of the cue already heard, read from the audio
+       element's own clock. Undefined draws the whole cue as heard. */
+    function drawWaveform(canvas, samples, progress) {
       var ctx = canvas.getContext("2d");
       var ratio = window.devicePixelRatio || 1;
       var width = canvas.clientWidth || 320;
-      var height = canvas.clientHeight || 74;
+      var height = canvas.clientHeight || 60;
       canvas.width = Math.round(width * ratio);
       canvas.height = Math.round(height * ratio);
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       ctx.clearRect(0, 0, width, height);
       if (!samples.length) { return; }
 
-      var accent = getComputedStyle(document.documentElement)
-        .getPropertyValue("--earcon").trim() || "#b03509";
-      ctx.fillStyle = accent;
+      var heard = cssVar("--earcon", "#b23a00");
+      var rest = cssVar("--wave-rest", "#b8ad9a");
+      var split = progress === undefined ? width : Math.max(0, Math.min(1, progress)) * width;
 
-      var columns = Math.max(1, Math.floor(width / 2));
+      var step = 3;
+      var columns = Math.max(1, Math.floor(width / step));
       var per = Math.floor(samples.length / columns) || 1;
       var mid = height / 2;
       for (var c = 0; c < columns; c++) {
@@ -1137,8 +1511,13 @@
           var v = Math.abs(samples[s]);
           if (v > peak) { peak = v; }
         }
-        var h = Math.max(1, (peak / 32767) * (height - 6));
-        ctx.fillRect(c * 2, mid - h / 2, 1.2, h);
+        var h = Math.max(1, (peak / 32767) * (height - 4));
+        ctx.fillStyle = c * step < split ? heard : rest;
+        ctx.fillRect(c * step, mid - h / 2, 2, h);
+      }
+      if (progress !== undefined && progress > 0 && progress < 1) {
+        ctx.fillStyle = cssVar("--ink", "#15120e");
+        ctx.fillRect(Math.round(split), 0, 2, height);
       }
     }
 
@@ -1149,25 +1528,379 @@
       if ("speechSynthesis" in window) { window.speechSynthesis.cancel(); }
     }
 
-    function speak(text) {
-      if (!("speechSynthesis" in window)) { return false; }
+    function speak(text, words) {
+      if (!("speechSynthesis" in window)) { revealWords(words, Infinity); return false; }
       try {
         window.speechSynthesis.cancel();
         var utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 1.03;
+        if (words) { followSpeech(utterance, words); }
         window.speechSynthesis.speak(utterance);
         return true;
-      } catch (error) { return false; }
+      } catch (error) { revealWords(words, Infinity); return false; }
+    }
+
+    /* --- the stage: patch view, voice, contour, cells -------------------- */
+
+    var SVG_NS = "http://www.w3.org/2000/svg";
+    var PATCH_VIEW_LINES = 7;
+    var MAX_CELLS = 30;
+    var DOT_ORDER = [0, 3, 1, 4, 2, 5, 6, 7];
+    var SPEECH_START_GRACE = 2500;
+    var BOUNDARY_GRACE = 700;
+    var Playback = { frame: 0 };
+
+    function cssVar(name, fallback) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+    }
+
+    function prefersReducedMotion() {
+      return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    }
+
+    /* The patch on the stage is the textarea's own text, set out as changed
+       lines. It is the input, drawn; nothing in it came from the server. */
+    function renderPatchView() {
+      var view = clear($("patchView"));
+      var raw = $("diffInput").value || "";
+      var file = null;
+      var inHunk = false;
+      var rows = [];
+      raw.split("\n").forEach(function (line) {
+        if (line.indexOf("diff --git") === 0) { inHunk = false; return; }
+        if (line.indexOf("+++ ") === 0) {
+          if (!file) { file = line.slice(4).replace(/^b\//, ""); }
+          return;
+        }
+        if (line.indexOf("@@") === 0) {
+          inHunk = true;
+          var context = line.replace(/^@@[^@]*@@\s?/, "");
+          if (context && rows.length < PATCH_VIEW_LINES) { rows.push(["fn", context]); }
+          return;
+        }
+        if (!inHunk || rows.length >= PATCH_VIEW_LINES || line === "") { return; }
+        var mark = line.charAt(0);
+        rows.push([mark === "+" ? "add" : mark === "-" ? "del" : "ctx", line.slice(1)]);
+      });
+
+      var indent = Infinity;
+      rows.forEach(function (row) {
+        if (row[0] === "fn" || !row[1].trim()) { return; }
+        indent = Math.min(indent, row[1].length - row[1].replace(/^\s+/, "").length);
+      });
+      if (indent === Infinity) { indent = 0; }
+
+      rows.forEach(function (row) {
+        var line = el("span", "ln " + row[0]);
+        if (row[0] === "add" || row[0] === "del") {
+          line.appendChild(el("span", "visually-hidden", row[0] === "add" ? "added: " : "removed: "));
+        }
+        line.appendChild(document.createTextNode(row[0] === "fn" ? row[1] : (row[1].slice(indent) || " ")));
+        view.appendChild(line);
+      });
+      if (!rows.length) {
+        view.appendChild(el("span", "ln ctx", "No hunk to show yet."));
+      }
+      $("patchFile").textContent = file || "pasted patch";
+    }
+
+    function setPatchEditor(open) {
+      $("patchEditor").hidden = !open;
+      $("editPatch").setAttribute("aria-expanded", String(open));
+      $("editPatchLabel").textContent = open ? "Hide" : "Edit";
+    }
+
+    /* The sentence is set word by word so each word can brighten when the
+       speech engine reports reaching it. The whole sentence is in the DOM
+       from the start, so a screen reader and a test read all of it at once. */
+    function spokenSentence(text) {
+      var node = el("p", "spoken-text");
+      var words = [];
+      var pattern = /\S+/g;
+      var cursor = 0;
+      var match = pattern.exec(text);
+      while (match !== null) {
+        if (match.index > cursor) { node.appendChild(document.createTextNode(text.slice(cursor, match.index))); }
+        var word = el("span", "w", match[0]);
+        node.appendChild(word);
+        words.push({ node: word, start: match.index });
+        cursor = match.index + match[0].length;
+        match = pattern.exec(text);
+      }
+      if (cursor < text.length) { node.appendChild(document.createTextNode(text.slice(cursor))); }
+      return { node: node, words: words };
+    }
+
+    function revealWords(words, upTo) {
+      (words || []).forEach(function (word) {
+        if (word.start <= upTo) { word.node.classList.add("said"); }
+      });
+    }
+
+    function dimWords(words) {
+      (words || []).forEach(function (word) { word.node.classList.remove("said"); });
+    }
+
+    /* Word positions come only from the engine's boundary events. An engine
+       that reports none gets the whole sentence lit once it starts speaking,
+       and a browser that never starts gets it lit when the wait runs out.
+       No word is ever lit on a timer that pretends to be speech. */
+    function followSpeech(utterance, words) {
+      var started = false;
+      var sawBoundary = false;
+      function all() { revealWords(words, Infinity); }
+      utterance.onstart = function () {
+        started = true;
+        revealWords(words, 0);
+        setTimeout(function () { if (!sawBoundary) { all(); } }, BOUNDARY_GRACE);
+      };
+      utterance.onboundary = function (event) {
+        if (event.name && event.name !== "word") { return; }
+        sawBoundary = true;
+        revealWords(words, event.charIndex);
+      };
+      utterance.onend = all;
+      utterance.onerror = all;
+      setTimeout(function () { if (!started) { all(); } }, SPEECH_START_GRACE);
+    }
+
+    /* The cue arrives before the words: the hero waits for the earcon to
+       end, with the same bounded fallback the dialogue uses. */
+    function whenCueEnds(action) {
+      var done = false;
+      function once() { if (!done) { done = true; action(); } }
+      if (!activeAudio) { once(); return; }
+      activeAudio.addEventListener("ended", once, { once: true });
+      activeAudio.addEventListener("error", once, { once: true });
+      setTimeout(once, CUE_TIMEOUT_MS);
+    }
+
+    /* The contour is measured, not looked up: each note's pitch is estimated
+       from the zero crossings of the returned samples, and the direction is
+       the last note against the first. */
+    function pitchContour(samples) {
+      var size = 512;
+      var peak = 0;
+      for (var i = 0; i < samples.length; i++) {
+        var magnitude = Math.abs(samples[i]);
+        if (magnitude > peak) { peak = magnitude; }
+      }
+      if (!peak) { return null; }
+      var notes = [];
+      var current = null;
+      for (var start = 0; start + size <= samples.length; start += size) {
+        var crossings = 0;
+        var level = 0;
+        for (var j = start + 1; j < start + size; j++) {
+          if ((samples[j - 1] < 0) !== (samples[j] < 0)) { crossings += 1; }
+          level += Math.abs(samples[j]);
+        }
+        if (level / size < peak * 0.12) { current = null; continue; }
+        var hz = crossings * SAMPLE_RATE / (2 * size);
+        if (current && Math.abs(hz - current.hz) / current.hz < 0.06) {
+          current.count += 1;
+          current.total += hz;
+          current.hz = current.total / current.count;
+        } else {
+          current = { hz: hz, total: hz, count: 1 };
+          notes.push(current);
+        }
+      }
+      notes = notes.filter(function (note) { return note.count >= 2; });
+      if (!notes.length) { return null; }
+      var first = notes[0].hz;
+      var last = notes[notes.length - 1].hz;
+      var direction = last > first * 1.04 ? "rising" : last < first / 1.04 ? "falling" : "level";
+      return { notes: notes, direction: direction };
+    }
+
+    function renderContour(contour) {
+      var host = clear($("earconContour"));
+      if (!contour) { host.hidden = true; return; }
+      var logs = contour.notes.map(function (note) { return Math.log(note.hz); });
+      var low = Math.min.apply(null, logs);
+      var high = Math.max.apply(null, logs);
+      var points = logs.map(function (value, index) {
+        var x = logs.length === 1 ? 23 : 5 + index * (36 / (logs.length - 1));
+        var y = high === low ? 15 : 25 - ((value - low) / (high - low)) * 20;
+        return [x, y];
+      });
+      var svg = document.createElementNS(SVG_NS, "svg");
+      svg.setAttribute("viewBox", "0 0 46 30");
+      svg.setAttribute("focusable", "false");
+      var line = document.createElementNS(SVG_NS, "polyline");
+      line.setAttribute("points", points.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" "));
+      svg.appendChild(line);
+      points.forEach(function (p) {
+        var dot = document.createElementNS(SVG_NS, "circle");
+        dot.setAttribute("cx", p[0].toFixed(1));
+        dot.setAttribute("cy", p[1].toFixed(1));
+        dot.setAttribute("r", "3");
+        svg.appendChild(dot);
+      });
+      host.appendChild(svg);
+      host.appendChild(el("strong", null,
+        contour.direction.charAt(0).toUpperCase() + contour.direction.slice(1)));
+      host.hidden = false;
+    }
+
+    /* The playhead follows the audio element's own clock, and only while it
+       is really playing. With reduced motion there is no playhead: the cue
+       is drawn as heard once it ends. */
+    function followPlayback(player, canvas, samples) {
+      cancelAnimationFrame(Playback.frame);
+      function paint() {
+        if (player.paused || player.ended || !player.duration) { return; }
+        drawWaveform(canvas, samples, player.currentTime / player.duration);
+        Playback.frame = requestAnimationFrame(paint);
+      }
+      player.addEventListener("playing", function () {
+        if (prefersReducedMotion()) { return; }
+        cancelAnimationFrame(Playback.frame);
+        paint();
+      });
+      player.addEventListener("ended", function () {
+        cancelAnimationFrame(Playback.frame);
+        State.cueHeard = true;
+        drawWaveform(canvas, samples);
+      });
+    }
+
+    function redrawWave() {
+      if (State.lastSamples) {
+        drawWaveform($("earconWave"), State.lastSamples, State.cueHeard ? undefined : 0);
+      }
+    }
+
+    /* One large cell per code point the server returned. Dot n of a Unicode
+       Braille pattern is bit n-1, so the drawing is the server's cell, not a
+       translation made here. */
+    function dotCell(pattern, label, hot, index, eight, still) {
+      var wrap = el("span", "bwrap" + (hot ? " hot" : ""));
+      var cell = el("span", "bcell");
+      var bits = pattern.charCodeAt(0) - 0x2800;
+      if (bits < 0 || bits > 255) { bits = 0; }
+      DOT_ORDER.slice(0, eight ? 8 : 6).forEach(function (bit) {
+        cell.appendChild(el("span", (bits >> bit) & 1 ? "bdot on" : "bdot"));
+      });
+      wrap.appendChild(cell);
+      if (label !== null) { wrap.appendChild(el("span", "bchar", label === " " ? "·" : label)); }
+      if (!still && !prefersReducedMotion()) {
+        wrap.classList.add("rise");
+        wrap.style.animationDelay = (index * 16) + "ms";
+      }
+      return wrap;
+    }
+
+    function drawGhostCells() {
+      var host = clear($("brailleCells"));
+      for (var i = 0; i < 12; i++) { host.appendChild(dotCell("⠀", null, false, i, true, true)); }
+    }
+
+    function renderDotCells(data) {
+      var host = clear($("brailleCells"));
+      var lines = data.lines || [];
+      var pick = null;
+      var pair = null;
+      for (var i = 0; i < lines.length && !pick; i++) {
+        if (lines[i].type === "ADD") {
+          pick = lines[i];
+          if (i > 0 && lines[i - 1].type === "REMOVE") { pair = lines[i - 1]; }
+        }
+      }
+      for (var k = 0; k < lines.length && !pick; k++) {
+        if (lines[k].type === "REMOVE") { pick = lines[k]; }
+      }
+      if (!pick) { pick = lines[lines.length - 1]; }
+      if (!pick) { return; }
+
+      var cells = Array.from(String(pick.braille).slice(2));
+      var text = String(pick.text);
+      var eight = data.fidelity === "code";
+      var aligned = eight && data.lossless && cells.length === text.length;
+      var start = 0;
+      if (aligned) {
+        start = 1;
+        while (start < text.length && text.charAt(start) === " ") { start += 1; }
+      } else {
+        while (start < cells.length && cells[start] === "⠀") { start += 1; }
+      }
+
+      var hotFrom = -1;
+      var hotTo = -1;
+      if (aligned && pair && pair.text.length) {
+        var a = pair.text.slice(1);
+        var b = text.slice(1);
+        var prefix = 0;
+        while (prefix < a.length && prefix < b.length && a.charAt(prefix) === b.charAt(prefix)) { prefix += 1; }
+        var suffix = 0;
+        while (suffix < a.length - prefix && suffix < b.length - prefix
+               && a.charAt(a.length - 1 - suffix) === b.charAt(b.length - 1 - suffix)) { suffix += 1; }
+        hotFrom = prefix + 1;
+        hotTo = text.length - suffix;
+        // A mark is only worth drawing when it singles something out.
+        if ((hotTo - hotFrom) * 2 > text.length - start) { hotFrom = -1; hotTo = -1; }
+      }
+
+      var end = Math.min(cells.length, start + MAX_CELLS);
+      for (var c = start; c < end; c++) {
+        host.appendChild(dotCell(cells[c], aligned ? text.charAt(c) : null,
+          c >= hotFrom && c < hotTo, c - start, eight, false));
+      }
+      if (end < cells.length) { host.appendChild(el("span", "bmore", "+" + (cells.length - end))); }
+    }
+
+    /* --- evidence tabs and the keyboard map ------------------------------ */
+
+    var EVIDENCE_TABS = ["tabServer", "tabGov", "tabRender"];
+
+    function selectTab(id, focus) {
+      EVIDENCE_TABS.forEach(function (tabId) {
+        var tab = $(tabId);
+        var on = tabId === id;
+        tab.setAttribute("aria-selected", String(on));
+        tab.tabIndex = on ? 0 : -1;
+        $(tab.getAttribute("aria-controls")).hidden = !on;
+      });
+      if (focus) { $(id).focus(); }
+    }
+
+    var keymapReturn = null;
+
+    function openKeymap() {
+      var dialog = $("keymapDialog");
+      keymapReturn = document.activeElement;
+      if (typeof dialog.showModal === "function") {
+        if (!dialog.open) { dialog.showModal(); }
+      } else {
+        dialog.setAttribute("open", "");
+      }
+      $("keymapClose").focus();
+    }
+
+    function closeKeymap() {
+      var dialog = $("keymapDialog");
+      if (typeof dialog.close === "function") { dialog.close(); return; }
+      dialog.removeAttribute("open");
+      if (keymapReturn && keymapReturn.focus) { keymapReturn.focus(); }
+    }
+
+    function isTyping(target) {
+      if (!target || !target.tagName) { return false; }
+      var tag = target.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
     }
 
     /* --- rendering the three outputs ---------------------------------- */
 
     function renderSpoken(data, elapsedMs, label) {
       State.lastDigest = data;
-      var pane = clear($("spokenPane"));
-      pane.appendChild(el("p", "spoken-text", data.voice_summary));
+      var sentence = spokenSentence(data.voice_summary);
+      State.lastWords = sentence.words;
+      clear($("spokenPane")).appendChild(sentence.node);
       $("spokenCaption").textContent = label + " returned in " + elapsedMs.toFixed(1)
         + " ms. Synthesis mode reported by the server: " + data.synthesis_mode + ".";
+      return sentence.words;
     }
 
     function renderEarcon(earcon) {
@@ -1175,33 +1908,59 @@
       var samples = pcmSamples(bytes);
       var seconds = samples.length / SAMPLE_RATE;
       var described = earcon.spoken_fallback || (earcon.type + " cue returned by the server.");
+      var contour = pitchContour(samples);
+      var shape = contour ? contour.direction + " pitch contour measured from its samples, " : "";
 
       var canvas = $("earconWave");
       canvas.setAttribute("aria-label",
         "Amplitude of the " + earcon.type + " cue that just played, drawn from the "
-        + samples.length + " audio samples the server returned.");
-      drawWaveform(canvas, samples);
+        + samples.length + " audio samples the server returned"
+        + (contour ? ", with a " + contour.direction + " pitch contour" : "") + ".");
+      State.lastSamples = samples;
+      State.cueHeard = false;
+      drawWaveform(canvas, samples, 0);
+      renderContour(contour);
 
       if (State.earconUrl) { URL.revokeObjectURL(State.earconUrl); }
       State.earconUrl = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
 
       var host = clear($("earconPlayer"));
       var player = document.createElement("audio");
-      player.controls = true;
+      player.controls = false;
       player.src = State.earconUrl;
       player.setAttribute("aria-label", "Replay the " + earcon.type + " cue");
       host.appendChild(player);
+      var replay = el("button", "replay");
+      replay.type = "button";
+      replay.title = "Play the " + earcon.type + " cue the server returned again";
+      var icon = document.createElementNS(SVG_NS, "svg");
+      icon.setAttribute("viewBox", "0 0 14 14");
+      icon.setAttribute("aria-hidden", "true");
+      var tri = document.createElementNS(SVG_NS, "path");
+      tri.setAttribute("d", "M3 1.5v11l9-5.5z");
+      tri.setAttribute("fill", "currentColor");
+      icon.appendChild(tri);
+      replay.appendChild(icon);
+      replay.appendChild(document.createTextNode("Replay the cue"));
+      replay.addEventListener("click", function () {
+        stopAudio();
+        activeAudio = player;
+        player.currentTime = 0;
+        player.play();
+      });
+      host.appendChild(replay);
       activeAudio = player;
+      followPlayback(player, canvas, samples);
 
       var caption = $("earconCaption");
-      caption.textContent = "Cue " + earcon.type + ", " + seconds.toFixed(2)
+      caption.textContent = "Cue " + earcon.type + ", " + shape + seconds.toFixed(2)
         + " seconds of 16-bit PCM at " + SAMPLE_RATE + " Hz. Written description: " + described;
 
       var playing = player.play();
       if (playing && typeof playing.catch === "function") {
         playing.catch(function () {
-          caption.textContent = "The browser blocked automatic playback. Use the Play control "
-            + "above to hear the " + earcon.type + " cue, which lasts " + seconds.toFixed(2)
+          caption.textContent = "The browser blocked automatic playback. Use Replay the cue "
+            + "to hear the " + earcon.type + " cue, which lasts " + seconds.toFixed(2)
             + " seconds. Written description: " + described;
         });
       }
@@ -1241,6 +2000,7 @@
         + " ms. Added rows carry dots 3-4-6 and removed rows dots 3-6, so a finger finds "
         + "the sign of a change before its content. Fidelity " + data.fidelity
         + (data.lossless ? ", lossless. " : ", lossy for this patch. ") + (data.disclosure || "");
+      renderDotCells(data);
     }
 
     function setBrailleFidelity(fidelity) {
@@ -1348,6 +2108,7 @@
         setBusy(button, false);
         $("earconCaption").textContent =
           "No cue. The earcon is 16-bit PCM synthesized by the server, and this page has no browser substitute for it on purpose.";
+        $("meters").hidden = false;
         ["meterEngine", "meterLatency", "meterChange"].forEach(function (id) {
           $(id).firstChild.nodeValue = "no server";
         });
@@ -1364,6 +2125,7 @@
         ]);
         var digest = results[0];
         var braille = results[1];
+        $("meters").hidden = false;
 
         $("meterEngine").firstChild.nodeValue =
           digest.data.synthesis_mode === "bedrock" ? "Amazon Bedrock" : "local heuristic";
@@ -1381,17 +2143,18 @@
         $("meterChange").firstChild.nodeValue = plural(digest.data.total_files, "file")
           + "   +" + digest.data.insertions + " -" + digest.data.deletions;
 
-        renderSpoken(digest.data, digest.elapsedMs, "Level 0 executive digest");
+        var words = renderSpoken(digest.data, digest.elapsedMs, "Level 0 executive digest");
         var described = renderEarcon(digest.data.earcon);
         renderBraille(braille.data, braille.elapsedMs);
         renderFindings(digest.data.critical_findings);
-        speak(digest.data.voice_summary);
+        whenCueEnds(function () { speak(digest.data.voice_summary, words); });
 
         announce("runStatus", "Cue: " + described + " " + digest.data.voice_summary
           + " Round trip " + digest.elapsedMs.toFixed(1) + " milliseconds.");
       } catch (error) {
         clear($("spokenPane")).appendChild(failureCard("The digest call failed: " + error.message + "."));
         $("earconCaption").textContent = "No cue, because the digest request did not succeed.";
+        $("meters").hidden = false;
         ["meterEngine", "meterLatency", "meterChange"].forEach(function (id) {
           $(id).firstChild.nodeValue = "request failed";
         });
@@ -1411,9 +2174,9 @@
       try {
         var digest = await postJson("/api/digest_semantic_diff",
           { raw_diff: $("diffInput").value, level: 1 });
-        renderSpoken(digest.data, digest.elapsedMs, "Level 1 file-by-file digest");
+        var words = renderSpoken(digest.data, digest.elapsedMs, "Level 1 file-by-file digest");
         renderEarcon(digest.data.earcon);
-        speak(digest.data.voice_summary);
+        whenCueEnds(function () { speak(digest.data.voice_summary, words); });
         announce("runStatus", "Level 1 digest. " + digest.data.voice_summary);
       } catch (error) {
         clear($("spokenPane")).appendChild(failureCard("The level 1 digest call failed: " + error.message + "."));
@@ -1428,14 +2191,15 @@
       try {
         var drill = await postJson("/api/drill_down_section",
           { raw_diff: $("diffInput").value, section_index: 0 });
-        var pane = clear($("spokenPane"));
-        pane.appendChild(el("p", "spoken-text", drill.data.spoken_text));
+        var sentence = spokenSentence(drill.data.spoken_text);
+        clear($("spokenPane")).appendChild(sentence.node);
         $("spokenCaption").textContent = "Drill down on " + drill.data.file_path
           + ", category " + drill.data.category + ", significance " + drill.data.significance
           + ", returned in " + drill.elapsedMs.toFixed(1) + " ms.";
         State.lastDigest = { voice_summary: drill.data.spoken_text };
+        State.lastWords = sentence.words;
         renderEarcon(drill.data.earcon);
-        speak(drill.data.spoken_text);
+        whenCueEnds(function () { speak(drill.data.spoken_text, sentence.words); });
         announce("runStatus", "Drill down on " + drill.data.file_path + ". " + drill.data.spoken_text);
       } catch (error) {
         clear($("spokenPane")).appendChild(failureCard("The drill down call failed: " + error.message + ".",
@@ -1449,7 +2213,8 @@
           "There is no digest to read yet. Select Hear this code review first.";
         return;
       }
-      if (!speak(State.lastDigest.voice_summary)) {
+      dimWords(State.lastWords);
+      if (!speak(State.lastDigest.voice_summary, State.lastWords)) {
         $("spokenCaption").textContent =
           "This browser exposes no speech engine, so the text above is the whole result.";
       }
@@ -2102,6 +2867,7 @@
       for (var n = 1; n <= 4; n++) {
         $("preset" + n).setAttribute("aria-pressed", String(n === id));
       }
+      renderPatchView();
     }
 
     $("runReview").addEventListener("click", runReview);
@@ -2121,6 +2887,40 @@
     $("preset4").addEventListener("click", function () { loadPreset(4); });
     $("fidelityCode").addEventListener("click", function () { setBrailleFidelity("code"); });
     $("fidelityLiterary").addEventListener("click", function () { setBrailleFidelity("literary"); });
+
+    $("editPatch").addEventListener("click", function () {
+      var opening = $("patchEditor").hidden;
+      setPatchEditor(opening);
+      if (opening) { $("diffInput").focus(); }
+    });
+    $("diffInput").addEventListener("input", renderPatchView);
+    $("keymapOpen").addEventListener("click", openKeymap);
+    $("keymapOpenReview").addEventListener("click", openKeymap);
+    $("keymapClose").addEventListener("click", closeKeymap);
+    $("keymapDialog").addEventListener("close", function () {
+      if (keymapReturn && keymapReturn.focus) { keymapReturn.focus(); }
+    });
+    $("tabServer").addEventListener("click", function () { selectTab("tabServer"); });
+    $("tabGov").addEventListener("click", function () { selectTab("tabGov"); });
+    $("tabRender").addEventListener("click", function () { selectTab("tabRender"); });
+    $("evidenceTabs").addEventListener("keydown", function (event) {
+      var index = EVIDENCE_TABS.indexOf(document.activeElement ? document.activeElement.id : "");
+      if (index < 0) { return; }
+      var last = EVIDENCE_TABS.length - 1;
+      var next = event.key === "ArrowRight" ? (index === last ? 0 : index + 1)
+        : event.key === "ArrowLeft" ? (index === 0 ? last : index - 1)
+        : event.key === "Home" ? 0
+        : event.key === "End" ? last
+        : null;
+      if (next === null) { return; }
+      event.preventDefault();
+      selectTab(EVIDENCE_TABS[next], true);
+    });
+    window.addEventListener("resize", redrawWave);
+    if (window.matchMedia) {
+      var schemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      if (schemeQuery.addEventListener) { schemeQuery.addEventListener("change", redrawWave); }
+    }
 
     $("openReview").addEventListener("click", function () { sendTranscript("open", "button"); });
     $("micToggle").addEventListener("click", toggleListening);
@@ -2151,6 +2951,11 @@
 
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape") { stopAudio(); stopListening(); return; }
+      if (event.key === "?" && !event.altKey && !event.ctrlKey && !event.metaKey && !isTyping(event.target)) {
+        event.preventDefault();
+        openKeymap();
+        return;
+      }
       if (!event.altKey) { return; }
       if (event.key === "5") { event.preventDefault(); toggleListening(); return; }
       var targets = {
@@ -2158,10 +2963,12 @@
         "4": "commandInput", "6": "prUrl"
       };
       var id = targets[event.key];
+      if (id === "diffInput") { setPatchEditor(true); }
       var node = id && $(id);
       if (node) { event.preventDefault(); node.focus(); }
     });
 
+    drawGhostCells();
     loadPreset(1);
     probeHealth();
   </script>
