@@ -24,11 +24,11 @@ exercised on Windows 11 with Python 3.11.0 on 2026-09-06.
 | Step | Command or action | What must be true before you record |
 |---|---|---|
 | 1 | `python -m pip install -e ".[dev,bedrock]"` | Dependencies resolve. This is off camera. |
-| 2 | `python -m pytest tests/ -q` | Prints `421 passed`. If it does not, stop and fix that first. |
+| 2 | `python -m pytest tests/ -q` | Prints `523 passed` (this branch, 2026-09-26). If it does not, stop and fix that first. |
 | 3 | `python -m src.interfaces.mcp_server` | Leave it running in terminal 1, off camera. |
 | 4 | Open `http://127.0.0.1:8000/` in a fresh profile at 1280x900 | The status pill in the top bar reads **Online**, and the connection strip in **Evidence**, tab **Server and MCP**, reads **SERVER REACHED** with a real `GET /health` duration. If it reads **NO SERVER**, the recording is wrong before it starts. |
 | 5 | System audio capture on, microphone off | The earcon in beat 2 is the product speaking. It must reach the recording. |
-| 6 | Reset the page with a reload | The three channels must be empty and the meters under the button absent on the first frame of beat 2, so a judge watches the values arrive. |
+| 6 | Reset the page with a reload | On the first frame of beat 2 the stage shows the silent preview: the waveform in its not yet heard colour with the **Falling** contour, the verdict sentence with **Show all**, the Braille cells, and the line **Server's real answer, not played yet.** Nothing has played or spoken, and the meters under the button are absent, so a judge watches them arrive. |
 
 Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
 
@@ -55,10 +55,15 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
   show the focus ring, then press <kbd>Enter</kbd>. Use the keyboard, not the mouse. This
   product is for people who cannot use a pointer, and a mouse click here undercuts the
   argument.
-* **On screen, in this order:** the progress bar appears, the earcon audio player appears
-  and plays, the spoken digest fills in, the red security finding appears below the split,
-  the Braille cells fill the third card, and the three meters change from `not run yet` to
-  real values.
+* **On screen before the press:** the preview the page drew on load from the server's
+  answer for this patch, requested with the local engine so that opening the page never
+  calls a model. It is silent: the line under the sentence reads
+  `Server's real answer, not played yet.`
+* **On screen after the press, in this order:** the progress bar appears, the preview line
+  goes away, the playhead crosses the waveform while the earcon plays, the full spoken
+  digest fills in and its words light as the browser speaks them, the red security finding
+  appears under the sentence, the Braille cells redraw, and the three meters appear under
+  the button with real values.
 * **Expected values:** the engine meter reads whichever engine actually answered, and the
   note under it repeats the raw `synthesis_mode`. On a machine with the `bedrock` extra
   installed and AWS credentials resolving it reads `Amazon Bedrock`; without either it
@@ -86,7 +91,8 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
 * **Exact action, browser:** scroll to **Evidence**, keep the **Server and MCP** tab, find
   **Model Context Protocol, handshaken in your browser** and press **Run a real MCP handshake**. Expand the first tool in the catalog.
 * **On screen:** the four facts fill in with `2025-11-25`, `volcan-accessible-forge 0.1.0`,
-  a truncated session id taken from the `Mcp-Session-Id` response header, and `11` tools.
+  a truncated session id taken from the `Mcp-Session-Id` response header, and `12` tools
+  (12 in the catalog on 2026-09-26).
   The expanded entry shows the published `inputSchema` JSON.
 * **Exact action, terminal:** cut to terminal 2 and run
   `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp`.
@@ -117,10 +123,11 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
 
 * **Platform:** terminal 2, then back to the browser.
 * **Exact action, terminal:** run `python -m pytest tests/ -q`, then `python ci/readiness.py`.
-* **On screen:** `421 passed`, then the readiness output **scrolled to a red gate**. Do not
-  crop the failures out. The gates that were red on 2026-09-08 are the absent video and its
-  sync check, the absent browser-driver journey, the deployed endpoint running an older
-  commit, and three actions only the owner can perform.
+* **On screen:** `523 passed`, then the readiness output **scrolled to a red gate**. Do not
+  crop the failures out. The gates that were red on this branch on 2026-09-26 are the absent
+  video and its sync check, the deployed endpoint running an older commit, the four persona
+  gates that read the workspace `STATE.md` a clone does not contain, and three actions only
+  the owner can perform.
 * **Exact action, browser:** scroll to the connection strip in **Evidence**, tab **Server and MCP**.
 * **On screen:** the connection strip's model path sentence. The page prints whatever the
   server resolved into the single `bedrock_model_path.resolved_capability` field on
