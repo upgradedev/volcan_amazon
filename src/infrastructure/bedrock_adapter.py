@@ -60,7 +60,7 @@ CAPABILITY_NEITHER = "unavailable_no_sdk_and_no_credentials"
 #: How long a resolved answer to "are there credentials?" is served before it is
 #: looked up again. The lookup walks the whole boto3 chain, and on a machine
 #: with no credentials its last step, the EC2 instance-metadata probe, costs
-#: about two seconds (measured 2.05 s): paid on every request, it made /health
+#: about two seconds (2.054 s measured on 2026-09-26): paid on every request, it made /health
 #: and every press take two seconds on a judge's laptop. A stale answer is
 #: served while a background lookup replaces it, and /health?refresh=1 forces
 #: one. Whether a model answered is still reported per digest, never cached.

@@ -568,10 +568,10 @@ def test_results_are_announced_through_live_regions():
 
 
 def test_a_hero_result_reaches_a_listener_through_one_channel():
-    """A review measured one press writing to four live regions in 0.2 ms
-    (spokenPane, earconCaption, securityAlert with role=alert, and runStatus
-    repeating the summary), then the speech engine read the same summary over
-    the screen reader. The hero keeps exactly one live region, and the status
+    """One press used to write to four live regions at once (spokenPane,
+    earconCaption, securityAlert with role=alert, and runStatus repeating the
+    summary), then the speech engine read the same summary over the screen
+    reader. The hero keeps exactly one live region, and the status
     line hands over to the speech engine instead of reading the answer too.
     The browser test in first_screen_runner.py counts the mutations."""
     html = read_html()

@@ -1,9 +1,8 @@
 """The boto3 credential chain is walked once, not on every request.
 
 On a laptop with no AWS credentials the chain ends in the EC2 instance-metadata
-probe, which took 2.05 s. A review measured /health at 2.046, 2.039 and
-2.025 s and every press of the page's button at about 2.06 s, because the
-adapter walked the chain on each call. These tests pin the cache: one lookup
+probe: on 2026-09-26 the chain alone took 2.054 s and curl timed /health at
+2.030, 2.024 and 2.030 s, because the adapter walked the chain on each call. These tests pin the cache: one lookup
 serves later calls, a forced refresh looks again, a stale answer is replaced in
 the background, and concurrent first calls share one lookup.
 """

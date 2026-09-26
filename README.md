@@ -2,7 +2,7 @@
 
 > **Volcan lets blind and mobility-impaired software developers review autonomous coding agents by ear and by touch instead of by reading a diff.**
 
-![The companion page's first screen at 1280 by 720 in the basalt dark theme, as the UX harness captured it before any press: the headline "Hear your code review instead of scrubbing a diff", the disclosure "Simulated Alexa+ experience, not an Alexa skill" and "Live, except GitHub write: dry-run.", the patch whose changed lines turn user.role == "admin" into user.role != "admin", one ember "Hear this code review" button, and the server's real answer drawn silently beside it: the returned earcon's waveform in its not yet heard grey with a measured falling contour, the server's finding "In src/auth/permissions.py, an authorization comparison was inverted: user.role == 'admin' became user.role != 'admin'.", the Braille cells, and the line "Server's real answer, not played yet."](docs/assets/volcan-first-viewport.png)
+![The companion page's first screen at 1280 by 720 in the basalt dark theme, as the UX harness captured it before any press: the headline "Hear your code review instead of scrubbing a diff", the disclosure "Simulated Alexa+ experience, not an Alexa skill" and "Live server, MCP. GitHub write: dry-run.", the patch whose changed lines turn user.role == "admin" into user.role != "admin", one ember "Hear this code review" button, and the server's real answer drawn silently beside it: the returned earcon's waveform in its not yet heard grey with a measured falling contour, the server's finding "In src/auth/permissions.py, an authorization comparison was inverted: user.role == 'admin' became user.role != 'admin'.", the Braille cells, and the line "Server's real answer, not played yet."](docs/assets/volcan-first-viewport.png)
 
 ![The same screen in the daylight theme a few seconds after one keyboard press against a local server: the waveform drawn in ember now that the cue has played, the full spoken sentence, finding first, lighting word by word as the browser speaks it, and the meters reporting the local heuristic engine, the reason no model answered (opened with the info button beside the engine), and the measured round trip.](docs/assets/volcan-after-one-press.png)
 
@@ -146,9 +146,11 @@ started as in step 2 on port 8743 and no AWS credential file present; three furt
 of the same button on the same page read 30.2 ms, 28.8 ms and 31.9 ms. The first press is the
 one quoted, because that is the press a judge makes. Earlier rounds published 117.2 ms
 (2026-09-08) and 72.6 ms (2026-09-06). On a machine without AWS credentials those earlier
-builds walked the whole boto3 credential chain, ending in a two-second instance-metadata
-probe, on every request: a review on 2026-09-25 measured 2089.6 ms for the first press. The
-server now resolves the chain once at startup and caches the answer. The page measures the
+builds walked the whole boto3 credential chain, ending in the instance-metadata probe, on
+every request: on 2026-09-26, before the fix, `curl` timed `GET /health` at 2.030, 2.024 and
+2.030 s on this machine with no credential file, and the chain alone took 2.054 s. The server
+now resolves the chain once at startup and caches the answer; the same `curl` then read
+0.039, 0.003 and 0.005 s. The page measures the
 round trip itself with `performance.now()` on every run and takes no figure from this file. The `pip install` step depends on your network
 and is not measured here.
 
