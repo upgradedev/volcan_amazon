@@ -40,6 +40,7 @@ def main(base_url: str) -> None:
         expect(vault).to_contain_text("git diff HEAD", timeout=15_000)
         expect(vault).to_contain_text("released to you, nothing run")
         expect(vault).not_to_contain_text("could not be read")
+        expect(page.locator("#auditNote")).to_be_visible()
         expect(page.locator("#auditNote")).to_contain_text("public demo chain")
 
         assert not failed, f"requests answered with an error status: {failed}"

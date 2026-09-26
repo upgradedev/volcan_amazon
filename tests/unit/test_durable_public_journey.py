@@ -23,7 +23,7 @@ from src.application.public_audit import (
     WITHHELD,
     public_record_view,
 )
-from src.application.review_authorization import ReviewPrincipal, current_review_principal
+from src.application.review_authorization import current_review_principal
 from src.application.sonify_event_use_case import SonifyEventUseCase
 from src.application.voice_turn_use_case import VoiceTurnUseCase
 from src.domain.approval_grant import ApprovalGrantIssuer
@@ -316,4 +316,3 @@ def test_the_principal_context_does_not_leak_between_requests(durable, monkeypat
     client.get("/api/audit_log", headers={"Authorization": f"Bearer {'a' * 40}"})
     assert current_review_principal.get() is None
     assert client.get("/api/audit_log").json()["view"] == "public"
-    assert ReviewPrincipal("alice", frozenset()).identity == "alice"
