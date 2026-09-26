@@ -539,8 +539,9 @@ version, whether the server chose a stateful id or stateless mode, and each publ
 `inputSchema`.
 
 Accessibility is enforced rather than asserted. The page has semantic landmarks, a labelled
-and keyboard-scrollable Braille region, `aria-live` on every asynchronous pane and
-`role="alert"` on security findings, a 3px focus ring in both colour schemes, a written
+and keyboard-scrollable Braille region, `aria-live` on every pane that answers something the
+reader asked for and `role="alert"` on security findings (the silent preview drawn on load is
+deliberately outside every live region, so opening the page announces nothing), a 3px focus ring in both colour schemes, a written
 description of every audio cue taken from the server's own `spoken_fallback`, and no control
 that ships disabled. `prefers-reduced-motion` removes every animation and the smooth scroll;
 `prefers-color-scheme` selects a designed light or dark palette. The page requests nothing
@@ -553,8 +554,9 @@ local faces. `tests/e2e/test_first_screen.py` loads the page with every request 
 origin aborted and requires both families loaded and no console error.
 
 The first screen is one stage. The patch is drawn as its changed lines beside a single
-primary action, and the three channels already hold the server's real answer for that patch
-when the page opens, drawn silently. The page asks for that answer with `engine: local`, so a
+primary action, and when the Volcan app serves the page, the three channels already hold the
+server's real answer for that patch as it opens, drawn silently; opened with no server behind
+it, the channels stay empty until a server answers. The page asks for that answer with `engine: local`, so a
 page view never starts a model call, and nothing plays, speaks or writes into a live region
 until the press; `tests/e2e/test_first_screen.py` counts all three and requires zero. The
 earcon's waveform is drawn from the returned samples, grey until it has been heard, with a

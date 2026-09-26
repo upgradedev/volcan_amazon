@@ -75,11 +75,12 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
   the first press. Do not retake the shot to get a smaller number.
 * **Hold on:** the earcon caption. The preset patch inverts an authorization comparison, so
   the server returns the falling security cue and the caption reads
-  `Cue SECURITY_FINDING, 0.60 seconds of 16-bit PCM at 22050 Hz. Written description:
-  Security-sensitive change in this patch.` It is the proof that a Deaf viewer gets the
-  same information a hearing one does, and that the cue is chosen from the verdict: preset
-  4, the labelled clean control, returns `Cue DIFF_READY, 0.44 seconds` instead. Both
-  captions were produced by the running server on 2026-09-08.
+  `Cue SECURITY_FINDING, falling pitch contour measured from its samples, 0.60 seconds of
+  16-bit PCM at 22050 Hz. Written description: Security-sensitive change in this patch.` It
+  is the proof that a Deaf viewer gets the same information a hearing one does, and that the
+  cue is chosen from the verdict: preset 4, the labelled clean control, returns
+  `Cue DIFF_READY, rising pitch contour measured from its samples, 0.44 seconds` instead.
+  Both captions were read off the page after a press against a local server on 2026-09-26.
 * **Cut on:** the security finding card, which reads
   `In src/auth/permissions.py, an authorization comparison was inverted: user.role == 'admin'
   became user.role != 'admin'.` That sentence is the whole argument of the project: the words
