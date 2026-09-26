@@ -15,6 +15,10 @@ handshake: the Evidence panel's MCP handshake succeeds against the server that
 served the page, and a refused handshake prints the server's own reason.
 
 skip: the skip link moves focus into main, not back to the document body.
+
+stale: a patch changed after a press never sits beside the previous patch's
+answer. The stage returns to the new patch's silent answer, and the old
+answer is neither shown nor spoken.
 """
 import json
 import re
@@ -226,7 +230,47 @@ def skip(base_url: str) -> None:
         browser.close()
 
 
+def stale(base_url: str) -> None:
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        context = browser.new_context(viewport={"width": 1280, "height": 720})
+        context.add_init_script(PROBE_JS)
+        page = context.new_page()
+        page.goto(base_url, wait_until="networkidle")
+        expect(page.locator("#stage")).to_have_attribute("data-preview", "ready", timeout=20_000)
+        page.locator('[data-testid="primary-hero-action"]').click()
+        expect(page.locator("#spokenPane")).to_contain_text("an authorization comparison was inverted",
+                                                            timeout=30_000)
+        expect(page.locator("#securityAlert")).not_to_be_empty()
+        # Switch the patch at once, before the cue has ended and the answer
+        # has been spoken: the queued sentence belongs to the old patch.
+        spoken_before = page.evaluate("window.__probe.speak")
+        page.locator("#preset4").click()
+        expect(page.locator("#patchFile")).to_have_text("src/utils/parser.py")
+        expect(page.locator("#stage")).to_have_attribute("data-preview", "ready", timeout=20_000)
+        expect(page.locator("#earconContour")).to_contain_text("Rising", timeout=20_000)
+        page.wait_for_timeout(2500)
+        state = {
+            "spokenPane": page.locator("#spokenPane").inner_text().strip(),
+            "securityAlert": page.locator("#securityAlert").inner_text().strip(),
+            "preview": page.locator("#spokenPreview").inner_text().strip(),
+            "meters_hidden": page.locator("#meters").is_hidden(),
+            "earconPlayer": page.locator("#earconPlayer").inner_text().strip(),
+            "speak_after_switch": page.evaluate("window.__probe.speak") - spoken_before,
+        }
+        print(json.dumps(state, indent=1))
+        assert state["spokenPane"] == "", "the previous patch's answer is still on the stage"
+        assert state["securityAlert"] == "", "the previous patch's finding is still on the stage"
+        assert "permissions.py" not in state["preview"], state["preview"]
+        assert state["meters_hidden"], "the meters still describe the previous patch"
+        assert state["earconPlayer"] == "", "the replay button would play the previous patch's cue"
+        assert state["speak_after_switch"] == 0, "the previous patch's answer was spoken after the switch"
+        expect(page.locator("#previewState")).to_contain_text("not played yet")
+        browser.close()
+
+
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
-    modes = {"offline": offline, "silent": silent, "handshake": handshake, "skip": skip}
+    modes = {"offline": offline, "silent": silent, "handshake": handshake, "skip": skip,
+             "stale": stale}
     modes[sys.argv[1]](sys.argv[2].rstrip("/"))

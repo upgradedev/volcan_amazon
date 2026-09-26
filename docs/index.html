@@ -1428,7 +1428,8 @@
       lastSamples: null,
       cueHeard: false,
       previewSeq: 0,
-      previewTimer: null
+      previewTimer: null,
+      pressSeq: 0
     };
 
     var START_COMMAND = "python -m src.interfaces.mcp_server";
@@ -2301,11 +2302,46 @@
       }
     }
 
-    /* A new patch before the first press gets its own silent answer. After a
-       press the stage belongs to what was played, and the next press
-       refreshes it. */
+    /* A new patch gets its own silent answer. Before any press that is all
+       there is to do. After a press the stage still shows what was played for
+       the previous patch, and leaving it there put one patch's finding beside
+       another patch's lines, so a changed patch first returns the stage to its
+       unplayed state: whatever is still sounding stops, a press still in
+       flight is disowned, and every pane the press filled is emptied. */
+    var EARCON_LEGEND = $("earconCaption").cloneNode(true);
+
+    function resetStage() {
+      State.pressSeq += 1;
+      stopAudio();
+      cancelAnimationFrame(Playback.frame);
+      State.lastDigest = null;
+      State.lastWords = null;
+      State.lastSamples = null;
+      State.cueHeard = false;
+      activeAudio = null;
+      if (State.earconUrl) { URL.revokeObjectURL(State.earconUrl); State.earconUrl = null; }
+      clear($("earconPlayer"));
+      clear($("spokenPane"));
+      clear($("securityAlert"));
+      $("spokenCaption").textContent = "";
+      var legend = clear($("earconCaption"));
+      Array.prototype.forEach.call(EARCON_LEGEND.childNodes, function (node) {
+        legend.appendChild(node.cloneNode(true));
+      });
+      drawWaveform($("earconWave"), new Int16Array(0));
+      renderContour(null);
+      $("meters").hidden = true;
+      ["meterEngine", "meterLatency", "meterChange"].forEach(function (id) {
+        $(id).firstChild.nodeValue = "not run yet";
+      });
+      $("meterEngineNote").textContent = "";
+      $("runProgress").hidden = true;
+      setBusy($("runReview"), false);
+    }
+
     function schedulePreview(delay) {
-      if (!State.live || State.lastDigest) { return; }
+      if (!State.live) { return; }
+      if (State.lastDigest || State.pressSeq) { resetStage(); }
       clearTimeout(State.previewTimer);
       State.previewTimer = setTimeout(previewAnswer, delay || 0);
     }
@@ -2327,6 +2363,7 @@
 
     async function runReview() {
       var button = $("runReview");
+      var seq = State.pressSeq += 1;
       setBusy(button, true, "Running the review");
       $("runProgress").hidden = false;
       announce("runStatus", "Sending the patch to the Volcan API.");
@@ -2355,6 +2392,9 @@
             raw_diff: $("diffInput").value, fidelity: State.brailleFidelity
           })
         ]);
+        // The patch changed while this request was in flight: its answer
+        // belongs to a patch that is no longer on the stage.
+        if (seq !== State.pressSeq) { return; }
         var digest = results[0];
         var braille = results[1];
         $("meters").hidden = false;
@@ -2381,9 +2421,12 @@
         renderFindings(digest.data.critical_findings);
         revealAnswer();
         var prefix = "Round trip " + digest.elapsedMs.toFixed(1) + " milliseconds.";
-        whenCueEnds(function () { speakOrAnnounce(prefix, digest.data.voice_summary, words); });
+        whenCueEnds(function () {
+          if (seq === State.pressSeq) { speakOrAnnounce(prefix, digest.data.voice_summary, words); }
+        });
         announceResult(prefix, digest.data.voice_summary);
       } catch (error) {
+        if (seq !== State.pressSeq) { return; }
         spokenTarget().appendChild(failureCard("The digest call failed: " + error.message + "."));
         $("earconCaption").textContent = "No cue, because the digest request did not succeed.";
         $("meters").hidden = false;
@@ -2393,8 +2436,10 @@
         probeHealth();
         announce("runStatus", "The request failed. " + error.message);
       } finally {
-        $("runProgress").hidden = true;
-        setBusy(button, false);
+        if (seq === State.pressSeq) {
+          $("runProgress").hidden = true;
+          setBusy(button, false);
+        }
       }
     }
 
@@ -2403,12 +2448,16 @@
         ["spokenPane", "The file-by-file digest needs POST /api/digest_semantic_diff."]
       ]);
       if (!ready) { return; }
+      var seq = State.pressSeq += 1;
       try {
         var digest = await postJson("/api/digest_semantic_diff",
           { raw_diff: $("diffInput").value, level: 1 });
+        if (seq !== State.pressSeq) { return; }
         var words = renderSpoken(digest.data, digest.elapsedMs, "Level 1 file-by-file digest");
         renderEarcon(digest.data.earcon);
-        whenCueEnds(function () { speakOrAnnounce("Level 1 digest.", digest.data.voice_summary, words); });
+        whenCueEnds(function () {
+          if (seq === State.pressSeq) { speakOrAnnounce("Level 1 digest.", digest.data.voice_summary, words); }
+        });
         announceResult("Level 1 digest.", digest.data.voice_summary);
       } catch (error) {
         spokenTarget().appendChild(failureCard("The level 1 digest call failed: " + error.message + "."));
@@ -2420,9 +2469,11 @@
         ["spokenPane", "The drill down needs POST /api/drill_down_section."]
       ]);
       if (!ready) { return; }
+      var seq = State.pressSeq += 1;
       try {
         var drill = await postJson("/api/drill_down_section",
           { raw_diff: $("diffInput").value, section_index: 0 });
+        if (seq !== State.pressSeq) { return; }
         var sentence = spokenSentence(drill.data.spoken_text);
         spokenTarget().appendChild(sentence.node);
         $("spokenCaption").textContent = "Drill down on " + drill.data.file_path
@@ -2432,7 +2483,9 @@
         State.lastWords = sentence.words;
         renderEarcon(drill.data.earcon);
         var drillPrefix = "Drill down on " + drill.data.file_path + ".";
-        whenCueEnds(function () { speakOrAnnounce(drillPrefix, drill.data.spoken_text, sentence.words); });
+        whenCueEnds(function () {
+          if (seq === State.pressSeq) { speakOrAnnounce(drillPrefix, drill.data.spoken_text, sentence.words); }
+        });
         announceResult(drillPrefix, drill.data.spoken_text);
       } catch (error) {
         spokenTarget().appendChild(failureCard("The drill down call failed: " + error.message + ".",

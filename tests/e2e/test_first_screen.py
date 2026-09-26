@@ -72,3 +72,7 @@ def test_the_mcp_handshake_works_on_the_serving_origin_and_prints_a_refusal(base
 
 def test_the_skip_link_moves_focus_into_main(base_url):
     _run("skip", base_url)
+
+
+def test_a_patch_changed_after_a_press_never_sits_beside_the_old_answer(base_url):
+    _run("stale", base_url)
