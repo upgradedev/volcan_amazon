@@ -2438,7 +2438,14 @@
       var response = await fetch(State.apiBase + "/mcp", {
         method: "POST", headers: headers, body: JSON.stringify(message)
       });
-      var body = await response.json();
+      var body = null;
+      try { body = await response.json(); } catch (parseError) { body = null; }
+      if (!response.ok) {
+        // The server's refusal says what to change (an Origin to allow, a
+        // session to re-open). Its own sentence is printed, never dropped.
+        var why = body && (body.detail || (body.error && body.error.message) || body.error);
+        throw new Error("HTTP " + response.status + ": " + (why || "no reason in the response body"));
+      }
       return {
         body: body,
         elapsedMs: performance.now() - started,
@@ -2521,8 +2528,9 @@
           + ", " + tools.length + " tools advertised by " + result.serverInfo.name + ".");
       } catch (error) {
         clear($("mcpPane")).appendChild(failureCard(
-          "The handshake failed: " + error.message + ".",
-          "Check the server log. python scripts/mcp_conformance.py runs the same handshake from a terminal."));
+          "The handshake failed. " + error.message,
+          "The server answered /health, so it is running; the line above is its own reason. "
+          + "python scripts/mcp_conformance.py runs the same handshake from a terminal."));
         announce("mcpStatus", "The handshake failed. " + error.message);
       } finally {
         setBusy(button, false);

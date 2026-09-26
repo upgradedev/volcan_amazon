@@ -86,6 +86,10 @@ request identifiers never enter the anonymous response.
 python -m src.interfaces.mcp_server
 ```
 
+It binds `127.0.0.1:8000`. Port 8000 taken? `python -m src.interfaces.mcp_server --port 8743`
+(or `VOLCAN_PORT=8743`) moves the server and its default MCP Origin allowlist together, so the
+page it serves can still run the MCP handshake. Use the same port in the URLs below.
+
 ### 3. Prove the protocol before you trust the page
 
 In a second terminal:

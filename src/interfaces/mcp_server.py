@@ -21,7 +21,8 @@ Two surfaces, stated plainly:
 
 Run locally, bound to loopback:
 
-    python -m src.interfaces.mcp_server
+    python -m src.interfaces.mcp_server              # port 8000
+    python -m src.interfaces.mcp_server --port 8743  # any other port
     # then: python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp
 """
 import json
@@ -369,7 +370,29 @@ async def demo_ui() -> HTMLResponse:
     return HTMLResponse(content=load_companion_html())
 
 
-if __name__ == "__main__":
+def _main(argv: list[str] | None = None) -> None:
+    """Serve on loopback. ``--port N`` or ``VOLCAN_PORT`` picks the port.
+
+    The chosen port is written back to ``VOLCAN_PORT`` before the server
+    starts, because the default Origin allowlist is built from that same
+    value: one setting moves both, so the served page is never refused.
+    """
+    import argparse
+    import os
+
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    from src.interfaces.composition import local_port
+
+    parser = argparse.ArgumentParser(prog="python -m src.interfaces.mcp_server")
+    parser.add_argument("--port", type=int, default=None,
+                        help="loopback port to bind (default: VOLCAN_PORT, else 8000)")
+    args = parser.parse_args(argv)
+    if args.port is not None:
+        os.environ["VOLCAN_PORT"] = str(args.port)
+    port = local_port()
+    uvicorn.run(app, host="127.0.0.1", port=port)
+
+
+if __name__ == "__main__":
+    _main()
