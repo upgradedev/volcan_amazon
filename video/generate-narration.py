@@ -262,8 +262,7 @@ def main() -> None:
                     "beat": identifier,
                     "characters": len(speech),
                     "voiceId": config["voiceId"],
-                }) + "
-")
+                }) + "\n")
             sidecar.write_text(
                 json.dumps(
                     {"cacheKey": key, "provider": "elevenlabs", "characters": len(speech)},

@@ -71,6 +71,7 @@ OBSERVER = r"""
     const media = this;
     note("media.play");
     media.addEventListener("playing", () => note("media.playing", media.currentTime), { once: true });
+    media.addEventListener("timeupdate", () => note("media.timeupdate", media.currentTime));
     media.addEventListener("ended", () => note("media.ended", media.currentTime), { once: true });
     return play.apply(this, arguments);
   };
@@ -331,6 +332,22 @@ def main() -> None:
 
     playing = first("media.playing")
     ended = first("media.ended")
+    # Where the page's own playback clock says the cue started: each timeupdate
+    # reports how far into the WAV the element is, so its wall time minus that
+    # position is the start. Headless Chromium fires "playing" a few hundred
+    # milliseconds before the clock moves, and the waveform's playhead follows
+    # the clock, so this is the moment the picture shows the cue sounding.
+    clock_starts = sorted(
+        entry["epoch"] - float(entry["detail"]) * 1000
+        for entry in log
+        if entry["kind"] == "media.timeupdate" and 0 < float(entry["detail"] or 0) < float(ended["detail"])
+    )
+    if clock_starts:
+        earcon_start = clock_starts[len(clock_starts) // 2]
+        earcon_basis = f"median of {len(clock_starts)} timeupdate events, wall time minus currentTime"
+    else:
+        earcon_start = ended["epoch"] - float(ended["detail"]) * 1000
+        earcon_basis = "ended event minus the WAV length reported by currentTime"
     spoken = first("speech.speak")
     speech_start = first("speech.start")
     speech_end = first("speech.end")
@@ -390,7 +407,9 @@ def main() -> None:
                 "sha256": sha256(earcon),
                 "seconds": round(probe_duration(earcon), 3),
                 "source": "the earcon.wav_base64 bytes of the server's response to the press, unchanged",
-                "timelineSeconds": timeline_time(playing["epoch"]),
+                "timelineSeconds": timeline_time(earcon_start),
+                "timelineBasis": earcon_basis,
+                "pagePlayingEventTimelineSeconds": timeline_time(playing["epoch"]),
                 "pageEndedTimelineSeconds": timeline_time(ended["epoch"]),
             },
             {

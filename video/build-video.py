@@ -59,7 +59,7 @@ FONT_BOLD = "C\\:/Windows/Fonts/segoeuib.ttf"
 # Loudness each source is brought to before the mix. The final loudnorm then sets
 # the programme to -16 LUFS. The earcon sits a little under the voices because a
 # pure tone reads louder than speech at the same integrated level.
-SOURCE_TARGET_LUFS = {"narration": -20.0, "browser-speech": -21.0, "earcon": -25.0}
+SOURCE_TARGET_LUFS = {"narration": -20.0, "browser-speech": -21.0, "earcon": -22.0}
 
 
 def run(args: list[str], cwd: pathlib.Path | None = None) -> subprocess.CompletedProcess[str]:
