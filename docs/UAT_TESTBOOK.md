@@ -79,6 +79,10 @@ python -m pytest tests/ -v
    connection banner in **Evidence**, tab **Server and MCP**, must read **Server reached** and quote
    the HTTP status and the round trip it actually measured, plus the resolved model path the
    server reported. On this machine that line reads `unavailable_sdk_not_installed`.
+   Before anything is pressed, the stage must already show the server's answer for the loaded
+   patch, silently: the waveform in grey with a **Falling** contour, the verdict sentence with
+   **Show all**, the Braille cells, and the line **Server's real answer, not played yet.** No
+   sound and no speech until step 4.
 3. Press Tab once. The **Skip to main content** link must appear with a visible focus ring.
 4. Press **Hear this code review** without changing the patch. The preset loaded on first
    paint is the inverted authorization check, so the falling `SECURITY_FINDING` cue plays and

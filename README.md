@@ -2,11 +2,11 @@
 
 > **Volcan lets blind and mobility-impaired software developers review autonomous coding agents by ear and by touch instead of by reading a diff.**
 
-![The companion page's first screen at 1280 by 720 in the daylight theme: the headline "Hear your code review instead of scrubbing a diff", the disclosure "Simulated Alexa+ experience, not an Alexa skill" with what is live and that the GitHub write is dry-run, the patch whose last two lines turn user.role == "admin" into user.role != "admin", one ember "Hear this code review" button, and three empty channels for the earcon, the speech and the Braille cells.](docs/assets/volcan-first-viewport.png)
+![The companion page's first screen at 1280 by 720 in the basalt dark theme, as the UX harness captured it before any press: the headline "Hear your code review instead of scrubbing a diff", the disclosure "Simulated Alexa+ experience, not an Alexa skill" with what is live and that the GitHub write is dry-run, the patch whose changed lines turn user.role == "admin" into user.role != "admin", one ember "Hear this code review" button, and the server's real answer drawn silently beside it: the returned earcon's waveform in its not yet heard grey with a measured falling contour, the verdict sentence, the Braille cells, and the line "Server's real answer, not played yet."](docs/assets/volcan-first-viewport.png)
 
-![The same screen in the basalt dark theme after one press against a local server: the waveform drawn from the returned WAV with a measured falling contour for SECURITY_FINDING, the spoken sentence lighting word by word as the browser speaks it, and the meters reporting the local heuristic engine, the reason no model answered, and the measured round trip.](docs/assets/volcan-after-one-press.png)
+![The same screen in the daylight theme a few seconds after one keyboard press against a local server: the waveform drawn in ember now that the cue has played, the full spoken sentence lighting word by word as the browser speaks it, and the meters reporting the local heuristic engine, the reason no model answered, and the measured round trip.](docs/assets/volcan-after-one-press.png)
 
-*Both screenshots are unedited headless Chromium captures of `docs/index.html` served locally by the FastAPI app in `src/interfaces/mcp_server.py`; the second shows a real response from a machine without the `bedrock` extra, so the engine reads local heuristic.*
+*Both screenshots are unedited headless Chromium captures of `docs/index.html` served locally by the FastAPI app in `src/interfaces/mcp_server.py`, started without AWS credentials and without the `bedrock` extra. The first is the harness capture on load, whose preview request names the local engine; the second shows the real response to the press, so the engine reads local heuristic.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
@@ -552,13 +552,19 @@ inside the one HTML file. Every face keeps `font-display: swap` and every font s
 local faces. `tests/e2e/test_first_screen.py` loads the page with every request to another
 origin aborted and requires both families loaded and no console error.
 
-The first screen is one stage. The patch is drawn as changed lines beside a single primary
-action, and three channels fill only when the server answers: the earcon's waveform, drawn
-from the returned samples with a playhead that follows the audio element's own clock and a
-pitch contour measured from those samples; the spoken sentence, whose words brighten only
-when the browser's speech engine reports reaching them; and the Braille, drawn as large dot
-cells from the server's own Unicode code points, with the cell that differs between the
-removed and the added line marked. Code is set with ligatures off, so `!=` can never be drawn
+The first screen is one stage. The patch is drawn as its changed lines beside a single
+primary action, and the three channels already hold the server's real answer for that patch
+when the page opens, drawn silently. The page asks for that answer with `engine: local`, so a
+page view never starts a model call, and nothing plays, speaks or writes into a live region
+until the press; `tests/e2e/test_first_screen.py` counts all three and requires zero. The
+earcon's waveform is drawn from the returned samples, grey until it has been heard, with a
+pitch contour measured from those samples, and after the press a playhead follows the audio
+element's own clock. The spoken sentence shows its verdict first, with the rest one **Show
+all** away, and after the press its words brighten only when the browser's speech engine
+reports reaching them. The Braille is drawn as large dot cells from the server's own Unicode
+code points, with the cell that differs between the removed and the added line marked. A line
+under the sentence says it is the server's real answer, not played yet, and an info button
+beside it names the engine and why. Code is set with ligatures off, so `!=` can never be drawn
 as a single glyph. Every proof panel below the story sits in an **Evidence** tab set, and `?`
 opens the keyboard map from anywhere outside a text box.
 
