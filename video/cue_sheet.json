@@ -22,11 +22,11 @@
       "timestamp_start": 20.0,
       "timestamp_end": 58.0,
       "duration_sec": 38.0,
-      "words_count": 92,
-      "words_per_minute": 145.3,
+      "words_count": 95,
+      "words_per_minute": 150.0,
       "speech_rate_intelligible": true,
-      "narration_text": "This is Volcan, running on this machine. Before anything plays, the stage already shows the server's real answer for this patch, silently: the earcon's waveform with its falling pitch, the verdict, and the Braille cells. One button plays it. The earcon comes first, so the verdict arrives before the sentence. This patch touches security, so the cue falls; a benign one rises. Then the spoken digest, which names the security-sensitive file ahead of the line detail. The engine label and the round trip are read off the response, measured in this browser.",
-      "visual_action": "Open on the first paint: the stage already shows the silent preview, the waveform in its not yet heard colour with the Falling contour, the verdict sentence, the eight-dot Braille cells and the line Server's real answer, not played yet. Press Alt and 1 to focus Hear this code review, then Enter. Hold on the playhead crossing the waveform, the words lighting as the browser speaks them, the security finding, and the three meters filling with the engine name, the measured round trip and the change size."
+      "narration_text": "This is Volcan, running on this machine. Before anything plays, the stage already shows the server's real answer for this patch, silently: the earcon's waveform with its falling pitch, the finding in words, and the Braille cells. One button plays it. The earcon comes first, so the verdict arrives before the sentence. This patch touches security, so the cue falls; a benign one rises. Then the spoken digest, which opens with the finding itself: an authorization comparison was inverted. The engine label and the round trip are read off the response, measured in this browser.",
+      "visual_action": "Open on the first paint: the stage already shows the silent preview, the waveform in its not yet heard colour with the Falling contour, the finding sentence, the eight-dot Braille cells and the line Server's real answer, not played yet. Press Alt and 1 to focus Hear this code review, then Enter. Hold on the playhead crossing the waveform, the words lighting as the browser speaks them, finding first, and the three meters filling with the engine name, the measured round trip and the change size."
     },
     {
       "beat_index": 3,

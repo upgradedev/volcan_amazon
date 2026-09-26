@@ -28,7 +28,7 @@ exercised on Windows 11 with Python 3.11.0 on 2026-09-06.
 | 3 | `python -m src.interfaces.mcp_server` | Leave it running in terminal 1, off camera. |
 | 4 | Open `http://127.0.0.1:8000/` in a fresh profile at 1280x900 | The status pill in the top bar reads **Online**, and the connection strip in **Evidence**, tab **Server and MCP**, reads **SERVER REACHED** with a real `GET /health` duration. If it reads **NO SERVER**, the recording is wrong before it starts. |
 | 5 | System audio capture on, microphone off | The earcon in beat 2 is the product speaking. It must reach the recording. |
-| 6 | Reset the page with a reload | On the first frame of beat 2 the stage shows the silent preview: the waveform in its not yet heard colour with the **Falling** contour, the verdict sentence with **Show all**, the Braille cells, and the line **Server's real answer, not played yet.** Nothing has played or spoken, and the meters under the button are absent, so a judge watches them arrive. |
+| 6 | Reset the page with a reload | On the first frame of beat 2 the stage shows the silent preview: the waveform in its not yet heard colour with the **Falling** contour, the finding sentence with **Show all**, the Braille cells, and the line **Server's real answer, not played yet.** Nothing has played or spoken, and the meters under the button are absent, so a judge watches them arrive. |
 
 Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
 
@@ -61,17 +61,18 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
   `Server's real answer, not played yet.`
 * **On screen after the press, in this order:** the progress bar appears, the preview line
   goes away, the playhead crosses the waveform while the earcon plays, the full spoken
-  digest fills in and its words light as the browser speaks them, the red security finding
-  appears under the sentence, the Braille cells redraw, and the three meters appear under
+  digest fills in, finding first, and its words light as the browser speaks them, the red
+  security box repeats the finding under the sentence, the Braille cells redraw, and the three meters appear under
   the button with real values.
-* **Expected values:** the engine meter reads whichever engine actually answered, and the
-  note under it repeats the raw `synthesis_mode`. On a machine with the `bedrock` extra
+* **Expected values:** the engine meter reads whichever engine actually answered, and its
+  info button opens a note that repeats the raw `synthesis_mode`. On a machine with the `bedrock` extra
   installed and AWS credentials resolving it reads `Amazon Bedrock`; without either it
   reads `local heuristic` with `synthesis_mode: heuristic-local` and the reason beside it.
   Record whichever one your machine produces and say so in the narration. Do not stage the
   other. The round trip meter reads a two or three digit millisecond figure measured in
-  that browser. On 2026-09-08 the first press read **117.2 ms** on the development machine
-  and three later presses read 80.5, 42.9 and 58.7 ms, and it will differ on yours. Record
+  that browser. On 2026-09-26 the first press read **39.0 ms** in headless Chromium on the
+  development machine and three later presses read 30.2, 28.8 and 31.9 ms, and it will differ
+  on yours. Record
   the first press. Do not retake the shot to get a smaller number.
 * **Hold on:** the earcon caption. The preset patch inverts an authorization comparison, so
   the server returns the falling security cue and the caption reads

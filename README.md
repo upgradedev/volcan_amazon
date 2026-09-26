@@ -140,13 +140,16 @@ HTTP 200 **1.4 seconds** after launch, printed by
 own server, so stop the one from step 2 before running it. It refuses to time a process that
 was already warm, and says so rather than printing a figure it cannot stand behind. Step 3
 printed
-`21/21 checks passed, 0 failed`. The first digest round trip in step 4 was **117.2 ms** in
-Chrome at 1440x900 on 2026-09-08, on a machine that was also running the test suite; three
-further presses of the same button on the same page read 80.5 ms, 42.9 ms and 58.7 ms. The
-first press is the slow one and it is the one quoted, because that is the press a judge makes.
-An earlier round published 72.6 ms at 1280x900 on 2026-09-06; today's first press was worse
-and today's is what is printed. The page measures this itself with `performance.now()` on
-every run and takes no figure from this file. The `pip install` step depends on your network
+`21/21 checks passed, 0 failed`. The first digest round trip in step 4 was **39.0 ms** in
+headless Chromium at 1440x900 on 2026-09-26, read from the page's own meter, with the server
+started as in step 2 on port 8743 and no AWS credential file present; three further presses
+of the same button on the same page read 30.2 ms, 28.8 ms and 31.9 ms. The first press is the
+one quoted, because that is the press a judge makes. Earlier rounds published 117.2 ms
+(2026-09-08) and 72.6 ms (2026-09-06). On a machine without AWS credentials those earlier
+builds walked the whole boto3 credential chain, ending in a two-second instance-metadata
+probe, on every request: a review on 2026-09-25 measured 2089.6 ms for the first press. The
+server now resolves the chain once at startup and caches the answer. The page measures the
+round trip itself with `performance.now()` on every run and takes no figure from this file. The `pip install` step depends on your network
 and is not measured here.
 
 ### 5. Review a real pull request by voice or by keyboard
@@ -846,7 +849,7 @@ estimate unless it says ESTIMATE.
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Automated tests | not applicable | 515 passing; 91.26% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-24 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.4 s | `python scripts/measure_cold_start.py` |
-| First digest round trip, browser to server and back | not applicable | 117.2 ms on the first press, then 80.5, 42.9 and 58.7 ms, Chrome at 1440x900 on 2026-09-08 | the page measures and prints this itself on every run |
+| First digest round trip, browser to server and back | not applicable | 39.0 ms on the first press, then 30.2, 28.8 and 31.9 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credential file | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
 | Braille characters that share a cell in code fidelity | 5 collision groups in the six-dot table covering `( ) =`, `] w`, `" >`, `' @` and `_` with the capital prefix | 0 of 95 printable ASCII characters | `python -m pytest tests/unit/test_braille_code_fidelity.py -v` |
 
