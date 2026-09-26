@@ -2,9 +2,9 @@
 
 > **Volcan lets blind and mobility-impaired software developers review autonomous coding agents by ear and by touch instead of by reading a diff.**
 
-![The companion page's first screen at 1280 by 720 in the basalt dark theme, as the UX harness captured it before any press: the headline "Hear your code review instead of scrubbing a diff", the disclosure "Simulated Alexa+ experience, not an Alexa skill" with what is live and that the GitHub write is dry-run, the patch whose changed lines turn user.role == "admin" into user.role != "admin", one ember "Hear this code review" button, and the server's real answer drawn silently beside it: the returned earcon's waveform in its not yet heard grey with a measured falling contour, the verdict sentence, the Braille cells, and the line "Server's real answer, not played yet."](docs/assets/volcan-first-viewport.png)
+![The companion page's first screen at 1280 by 720 in the basalt dark theme, as the UX harness captured it before any press: the headline "Hear your code review instead of scrubbing a diff", the disclosure "Simulated Alexa+ experience, not an Alexa skill" and "Live, except GitHub write: dry-run.", the patch whose changed lines turn user.role == "admin" into user.role != "admin", one ember "Hear this code review" button, and the server's real answer drawn silently beside it: the returned earcon's waveform in its not yet heard grey with a measured falling contour, the server's finding "In src/auth/permissions.py, an authorization comparison was inverted: user.role == 'admin' became user.role != 'admin'.", the Braille cells, and the line "Server's real answer, not played yet."](docs/assets/volcan-first-viewport.png)
 
-![The same screen in the daylight theme a few seconds after one keyboard press against a local server: the waveform drawn in ember now that the cue has played, the full spoken sentence lighting word by word as the browser speaks it, and the meters reporting the local heuristic engine, the reason no model answered, and the measured round trip.](docs/assets/volcan-after-one-press.png)
+![The same screen in the daylight theme a few seconds after one keyboard press against a local server: the waveform drawn in ember now that the cue has played, the full spoken sentence, finding first, lighting word by word as the browser speaks it, and the meters reporting the local heuristic engine, the reason no model answered (opened with the info button beside the engine), and the measured round trip.](docs/assets/volcan-after-one-press.png)
 
 *Both screenshots are unedited headless Chromium captures of `docs/index.html` served locally by the FastAPI app in `src/interfaces/mcp_server.py`, started without AWS credentials and without the `bedrock` extra. The first is the harness capture on load, whose preview request names the local engine; the second shows the real response to the press, so the engine reads local heuristic.*
 
@@ -573,12 +573,14 @@ page view never starts a model call, and nothing plays, speaks or writes into a 
 until the press; `tests/e2e/test_first_screen.py` counts all three and requires zero. The
 earcon's waveform is drawn from the returned samples, grey until it has been heard, with a
 pitch contour measured from those samples, and after the press a playhead follows the audio
-element's own clock. The spoken sentence shows its verdict first, with the rest one **Show
-all** away, and after the press its words brighten only when the browser's speech engine
+element's own clock. The spoken sentence opens with the server's finding (for the preset, the inverted
+authorization comparison), with the counts one **Show all** away, and after the press its words brighten only when the browser's speech engine
 reports reaching them. The Braille is drawn as large dot cells from the server's own Unicode
 code points, with the cell that differs between the removed and the added line marked. A line
 under the sentence says it is the server's real answer, not played yet, and an info button
-beside it names the engine and why. Code is set with ligatures off, so `!=` can never be drawn
+beside it names the engine and why, and says the button asks the server's default engine:
+Amazon Bedrock when AWS credentials resolve and `anthropic[bedrock]` is installed, the local
+heuristic otherwise. Code is set with ligatures off, so `!=` can never be drawn
 as a single glyph. Every proof panel below the story sits in an **Evidence** tab set, and `?`
 opens the keyboard map from anywhere outside a text box.
 
