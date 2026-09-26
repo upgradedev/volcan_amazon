@@ -61,7 +61,7 @@
       "words_count": 84,
       "words_per_minute": 136.2,
       "speech_rate_intelligible": true,
-      "narration_text": "Everything shown here is checkable in one command. Five hundred and twenty-three automated tests. Twenty-two of twenty-two protocol conformance checks. And a readiness script that is allowed to fail, and does: no video has been rendered yet, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.",
+      "narration_text": "Everything shown here is checkable in one command. Five hundred and forty-three automated tests. Twenty-two of twenty-two protocol conformance checks. And a readiness script that is allowed to fail, and does: no video has been rendered yet, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.",
       "visual_action": "Terminal running python -m pytest tests/ -q, then python ci/readiness.py scrolled to its red gates, then back to the companion page: in Evidence, tab Server and MCP, the connection strip stating the resolved model path the server reported, which on the development machine reads unavailable_sdk_not_installed. Close on the page heading."
     }
   ]
