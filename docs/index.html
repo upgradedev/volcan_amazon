@@ -288,9 +288,14 @@
       color: var(--ember-hot);
     }
 
+    /* The disclosure is a card pinned to the header grid's right edge and to
+       the audience line's baseline, so it reads as part of the heading rather
+       than a rule floating in the space beside it. */
     .boundary {
       margin: 0; font-size: var(--t-xs); line-height: 1.5; color: var(--ink-soft);
-      max-width: 48ch; padding: 12px 0 0; border-top: 3px solid var(--simulated);
+      max-width: 48ch; justify-self: end; align-self: end;
+      padding: 12px 16px; background: var(--surface); border: 1px solid var(--line);
+      border-left: 4px solid var(--simulated); border-radius: var(--r-m);
     }
     .boundary > span { display: block; }
     .boundary .sim { color: var(--simulated); font-weight: 700; font-size: var(--t-sm); margin-bottom: 2px; }
@@ -645,10 +650,17 @@
     /* The steps come first, in reading order and in the tab order alike: a
        keyboard user used to cross sixteen dialogue controls before reaching
        "1 Open a pull request". */
+    /* The keyboard card follows the conversation in the source, so on a phone
+       the answer sits right under the steps and focus order matches what is
+       seen; on a wide screen grid areas put it back under the steps. */
     .review-grid {
       display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-      gap: 24px; align-items: start;
+      grid-template-areas: "rail convo" "keys convo"; grid-template-rows: auto 1fr;
+      gap: 16px 24px; align-items: start;
     }
+    .review-grid > .rail { grid-area: rail; }
+    .review-grid > .convo { grid-area: convo; }
+    .review-grid > .rail-keys { grid-area: keys; }
     .convo {
       background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l);
       display: flex; flex-direction: column; min-width: 0;
@@ -834,8 +846,9 @@
 
     @media (max-width: 1000px) {
       .intro { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+      .boundary { justify-self: stretch; max-width: none; }
       .stage { grid-template-columns: minmax(0, 1fr); }
-      .review-grid { grid-template-columns: minmax(0, 1fr); }
+      .review-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "rail" "convo" "keys"; grid-template-rows: auto; }
       .gov-grid { grid-template-columns: minmax(0, 1fr); }
       .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .who-grid { grid-template-columns: minmax(0, 1fr); }
@@ -943,7 +956,7 @@
         </div>
         <p class="boundary" id="notASkill">
           <span class="sim">Simulated Alexa+ experience, not an Alexa skill</span>
-          <span>Live server, MCP. GitHub write: dry-run.</span>
+          <span>Live server, MCP. GitHub write: <span id="writeMode">dry-run.</span></span>
         </p>
       </div>
     </header>
@@ -1222,19 +1235,6 @@
                 <p class="empty-state-card">No review staged. Say <strong>request changes</strong> followed by your comment. The server binds the review to the head commit it read, issues a single-use grant with a 300 second lease, and waits for <strong>confirm</strong>. The outcome printed here is the server's: submitted, recorded and not sent, or refused with the reason.</p>
               </div>
             </div>
-
-            <div class="rail-card">
-              <h3>Hands on the keyboard</h3>
-              <ul class="keymini">
-                <li><span><kbd>Alt</kbd>+<kbd>4</kbd></span><span>command box</span></li>
-                <li><span><kbd>Alt</kbd>+<kbd>5</kbd></span><span>start or stop listening</span></li>
-                <li><span><kbd>Alt</kbd>+<kbd>6</kbd></span><span>pull request URL</span></li>
-                <li><span><kbd>Escape</kbd></span><span>interrupt everything</span></li>
-              </ul>
-              <p class="hint">On a Mac, <kbd>Alt</kbd> is the <kbd>Option</kbd> key.</p>
-              <button type="button" id="keymapOpenReview" aria-haspopup="dialog"
-                      title="Open the full keyboard map. The question mark key does the same">Full keyboard map <kbd>?</kbd></button>
-            </div>
           </div>
           <div class="convo">
             <div class="convo-head">
@@ -1277,7 +1277,18 @@
               </div>
             </div>
           </div>
-
+          <div class="rail-card rail-keys">
+            <h3>Hands on the keyboard</h3>
+            <ul class="keymini">
+              <li><span><kbd>Alt</kbd>+<kbd>4</kbd></span><span>command box</span></li>
+              <li><span><kbd>Alt</kbd>+<kbd>5</kbd></span><span>start or stop listening</span></li>
+              <li><span><kbd>Alt</kbd>+<kbd>6</kbd></span><span>pull request URL</span></li>
+              <li><span><kbd>Escape</kbd></span><span>interrupt everything</span></li>
+            </ul>
+            <p class="hint">On a Mac, <kbd>Alt</kbd> is the <kbd>Option</kbd> key.</p>
+            <button type="button" id="keymapOpenReview" aria-haspopup="dialog"
+                    title="Open the full keyboard map. The question mark key does the same">Full keyboard map <kbd>?</kbd></button>
+          </div>
         </div>
       </section>
 
@@ -1325,8 +1336,8 @@
               back: whether the endpoint chose a stateful identifier or stateless mode, and the
               JSON Schema of every tool exactly as the server published it. The public Lambda is
               transport-stateless, so request-contained calls need no process-specific MCP id.
-              Dialogue and pending approval state remain process-local and are not durable across
-              Lambda environments. Check it independently with
+              <span id="stateDurability">Where this server keeps dialogue and pending approvals is
+              read from <code>GET /health</code>, and stated here once it answers.</span> Check it independently with
               <code class="origin-mcp">python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp</code>.
             </p>
 
@@ -1634,6 +1645,41 @@
       }
     }
 
+    /* Where dialogue and pending approvals live is a fact about the server
+       that answered, not about the code: a local run keeps them in process
+       memory, a Terraform deploy with VOLCAN_STATE_TABLE keeps them in a
+       shared table, and an older build does not say. The sentence is built
+       from /health's durable_state and nothing else, and an absent field is
+       stated as absent rather than guessed. */
+    function renderDurability(durable) {
+      var host = $("stateDurability");
+      if (!host) { return; }
+      if (!durable || !durable.resolved_capability) {
+        host.textContent = "This server's GET /health does not report where it keeps dialogue "
+          + "and pending approvals, so this page makes no claim about their durability.";
+        return;
+      }
+      if (durable.resolved_capability === "process_memory") {
+        plainThenRaw(host, "GET /health reports that this server keeps dialogue and pending "
+          + "approvals in process memory", durable.resolved_capability,
+          ": a restart loses them and another worker cannot see them.");
+        return;
+      }
+      plainThenRaw(host, "GET /health reports that this server keeps dialogue and pending "
+        + "approvals in a shared table" + (durable.reachable === false
+          ? " that did not answer its probe" : ""), durable.resolved_capability, ".");
+    }
+
+    /* The header's one-word write mode follows the server's own conclusion.
+       The source keeps "dry-run", the default, for a page with no server. */
+    function renderWriteMode(path) {
+      var host = $("writeMode");
+      if (!host || !path || !path.resolved_capability) { return; }
+      var capability = path.resolved_capability;
+      host.textContent = (capability === "live_write_enabled" ? "live"
+        : capability === "live_write_requested_but_no_token" ? "refused, no token" : "dry-run") + ".";
+    }
+
     async function probeHealth() {
       var base = window.location.origin;
       if (!base || base === "null" || base.indexOf("file:") === 0) {
@@ -1671,6 +1717,8 @@
         // review panel prints the conclusion the server drew.
         State.reviewPath = health.github_review_path || null;
         renderReviewPath();
+        renderDurability(health.durable_state);
+        renderWriteMode(State.reviewPath);
         return true;
       } catch (error) {
         State.live = false;
@@ -2915,6 +2963,21 @@
       return AUDIT_LABELS[state] || String(state).toLowerCase();
     }
 
+    /* The confirm response and the audit record name the same outcome with
+       two different raw words: the response's status is PLANNED (the planner
+       returned a plan) and the sealed record's state is EXECUTED (the state
+       machine's terminal step). Both rows get one plain label, the same one,
+       and each keeps its raw server word beside it, so the two can be matched
+       without anything being renamed. */
+    var CONFIRM_LABELS = {
+      PLANNED: AUDIT_LABELS.EXECUTED,
+      REFUSED: "refused"
+    };
+
+    function confirmLabel(status) {
+      return CONFIRM_LABELS[status] || String(status).toLowerCase();
+    }
+
     async function refreshAudit() {
       if (!State.live) { return; }
       try {
@@ -2993,7 +3056,8 @@
         var pane = clear($("govPane"));
         pane.appendChild(govRows([
           ["Verdict", approved ? "accepted" : "refused"],
-          ["Server status", confirmed.data.status],
+          ["Outcome", confirmLabel(confirmed.data.status) + " (server status name: "
+            + confirmed.data.status + (approved ? "; the audit log names the same outcome EXECUTED)" : ")")],
           ["Refusal code", confirmed.data.refusal_code || "none"],
           ["Round trip", confirmed.elapsedMs.toFixed(1) + " ms"]
         ]));

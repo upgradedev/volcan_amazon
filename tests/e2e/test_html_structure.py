@@ -828,3 +828,46 @@ def test_the_buyer_and_the_alexa_path_are_labelled_as_what_they_are():
     assert html.index('id="who"') > html.index('id="runReview"'), "the band sits below the first screen"
     strip = html.split('class="path-strip"', 1)[1].split("</figure>", 1)[0]
     assert "path-box planned" in strip and "not built" in strip
+
+
+def test_durability_is_stated_from_health_and_never_typed():
+    """A scorer found the page saying state was process-local while the README
+    described a shared DynamoDB mode. Both were true of different servers, so
+    the page no longer types either: it states what this server's /health
+    reports in durable_state, and says so when an older build reports nothing."""
+    html = read_html()
+    script = script_body()
+    assert "remain process-local and are not durable" not in html, "a durability claim is typed into the page"
+    assert 'id="stateDurability"' in html
+    assert "renderDurability(health.durable_state)" in script
+    body = script.split("function renderDurability", 1)[1].split("\n    }\n", 1)[0]
+    assert "does not report" in body, "an older server without durable_state must be stated as silent"
+    assert '"process_memory"' in body and "durable.reachable === false" in body
+
+
+def test_the_header_write_mode_follows_the_server_and_defaults_to_dry_run():
+    html = read_html()
+    header = html.split("<main", 1)[0]
+    assert '<span id="writeMode">dry-run.</span>' in header, "the default with no server is dry-run"
+    body = script_body().split("function renderWriteMode", 1)[1].split("\n    }\n", 1)[0]
+    assert '"live_write_enabled"' in body and '"dry-run"' in body
+
+
+def test_the_confirm_row_and_the_audit_row_share_one_plain_label():
+    """The confirm response says PLANNED and the audit record says EXECUTED for
+    one outcome. A scorer read the two raw words side by side as a contradiction.
+    Both rows now lead with the same plain label and keep their raw word."""
+    script = script_body()
+    assert "PLANNED: AUDIT_LABELS.EXECUTED" in script
+    assert '["Server status", confirmed.data.status]' not in script
+    assert '"Outcome", confirmLabel(confirmed.data.status)' in script
+
+
+def test_on_a_phone_the_conversation_comes_before_the_keyboard_card():
+    """The keyboard card follows the conversation in the source, so focus order
+    and the one-column order agree, and wide screens place it with grid areas."""
+    html = read_html()
+    grid = html.split('<div class="review-grid">', 1)[1].split("</section>", 1)[0]
+    assert grid.index('class="convo"') < grid.index("Hands on the keyboard")
+    assert grid.index("1</span> Open a pull request") < grid.index('class="convo"')
+    assert 'grid-template-areas: "rail" "convo" "keys"' in html
