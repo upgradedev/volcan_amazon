@@ -8,9 +8,19 @@ from src.domain.semantic_diff import (
     UnifiedDiffParser,
 )
 
+#: Why the local engine answered when the caller asked for it by name.
+LOCAL_ENGINE_REQUESTED = (
+    "this request asked for the local deterministic engine, so no model was called"
+)
+
 
 class BedrockSynthesisPort(Protocol):
     async def summarize_diff(self, raw_diff: str, sections: list[DiffSectionDigest]) -> SemanticDiffReport:
+        ...
+
+    def summarize_locally(
+        self, raw_diff: str, sections: list[DiffSectionDigest], reason: str,
+    ) -> SemanticDiffReport:
         ...
 
 
@@ -18,7 +28,8 @@ class DigestDiffUseCase:
     def __init__(self, bedrock_adapter: BedrockSynthesisPort):
         self._bedrock = bedrock_adapter
 
-    async def execute(self, raw_diff: str) -> SemanticDiffReport:
+    async def execute(self, raw_diff: str, engine: str = "auto") -> SemanticDiffReport:
+        """Digest a patch. ``engine="local"`` never reaches a model."""
         if not raw_diff or not raw_diff.strip():
             return SemanticDiffReport(
                 total_files_changed=0,
@@ -53,7 +64,12 @@ class DigestDiffUseCase:
                     critical_findings.append(f"Potential security impact in {s.file_path}: detected {flag}.")
 
         # 3. Enhance via Bedrock Synthesis Adapter
-        enhanced_report = await self._bedrock.summarize_diff(raw_diff, sections)
+        if engine == "local":
+            enhanced_report = self._bedrock.summarize_locally(
+                raw_diff, sections, LOCAL_ENGINE_REQUESTED,
+            )
+        else:
+            enhanced_report = await self._bedrock.summarize_diff(raw_diff, sections)
         
         # Merge deterministic bounds with synthesis
         return SemanticDiffReport(

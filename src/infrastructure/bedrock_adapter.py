@@ -274,10 +274,23 @@ class BedrockSynthesisAdapter:
             fallback_reason=None,
         )
 
+    def summarize_locally(
+        self, raw_diff: str, sections: list[DiffSectionDigest], reason: str,
+    ) -> SemanticDiffReport:
+        """The deterministic digest, asked for by name: no credential lookup,
+        no SDK import and no model call. ``last_fallback_reason`` is left alone,
+        because nothing failed."""
+        return self._local_report(sections, reason)
+
     def _heuristic_fallback(
         self, raw_diff: str, sections: list[DiffSectionDigest], reason: str,
     ) -> SemanticDiffReport:
         self.last_fallback_reason = reason
+        return self._local_report(sections, reason)
+
+    def _local_report(
+        self, sections: list[DiffSectionDigest], reason: str,
+    ) -> SemanticDiffReport:
         files_count = len(sections)
         total_add = sum(s.added_count for s in sections)
         total_del = sum(s.removed_count for s in sections)

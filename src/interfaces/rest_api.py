@@ -33,8 +33,8 @@ from src.interfaces.dto import (
     BeeAnnotationRequest,
     BrailleDiffRequest,
     BrailleTranslateRequest,
+    CompanionDigestRequest,
     ConfirmActionRequest,
-    DigestRequest,
     DrillDownRequest,
     FireTvSyncRequest,
     HapticRequest,
@@ -102,8 +102,8 @@ async def rest_audit_log() -> dict[str, Any]:
 
 
 @router.post("/api/digest_semantic_diff")
-async def rest_digest(req: DigestRequest) -> dict[str, Any]:
-    result = await op_digest(req)
+async def rest_digest(req: CompanionDigestRequest) -> dict[str, Any]:
+    result = await op_digest(req, engine=req.engine)
     result.pop("_wav", None)
     return result
 

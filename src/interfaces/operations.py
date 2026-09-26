@@ -30,8 +30,8 @@ from src.interfaces.dto import (
 )
 
 
-async def op_digest(req: DigestRequest) -> dict[str, Any]:
-    report = await digest_use_case.execute(req.raw_diff)
+async def op_digest(req: DigestRequest, engine: str = "auto") -> dict[str, Any]:
+    report = await digest_use_case.execute(req.raw_diff, engine=engine)
     # The cue carries the verdict, so it is read off the report rather than
     # fixed at the call site. A benign patch and a security-sensitive one must
     # not return the same bytes; tests/unit/test_earcon_encodes_the_verdict.py
