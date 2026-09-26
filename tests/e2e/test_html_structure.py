@@ -424,7 +424,10 @@ def test_the_keyboard_map_covers_the_dialogue():
     for key in ("4", "5", "6"):
         assert f"<kbd>Alt</kbd>+<kbd>{key}</kbd>" in html, f"Alt+{key} is not documented"
     assert '"4": "commandInput"' in script and '"6": "prUrl"' in script
-    assert 'event.key === "5") { event.preventDefault(); toggleListening();' in script
+    assert 'key === "5") { event.preventDefault(); toggleListening();' in script
+    # Matched on the physical key: Option+1 on a Mac reports event.key "¡".
+    assert "event.code" in script and "Digit" in script
+    assert "Option" in html, "the Mac name of the Alt key must be documented"
     assert "stop listening" in html.lower(), "Escape must be documented as stopping the microphone too"
 
 
@@ -678,9 +681,16 @@ def test_the_audit_row_never_reads_as_a_command_that_ran():
     the unedited server value are both on screen.
     """
     html = read_html()
-    assert 'EXECUTED: "plan released, not run"' in html, "no plain-language label for the terminal state"
-    assert '[server state " + record.state + "]' in html, "the server's own raw state is no longer shown"
+    # Reworded after a review read "plan released, not run [server state
+    # EXECUTED]" under a heading that said "never executed" and called it a
+    # contradiction: the plain label leads, and the raw value follows as the
+    # server's state name, set as code.
+    assert 'EXECUTED: "released to you, nothing run"' in html, "no plain-language label for the terminal state"
+    assert '" (server state name: "' in html and 'el("code", null, record.state)' in html, (
+        "the server's own raw state is no longer shown"
+    )
     assert 'record.state + "   " + record.action' not in html, "the bare state is printed with no label"
+    assert "never executed" not in html.split('id="gov-heading"', 1)[1].split("</h2>", 1)[0]
 
 
 # --- self-containment -------------------------------------------------------

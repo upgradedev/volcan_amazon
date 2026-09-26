@@ -392,7 +392,7 @@
 
     .rendering {
       display: grid; grid-template-columns: 88px minmax(0, 1fr);
-      gap: 8px 18px; padding: 16px 0; border-top: 1px solid var(--line);
+      gap: 8px 18px; padding: 12px 0; border-top: 1px solid var(--line);
     }
     .rendering:first-child { border-top: 0; padding-top: 2px; }
     .rendering > * { grid-column: 2; min-width: 0; }
@@ -408,7 +408,7 @@
       padding: 6px 12px;
     }
     .waveform {
-      display: block; flex: 1 1 0; min-width: 0; height: 64px;
+      display: block; flex: 1 1 0; min-width: 0; height: 56px;
       background: radial-gradient(circle, var(--wave-rest) 1.3px, transparent 1.8px) 0 50% / 9px 9px repeat-x;
     }
     .contour { display: flex; align-items: center; gap: 8px; flex: none; margin: 0; }
@@ -459,7 +459,7 @@
     .engine-why[hidden] { display: none; }
     .spoken-text {
       margin: 0; font-size: clamp(1.2rem, 0.98rem + 0.6vw, 1.45rem); line-height: 1.34;
-      font-weight: 700; letter-spacing: -0.01em; max-width: 36ch;
+      font-weight: 700; letter-spacing: -0.01em; max-width: 40ch;
     }
     .spoken-text .w { color: var(--ink-faint); transition: color 180ms ease; }
     .spoken-text .w.said { color: var(--ink); }
@@ -499,9 +499,18 @@
       color: var(--ink);
       background: var(--sunk); border: 1px solid var(--line);
       border-radius: var(--r-s); padding: 8px 12px; margin-top: 4px;
-      max-height: 7.2rem; overflow: auto;
+      max-height: 19rem; overflow: auto;
       white-space: pre-wrap; word-break: break-all;
     }
+    /* A box that holds more rows than it shows says so, in words and with a
+       fade over its last visible row, instead of looking cut off. */
+    .cells.overflowing {
+      -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2.2rem), rgba(0, 0, 0, 0.25));
+              mask-image: linear-gradient(to bottom, #000 calc(100% - 2.2rem), rgba(0, 0, 0, 0.25));
+    }
+    .cells.overflowing:focus-visible, .cells.overflowing.scrolled-end { -webkit-mask-image: none; mask-image: none; }
+    .scroll-hint { font-size: var(--t-xs); color: var(--ink-soft); margin: 6px 0 0; }
+    .scroll-hint[hidden] { display: none; }
     .cells:has(> .empty-state-card) { background: none; border-style: dashed; white-space: normal; }
     .cells .row { display: block; padding: 3px 0; }
     .cells .row + .row { border-top: 1px solid var(--line); }
@@ -612,8 +621,11 @@
     .steps svg .dot.off { fill: var(--dot-off); }
 
     /* The review, as a conversation. */
+    /* The steps come first, in reading order and in the tab order alike: a
+       keyboard user used to cross sixteen dialogue controls before reaching
+       "1 Open a pull request". */
     .review-grid {
-      display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
       gap: 24px; align-items: start;
     }
     .convo {
@@ -792,6 +804,13 @@
 
     /* --- responsive ---------------------------------------------------- */
 
+    /* Side by side, the patch, the button and the meters stay beside the
+       answer while it grows: a press used to leave some 700 px of empty
+       panel under them while the sentence was still being spoken. */
+    @media (min-width: 1001px) {
+      .bench { position: sticky; top: 16px; align-self: start; }
+    }
+
     @media (max-width: 1000px) {
       .intro { grid-template-columns: minmax(0, 1fr); gap: 16px; }
       .stage { grid-template-columns: minmax(0, 1fr); }
@@ -813,7 +832,8 @@
       .patch-view .fn { display: none; }
       .cta { font-size: var(--t-md); min-height: 64px; padding: 12px 16px; gap: 10px; }
       .edit-btn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-      .rendering { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+      .rendering { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 16px 0; }
+      .waveform { height: 64px; }
       .rendering h3 { grid-row: auto; }
       .rendering > * { grid-column: 1; }
       .steps { grid-template-columns: minmax(0, 1fr); gap: 20px; }
@@ -995,6 +1015,7 @@
               <div class="dotcells" id="brailleCells" aria-hidden="true"></div>
               <div class="cells" id="brailleOutput" role="region" tabindex="0"
                    aria-label="Braille cell stream, Unicode Braille patterns"><p class="empty-state-card">No cells yet.<span class="visually-hidden"> Select Hear this code review and the server's Braille for this patch arrives here, one row per line, for a refreshable display.</span></p></div>
+              <p class="scroll-hint" id="brailleScrollHint" hidden></p>
               <p class="caption" id="brailleCaption"></p>
             </article>
 
@@ -1098,48 +1119,6 @@
         </div>
 
         <div class="review-grid">
-          <div class="convo">
-            <div class="convo-head">
-              <h3>What it heard, understood and answered</h3>
-              <span class="lease" id="dialogueState" data-state="idle">IDLE</span>
-            </div>
-            <p class="visually-hidden" id="reviewStatus" role="status" aria-live="polite"></p>
-            <ol class="dialogue" id="dialogueLog" aria-label="Review conversation, oldest first">
-              <li class="empty-state-card">Nothing heard yet. Open a pull request or the patch above, then ask what changed. Each turn shows what was heard, what Volcan understood, and what it answered, and the same words are spoken at the rate the server returned.</li>
-            </ol>
-
-            <div class="composer">
-              <label for="commandInput">Command, typed or dictated</label>
-              <div class="composer-row">
-                <input type="text" id="commandInput" autocomplete="off"
-                       placeholder="what changed in permissions.py" aria-describedby="commandHelp">
-                <button type="button" id="sayCommand" title="Send the typed command as one turn of the dialogue">Send</button>
-                <button type="button" class="mic" id="micToggle" aria-pressed="false"
-                        title="Start or stop listening with the browser's speech recognition. When this browser has none, the button says so and the typed command box works instead">Start listening</button>
-                <button type="button" id="stopSpeech"
-                        title="Interrupt: stop the speech and the earcon now. Escape does the same from anywhere on the page">Stop speaking</button>
-              </div>
-              <p class="hint" id="commandHelp">Press <kbd>Enter</kbd> to send. Say or type <strong>help</strong>
-                for the list. A new command interrupts whatever is still being spoken. Microphone:
-                <span class="side" id="micState">microphone off</span></p>
-              <p class="chips-label" id="chipsLabel">Or say one of these</p>
-              <div class="chips" role="group" aria-label="Common review commands">
-                <button type="button" id="cmdSummary" title="Say summary: the one-sentence digest with the security verdict first">Summary</button>
-                <button type="button" id="cmdFiles" title="Say file by file: every changed file with its counts">File by file</button>
-                <button type="button" id="cmdFindings" title="Say findings: the security findings, or that there are none">Findings</button>
-                <button type="button" id="cmdReadLines" title="Say read the lines: the exact numbered source lines of the current hunk">Read the lines</button>
-                <button type="button" id="cmdNext" title="Say next: the next file, or the next line while reading lines">Next</button>
-                <button type="button" id="cmdPrevious" title="Say previous: the previous file, or the previous line while reading lines">Previous</button>
-                <button type="button" id="cmdSpell" title="Say spell that: every symbol of the current line named, so != cannot be heard as ==">Spell that</button>
-                <button type="button" id="cmdRepeat" title="Say repeat: the last answer again">Repeat</button>
-                <button type="button" id="cmdSlower" title="Say slower: reduce the speech rate the server returns and this page applies">Slower</button>
-                <button type="button" id="cmdFaster" title="Say faster: raise the speech rate">Faster</button>
-                <button type="button" id="cmdWhere" title="Say where am I: the pull request, the file and the line in focus">Where am I</button>
-                <button type="button" id="cmdHelp" title="Say help: the commands the dialogue understands">Help</button>
-              </div>
-            </div>
-          </div>
-
           <div class="rail">
             <div class="rail-card">
               <h3><span class="n">1</span> Open a pull request</h3>
@@ -1197,10 +1176,53 @@
                 <li><span><kbd>Alt</kbd>+<kbd>6</kbd></span><span>pull request URL</span></li>
                 <li><span><kbd>Escape</kbd></span><span>interrupt everything</span></li>
               </ul>
+              <p class="hint">On a Mac, <kbd>Alt</kbd> is the <kbd>Option</kbd> key.</p>
               <button type="button" id="keymapOpenReview" aria-haspopup="dialog"
                       title="Open the full keyboard map. The question mark key does the same">Full keyboard map <kbd>?</kbd></button>
             </div>
           </div>
+          <div class="convo">
+            <div class="convo-head">
+              <h3>What it heard, understood and answered</h3>
+              <span class="lease" id="dialogueState" data-state="idle">IDLE</span>
+            </div>
+            <p class="visually-hidden" id="reviewStatus" role="status" aria-live="polite"></p>
+            <ol class="dialogue" id="dialogueLog" aria-label="Review conversation, oldest first">
+              <li class="empty-state-card">Nothing heard yet. Open a pull request or the patch above, then ask what changed. Each turn shows what was heard, what Volcan understood, and what it answered, and the same words are spoken at the rate the server returned.</li>
+            </ol>
+
+            <div class="composer">
+              <label for="commandInput">Command, typed or dictated</label>
+              <div class="composer-row">
+                <input type="text" id="commandInput" autocomplete="off"
+                       placeholder="what changed in permissions.py" aria-describedby="commandHelp">
+                <button type="button" id="sayCommand" title="Send the typed command as one turn of the dialogue">Send</button>
+                <button type="button" class="mic" id="micToggle" aria-pressed="false"
+                        title="Start or stop listening with the browser's speech recognition. When this browser has none, the button says so and the typed command box works instead">Start listening</button>
+                <button type="button" id="stopSpeech"
+                        title="Interrupt: stop the speech and the earcon now. Escape does the same from anywhere on the page">Stop speaking</button>
+              </div>
+              <p class="hint" id="commandHelp">Press <kbd>Enter</kbd> to send. Say or type <strong>help</strong>
+                for the list. A new command interrupts whatever is still being spoken. Microphone:
+                <span class="side" id="micState">microphone off</span></p>
+              <p class="chips-label" id="chipsLabel">Or say one of these</p>
+              <div class="chips" role="group" aria-label="Common review commands">
+                <button type="button" id="cmdSummary" title="Say summary: the one-sentence digest with the security verdict first">Summary</button>
+                <button type="button" id="cmdFiles" title="Say file by file: every changed file with its counts">File by file</button>
+                <button type="button" id="cmdFindings" title="Say findings: the security findings, or that there are none">Findings</button>
+                <button type="button" id="cmdReadLines" title="Say read the lines: the exact numbered source lines of the current hunk">Read the lines</button>
+                <button type="button" id="cmdNext" title="Say next: the next file, or the next line while reading lines">Next</button>
+                <button type="button" id="cmdPrevious" title="Say previous: the previous file, or the previous line while reading lines">Previous</button>
+                <button type="button" id="cmdSpell" title="Say spell that: every symbol of the current line named, so != cannot be heard as ==">Spell that</button>
+                <button type="button" id="cmdRepeat" title="Say repeat: the last answer again">Repeat</button>
+                <button type="button" id="cmdSlower" title="Say slower: reduce the speech rate the server returns and this page applies">Slower</button>
+                <button type="button" id="cmdFaster" title="Say faster: raise the speech rate">Faster</button>
+                <button type="button" id="cmdWhere" title="Say where am I: the pull request, the file and the line in focus">Where am I</button>
+                <button type="button" id="cmdHelp" title="Say help: the commands the dialogue understands">Help</button>
+              </div>
+            </div>
+          </div>
+
         </div>
       </section>
 
@@ -1239,7 +1261,7 @@
               transport-stateless, so request-contained calls need no process-specific MCP id.
               Dialogue and pending approval state remain process-local and are not durable across
               Lambda environments. Check it independently with
-              <code>python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp</code>.
+              <code class="origin-mcp">python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp</code>.
             </p>
 
             <div class="row-actions">
@@ -1276,7 +1298,7 @@
 
         <div role="tabpanel" id="panelGov" aria-labelledby="tabGov" tabindex="0" hidden>
           <section class="block" id="governance" aria-labelledby="gov-heading">
-            <h2 id="gov-heading">Governed action: staged, leased, never executed</h2>
+            <h2 id="gov-heading">Governed action: staged, leased, never run</h2>
             <p>
               A high-consequence command is bound by HMAC-SHA256 to its own payload hash and to
               a lease. Volcan plans the command and does not run it. The countdown below is
@@ -1359,8 +1381,8 @@
     <footer role="contentinfo">
       <p>
         Start the server with <code>python -m src.interfaces.mcp_server</code> and open
-        <code>http://127.0.0.1:8000/</code>. Check the protocol independently with
-        <code>python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp</code>.
+        <code id="footerOpen">http://127.0.0.1:8000/</code>. Check the protocol independently with
+        <code class="origin-mcp">python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp</code>.
       </p>
       <p id="footerMode">Connection state is reported at the top of this page.</p>
       <p>Set in Atkinson Hyperlegible, a typeface the Braille Institute drew for readers with low vision, with code in JetBrains Mono. Volcan, the Accessible AI agent forge, is named for the one disabled god of the pantheon, who built machines to work beside him at the forge.</p>
@@ -1380,7 +1402,7 @@
       </p>
 
       <table>
-        <caption>Every action here is a real button in the tab order. Nothing needs a pointer.</caption>
+        <caption>Every action here is a real button in the tab order. Nothing needs a pointer. On a Mac, <kbd>Alt</kbd> is the <kbd>Option</kbd> key.</caption>
         <thead>
           <tr><th scope="col">Key</th><th scope="col">What it does</th></tr>
         </thead>
@@ -1389,6 +1411,7 @@
           <tr><td><kbd>Enter</kbd> or <kbd>Space</kbd></td><td>Activate the focused button.</td></tr>
           <tr><td><kbd>Tab</kbd> from the top</td><td>Reveals <strong>Skip to main content</strong>.</td></tr>
           <tr><td><kbd>?</kbd></td><td>Open this keyboard map from anywhere outside a text box.</td></tr>
+          <tr><td>Speech bubble button, top right</td><td><strong>My screen reader speaks the answers.</strong> Off, the default: this page speaks each answer in the browser's voice. On: the page stays silent and each whole answer goes to one status line for your own screen reader. Remembered in this browser.</td></tr>
           <tr><td><kbd>Alt</kbd>+<kbd>1</kbd></td><td>Focus the primary action, <strong>Hear this code review</strong>.</td></tr>
           <tr><td><kbd>Alt</kbd>+<kbd>2</kbd></td><td>Open and focus the patch box.</td></tr>
           <tr><td><kbd>Alt</kbd>+<kbd>3</kbd></td><td>Focus the Braille cell region, which scrolls by keyboard.</td></tr>
@@ -1402,7 +1425,7 @@
 
       <ul class="promises">
         <li>Every audio cue carries a written description in the same live region.</li>
-        <li>A result is announced once, through one polite status line. The sentence itself, finding first, is spoken by the browser's speech engine and stays on screen to be read again; when the browser has no speech engine, the status line carries the whole sentence instead.</li>
+        <li>One voice per answer. By default the browser's speech engine speaks it, finding first, with every code operator named, and the status line only says a result arrived. With <strong>My screen reader speaks the answers</strong> on, or with no speech engine, the status line carries the whole answer and the page stays silent. The conversation log is history, not a live region.</li>
         <li>Every spoken command has a typed twin, and every answer reads back what was understood before it acts.</li>
         <li>The focus ring is a 3px outline offset from the control, in both colour schemes.</li>
         <li><code>prefers-reduced-motion</code> removes every animation and the smooth scroll; every state still changes, instantly.</li>
@@ -1481,6 +1504,26 @@
       return count === 1 ? count + " " + noun : count + " " + noun + "s";
     }
 
+    /* A server identifier is shown after the plain sentence, never instead of
+       it: "Security finding cue (SECURITY_FINDING)". The words are for the
+       listener and the judge, the raw value for a reviewer checking the API. */
+    function plainThenRaw(node, words, raw, tail) {
+      clear(node);
+      node.appendChild(document.createTextNode(words + " ("));
+      node.appendChild(el("code", null, raw));
+      node.appendChild(document.createTextNode(")" + (tail || "")));
+      return node;
+    }
+
+    function cueWords(type) {
+      var text = String(type || "").replace(/_/g, " ").toLowerCase();
+      return text.charAt(0).toUpperCase() + text.slice(1) + " cue";
+    }
+
+    function engineWords(mode) {
+      return mode === "bedrock" ? "Amazon Bedrock, a model answered" : "the local heuristic, no model called";
+    }
+
     /* --- honest connection state ------------------------------------- */
 
     /* One card for every unhappy path, so a judge always learns what did not
@@ -1515,6 +1558,14 @@
       $("footerMode").textContent = state === "live"
         ? "This page is talking to a Volcan server at " + State.apiBase + "."
         : "This page has not reached a Volcan server, so no panel below will show a result until one answers.";
+      // The commands to copy name the server this page is talking to, so a
+      // server on any port gets a command that reaches it.
+      if (state === "live") {
+        $("footerOpen").textContent = State.apiBase + "/";
+        Array.prototype.forEach.call(document.querySelectorAll(".origin-mcp"), function (node) {
+          node.textContent = "python scripts/mcp_conformance.py " + State.apiBase + "/mcp";
+        });
+      }
     }
 
     async function probeHealth() {
@@ -1541,8 +1592,8 @@
         // into one capability and writes the sentence, so this page prints the
         // server's own words rather than deciding from half the evidence.
         var path = health.bedrock_model_path || {};
-        var engine = "Model path: " + (path.resolved_capability || "not reported")
-          + ". " + (path.detail || "")
+        var engine = "Model path: " + (path.detail || "not reported.")
+          + " (" + (path.resolved_capability || "not reported") + ")"
           + " Whether a model answered is reported per digest by the synthesis meter, which "
           + "also prints the reason when none did.";
         setConnection("live", "Server reached",
@@ -2076,8 +2127,8 @@
       var sentence = spokenSentence(data.voice_summary);
       State.lastWords = sentence.words;
       spokenTarget().appendChild(sentence.node);
-      $("spokenCaption").textContent = label + " returned in " + elapsedMs.toFixed(1)
-        + " ms. Synthesis mode reported by the server: " + data.synthesis_mode + ".";
+      plainThenRaw($("spokenCaption"), label + " returned in " + elapsedMs.toFixed(1)
+        + " ms by " + engineWords(data.synthesis_mode), data.synthesis_mode, ".");
       return sentence.words;
     }
 
@@ -2131,14 +2182,15 @@
       followPlayback(player, canvas, samples);
 
       var caption = $("earconCaption");
-      caption.textContent = "Cue " + earcon.type + ", " + shape + seconds.toFixed(2)
-        + " seconds of 16-bit PCM at " + SAMPLE_RATE + " Hz. Written description: " + described;
+      plainThenRaw(caption, cueWords(earcon.type) + ", " + shape + seconds.toFixed(2)
+        + " seconds of 16-bit PCM at " + SAMPLE_RATE + " Hz", earcon.type,
+        ". Written description: " + described);
 
       var playing = player.play();
       if (playing && typeof playing.catch === "function") {
         playing.catch(function () {
           caption.textContent = "The browser blocked automatic playback. Use Replay the cue "
-            + "to hear the " + earcon.type + " cue, which lasts " + seconds.toFixed(2)
+            + "to hear the " + cueWords(earcon.type).toLowerCase() + ", which lasts " + seconds.toFixed(2)
             + " seconds. Written description: " + described;
         });
       }
@@ -2173,12 +2225,24 @@
         region.appendChild(row);
       });
 
+      markOverflow(region, data.lines.length + 1);
       $("brailleCaption").textContent = data.total_lines
         + " Braille lines from POST /api/braille/diff_digest in " + elapsedMs.toFixed(1)
         + " ms. Added rows carry dots 3-4-6 and removed rows dots 3-6, so a finger finds "
         + "the sign of a change before its content. Fidelity " + data.fidelity
         + (data.lossless ? ", lossless. " : ", lossy for this patch. ") + (data.disclosure || "");
       renderDotCells(data);
+    }
+
+    function markOverflow(region, rows) {
+      var hint = $("brailleScrollHint");
+      var over = region.scrollHeight > region.clientHeight + 2;
+      region.classList.toggle("overflowing", over);
+      region.classList.remove("scrolled-end");
+      hint.hidden = !over;
+      hint.textContent = over
+        ? "The box holds " + plural(rows, "row") + " and shows the first few. Scroll it, or press Alt+3 (Option+3 on a Mac) to focus it and use the arrow keys."
+        : "";
     }
 
     function setBrailleFidelity(fidelity) {
@@ -2216,11 +2280,10 @@
       var host = clear($("securityAlert"));
       if (!findings || !findings.length) { return; }
       var box = el("div", "finding");
-      box.appendChild(el("span", "tag", "Security"));
+      // The finding itself, once, under a plain title. The sentence above
+      // already speaks it; this box is where a reader finds every one.
+      box.appendChild(el("span", "tag", findings.length === 1 ? "Security finding" : plural(findings.length, "security finding")));
       var body = document.createElement("div");
-      body.appendChild(el("p", null, findings.length === 1
-        ? "1 finding was named before the line detail, not after it."
-        : findings.length + " findings were named before the line detail, not after them."));
       var list = document.createElement("ul");
       findings.forEach(function (finding) { list.appendChild(el("li", null, finding)); });
       body.appendChild(list);
@@ -2536,7 +2599,6 @@
         var sentence = spokenSentence(drill.data.spoken_text);
         spokenTarget().appendChild(sentence.node);
         $("spokenCaption").textContent = "Drill down on " + drill.data.file_path
-          + ", category " + drill.data.category + ", significance " + drill.data.significance
           + ", returned in " + drill.elapsedMs.toFixed(1) + " ms.";
         State.lastDigest = {
           voice_summary: drill.data.spoken_text,
@@ -2769,7 +2831,7 @@
       PENDING_APPROVAL: "staged, awaiting a human",
       APPROVED: "grant accepted",
       REJECTED: "rejected",
-      EXECUTED: "plan released, not run",
+      EXECUTED: "released to you, nothing run",
       FAILED: "planning failed",
       EXPIRED: "lease expired"
     };
@@ -2789,10 +2851,11 @@
           return;
         }
         data.records.slice().reverse().forEach(function (record) {
-          list.appendChild(el("li", null,
-            auditLabel(record.state) + "   [server state " + record.state + "]   "
-            + record.action + "   " + record.command
+          var row = el("li", null, auditLabel(record.state) + " (server state name: ");
+          row.appendChild(el("code", null, record.state));
+          row.appendChild(document.createTextNode(")   " + record.action + "   " + record.command
             + "   hash " + String(record.payload_hash).slice(0, 12)));
+          list.appendChild(row);
         });
       } catch (error) {
         clear($("auditVault")).appendChild(el("li", null,
@@ -2985,9 +3048,11 @@
       var path = State.reviewPath;
       var host = $("reviewPathRow");
       if (!host) { return; }
-      host.textContent = path
-        ? "Review path reported by GET /health: " + path.resolved_capability + ". " + path.detail
-        : "Review path unknown until GET /health answers.";
+      if (path) {
+        plainThenRaw(host, "Review path reported by GET /health: " + path.detail, path.resolved_capability);
+      } else {
+        host.textContent = "Review path unknown until GET /health answers.";
+      }
     }
 
     function startReviewLease(expiresAtEpoch) {
@@ -3305,6 +3370,10 @@
       selectTab(EVIDENCE_TABS[next], true);
     });
     window.addEventListener("resize", redrawWave);
+    $("brailleOutput").addEventListener("scroll", function () {
+      var box = this;
+      box.classList.toggle("scrolled-end", box.scrollTop + box.clientHeight >= box.scrollHeight - 2);
+    });
     if (window.matchMedia) {
       var schemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
       if (schemeQuery.addEventListener) { schemeQuery.addEventListener("change", redrawWave); }
@@ -3345,12 +3414,17 @@
         return;
       }
       if (!event.altKey) { return; }
-      if (event.key === "5") { event.preventDefault(); toggleListening(); return; }
+      // The physical key, not the character: Option+1 on a Mac types "¡",
+      // and AltGr layouts type other symbols, so event.key alone missed every
+      // shortcut on the laptop most reviewers use.
+      var digit = /^(?:Digit|Numpad)([1-6])$/.exec(event.code || "");
+      var key = digit ? digit[1] : event.key;
+      if (key === "5") { event.preventDefault(); toggleListening(); return; }
       var targets = {
         "1": "runReview", "2": "diffInput", "3": "brailleOutput",
         "4": "commandInput", "6": "prUrl"
       };
-      var id = targets[event.key];
+      var id = targets[key];
       if (id === "diffInput") { setPatchEditor(true); }
       var node = id && $(id);
       if (node) { event.preventDefault(); node.focus(); }
