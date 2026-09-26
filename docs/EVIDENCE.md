@@ -489,7 +489,7 @@ and is not described as MCP anywhere in this repository.
 [`docs/index.html`](index.html) is the only companion document here. FastAPI serves the
 same bytes at `/` and `/demo`, so the page cannot disagree with itself.
 
-Four rules the page keeps, each enforced by
+Four rules the page keeps (five with the one below), each enforced by
 [`tests/e2e/test_html_structure.py`](../tests/e2e/test_html_structure.py):
 
 * **Every value on it came out of an HTTP response in that session.** There is no second
@@ -906,7 +906,7 @@ magnitude as the claim and rerun each command on your own hardware.
 | An edited audit record is detected | `python -m pytest tests/unit/test_audit_chain.py -v` |
 | The whole product in one terminal walkthrough | `python scripts/volcan_cli.py` |
 | How long a cold server takes to answer | `python scripts/measure_cold_start.py` |
-| The companion page keeps its four rules and is keyboard reachable | `python -m pytest tests/e2e -v` |
+| The companion page keeps its five rules and is keyboard reachable | `python -m pytest tests/e2e -v` |
 | The review dialogue reads back, corrects, spells and stages, driven by injected transcripts | `python -m pytest tests/unit/test_review_dialogue.py -v` |
 | A moved head, a missing grant, a self-approval and an unauthorized token are each refused | `python -m pytest tests/unit/test_review_dialogue_use_case.py tests/unit/test_github_review_adapter.py -v` |
 | The whole journey over REST and MCP ends in a recorded, not sent, review | `python -m pytest tests/integration/test_review_dialogue_api.py -v` |

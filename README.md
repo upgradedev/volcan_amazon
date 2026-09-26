@@ -15,16 +15,17 @@ patch, and prints the code as eight-dot Braille. Then you can stage a request-ch
 that is a dry run by default and needs a single-use approval grant from a human.
 
 **Amazon technology.** A hand-written Model Context Protocol server (revision 2025-11-25),
-the interface an Alexa+ integration would call. Claude on Amazon Bedrock writes the digest when
-AWS credentials and the `bedrock` extra are present; otherwise a local deterministic engine
-answers and the response says why. It runs on AWS Lambda, with Terraform for Lambda and
-DynamoDB in [`infra/`](infra/).
+the interface an Alexa+ integration would call. With AWS credentials and the `bedrock` extra,
+Volcan sends the digest request to Claude on Amazon Bedrock; otherwise, or when the call fails,
+a local deterministic engine answers and the response says why. No Bedrock answer has been
+recorded yet. The public endpoint is an AWS Lambda in eu-west-1, and [`infra/`](infra/) declares
+a Lambda with a function URL and a DynamoDB table in Terraform.
 
 **Honest status.** *Real:* the MCP server, the spoken digest, the earcon, the Braille, the live
 GitHub read, the grants and the hash-chained audit log. *Simulated:* the voice loop is the
 browser's own speech recognition and synthesis, labelled on the page as not an Alexa skill.
-*Missing:* any Alexa+ connection or Echo test, a demo video, a live GitHub write, and a public
-build that shows this version.
+*Missing:* any Alexa+ connection or Echo test, a demo video, a live GitHub write, a recorded
+Bedrock answer, and a public build that shows this version.
 
 | | |
 |---|---|
@@ -149,7 +150,7 @@ its URL and type `open`; the full command list is in
 | Earcon that encodes the verdict | Real: different WAV bytes for a finding and a clean patch | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
 | Eight-dot code Braille | Real and lossless over 95 ASCII characters. Not reviewed by a Braille transcriber, not read on a physical display | `python -m pytest tests/unit/test_braille_code_fidelity.py -v` |
 | Governed review | Real: HMAC single-use grants, self-approval refused, head commit re-read, dry run by default. No live GitHub review has ever been sent | `python -m pytest tests/unit/test_governance.py -v` |
-| Digest by Claude on Amazon Bedrock | Real code with a stated fallback. A provider failure returns a fixed public category; raw account, role and request identifiers never enter the anonymous response. The public build's call is refused as not authorized | `python -m pytest tests/unit/test_bedrock_synthesis_path.py -v` |
+| Digest by Claude on Amazon Bedrock | Real code with a stated fallback. A provider failure returns a fixed public category; raw account, role and request identifiers never enter the anonymous response. No Bedrock answer has been recorded: locally the SDK was absent, and the public build's call is refused as not authorized | `python -m pytest tests/unit/test_bedrock_synthesis_path.py -v` |
 | Voice loop | Simulated: the browser's speech, not an Alexa skill, and no test drives a microphone | [Evidence](docs/EVIDENCE.md#what-is-true-and-what-is-simulated) |
 | Shared durable state | In the code and the Terraform, not deployed; a local run keeps state in memory | The `durable_state` field of `GET /health` says which |
 | Alexa+ integration, Echo test, demo video | Missing | [Known limitations](docs/EVIDENCE.md#known-limitations) |
