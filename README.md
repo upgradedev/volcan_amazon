@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-515%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-517%20passing-brightgreen.svg)](tests/)
 
 One pull request goes in. Three things a person can actually use come out, and one governed
 action goes back.
@@ -543,11 +543,14 @@ and keyboard-scrollable Braille region, `aria-live` on every asynchronous pane a
 `role="alert"` on security findings, a 3px focus ring in both colour schemes, a written
 description of every audio cue taken from the server's own `spoken_fallback`, and no control
 that ships disabled. `prefers-reduced-motion` removes every animation and the smooth scroll;
-`prefers-color-scheme` selects a designed light or dark palette. The one request the page
-makes to another origin is its typeface, Atkinson Hyperlegible, which the Braille Institute
-drew for readers with low vision. That stylesheet loads without blocking the first paint and
-every font stack ends in local faces, so on a locked-down or offline machine the page still
-renders at once and works completely, in a system font.
+`prefers-color-scheme` selects a designed light or dark palette. The page requests nothing
+from another origin. Its typefaces, Atkinson Hyperlegible (drawn by the Braille Institute for
+readers with low vision) and JetBrains Mono, are the latin woff2 files in
+[`docs/fonts`](docs/fonts) with their SIL Open Font License texts, inlined into the page by
+`scripts/embed_fonts.py`, so GitHub Pages, the FastAPI route and the container all ship them
+inside the one HTML file. Every face keeps `font-display: swap` and every font stack ends in
+local faces. `tests/e2e/test_first_screen.py` loads the page with every request to another
+origin aborted and requires both families loaded and no console error.
 
 The first screen is one stage. The patch is drawn as changed lines beside a single primary
 action, and three channels fill only when the server answers: the earcon's waveform, drawn

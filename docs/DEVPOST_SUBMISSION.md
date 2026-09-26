@@ -126,7 +126,7 @@ readiness gate verifies by parsing every domain module.
   never the caller's `user_id`;
   cold-start and concurrency tests use independent adapter instances rather than shared Python
   objects.
-* **The companion page.** One HTML file with no remote script, served by FastAPI at `/` and `/demo`; its only outside request is the Atkinson Hyperlegible typeface, which never blocks the first paint.
+* **The companion page.** One HTML file with no remote script, served by FastAPI at `/` and `/demo`; it makes no request to another origin, because its two typefaces, Atkinson Hyperlegible and JetBrains Mono, are inlined from `docs/fonts` under the SIL Open Font License.
   It holds no second implementation of the product: pressing its one primary button posts the
   patch to the running server, plays the WAV the server returned, draws the waveform from
   that WAV's own samples, prints the Braille cells the server produced, and reports the round
