@@ -69,6 +69,8 @@ def test_the_port_flag_moves_the_bind_port_and_the_allowlist(monkeypatch):
     monkeypatch.setenv("VOLCAN_PORT", "8000")
     monkeypatch.delenv("VOLCAN_ALLOWED_ORIGINS", raising=False)
     import uvicorn
+    # _main warms the credential cache in a thread; keep that off the network here.
+    monkeypatch.setattr(composition.bedrock_adapter, "credentials_present", lambda: False)
     monkeypatch.setattr(uvicorn, "run", lambda app, host, port: seen.update(host=host, port=port))
     _main(["--port", "8743"])
     assert seen == {"host": "127.0.0.1", "port": 8743}

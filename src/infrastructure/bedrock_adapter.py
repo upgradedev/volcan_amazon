@@ -24,6 +24,8 @@ is the per-request receipt: only ``bedrock`` means a model answered.
 import asyncio
 import importlib.util
 import os
+import threading
+import time
 from collections import Counter
 
 from src.domain.semantic_diff import DiffSectionDigest, SemanticDiffReport, plural
@@ -55,6 +57,15 @@ CAPABILITY_NO_SDK = "unavailable_sdk_not_installed"
 CAPABILITY_NO_CREDENTIALS = "unavailable_no_credentials"
 CAPABILITY_NEITHER = "unavailable_no_sdk_and_no_credentials"
 
+#: How long a resolved answer to "are there credentials?" is served before it is
+#: looked up again. The lookup walks the whole boto3 chain, and on a machine
+#: with no credentials its last step, the EC2 instance-metadata probe, costs
+#: about two seconds (measured 2.05 s): paid on every request, it made /health
+#: and every press take two seconds on a judge's laptop. A stale answer is
+#: served while a background lookup replaces it, and /health?refresh=1 forces
+#: one. Whether a model answered is still reported per digest, never cached.
+CREDENTIAL_CACHE_SECONDS = 300.0
+
 #: Package that has to be importable before a Bedrock call can be attempted.
 SDK_DISTRIBUTION = "anthropic[bedrock]"
 SDK_MODULE = "anthropic"
@@ -72,8 +83,42 @@ class BedrockSynthesisAdapter:
         #: Seam for tests. Production leaves it None and builds the real client.
         self._client_factory = client_factory
         self.last_fallback_reason: str | None = None
+        #: (answer, monotonic time it was resolved), or None before the first lookup.
+        self._credentials_cache: tuple[bool, float] | None = None
+        self._credentials_lock = threading.Lock()
+        self._credentials_refreshing = False
 
-    def credentials_present(self) -> bool:
+    def credentials_present(self, refresh: bool = False) -> bool:
+        """Whether the boto3 credential chain resolves, cached per adapter.
+
+        The first call resolves and waits; later calls within
+        ``CREDENTIAL_CACHE_SECONDS`` return the cached answer at once. After
+        that the cached answer is still returned while one background lookup
+        replaces it, so no request waits on the instance-metadata probe again.
+        ``refresh=True`` resolves now and waits for the answer.
+        """
+        with self._credentials_lock:
+            cached = self._credentials_cache
+            if cached is not None and not refresh:
+                answer, resolved_at = cached
+                if time.monotonic() - resolved_at >= CREDENTIAL_CACHE_SECONDS and not self._credentials_refreshing:
+                    self._credentials_refreshing = True
+                    threading.Thread(target=self._refresh_credentials, daemon=True).start()
+                return answer
+            # First lookup, or a forced one: resolve under the lock, so a
+            # second request arriving meanwhile waits for this answer instead
+            # of starting its own two-second probe.
+            answer = self._resolve_credentials()
+            self._credentials_cache = (answer, time.monotonic())
+            return answer
+
+    def _refresh_credentials(self) -> None:
+        answer = self._resolve_credentials()
+        with self._credentials_lock:
+            self._credentials_cache = (answer, time.monotonic())
+            self._credentials_refreshing = False
+
+    def _resolve_credentials(self) -> bool:
         """Resolve credentials the way boto3 itself does.
 
         Environment variables are only one of the sources boto3 searches. A judge
@@ -103,7 +148,7 @@ class BedrockSynthesisAdapter:
         except (ImportError, ValueError):
             return False
 
-    def model_path_capability(self) -> dict[str, object]:
+    def model_path_capability(self, refresh: bool = False) -> dict[str, object]:
         """What ``/health`` can honestly say about the model path.
 
         Neither fact is sufficient alone. Credentials without the SDK cannot
@@ -113,7 +158,7 @@ class BedrockSynthesisAdapter:
         is a statement about the attempt: whether a model answers is reported
         per digest by ``synthesis_mode``, and nothing here predicts it.
         """
-        credentials = self.credentials_present()
+        credentials = self.credentials_present(refresh=True) if refresh else self.credentials_present()
         sdk = self.sdk_present()
 
         if credentials and sdk:
@@ -239,7 +284,9 @@ class BedrockSynthesisAdapter:
         )
 
     async def summarize_diff(self, raw_diff: str, sections: list[DiffSectionDigest]) -> SemanticDiffReport:
-        if not self.credentials_present():
+        # The lookup can block on the instance-metadata probe the first time;
+        # it runs off the event loop so other requests are not held behind it.
+        if not await asyncio.to_thread(self.credentials_present):
             return self._heuristic_fallback(
                 raw_diff, sections,
                 "no AWS credentials were resolved by the boto3 credential chain",

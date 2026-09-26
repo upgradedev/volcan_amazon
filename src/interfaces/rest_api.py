@@ -4,6 +4,7 @@ This is ordinary JSON over HTTP for the web companion and for curl. It is not
 the Model Context Protocol and is never described as MCP; the MCP surface lives
 at /mcp and speaks JSON-RPC.
 """
+import asyncio
 import base64
 import os
 from typing import Any
@@ -58,8 +59,13 @@ router = APIRouter()
 
 
 @router.get("/health")
-async def health_check() -> dict[str, Any]:
+async def health_check(refresh: int = 0) -> dict[str, Any]:
+    """Service health. ``?refresh=1`` looks the AWS credential chain up again
+    instead of reporting the answer cached by the Bedrock adapter."""
     durable = durable_state_capability()
+    # Off the event loop: the first credential lookup can wait on the
+    # instance-metadata probe, and the page's other requests must not.
+    model_path = await asyncio.to_thread(bedrock_adapter.model_path_capability, bool(refresh))
     return {
         "status": "degraded" if durable.get("reachable") is False else "ok",
         "service": SERVER_NAME,
@@ -80,7 +86,7 @@ async def health_check() -> dict[str, Any]:
         # answer: credentials resolve on the development machine, where the SDK
         # is absent and no call can be attempted at all. The resolved capability
         # accounts for both, and the evidence stays beside it.
-        "bedrock_model_path": bedrock_adapter.model_path_capability(),
+        "bedrock_model_path": model_path,
         # Same shape, same reason: whether a confirmed review is sent or
         # recorded is decided by two facts, and the page prints the conclusion
         # the server drew from both rather than guessing from one.

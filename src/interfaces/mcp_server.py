@@ -391,6 +391,15 @@ def _main(argv: list[str] | None = None) -> None:
     if args.port is not None:
         os.environ["VOLCAN_PORT"] = str(args.port)
     port = local_port()
+    # Resolve the AWS credential chain once, now, instead of inside the first
+    # request: with no credentials its instance-metadata probe takes about two
+    # seconds, and the adapter caches the answer (see CREDENTIAL_CACHE_SECONDS).
+    import threading
+
+    from src.interfaces.composition import bedrock_adapter
+
+    threading.Thread(target=bedrock_adapter.credentials_present, daemon=True,
+                     name="volcan-credential-warmup").start()
     uvicorn.run(app, host="127.0.0.1", port=port)
 
 
