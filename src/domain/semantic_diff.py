@@ -116,9 +116,17 @@ class SemanticDiffReport:
                 f"{plural(self.total_deletions, 'deletion')}."
             )
             if self.critical_findings:
+                # The finding is the first thing a listener hears. A review
+                # found the summary ended "1 critical finding requires your
+                # verification" and never said what the finding was, so the
+                # inverted comparison the product exists to catch was never
+                # spoken. It now leads, and the counts follow it.
+                lead = self.critical_findings[0].strip()
+                if not lead.endswith("."):
+                    lead += "."
                 count = len(self.critical_findings)
                 verb = "requires" if count == 1 else "require"
-                base += f" Note: {plural(count, 'critical finding')} {verb} your verification."
+                base = f"{lead} {base} Note: {plural(count, 'critical finding')} {verb} your verification."
             return base
 
         if level == 1:

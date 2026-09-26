@@ -129,7 +129,10 @@ def silent(base_url: str) -> None:
         assert page.locator("#brailleCells .bcell").count() > 0
         assert page.locator("#brailleOutput .row").count() > 0
         assert "not played yet" in (page.locator("#earconWave").get_attribute("aria-label") or "")
-        assert "Security-sensitive changes" in snapshot
+        # The server's answer now opens with the finding itself, so the
+        # sentence on the first screen is the inverted comparison.
+        assert "an authorization comparison was inverted" in snapshot
+        expect(page.locator("#spokenPreview")).to_contain_text("user.role != 'admin'")
         assert "not played yet" in snapshot
         # The verdict sentence shows first; the rest of the same answer is one
         # disclosure away, hidden rather than clipped.
