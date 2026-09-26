@@ -67,7 +67,7 @@ goes back.
    The review is bound to the head commit, re-checked live, and **dry-run by default**: the
    server records the exact request it would send and sends nothing unless it runs with
    `VOLCAN_GITHUB_WRITE=1` and a `GITHUB_TOKEN`. No live review has been sent from this
-   repository; the README carries the owner command that produces that receipt.
+   repository; `docs/EVIDENCE.md` carries the owner command that produces that receipt.
 
 Around those renderings:
 
@@ -190,8 +190,8 @@ covered. We deleted all of it. The page now shows a real result or an honest emp
   about any real repository.
 
   The figure was 100% over n=24 while the corpus contained only patches the rules already
-  handled. Four positives were then added *because* nothing here detects them, and the
-  README names all four: a deleted authorization guard block, a removed permission
+  handled. Four positives were then added *because* nothing here detects them, and
+  `docs/EVIDENCE.md` names all four: a deleted authorization guard block, a removed permission
   decorator, `verify=False` added to an outbound call, and an IAM policy widened in JSON.
   Recall fell to 81.8% and became worth reading. The four are pinned by fixture id, so a new
   miss fails the build and closing one means deleting its id from the list.
@@ -239,7 +239,7 @@ real `GET /health` on load and reports what actually answered.
 on 2026-09-08 the page opened `python/cpython#1` and printed its head commit `02a87ce`.
 Submitting the review is dry-run by default: on `confirm` the page printed `Dry run. Nothing
 was sent to GitHub.` beside the exact `POST .../reviews` body it recorded. No live review has
-been sent from this repository. The owner command that produces one is in the README.
+been sent from this repository. The owner command that produces one is in `docs/EVIDENCE.md`.
 
 **Real, labelled Amazon Bedrock path.** The adapter calls Claude on Amazon
 Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client, pinned to
@@ -254,7 +254,7 @@ that grant falls back with the bounded permission category.
 misleading: credentials resolve on this machine while the SDK is absent, so no call could be
 attempted at all. It now publishes one resolved capability computed from both facts, reading
 `unavailable_sdk_not_installed` on 2026-09-08, with the credential and SDK booleans underneath
-it as the evidence. The README carries the exact command that reproduces a per-request receipt.
+it as the evidence. `docs/EVIDENCE.md` carries the exact command that reproduces a per-request receipt.
 
 **Never executed.** No file under `src/` imports or calls `subprocess`, `os.system`, `eval`,
 `exec` or any process spawn. `tests/unit/test_no_execution_in_source_tree.py` walks every
@@ -302,7 +302,7 @@ Microsoft accessibility engineering, Google central accessibility, GitHub access
 UK Government Digital Service, European Commission DIGIT, the Royal National Institute of Blind
 People and the American Foundation for the Blind. Nothing there is a pipeline or a warm
 introduction; it is a target list written from the outside. The full section, including what
-does and does not compound, is in the README.
+does and does not compound, is in `docs/EVIDENCE.md`.
 
 ---
 

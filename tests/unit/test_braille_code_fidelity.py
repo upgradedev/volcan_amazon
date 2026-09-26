@@ -26,7 +26,9 @@ from src.domain.braille_translator import (
 )
 
 PRINTABLE = "".join(chr(code) for code in range(32, 127))
-README_PATH = os.path.join(os.path.dirname(__file__), "../../README.md")
+# The full code table moved from the README to docs/EVIDENCE.md when the README
+# became a one-screen story; the check follows the table to where it now lives.
+README_PATH = os.path.join(os.path.dirname(__file__), "../../docs/EVIDENCE.md")
 
 
 def test_dot_numbers_map_to_the_unicode_block_bit_for_bit():
@@ -128,12 +130,12 @@ def test_the_use_case_reports_fidelity_and_loss_beside_the_cells():
 
 
 def test_the_readme_prints_the_table_the_code_uses():
-    """The README says which symbol lands on which cell. It must be this table."""
+    """The evidence document says which symbol lands on which cell. It must be this table."""
     with open(README_PATH, "r", encoding="utf-8") as handle:
         readme = handle.read()
     block = re.search(r"<!-- braille-code-table -->\n```\n(.*?)\n```", readme, flags=re.S)
-    assert block, "the README no longer carries the code-fidelity table block"
+    assert block, "docs/EVIDENCE.md no longer carries the code-fidelity table block"
     expected = "\n".join(
         f"{char!r:6} dots {dots or 'blank':9} {rendered}" for char, dots, rendered in code_fidelity_table()
     )
-    assert block.group(1) == expected, "the README table drifted from src/domain/braille_translator.py"
+    assert block.group(1) == expected, "the docs/EVIDENCE.md table drifted from src/domain/braille_translator.py"

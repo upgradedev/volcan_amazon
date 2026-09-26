@@ -9,7 +9,7 @@ that executes anything.
 
 That is a deliberate product decision, not a stub: the honest capability is
 "Volcan plans and explains a command and refuses the ones outside its
-allowlist", and the README states it in those words.
+allowlist", and docs/EVIDENCE.md states it in those words.
 """
 import shlex
 from dataclasses import asdict, dataclass, field

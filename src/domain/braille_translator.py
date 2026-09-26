@@ -275,7 +275,7 @@ def unsupported_characters(text: str) -> List[str]:
 def code_fidelity_table() -> List[tuple]:
     """``(character, dots, cell)`` for all 95 printable ASCII characters.
 
-    Printed into the README so a reader can check which symbol lands on which
+    Printed into docs/EVIDENCE.md so a reader can check which symbol lands on which
     cell without opening this file, and pinned there by a test so the two
     cannot drift.
     """

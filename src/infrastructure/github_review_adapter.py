@@ -27,7 +27,7 @@ lacks the ``pull_requests: write`` permission on that repository.
 
 The HTTP transport is injectable so every path here is exercised against a
 mock in ``tests/unit/test_github_review_adapter.py``. No live write has been
-performed from this repository; see the README for the owner action that
+performed from this repository; see docs/EVIDENCE.md for the owner action that
 produces one.
 """
 import os

@@ -1,7 +1,7 @@
 """Infrastructure Adapter: an append-only, hash-chained audit repository.
 
 Records are kept in process memory and are lost when the process exits, which
-is stated in the README. What survives inside a run is the chain: every record
+is stated in docs/EVIDENCE.md. What survives inside a run is the chain: every record
 is sealed with the hash of the record before it, so an edit to any stored entry
 is detectable by ``verify_integrity``.
 """

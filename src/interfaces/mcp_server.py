@@ -173,7 +173,7 @@ def _protocol_version_problem(request: Request) -> tuple[str, dict[str, Any]] | 
     assume the older ``2025-03-26`` revision. Assuming it would let a client and
     this server disagree about the revision they are speaking while both believe
     the handshake succeeded, which is a failure that surfaces later and
-    somewhere else. Volcan refuses instead and names the header, and the README
+    somewhere else. Volcan refuses instead and names the header, and docs/EVIDENCE.md
     states that it is required on every request after initialize.
     """
     declared = request.headers.get("mcp-protocol-version")

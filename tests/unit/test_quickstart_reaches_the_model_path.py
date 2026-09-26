@@ -67,8 +67,10 @@ def test_the_readme_uses_the_response_as_the_model_receipt():
     assert "do not prove" in install_context
 
 
+# The known limitations moved from the README to docs/EVIDENCE.md, which the
+# README links from its first screen. The receipt procedure is checked there.
 def test_an_operator_is_given_the_exact_command_that_reproduces_a_receipt():
-    limitations = _read("README.md").split("## Known limitations", 1)[1].split("\n## ", 1)[0]
+    limitations = _read("docs/EVIDENCE.md").split("## Known limitations", 1)[1].split("\n## ", 1)[0]
     assert 'pip install -e ".[dev,bedrock]"' in limitations, (
         "the receipt procedure must name the install that reaches the model path"
     )
@@ -80,8 +82,8 @@ def test_an_operator_is_given_the_exact_command_that_reproduces_a_receipt():
     )
 
 
-def test_the_readme_states_the_live_path_can_fail_without_breaking_the_digest():
-    limitations = _read("README.md").split("## Known limitations", 1)[1].split("\n## ", 1)[0]
+def test_the_evidence_states_the_live_path_can_fail_without_breaking_the_digest():
+    limitations = _read("docs/EVIDENCE.md").split("## Known limitations", 1)[1].split("\n## ", 1)[0]
     assert "permission, model availability or network" in limitations
     assert "deterministic digest answers" in limitations
     assert "provider identifiers do not leak" in limitations

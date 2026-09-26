@@ -6,7 +6,7 @@ inspects exact source lines, corrects a misheard command, and submits a
 end of these tests is ``httpx.MockTransport`` swapped into the process-wide
 adapter, so no request leaves the process, and the write is the dry-run default:
 what the tests prove is that the exact request was recorded and audited, not
-that GitHub ever received one. The README says which owner action produces the
+that GitHub ever received one. docs/EVIDENCE.md says which owner action produces the
 live receipt.
 """
 import httpx

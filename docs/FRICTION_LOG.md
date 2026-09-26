@@ -250,8 +250,19 @@ now resolves the chain once at startup and caches the answer; the same `curl` th
 round trip itself with `performance.now()` on every run and takes no figure from this file. The `pip install` step depends on your network
 and is not measured here.
 
-The figures that replaced these are in the README quickstart, step 4, each with its date and
-the command or page meter that printed it.
+The figures that replaced these are in `docs/EVIDENCE.md`, "Quickstart, in full", step 4,
+each with its date and the command or page meter that printed it.
+
+**Figures the README carried until round 4 on 2026-09-26, and the contradiction they made.**
+The quickstart said `552 passed` and a cold start of **2.0 seconds**, while the Measured numbers
+table in the same file said `515 passing; 91.26% statement coverage` (dated 2026-09-24) and a
+cold start of **1.4 s**, and the quickstart heading said "Four steps" above five. A scorer
+read the pairs as the README contradicting itself, which it was. On 2026-09-26 each was
+re-measured once and one value kept: `python -m pytest tests/ -q --cov=src --cov-fail-under=85`
+printed 552 passed and 91.52% coverage before the round's four new page tests, and 556
+collected after them; `python scripts/measure_cold_start.py` printed 1.7, 1.7 and 1.8 s on
+three runs. The README became a one-screen story and the full record moved to
+`docs/EVIDENCE.md`.
 
 ---
 

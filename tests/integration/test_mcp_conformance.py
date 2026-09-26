@@ -375,7 +375,7 @@ def test_the_version_rule_runs_before_dispatch_for_every_post_initialize_method(
 
 
 def test_the_sse_stream_also_requires_the_protocol_version_header():
-    """GET is a request after initialize too, and the README says every one."""
+    """GET is a request after initialize too, and docs/EVIDENCE.md says every one."""
     session_id, _ = initialize()
     refused = client.get("/mcp", headers={"Mcp-Session-Id": session_id})
     assert refused.status_code == 400

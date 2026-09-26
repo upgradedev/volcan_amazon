@@ -1,6 +1,6 @@
-"""Holds the whole product to the claim the README makes.
+"""Holds the whole product to the claim the evidence document makes.
 
-The README says "Never executed". That is a statement about ``src/``, not about
+docs/EVIDENCE.md says "Never executed". That is a statement about ``src/``, not about
 one module, so this test walks every module under ``src/`` and fails if any of
 them imports or calls a process-execution primitive. It is deliberately broader
 than ``tests/unit/test_dry_run_executor.py``, which guards the planner alone.
