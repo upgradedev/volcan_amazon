@@ -1,7 +1,7 @@
 # Volcan: shot list
 
-**Status: recorded once, on 2026-09-26, from a local run of commit `de30b11`.** The render is
-168.0 seconds and lives outside the repository, pending upload by the owner. This file is the
+**Status: recorded once, on 2026-09-27 (local time), from a local run of commit `de30b11`.**
+The render is 168.0 seconds and lives outside the repository, pending upload by the owner. This file is the
 journey `video/capture-local.py` drives, beat by beat, and it matches what that take shows.
 [`README.md`](README.md) in this folder says how the render was produced.
 
@@ -16,7 +16,7 @@ Times below are from the start of the video, after the 3.5 second title card.
 
 | Step | Command or action | What must be true |
 |---|---|---|
-| 1 | `python -m pytest tests/ -q` | `572 passed` on 2026-09-26. |
+| 1 | `python -m pytest tests/ -q` | `572 passed` on 2026-09-26 and again on 2026-09-27 after the pipeline commits. |
 | 2 | `python -m src.interfaces.mcp_server --port 8801`, started fresh, with no AWS credentials and no GitHub token in its environment | `GET /health` reports `unavailable_no_sdk_and_no_credentials` and `dry_run_no_token`. A fresh process means the audit trail on camera holds only this take's record. |
 | 3 | `python video/capture-local.py` | The page at `http://127.0.0.1:8801/` in headless Chromium at 1280x720 reads **Online** and has drawn the silent preview before the timeline starts. |
 
@@ -90,7 +90,8 @@ repeats `Local run of commit de30b11. Not the public deployment.` on every page 
   to its heading and the **Simulated Alexa+ experience** label.
 * **Not on screen:** `python -m pytest tests/ -q` and `python ci/readiness.py`. The figures in
   the narration, 572 tests and 22 of 22 conformance checks, were printed by those commands on
-  2026-09-26 against this commit.
+  2026-09-26 against this commit, the conformance run against an earlier server process of the
+  same commit.
 
 ## Outro card, 164.5 to 168.0 seconds
 

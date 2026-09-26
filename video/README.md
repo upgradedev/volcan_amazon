@@ -1,10 +1,12 @@
 # Volcan: how the demo video is made
 
 **Status: rendered locally, not published.** One render exists: `volcan-demo.mp4`, 168.0
-seconds, 1920x1080 at 25 fps, recorded on 2026-09-26 from a local run of commit
-`de30b11f34949419cebdbb62103670c288c18b55`. It lives outside the repository, in the owner's
-reviews folder, with its receipts, and waits for the owner to upload it. There is no public
-link yet. Readiness gates E2 and E4 look for footage inside `video/`, so they stay red.
+seconds, 1920x1080 at 25 fps, recorded on 2026-09-27 (local time) from a local run of commit
+`de30b11f34949419cebdbb62103670c288c18b55`. It lives outside the repository, at
+`reviews/videos_20260926/volcan_amazon/output/volcan-demo.mp4` in the owner's workspace, next to
+`video-receipt.json` and the sync gate's output, and waits for the owner to upload it. There is
+no public link yet. The render reproduces from commit `c09e451`, the first commit carrying both
+the scripts and the narration spec that built it. Readiness gates E2 and E4 look for footage inside `video/`, so they stay red.
 
 | | |
 |---|---|
@@ -46,7 +48,7 @@ python scripts/synthesize_video_assets.py         # cue sheet and subtitles from
 
 `python tests/video/verify_gate_selftest.py` proves the gate still fails on a mis-ordered
 video, a caption that runs into the outro and an audio track longer than the picture. It
-passed on 2026-09-26. It is not collected by pytest, so the suite count stays 572.
+passed on 2026-09-27. It is not collected by pytest, so the suite count stays 572.
 
 ### Re-rendering one beat
 
@@ -90,3 +92,9 @@ so a changed beat length changes the take.
   offset was not measured word by word.
 * The public endpoint runs an older commit, so the video shows a local run. The title card
   says so.
+* Beat 6 says "The page says so on screen" after three facts. The page shows two of them, the
+  missing Alexa skill and the model path; the older public commit is stated by the title card
+  and the corner tag, not by the page. Fixing the line means re-synthesizing beat 6 and a
+  new take.
+* Upload `output/captions.en.srt` from the media root as the caption track: it is sentence
+  level with the title card offset. `video/subtitles.srt` in this folder is one cue per beat.
