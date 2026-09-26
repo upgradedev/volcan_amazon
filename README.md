@@ -1,17 +1,17 @@
 # Volcan
 
-> **Volcan lets blind and mobility-impaired software developers review autonomous coding agents by ear and by touch instead of by reading a diff.**
+> **Volcan lets blind and low-vision software developers review autonomous coding agents by ear and by touch instead of by reading a diff.**
 
-![The companion page's first screen at 1280 by 720 in the basalt dark theme, as the UX harness captured it before any press: the headline "Hear your code review instead of scrubbing a diff", the disclosure "Simulated Alexa+ experience, not an Alexa skill" and "Live server, MCP. GitHub write: dry-run.", the patch whose changed lines turn user.role == "admin" into user.role != "admin", one ember "Hear this code review" button, and the server's real answer drawn silently beside it: the returned earcon's waveform in its not yet heard grey with a measured falling contour, the server's finding "In src/auth/permissions.py, an authorization comparison was inverted: user.role == 'admin' became user.role != 'admin'.", the Braille cells, and the line "Server's real answer, not played yet."](docs/assets/volcan-first-viewport.png)
+![The companion page's first screen at 1280 by 720 in the basalt dark theme, as the UX harness captured it before any press: the headline "Hear your code review instead of scrubbing a diff", the line "For blind and low-vision developers.", the disclosure "Simulated Alexa+ experience, not an Alexa skill" and "Live server, MCP. GitHub write: dry-run.", the patch whose changed lines turn user.role == "admin" into user.role != "admin", one ember "Hear this code review" button, and the server's real answer drawn silently beside it: the returned earcon's waveform in its not yet heard grey with a measured falling contour, the server's finding "In src/auth/permissions.py, an authorization comparison was inverted: user.role == 'admin' became user.role != 'admin'.", the line "Server's first sentence, not played yet.", and the first row of Braille cells.](docs/assets/volcan-first-viewport.png)
 
-![The same screen in the daylight theme a few seconds after one keyboard press against a local server: the waveform drawn in ember now that the cue has played, the full spoken sentence, finding first, lighting word by word as the browser speaks it, and the meters reporting the local heuristic engine, the reason no model answered (opened with the info button beside the engine), and the measured round trip.](docs/assets/volcan-after-one-press.png)
+![The same screen in the daylight theme a few seconds after one keyboard press against a local server: the waveform drawn in ember now that the cue has played, with a Replay the cue button and the caption "Security finding cue, falling pitch contour measured from its samples, 0.60 seconds of 16-bit PCM at 22050 Hz (SECURITY_FINDING)", the whole spoken answer, finding first and then the counts, and under the button the engine meter reading local heuristic with the reason no model answered, opened with the info button beside it.](docs/assets/volcan-after-one-press.png)
 
 *Both screenshots are unedited headless Chromium captures of `docs/index.html` served locally by the FastAPI app in `src/interfaces/mcp_server.py`, started without AWS credentials and without the `bedrock` extra. The first is the harness capture on load, whose preview request names the local engine; the second shows the real response to the press, so the engine reads local heuristic.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-543%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-552%20passing-brightgreen.svg)](tests/)
 
 One pull request goes in. Three things a person can actually use come out, and one governed
 action goes back.
@@ -51,6 +51,17 @@ re-reads the head commit, records the exact request it would send, and sends not
 its owner starts it with `VOLCAN_GITHUB_WRITE=1` and a `GITHUB_TOKEN`. The voice loop is the
 browser's own speech recognition and synthesis with a typed twin for every command, and it is
 labelled on the page as a simulated voice experience, not an Alexa skill.
+
+**Who uses it, who would pay, and the road to Alexa+.**
+
+* **User:** a blind or low-vision developer reviewing code an AI agent wrote.
+* **Buyer, a hypothesis:** the accessibility compliance owner at an employer bound by the
+  European Accessibility Act, which Member States apply from 28 June 2025
+  ([Directive (EU) 2019/882, Article 31](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32019L0882)), or by Section 508 in US
+  federal procurement. No buyer has been interviewed and no price is set; the reasoning is in
+  [Who would buy this](#who-would-buy-this-and-out-of-which-budget).
+* **Alexa+, not built:** an Alexa+ integration would call this same MCP server. There is no
+  Alexa skill, no Alexa+ connection and no test on an Echo device.
 
 ---
 
@@ -101,7 +112,10 @@ python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp
 ### 4. Hear a code review
 
 Open `http://127.0.0.1:8000/` and press **Hear this code review**, or press
-<kbd>Alt</kbd>+<kbd>1</kbd> then <kbd>Enter</kbd> without touching a pointer. The button
+<kbd>Alt</kbd>+<kbd>1</kbd> (<kbd>Option</kbd>+<kbd>1</kbd> on a Mac) then <kbd>Enter</kbd>
+without touching a pointer. If your own screen reader should speak the answers, turn on the
+speech bubble button at the top right, **My screen reader speaks the answers**: the page then
+stays silent and puts each whole answer in one status line. The button
 posts the patch to the running server, plays the WAV the server synthesized, prints the
 Braille cells, and reports the round trip it measured with `performance.now()`.
 
@@ -114,45 +128,36 @@ is no finding at all and the rising `DIFF_READY` cue. Every chip's label quotes 
 the server will produce, and
 [`tests/e2e/test_shipped_presets_reach_their_rule.py`](tests/e2e/test_shipped_presets_reach_their_rule.py)
 runs each shipped preset through the production parser and fails the build if a label and its
-rule ever separate. Until 2026-09-08 they had: the first preset removed a hardcoded secret,
-which is a security *improvement*, and the other two produced no finding at all, so the first
-press showed the weakest output the product can give. All four were pressed against a running
-server on 2026-09-08:
+rule ever separate. All four, posted to `POST /api/digest_semantic_diff` on a running server on
+2026-09-26, answered:
 
 ```
 preset 1: cue=SECURITY_FINDING
-   finding: In src/auth/permissions.py, an authorization comparison was inverted: user.role == 'admin' became user.role != 'admin'.
+   voice: In src/auth/permissions.py, an authorization comparison was inverted: user.role == 'admin' became user.role != 'admin'. Modified 1 file with 1 addition and 1 deletion.
 preset 2: cue=SECURITY_FINDING
-   finding: In src/api/app.py, a cross-origin policy was widened to accept any origin: allow_origins = ['*'].
+   voice: In src/api/app.py, a cross-origin policy was widened to accept any origin: allow_origins = ['*']. Modified 1 file with 1 addition and 1 deletion.
 preset 3: cue=SECURITY_FINDING
-   finding: In src/webhooks/receiver.py, the call verify_signature(payload, request.headers['X-Signature']) was removed and nothing replaced it.
+   voice: In src/webhooks/receiver.py, the call verify_signature(payload, request.headers['X-Signature']) was removed and nothing replaced it. Modified 1 file with 0 additions and 1 deletion.
 preset 4: cue=DIFF_READY
    voice: Changes are mostly business logic. Modified 1 file with 3 additions and 1 deletion.
 ```
 
-**Time to first result, measured on the development machine on 2026-09-08.** Step 1 reported
-`421 passed, 1 warning in 5.00s` on the run that closed this round; the run before it, with
-one more test still red, took 7.00 s, and earlier runs that day with a smaller suite took 8.77
-s, 5.06 s, 5.22 s and 4.74 s, so the count is the claim here and the duration is not. The
-server in step 2 answered its first `GET /health` with
-HTTP 200 **1.4 seconds** after launch, printed by
-[`scripts/measure_cold_start.py`](scripts/measure_cold_start.py). That script launches its
-own server, so stop the one from step 2 before running it. It refuses to time a process that
-was already warm, and says so rather than printing a figure it cannot stand behind. Step 3
-printed
-`21/21 checks passed, 0 failed`. The first digest round trip in step 4 was **39.0 ms** in
-headless Chromium at 1440x900 on 2026-09-26, read from the page's own meter, with the server
-started as in step 2 on port 8743 and no AWS credential file present; three further presses
-of the same button on the same page read 30.2 ms, 28.8 ms and 31.9 ms. The first press is the
-one quoted, because that is the press a judge makes. Earlier rounds published 117.2 ms
-(2026-09-08) and 72.6 ms (2026-09-06). On a machine without AWS credentials those earlier
-builds walked the whole boto3 credential chain, ending in the instance-metadata probe, on
-every request: on 2026-09-26, before the fix, `curl` timed `GET /health` at 2.030, 2.024 and
-2.030 s on this machine with no credential file, and the chain alone took 2.054 s. The server
-now resolves the chain once at startup and caches the answer; the same `curl` then read
-0.039, 0.003 and 0.005 s. The page measures the
-round trip itself with `performance.now()` on every run and takes no figure from this file. The `pip install` step depends on your network
-and is not measured here.
+The finding is said once and leads; the counts follow. The same response carries
+`voice_summary_for_speech`, the sentence as the page hands it to the speech engine, with each
+code operator named (`user.role not equals 'admin'`), while the screen and the Braille keep
+the literal `!=`.
+
+**Time to first result, measured on the development machine on 2026-09-26.** Step 1 printed
+`552 passed, 1 warning` (the count is the claim; the duration varies run to run). The server in step 2 answered its first `GET /health` with HTTP 200 **2.0 seconds**
+after launch, printed by [`scripts/measure_cold_start.py`](scripts/measure_cold_start.py),
+which launches its own server on port 8000 (stop the one from step 2 first) and refuses to time
+a process that was already warm. Step 3 printed `22/22 checks passed, 0 failed`. The first
+digest round trip in step 4 was **31.3 ms** in headless Chromium at 1440x900, read from the
+page's own meter, with the server started as in step 2 on port 8746 without AWS credentials;
+three further presses read 38.9, 30.5 and 28.7 ms. The page measures the round trip itself
+with `performance.now()` on every run and takes no figure from this file. The `pip install`
+step depends on your network and is not measured here. Earlier rounds' figures, and why they
+changed, are in [`docs/FRICTION_LOG.md`](docs/FRICTION_LOG.md).
 
 ### 5. Review a real pull request by voice or by keyboard
 
@@ -206,6 +211,10 @@ whose JSON Schemas are generated from the code that parses the arguments, and MC
 content blocks carrying the synthesized earcons.
 `python scripts/mcp_conformance.py` runs a full client handshake against a running server
 and prints a pass or fail line for each of its 22 conformance checks.
+
+**The road to Alexa+ is stated, not built.** An Alexa+ integration would call this same MCP
+server. None exists: no skill, no Alexa+ connection, no Echo run. The page says so in a band
+below its first screen and draws the missing piece as a dashed box in its Evidence tab.
 
 **Simulated, and labelled as such everywhere it appears, the page included.** The voice
 experience is a web companion, not an Alexa skill. There is no Alexa skill package in this
@@ -548,12 +557,17 @@ version, whether the server chose a stateful id or stateless mode, and each publ
 `inputSchema`.
 
 Accessibility is enforced rather than asserted. The page has semantic landmarks, a labelled
-and keyboard-scrollable Braille region, and one announcement per press: a single polite status
-line gives the round trip and hands over to the speech engine, which reads the answer finding
-first, and only a browser with no speech engine gets the whole answer in the status line
-instead. Until 2026-09-26 one press wrote the same sentence to four live regions and the
-speech engine then read it again over the screen reader; `tests/e2e/first_screen_runner.py`
-now counts the regions a press writes to and fails on more than one. The silent preview drawn
+and keyboard-scrollable Braille region, and one voice per answer, on the stage and in the
+review dialogue alike. By default a single polite status line gives the round trip and hands
+over to the speech engine, which reads the answer finding first with each code operator named.
+The speech bubble button at the top, **My screen reader speaks the answers**, silences the
+page's voice and puts each whole answer in the status line instead, for a listener whose own
+screen reader should do the talking; the choice is remembered in that browser. The
+conversation log is a visible history and not a live region, so no turn is read twice.
+`tests/e2e/first_screen_runner.py` counts the live regions a press and a dialogue turn write
+to, and the utterances spoken, in both modes. A patch changed after a press returns the stage
+to that patch's own silent answer, and the same runner checks that nothing of the old answer
+is left on screen or spoken. The silent preview drawn
 on load sits outside every live region, so opening the page announces nothing. The skip link
 lands focus inside `main`. There is a 3px focus ring in both colour schemes, a written
 description of every audio cue taken from the server's own `spoken_fallback`, and no control
@@ -576,10 +590,11 @@ until the press; `tests/e2e/test_first_screen.py` counts all three and requires 
 earcon's waveform is drawn from the returned samples, grey until it has been heard, with a
 pitch contour measured from those samples, and after the press a playhead follows the audio
 element's own clock. The spoken sentence opens with the server's finding (for the preset, the inverted
-authorization comparison), with the counts one **Show all** away, and after the press its words brighten only when the browser's speech engine
-reports reaching them. The Braille is drawn as large dot cells from the server's own Unicode
+authorization comparison), labelled as the server's first sentence, and after the press the
+whole answer is shown and its words brighten only when the browser's speech engine reports
+reaching them. The Braille is drawn as large dot cells from the server's own Unicode
 code points, with the cell that differs between the removed and the added line marked. A line
-under the sentence says it is the server's real answer, not played yet, and an info button
+under the sentence says it is the server's first sentence, not played yet, and an info button
 beside it names the engine and why, and says the button asks the server's default engine:
 Amazon Bedrock when AWS credentials resolve and `anthropic[bedrock]` is installed, the local
 heuristic otherwise. Code is set with ligatures off, so `!=` can never be drawn
@@ -593,9 +608,12 @@ command so nothing depends on being heard, a dialogue log that shows what was he
 understood and what was answered, and a review panel that prints the server's outcome word for
 word. Seven more assertions in `tests/e2e/test_html_structure.py` pin that contract: the
 typed path exists, a new command calls `stopAudio()` before it posts, the readback is logged
-and spoken before the answer at the `speech_rate` the server returned, every state change
-lands in an `aria-live` region, a dry run is printed as `recorded and not sent` and never as a
-send, the page never handles a token, and the keyboard map covers the dialogue.
+and spoken before the answer at the `speech_rate` the server returned, each turn reaches the
+listener through one voice (the page's speech, or the one status line when the listener's
+screen reader speaks), a dry run is printed as `recorded and not sent` and never as a send,
+the page never handles a token, and the keyboard map covers the dialogue. The steps,
+**1 Open a pull request** and **2 Request changes**, come before the conversation in the tab
+order.
 
 ---
 
@@ -639,7 +657,7 @@ as words (`line one hundred and twelve`), and every command has the same effect 
 | `what changed in auth.py`, `file 2`, `next`, `previous` | Focus a file by name or number and hear its category, finding and first hunk | `FILE` |
 | `read the lines` | The exact numbered source lines of the current hunk, 20 per breath, `next` to continue | `LINES` |
 | `next line`, `previous line`, `line 14`, `next hunk` | Move within the hunk, or jump to a line number on the new side of the file | `LINES` |
-| `spell that` | Every symbol of the current line named, so `!=` is heard as `bang, equals` | `LINES` |
+| `spell that` | Every symbol of the line just heard named, so `!=` is heard as `bang, equals`; right after `read the lines` that is the first changed line, and the answer says which line and which side | `LINES` |
 | `repeat`, `slower`, `faster`, `stop`, `where am I`, `help`, `undo` | Say it again, change the rate by 0.15 within 0.5 to 1.6, silence, orientation, the command list, one step back | unchanged |
 | `no, I said <command>`, `I meant <command>`, `correction: <command>` | Undo the last navigation and apply the one meant | as the command |
 | `request changes: <comment>` | Stage a `REQUEST_CHANGES` review bound to the head commit; a grant is issued | `CONFIRM_REVIEW` |
@@ -649,7 +667,9 @@ as words (`line one hundred and twelve`), and every command has the same effect 
 **Keyboard map on the page.** <kbd>Alt</kbd>+<kbd>6</kbd> focuses the pull request URL box,
 <kbd>Alt</kbd>+<kbd>4</kbd> the command box where <kbd>Enter</kbd> sends, <kbd>Alt</kbd>+<kbd>5</kbd>
 starts or stops listening, <kbd>Escape</kbd> interrupts the speech, the earcon and the
-microphone, and every command chip is a real button in the tab order.
+microphone, and every command chip is a real button in the tab order. On a Mac,
+<kbd>Alt</kbd> is <kbd>Option</kbd>; the page matches the physical key, so
+<kbd>Option</kbd>+<kbd>1</kbd> works although it types `¡`.
 
 **What is live and what is dry-run, per step.**
 
@@ -853,7 +873,7 @@ estimate unless it says ESTIMATE.
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Automated tests | not applicable | 515 passing; 91.26% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-24 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.4 s | `python scripts/measure_cold_start.py` |
-| First digest round trip, browser to server and back | not applicable | 39.0 ms on the first press, then 30.2, 28.8 and 31.9 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credential file | the page measures and prints this itself on every run |
+| First digest round trip, browser to server and back | not applicable | 31.3 ms on the first press, then 38.9, 30.5 and 28.7 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credentials | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
 | Braille characters that share a cell in code fidelity | 5 collision groups in the six-dot table covering `( ) =`, `] w`, `" >`, `' @` and `_` with the capital prefix | 0 of 95 printable ASCII characters | `python -m pytest tests/unit/test_braille_code_fidelity.py -v` |
 
@@ -1117,7 +1137,7 @@ conversion rate, because none of those have been measured and an invented one wo
 less than the empty space.
 
 **The user is not the buyer, and this section is about the buyer.** The user is the blind or
-mobility-impaired engineer who reviews agent-written patches by ear. That person almost never
+low-vision engineer who reviews agent-written patches by ear. That person almost never
 holds a budget. The person who does is the **enterprise accessibility compliance owner**: the
 accessibility programme manager, the director of accessibility engineering, or wherever a
 given organisation has parked responsibility for conformance and for workplace adjustments.
@@ -1127,10 +1147,10 @@ conversation is with; the engineer is who has to want the tool afterwards, and a
 engineer ends it regardless of the budget.
 
 **The organisation.** One that is already obliged to meet accessibility requirements and
-already employs, or wants to employ, blind and mobility-impaired engineers. Two obligations
+already employs, or wants to employ, blind and low-vision engineers. Two obligations
 create that population and are the cited basis:
 
-* **Directive (EU) 2019/882, the European Accessibility Act**, which applies from 28 June 2025
+* **[Directive (EU) 2019/882](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32019L0882), the European Accessibility Act**, which applies from 28 June 2025
   to products and services placed on the EU market, computer hardware and operating systems,
   e-commerce and several other categories. Its technical requirements are met in practice
   through the harmonised European standard **EN 301 549**, which is also what

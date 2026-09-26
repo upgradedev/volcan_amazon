@@ -2,7 +2,7 @@
 
 ## Tagline
 
-Volcan lets blind and mobility-impaired software developers review autonomous coding agents
+Volcan lets blind and low-vision software developers review autonomous coding agents
 by ear and by touch instead of by reading a diff.
 
 **Track:** Alexa+. **Mini challenge:** AWS Builder. Both claims are qualified in
@@ -277,7 +277,7 @@ CloudWatch. Alexa skill certification, Echo testing and a live GitHub write rema
 **A commercial hypothesis, not a finding.** No market size, no price, no revenue projection
 and no conversion rate appears here, because none has been measured.
 
-**The user is not the buyer.** The user is the blind or mobility-impaired engineer who reviews
+**The user is not the buyer.** The user is the blind or low-vision engineer who reviews
 agent-written patches by ear. The budget holder is the **enterprise accessibility compliance
 owner**: the accessibility programme manager or director of accessibility engineering who
 already signs off remediation work, answers procurement questionnaires and owns the line that

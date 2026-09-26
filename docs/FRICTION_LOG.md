@@ -214,7 +214,48 @@ fails only after a load balancer sends the next request elsewhere.
 
 ---
 
-## 7. What worked well
+## 7. Figures the README used to quote, and why they changed
+
+The README's quickstart now quotes each number once, as measured on the day it was last
+edited. The history those paragraphs carried is kept here, word for word, so the reasons
+behind the changes are not lost.
+
+**The preset chips.** Until 2026-09-08 a chip label and its rule had separated: the first preset removed a hardcoded secret,
+which is a security *improvement*, and the other two produced no finding at all, so the first
+press showed the weakest output the product can give.
+
+**Time to first result, as the README stated it until 2026-09-26.**
+
+Step 1 reported
+`421 passed, 1 warning in 5.00s` on the run that closed this round; the run before it, with
+one more test still red, took 7.00 s, and earlier runs that day with a smaller suite took 8.77
+s, 5.06 s, 5.22 s and 4.74 s, so the count is the claim here and the duration is not. The
+server in step 2 answered its first `GET /health` with
+HTTP 200 **1.4 seconds** after launch, printed by
+[`scripts/measure_cold_start.py`](../scripts/measure_cold_start.py). That script launches its
+own server, so stop the one from step 2 before running it. It refuses to time a process that
+was already warm, and says so rather than printing a figure it cannot stand behind. Step 3
+printed
+`21/21 checks passed, 0 failed`. The first digest round trip in step 4 was **39.0 ms** in
+headless Chromium at 1440x900 on 2026-09-26, read from the page's own meter, with the server
+started as in step 2 on port 8743 and no AWS credential file present; three further presses
+of the same button on the same page read 30.2 ms, 28.8 ms and 31.9 ms. The first press is the
+one quoted, because that is the press a judge makes. Earlier rounds published 117.2 ms
+(2026-09-08) and 72.6 ms (2026-09-06). On a machine without AWS credentials those earlier
+builds walked the whole boto3 credential chain, ending in the instance-metadata probe, on
+every request: on 2026-09-26, before the fix, `curl` timed `GET /health` at 2.030, 2.024 and
+2.030 s on this machine with no credential file, and the chain alone took 2.054 s. The server
+now resolves the chain once at startup and caches the answer; the same `curl` then read
+0.039, 0.003 and 0.005 s. The page measures the
+round trip itself with `performance.now()` on every run and takes no figure from this file. The `pip install` step depends on your network
+and is not measured here.
+
+The figures that replaced these are in the README quickstart, step 4, each with its date and
+the command or page meter that printed it.
+
+---
+
+## 8. What worked well
 
 * The Model Context Protocol is a good fit for assistive tooling. Because tools are
   described by JSON Schema, Volcan generates its whole catalog from the pydantic models

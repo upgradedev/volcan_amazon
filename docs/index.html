@@ -2251,6 +2251,9 @@
       followPlayback(player, canvas, samples);
 
       var caption = $("earconCaption");
+      // The legend's flex layout is for the two cue swatches; a sentence
+      // with an identifier in it flows as ordinary text.
+      caption.classList.remove("legend");
       plainThenRaw(caption, cueWords(earcon.type) + ", " + shape + seconds.toFixed(2)
         + " seconds of 16-bit PCM at " + SAMPLE_RATE + " Hz", earcon.type,
         ". Written description: " + described);
@@ -2512,6 +2515,7 @@
       clear($("securityAlert"));
       $("spokenCaption").textContent = "";
       var legend = clear($("earconCaption"));
+      legend.classList.add("legend");
       Array.prototype.forEach.call(EARCON_LEGEND.childNodes, function (node) {
         legend.appendChild(node.cloneNode(true));
       });

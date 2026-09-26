@@ -20,7 +20,7 @@
       "timestamp_start": 20.0,
       "timestamp_end": 58.0,
       "narration_text": "This is Volcan, running on this machine. Before anything plays, the stage already shows the server's real answer for this patch, silently: the earcon's waveform with its falling pitch, the finding in words, and the Braille cells. One button plays it. The earcon comes first, so the verdict arrives before the sentence. This patch touches security, so the cue falls; a benign one rises. Then the spoken digest, which opens with the finding itself: an authorization comparison was inverted. The engine label and the round trip are read off the response, measured in this browser.",
-      "visual_action": "Open on the first paint: the stage already shows the silent preview, the waveform in its not yet heard colour with the Falling contour, the finding sentence, the eight-dot Braille cells and the line Server's real answer, not played yet. Press Alt and 1 to focus Hear this code review, then Enter. Hold on the playhead crossing the waveform, the words lighting as the browser speaks them, finding first, and the three meters filling with the engine name, the measured round trip and the change size."
+      "visual_action": "Open on the first paint: the stage already shows the silent preview, the waveform in its not yet heard colour with the Falling contour, the finding sentence, the eight-dot Braille cells and the line Server's first sentence, not played yet. Press Alt and 1 to focus Hear this code review, then Enter. Hold on the playhead crossing the waveform, the words lighting as the browser speaks them, finding first, and the three meters filling with the engine name, the measured round trip and the change size."
     },
     {
       "beat_id": "beat_03_mcp_handshake",
@@ -34,7 +34,7 @@
       "timestamp_start": 92.0,
       "timestamp_end": 128.0,
       "narration_text": "A high-consequence command is staged behind a single-use grant, bound by HMAC SHA-256 to the command's own payload hash and to a lease. The agent that proposed the action cannot release it. A human presents the grant, and the planner answers: allowlisted, would run git diff HEAD, executed is false. Nothing ran. That holds for the whole product. No file under src imports subprocess or any process spawn, and a test walks every module's syntax tree on each run to keep it that way.",
-      "visual_action": "In Evidence, select the Governed actions tab and click Stage an action, hold on the lease countdown, click Approve with the grant, hold on the line that reads Dry run only, nothing was executed, and on the audit row reading plan released, not run. Cut to a terminal running python -m pytest tests/unit/test_no_execution_in_source_tree.py -q."
+      "visual_action": "In Evidence, select the Governed actions tab and click Stage an action, hold on the lease countdown, click Approve with the grant, hold on the line that reads Dry run only, nothing was executed, and on the audit row reading released to you, nothing run. Cut to a terminal running python -m pytest tests/unit/test_no_execution_in_source_tree.py -q."
     },
     {
       "beat_id": "beat_05_verification",

@@ -2,7 +2,7 @@
 
 **Product:** Volcan, an accessible voice-first AI agent forge
 **Version:** 0.1.0
-**Persona under test:** blind and mobility-impaired software developers
+**Persona under test:** blind and low-vision software developers
 
 Every scenario below maps to an automated test that exists in this repository and that you
 can run. Where a scenario cannot be automated here, it says so and names what is missing,
@@ -34,7 +34,7 @@ the per-request receipt separately records whether Bedrock or the deterministic 
 | UAT-13 | Every advertised MCP tool can actually be called | All twelve tools return content blocks and none returns a transport error | `tests/integration/test_mcp_conformance.py::test_every_advertised_tool_can_be_called_and_returns_content_blocks` |
 | UAT-14 | The earcon arrives as playable audio, not a description | The `audio` block decodes to a RIFF WAVE file | `tests/integration/test_mcp_conformance.py::test_play_earcon_returns_a_playable_audio_content_block` |
 | UAT-15 | The companion is reachable by keyboard alone | No click handler on a non-interactive element, every control a real button, a visible focus ring, a documented keyboard map | `tests/e2e/test_html_structure.py` |
-| UAT-16 | Results are announced to a screen reader | `aria-live` regions for dialogue and lease state; one polite status line per hero press, with the answer spoken finding first by the speech engine (no `role="alert"`, which read the finding a second time) | `tests/e2e/test_html_structure.py::test_a_hero_result_reaches_a_listener_through_one_channel`, `tests/e2e/test_first_screen.py::test_the_first_screen_shows_the_real_answer_without_speaking_playing_or_announcing` |
+| UAT-16 | Results are announced to a screen reader | one voice per answer: by default one polite status line per hero press and the answer spoken finding first by the speech engine, operators named; with **My screen reader speaks the answers** on, the page is silent and the status line (`runStatus`, `reviewStatus`, `govStatus`) carries the whole answer; the dialogue log is not a live region (no `role="alert"`, which read the finding a second time) | `tests/e2e/test_html_structure.py::test_a_hero_result_reaches_a_listener_through_one_channel`, `tests/e2e/test_first_screen.py::test_the_first_screen_shows_the_real_answer_without_speaking_playing_or_announcing` |
 | UAT-17 | Reduced motion is honoured | The preference is respected in CSS and in the canvas animation | `tests/e2e/test_html_structure.py::test_reduced_motion_is_honoured` |
 | UAT-18 | The companion never claims a connection it did not make | The initial state is `checking`, the state comes from a real `GET /health`, and browser-only results are tagged | `tests/e2e/test_html_structure.py::test_the_page_makes_no_connection_claim_before_a_real_fetch` |
 | UAT-19 | The earcon says which verdict the digest reached | A security-sensitive patch and a benign one return different WAV bytes: the falling `SECURITY_FINDING` cue and the rising `DIFF_READY` cue, on the REST, MCP, voice and drill-down paths alike | `tests/unit/test_earcon_encodes_the_verdict.py` |
@@ -47,7 +47,7 @@ the per-request receipt separately records whether Bedrock or the deterministic 
 | UAT-26 | A confirmed review is recorded, not sent, and every refusal is named | With neither `VOLCAN_GITHUB_WRITE` nor a token the outcome is `dry_run` with the exact request recorded and no `POST` made; a moved head is `STALE_HEAD`; a missing, tampered, foreign or expired grant, a self-approval and a token without permission are each refused with their code and an audit line | `tests/unit/test_review_dialogue_use_case.py`, `tests/unit/test_github_review_adapter.py` |
 | UAT-27 | The whole journey runs over REST and MCP against a scripted GitHub | `POST /api/review/turn` and `tools/call review_dialogue_turn` carry the readback, the answer, the earcon and the outcome; `/health` publishes `github_review_path` without a token value | `tests/integration/test_review_dialogue_api.py` |
 | UAT-28 | Braille keeps every code symbol apart, or says what it lost | All 95 printable ASCII characters map to distinct eight-dot cells and decode back; literary fidelity names the collided characters per patch; the README table equals the module's | `tests/unit/test_braille_code_fidelity.py` |
-| UAT-29 | The page listens where it can, always keeps a typed path, and labels itself | `SpeechRecognition` with a stated absence, a command box with `Enter`, `stopAudio()` before every post, readback before answer at the returned rate, every state in a live region, a dry run printed as recorded and not sent, and the not-an-Alexa-skill label above the fold | `tests/e2e/test_html_structure.py` |
+| UAT-29 | The page listens where it can, always keeps a typed path, and labels itself | `SpeechRecognition` with a stated absence, a command box with `Enter`, `stopAudio()` before every post, readback before answer at the returned rate, one voice per turn, a dry run printed as recorded and not sent, and the not-an-Alexa-skill label above the fold | `tests/e2e/test_html_structure.py` |
 | UAT-30 | A missing protocol version header is refused for every method | `tools/list`, `tools/call`, `ping`, `resources/list` and an unknown method all answer `-32600` with the same message, with and without a valid session, and never `-32601` | `tests/integration/test_mcp_conformance.py::test_the_version_rule_runs_before_dispatch_for_every_post_initialize_method` |
 | UAT-31 | A review survives a Lambda cold start | One worker opens and stages; fresh use-case and grant-issuer instances load the same owner, dialogue and pending action, confirm once, and a third instance cannot repeat it | `tests/unit/test_durable_volcan_state.py::test_review_dialogue_pending_action_nonce_and_audit_survive_cold_starts` |
 | UAT-32 | Concurrent workers cannot consume one grant twice | Twenty-four workers present the same valid grant; one conditional nonce write wins and the other twenty-three receive `REPLAYED` | `tests/unit/test_durable_volcan_state.py::test_grant_nonce_has_exactly_one_winner_across_workers` |
@@ -74,14 +74,14 @@ python -m pytest tests/ -v
 
 1. Run `python scripts/mcp_conformance.py`. Expect 22 of 22 checks to pass. On 2026-09-08,
    before the positive comment-only GET vector was added, it printed
-   `SUMMARY: 21/21 checks passed, 0 failed`.
+   `SUMMARY: 22/22 checks passed, 0 failed`.
 2. Open `http://127.0.0.1:8000/`. The status pill in the top bar must read **Online**, and the
    connection banner in **Evidence**, tab **Server and MCP**, must read **Server reached** and quote
    the HTTP status and the round trip it actually measured, plus the resolved model path the
    server reported. On this machine that line reads `unavailable_sdk_not_installed`.
    Before anything is pressed, the stage must already show the server's answer for the loaded
-   patch, silently: the waveform in grey with a **Falling** contour, the verdict sentence with
-   **Show all**, the Braille cells, and the line **Server's real answer, not played yet.** No
+   patch, silently: the waveform in grey with a **Falling** contour, the verdict sentence, the
+   Braille cells, and the line **Server's first sentence, not played yet.** No
    sound and no speech until step 4.
 3. Press Tab once. The **Skip to main content** link must appear with a visible focus ring.
 4. Press **Hear this code review** without changing the patch. The preset loaded on first

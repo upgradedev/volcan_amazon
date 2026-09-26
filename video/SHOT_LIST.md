@@ -28,7 +28,7 @@ exercised on Windows 11 with Python 3.11.0 on 2026-09-06.
 | 3 | `python -m src.interfaces.mcp_server` | Leave it running in terminal 1, off camera. |
 | 4 | Open `http://127.0.0.1:8000/` in a fresh profile at 1280x900 | The status pill in the top bar reads **Online**, and the connection strip in **Evidence**, tab **Server and MCP**, reads **SERVER REACHED** with a real `GET /health` duration. If it reads **NO SERVER**, the recording is wrong before it starts. |
 | 5 | System audio capture on, microphone off | The earcon in beat 2 is the product speaking. It must reach the recording. |
-| 6 | Reset the page with a reload | On the first frame of beat 2 the stage shows the silent preview: the waveform in its not yet heard colour with the **Falling** contour, the finding sentence with **Show all**, the Braille cells, and the line **Server's real answer, not played yet.** Nothing has played or spoken, and the meters under the button are absent, so a judge watches them arrive. |
+| 6 | Reset the page with a reload | On the first frame of beat 2 the stage shows the silent preview: the waveform in its not yet heard colour with the **Falling** contour, the finding sentence, the Braille cells, and the line **Server's first sentence, not played yet.** Nothing has played or spoken, and the meters under the button are absent, so a judge watches them arrive. |
 
 Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
 
@@ -58,7 +58,7 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
 * **On screen before the press:** the preview the page drew on load from the server's
   answer for this patch, requested with the local engine so that opening the page never
   calls a model. It is silent: the line under the sentence reads
-  `Server's real answer, not played yet.`
+  `Server's first sentence, not played yet.`
 * **On screen after the press, in this order:** the progress bar appears, the preview line
   goes away, the playhead crosses the waveform while the earcon plays, the full spoken
   digest fills in, finding first, and its words light as the browser speaks them, the red
@@ -113,7 +113,7 @@ Terminal 2 is the on-camera terminal. Keep it at a font size readable at 720p.
 * **On screen after approval:** the lease tag reads `GRANT ACCEPTED`, the verdict rows read
   `accepted` and server status `PLANNED`, and the sentence reads
   `Dry run only, nothing was executed. The approved plan is: git diff HEAD.` The audit panel
-  fills with a row reading `plan released, not run   [server state EXECUTED]` followed by
+  fills with a row reading `released to you, nothing run (server state name: EXECUTED)` followed by
   the action id, the command and a payload hash.
 * **Exact action, terminal:** run
   `python -m pytest tests/unit/test_no_execution_in_source_tree.py -q`.
