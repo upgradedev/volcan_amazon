@@ -1,47 +1,92 @@
-# Volcan: video production plan
+# Volcan: how the demo video is made
 
-**Status: no video has been recorded.** `video/` holds the narration script, the cue sheet,
-the subtitle files and the shot list. It holds no rendered footage, and readiness gates E2
-and E4 report red for exactly that reason.
+**Status: rendered locally, not published.** One render exists: `volcan-demo.mp4`, 168.0
+seconds, 1920x1080 at 25 fps, recorded on 2026-09-26 from a local run of commit
+`de30b11f34949419cebdbb62103670c288c18b55`. It lives outside the repository, in the owner's
+reviews folder, with its receipts, and waits for the owner to upload it. There is no public
+link yet. Readiness gates E2 and E4 look for footage inside `video/`, so they stay red.
+
+| | |
+|---|---|
+| SHA-256 of the mp4 | `5382a7204d3ae80d30bcd691145f9eae432c9a760299560492c01b632256b09e` |
+| Duration, from ffprobe | 168.000 s: 3.5 s title card, 160.991 s of beats, 3.5 s outro card |
+| Sync gate | `scripts/verify_video_sync.py`: all gates passed |
+| Narration voice | ElevenLabs, voice id `21m00Tcm4TlvDq8ikWAM`, model `eleven_multilingual_v2` |
+| Characters sent to ElevenLabs | 3,167 in total, including one voice check and one re-roll of three trimmed beats; 1,949 in the beats that shipped |
+| Product code on camera | `src/` and `docs/` identical to `de30b11` when the video was built |
 
 ---
 
-## 1. Submission constraints
+## 1. The pipeline
 
-* Under 180 seconds. The script in `narration.json` runs 165 seconds.
-* English, on a public link.
-* The recording must show software actually running. Every beat is something this repository
-  does today, so the recording is a matter of capture, not of building anything further.
+The scripts are the submission kit's video pipeline, adapted to this repository and committed
+so any one beat can be re-rendered later.
 
-## 2. The files and how they relate
-
-| File | Written by | Holds |
+| Step | Script | Writes, under `VOLCAN_VIDEO_ROOT` (never into git) |
 |---|---|---|
-| `narration.json` | by hand | The five beats, their timings, the words and the intended visual action |
-| `SHOT_LIST.md` | by hand | The capture plan: the exact click, the exact command and the result that must appear |
-| `cue_sheet.json` | `python scripts/synthesize_video_assets.py` | The same beats with word counts and speaking rates computed from the text |
-| `subtitles.vtt`, `subtitles.srt` | the same script | Timed captions generated from the same beats |
-| `../video_sync_receipt.json` | the same script | The sync verdict, which reports false while no rendered video exists |
+| Narration | `video/generate-narration.py` | `narration/NN-beat.mp3`, `timing.json`, `captions.en.srt`, `tts-ledger.jsonl` |
+| Capture | `video/capture-local.py` | `capture/production.webm`, `earcon-press.wav`, `browser-speech.wav`, `capture-receipt.json` |
+| Compose | `video/build-video.py` | `output/volcan-demo.mp4`, `video-receipt.json`, `video_manifest.json`, `caption_windows.json` |
+| Gate | `scripts/verify_video_sync.py` | pass or fail, from the mp4 itself |
 
-Edit `narration.json` only, then rerun the script. Hand-editing the cue sheet would turn its
-measured word counts into numbers somebody typed. Readiness gate E2 compares the beat ids in
-the two files and then fails because there is no picture to compare the narration against.
+```bash
+export VOLCAN_VIDEO_ROOT=/a/folder/outside/the/repo
+export VOLCAN_RELEASE_SHA=$(git rev-parse HEAD)   # the commit the server runs
+export FFMPEG=$(command -v ffmpeg) FFPROBE=$(command -v ffprobe)
+export ELEVENLABS_API_KEY=...                     # read, never printed or written
 
-## 3. The five beats
+python video/generate-narration.py --write-timestamps
+python -m src.interfaces.mcp_server --port 8801   # fresh process, no cloud credentials
+python video/capture-local.py
+python video/build-video.py
+cd "$VOLCAN_VIDEO_ROOT/output" && VIDEO_MANIFEST=video_manifest.json \
+  CAPTION_WINDOWS=caption_windows.json python /path/to/repo/scripts/verify_video_sync.py volcan-demo.mp4
+python scripts/synthesize_video_assets.py         # cue sheet and subtitles from the measured beats
+```
 
-| Beat | Shown running | Surface |
-|---|---|---|
-| `beat_01_hook` | A screen reader working through a raw patch character by character | Companion page and the operating system screen reader |
-| `beat_02_one_button` | **Hear this code review** pressed by keyboard: the earcon plays, the digest and the security finding fill in, the Braille cells render, the meters report the engine and the measured round trip | Companion page |
-| `beat_03_mcp_handshake` | **Run a real MCP handshake** rendering the negotiated version, the session id and the twelve tool schemas, then `python scripts/mcp_conformance.py` in a terminal | Companion page, then terminal |
-| `beat_04_governance` | Stage, then approve, ending on the line that says nothing was executed and on the audit row that says the same | Companion page, then terminal |
-| `beat_05_verification` | `python -m pytest tests/ -q` and `python ci/readiness.py` including the gates that are red | Terminal, then back to the page |
+`python tests/video/verify_gate_selftest.py` proves the gate still fails on a mis-ordered
+video, a caption that runs into the outro and an audio track longer than the picture. It
+passed on 2026-09-26. It is not collected by pytest, so the suite count stays 572.
 
-`SHOT_LIST.md` carries the per-beat detail, the values that must appear on screen, and the
-list of things that must not be filmed because they do not exist here.
+### Re-rendering one beat
 
-## 4. Narration audio
+Edit that beat's `narration_text` and `speech_text` in `narration.json` and rerun the
+generator. It prints `reused` for every unchanged beat and synthesizes only the edited one,
+because ElevenLabs does not return identical audio twice and a re-roll would move every
+offset after it. Then capture and compose again: the capture is paced by the measured windows,
+so a changed beat length changes the take.
 
-No narration audio has been generated and no text-to-speech service has been called from this
-repository. `narration.json` records that in its `narration_audio` block rather than naming a
-voice that has never spoken.
+---
+
+## 2. What is real in the picture and the sound
+
+* **The picture** is a headless Chromium recording of the page at 1280x720, scaled to 1080p.
+  The script presses keys and buttons and scrolls; it never writes into the page and never
+  answers a request. Every panel filled from the running server during the take.
+* **The narration** is a synthetic ElevenLabs voice. It never speaks for the product.
+* **The earcon** is the WAV the server returned for the press, byte for byte (SHA-256
+  `22c91bec...`), mixed in where the page's own playback clock started it, which is where the
+  playhead starts crossing the waveform.
+* **The spoken sentence** is the exact text the page passed to `speechSynthesis`, which is the
+  server's `voice_summary_for_speech`. Headless capture records no audio, so it was rendered
+  again with Windows System.Speech, voice `Microsoft David Desktop`, the desktop form of the
+  `Microsoft David` voice the browser used, and placed at the browser's speech start event. It
+  is labelled on screen as the browser's system voice.
+* **Two marker pages**, before and after the journey, turn from white to black at a logged
+  time. Their frames map page time to video time; across the take the drift was 5 parts per
+  million.
+* **The overlays** are the title and outro cards, a corner tag naming the local commit, the two
+  labels naming the product's sound, and captions derived from the measured narration.
+
+## 3. Known gaps in this render
+
+* No terminal is filmed. The test count and the conformance count in beat 6 were printed by
+  `python -m pytest tests/ -q` and `python scripts/mcp_conformance.py` against this commit on
+  2026-09-26, and are stated rather than shown.
+* No screen reader is filmed in beat 1. Headless capture has none.
+* The browser's speech lasted 16.7 s between its start and end events; the System.Speech
+  rendering of the same text lasts 15.2 s. The words on screen light from the browser's own
+  boundary events, so late in the sentence the lit word may trail the voice you hear. The
+  offset was not measured word by word.
+* The public endpoint runs an older commit, so the video shows a local run. The title card
+  says so.

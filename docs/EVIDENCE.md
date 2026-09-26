@@ -1110,9 +1110,9 @@ the new `source_revision`. Until then, run the server locally to see this branch
   ancestor of this branch 28 commits behind `9e6f215`; see
   [The public deployment](#the-public-deployment). No Alexa skill or Echo-device execution is
   inferred from that server proof.
-* **No video has been recorded.** [`video/SHOT_LIST.md`](../video/SHOT_LIST.md) is a beat sheet
-  in which every beat is an action this repository can perform today, and `video/` holds no
-  footage. Gates E2 and E4 are red for that reason.
+* **No video has been published.** A 168 second render of a local run of `de30b11` exists
+  outside the repository, pending upload by the owner; [`video/README.md`](../video/README.md)
+  says how it was made. `video/` holds no footage, so gates E2 and E4 stay red.
 * **Durability is deployment-dependent and bounded.** A local run without
   `VOLCAN_STATE_TABLE` keeps dialogue, actions, spent nonces and audit records in process
   memory, and a restart loses them. The Terraform deployment passes only an existing

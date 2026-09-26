@@ -24,8 +24,9 @@ a Lambda with a function URL and a DynamoDB table in Terraform.
 **Honest status.** *Real:* the MCP server, the spoken digest, the earcon, the Braille, the live
 GitHub read, the grants and the hash-chained audit log. *Simulated:* the voice loop is the
 browser's own speech recognition and synthesis, labelled on the page as not an Alexa skill.
-*Missing:* any Alexa+ connection or Echo test, a demo video, a live GitHub write, a recorded
-Bedrock answer, and a public build that shows this version.
+*Missing:* any Alexa+ connection or Echo test, a published demo video (a render of a local
+run exists, pending upload), a live GitHub write, a recorded Bedrock answer, and a public build
+that shows this version.
 
 | | |
 |---|---|
@@ -153,7 +154,8 @@ its URL and type `open`; the full command list is in
 | Digest by Claude on Amazon Bedrock | Real code with a stated fallback. A provider failure returns a fixed public category; raw account, role and request identifiers never enter the anonymous response. No Bedrock answer has been recorded: locally the SDK was absent, and the public build's call is refused as not authorized | `python -m pytest tests/unit/test_bedrock_synthesis_path.py -v` |
 | Voice loop | Simulated: the browser's speech, not an Alexa skill, and no test drives a microphone | [Evidence](docs/EVIDENCE.md#what-is-true-and-what-is-simulated) |
 | Shared durable state | In the code and the Terraform, not deployed; a local run keeps state in memory | The `durable_state` field of `GET /health` says which |
-| Alexa+ integration, Echo test, demo video | Missing | [Known limitations](docs/EVIDENCE.md#known-limitations) |
+| Alexa+ integration, Echo test | Missing | [Known limitations](docs/EVIDENCE.md#known-limitations) |
+| Demo video | Rendered locally from a run of `de30b11`, pending upload; no public link yet | [video/README.md](video/README.md) |
 | Test suite | 572 passing, 91.95% statement coverage, 2026-09-26 | `python -m pytest tests/ -q --cov=src` |
 
 ## Who it is for and who pays

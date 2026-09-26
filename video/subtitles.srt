@@ -1,19 +1,23 @@
 1
-00:00:00,000 --> 00:00:20,000
-An autonomous coding agent just wrote this patch. A sighted reviewer scans it in seconds. A screen reader reads it one plus sign, one minus sign and one hunk header at a time, so the single line that flips an authorization check sounds exactly like everything around it.
+00:00:03,500 --> 00:00:22,353
+This is the kind of patch an autonomous coding agent writes. A sighted reviewer scans it in seconds. A screen reader reads it one plus sign, one minus sign and one hunk header at a time, so the one line that flips an authorization check sounds like everything around it.
 
 2
-00:00:20,000 --> 00:00:58,000
-This is Volcan, running on this machine. Before anything plays, the stage already shows the server's real answer for this patch, silently: the earcon's waveform with its falling pitch, the finding in words, and the Braille cells. One button plays it. The earcon comes first, so the verdict arrives before the sentence. This patch touches security, so the cue falls; a benign one rises. Then the spoken digest, which opens with the finding itself: an authorization comparison was inverted. The engine label and the round trip are read off the response, measured in this browser.
+00:00:22,353 --> 00:01:03,344
+This is Volcan, running locally on this machine. Before anything plays, the stage already shows the server's real answer for this patch, silently: the earcon's waveform with its falling pitch, the finding in words, and the Braille cells. One button plays it, pressed from the keyboard. Listen.
 
 3
-00:00:58,000 --> 00:01:32,000
-The track question is whether the protocol is real. Volcan's Model Context Protocol server is written by hand to revision 2025-11-25 over Streamable HTTP, with no SDK. This button performs a real initialize and a real tools list call against the MCP endpoint, then prints the negotiated version, the session identifier taken from the response header, and the JSON Schema of all twelve tools. The conformance script runs the same handshake from a terminal.
+00:01:03,344 --> 00:01:26,054
+The earcon came first, so the verdict arrived before the sentence. This patch touches security, so the cue falls; a clean patch gets a rising cue. The sentence opens with the finding itself. The engine meter reads local heuristic, because this run has no cloud credentials, and the round trip was measured in this browser.
 
 4
-00:01:32,000 --> 00:02:08,000
-A high-consequence command is staged behind a single-use grant, bound by HMAC SHA-256 to the command's own payload hash and to a lease. The agent that proposed the action cannot release it. A human presents the grant, and the planner answers: allowlisted, would run git diff HEAD, executed is false. Nothing ran. That holds for the whole product. No file under src imports subprocess or any process spawn, and a test walks every module's syntax tree on each run to keep it that way.
+00:01:26,054 --> 00:01:50,203
+Volcan's Model Context Protocol server is written by hand to revision 2025-11-25 over Streamable HTTP, with no SDK. This button runs a real initialize and a real tools list call, then prints the negotiated version, the session identifier from the response header, and the JSON Schema of all twelve tools.
 
 5
-00:02:08,000 --> 00:02:45,000
-Everything shown here is checkable in one command. Five hundred and forty-three automated tests. Twenty-two of twenty-two protocol conformance checks. And a readiness script that is allowed to fail, and does: no video has been rendered yet, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.
+00:01:50,203 --> 00:02:19,413
+A high-consequence command is staged behind a single-use grant, bound by HMAC-SHA256 to its payload hash and to a lease. A human presents the grant, and the server answers: accepted, released to you, nothing run. The plan, git diff HEAD, stays a plan. No file under src imports subprocess, and a test walks every module's syntax tree to keep it that way.
+
+6
+00:02:19,413 --> 00:02:44,490
+On this commit, 572 automated tests pass, and 22 of 22 protocol conformance checks pass against this server. There is no Alexa skill yet, the public endpoint runs an older commit, and this run called no Bedrock model. The page says so on screen. Volcan is for the developer who reviews code by ear and by touch.
