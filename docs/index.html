@@ -620,6 +620,30 @@
     .steps svg .dot { fill: var(--ink); }
     .steps svg .dot.off { fill: var(--dot-off); }
 
+    /* Who it is for: three plain cards, one of them a labelled hypothesis
+       and one a labelled plan. */
+    .who-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+    .who-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); padding: 18px 20px; }
+    .who-card h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 8px; font-size: var(--t-md); }
+    .who-card p { margin: 0; color: var(--ink-soft); font-size: var(--t-sm); }
+    .tag-hypothesis, .tag-notbuilt {
+      font-size: var(--t-xs); font-weight: 700; letter-spacing: 0.04em;
+      border: 1px solid currentColor; border-radius: 999px; padding: 1px 10px;
+    }
+    .tag-hypothesis { color: var(--warn); }
+    .tag-notbuilt { color: var(--simulated); }
+
+    .path-strip { margin: 0 0 32px; }
+    .path-strip figcaption { font-size: var(--t-xs); color: var(--ink-soft); margin: 0 0 10px; }
+    .path-strip ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; }
+    .path-box {
+      flex: 1 1 180px; display: flex; flex-direction: column; gap: 4px;
+      border: 2px solid var(--line-strong); border-radius: var(--r-m); background: var(--surface); padding: 12px 14px;
+    }
+    .path-box.planned { border-style: dashed; border-color: var(--simulated); background: transparent; }
+    .path-box span { font-size: var(--t-xs); color: var(--ink-soft); }
+    .path-arrow { align-self: center; color: var(--ink-soft); font-size: var(--t-lg); }
+
     /* The review, as a conversation. */
     /* The steps come first, in reading order and in the tab order alike: a
        keyboard user used to cross sixteen dialogue controls before reaching
@@ -817,6 +841,7 @@
       .review-grid { grid-template-columns: minmax(0, 1fr); }
       .gov-grid { grid-template-columns: minmax(0, 1fr); }
       .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .who-grid { grid-template-columns: minmax(0, 1fr); }
     }
 
     @media (max-width: 620px) {
@@ -837,6 +862,7 @@
       .rendering h3 { grid-row: auto; }
       .rendering > * { grid-column: 1; }
       .steps { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+      .path-arrow { display: none; }
       .composer-row { flex-wrap: wrap; }
       .composer-row input { flex-basis: 100%; }
       .kv dt { min-width: 0; }
@@ -1070,11 +1096,43 @@
 
       <nav class="jump" aria-label="Sections of this page">
         <ul>
+          <li><a href="#who">Who it is for</a></li>
           <li><a href="#how">How one press works</a></li>
           <li><a href="#review">Talk through a pull request</a></li>
           <li><a href="#evidence">Evidence</a></li>
         </ul>
       </nav>
+
+      <section class="chapter" id="who" aria-labelledby="who-heading">
+        <div class="chapter-head">
+          <p class="eyebrow">Who it is for</p>
+          <h2 id="who-heading">Who uses it, who would pay, and the road to Alexa+</h2>
+        </div>
+        <div class="who-grid">
+          <div class="who-card">
+            <h3>Who uses it</h3>
+            <p>Blind and low-vision developers who have to review code an AI agent wrote.
+              Today that means a screen reader reading a diff one plus sign at a time.
+              Volcan gives the verdict as a sound, the finding as one sentence, and every
+              symbol as eight-dot Braille.</p>
+          </div>
+          <div class="who-card">
+            <h3>Who would pay <span class="tag-hypothesis">hypothesis</span></h3>
+            <p>The accessibility compliance owner at an employer bound by the European
+              Accessibility Act, which Member States apply from 28 June 2025
+              (<a href="https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32019L0882">Directive (EU) 2019/882, Article 31</a>),
+              or selling to US federal agencies under Section 508. No buyer has been
+              interviewed and no price is set.</p>
+          </div>
+          <div class="who-card">
+            <h3>Road to Alexa+ <span class="tag-notbuilt">not built</span></h3>
+            <p>An Alexa+ integration would call this same MCP server: revision 2025-11-25,
+              the tools listed under Evidence after the handshake. None exists yet: there is
+              no Alexa skill, no Alexa+ connection and no test on an Echo device. This page is
+              the stand-in, and says so at the top.</p>
+          </div>
+        </div>
+      </section>
 
       <section class="chapter" id="how" aria-labelledby="how-heading">
         <div class="chapter-head">
@@ -1248,6 +1306,17 @@
             <p id="connDetail">Requesting <code>GET /health</code> on this origin. Nothing here claims a server until that request answers.</p>
             <button type="button" id="retryHealth" title="Request GET /health again and update the state above">Check again</button>
           </div>
+
+          <figure class="path-strip" aria-labelledby="pathStripCaption">
+            <figcaption id="pathStripCaption">Where Alexa+ would connect. The dashed box does not exist yet.</figcaption>
+            <ol>
+              <li class="path-box planned"><b>Alexa+</b><span>not built: no skill, no connection, no device test</span></li>
+              <li class="path-arrow" aria-hidden="true">&#8594;</li>
+              <li class="path-box"><b><code>POST /mcp</code></b><span>MCP 2025-11-25, Streamable HTTP; the handshake below checks it</span></li>
+              <li class="path-arrow" aria-hidden="true">&#8594;</li>
+              <li class="path-box"><b>Volcan tools</b><span>digest, earcon, Braille, governed review</span></li>
+            </ol>
+          </figure>
 
           <section class="block" id="mcp" aria-labelledby="mcp-heading">
             <h2 id="mcp-heading">Model Context Protocol, handshaken in your browser</h2>
