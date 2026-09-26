@@ -1540,6 +1540,7 @@
       staged: null,
       leaseTimer: null,
       mcpSession: null,
+      mcpStateless: false,
       earconUrl: null,
       brailleFidelity: "code",
       reviewPath: null,
@@ -2833,23 +2834,32 @@
         });
         if (init.body.error) { throw new Error(init.body.error.message); }
 
-        State.mcpSession = init.sessionId;
+        // A stateless server returns no Mcp-Session-Id. The header is then
+        // left off every later request: an id the server never issued is
+        // answered 404, and fetch would send a null value as the text "null".
+        State.mcpSession = init.sessionId || null;
+        State.mcpStateless = !State.mcpSession;
         var result = init.body.result;
         $("mcpVersion").textContent = result.protocolVersion;
         $("mcpServer").textContent = result.serverInfo.name + " " + result.serverInfo.version;
         $("mcpSession").textContent = State.mcpSession
           ? State.mcpSession.slice(0, 14) + "..."
-          : "none returned";
+          : "none returned: the server chose the stateless transport";
 
-        var headers = {
-          "MCP-Protocol-Version": init.negotiated || PROTOCOL_VERSION,
-          "Mcp-Session-Id": State.mcpSession
-        };
+        var headers = { "MCP-Protocol-Version": init.negotiated || PROTOCOL_VERSION };
+        if (State.mcpSession) { headers["Mcp-Session-Id"] = State.mcpSession; }
         var notified = await fetch(State.apiBase + "/mcp", {
           method: "POST",
           headers: Object.assign({ "Content-Type": "application/json" }, headers),
           body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" })
         });
+        if (notified.status !== 202) {
+          var refusal = null;
+          try { refusal = await notified.json(); } catch (parseError) { refusal = null; }
+          throw new Error("notifications/initialized answered HTTP " + notified.status
+            + ", not the 202 a notification is owed: "
+            + ((refusal && (refusal.detail || refusal.error)) || "no reason in the response body"));
+        }
 
         var listed = await rpc({ jsonrpc: "2.0", id: 2, method: "tools/list" }, headers);
         if (listed.body.error) { throw new Error(listed.body.error.message); }
@@ -2892,6 +2902,12 @@
     }
 
     async function endMcpSession() {
+      if (State.live && State.mcpStateless) {
+        announce("mcpStatus", "This server runs the stateless MCP transport and issued no "
+          + "session at initialize, so there is no session to end and no DELETE was sent.");
+        $("mcpSession").textContent = "none: stateless transport";
+        return;
+      }
       if (!State.live || !State.mcpSession) {
         announce("mcpStatus", "There is no open MCP session to end. Run the handshake first.");
         $("mcpSession").textContent = "no open session";

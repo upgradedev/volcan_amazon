@@ -420,8 +420,12 @@ Protocol behaviour worth checking: in the default single-process mode `initializ
 cryptographically random `Mcp-Session-Id`, and a session this server never minted is answered
 HTTP 404. The public Lambda sets `VOLCAN_MCP_SESSION_MODE=stateless`, so it issues no session
 header and request-contained calls do not depend on a process-specific MCP id. Both modes are
-permitted by revision 2025-11-25 and the conformance runner detects which one answered. The
-Terraform Lambda additionally sets `VOLCAN_STATE_TABLE`: review and voice sessions, pending
+permitted by revision 2025-11-25 and the conformance runner detects which one answered;
+`--expect-mode stateless` makes it fail a server that answers in the other mode. The page's
+handshake sends `Mcp-Session-Id` only when `initialize` returned one, and
+`tests/e2e/test_mcp_transport_modes.py` runs the script and the page against a real server in
+each mode.
+The Terraform Lambda additionally sets `VOLCAN_STATE_TABLE`: review and voice sessions, pending
 actions, spent nonces and scoped audit records then use one encrypted DynamoDB table shared by
 every worker. Staging commits the session and action together; approval claims the action and
 nonce together; finalization commits the terminal action and audit line together. Local runs
