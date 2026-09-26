@@ -123,7 +123,8 @@ readiness gate verifies by parsing every domain module.
   atomic session/action staging, atomic action/nonce claims and reviewer/repository-scoped
   audit chains whose terminal action and record advance in one transaction;
   durable voice ownership and action namespaces come from the authenticated server roster,
-  never the caller's `user_id`;
+  or a fixed anonymous owner when no credential is sent, never the caller's `user_id`; the
+  anonymous page's audit trail reads one public demo chain with caller-written text withheld;
   cold-start and concurrency tests use independent adapter instances rather than shared Python
   objects.
 * **The companion page.** One HTML file with no remote script, served by FastAPI at `/` and `/demo`; it makes no request to another origin, because its two typefaces, Atkinson Hyperlegible and JetBrains Mono, are inlined from `docs/fonts` under the SIL Open Font License.

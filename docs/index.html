@@ -1410,6 +1410,7 @@
                 <ol class="audit" id="auditVault" aria-label="Audit records held by the server, newest first">
                   <li>Not loaded. The server seals a record when a grant is actually presented, so this list fills after <strong>Approve with the grant</strong>, not after staging.</li>
                 </ol>
+                <p class="caption" id="auditNote" hidden></p>
               </div>
             </div>
           </section>
@@ -2998,7 +2999,18 @@
       if (!State.live) { return; }
       try {
         var response = await fetch(State.apiBase + "/api/audit_log");
-        var data = await response.json();
+        var data = null;
+        try { data = await response.json(); } catch (parseError) { data = null; }
+        if (!response.ok || !data || !Array.isArray(data.records)) {
+          var why = data && data.detail && (data.detail.message || data.detail);
+          throw new Error("HTTP " + response.status + ": "
+            + (why || "no audit records in the response body"));
+        }
+        // A durable server says which chains this list covers and what it
+        // withholds. Its own sentence is printed, never paraphrased.
+        var note = $("auditNote");
+        note.textContent = data.note || "";
+        note.hidden = !data.note;
         var list = clear($("auditVault"));
         if (!data.records.length) {
           list.appendChild(el("li", null, "The server holds no audit records yet."));

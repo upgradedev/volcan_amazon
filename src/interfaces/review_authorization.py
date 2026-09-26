@@ -15,6 +15,8 @@ def authenticated_reviewer(authorization: str | None) -> ReviewPrincipal | None:
 
     Roster: {"alice": {"token": "<32+ chars>", "repositories": ["owner/repo"]}}.
     Never log credentials, accept duplicate credentials, or allow wildcards.
+    An identity may not contain ":", which keeps every reviewer apart from the
+    fixed anonymous owner (``public:anonymous``) of durable public sessions.
     """
     if not authorization:
         return None
@@ -28,7 +30,10 @@ def authenticated_reviewer(authorization: str | None) -> ReviewPrincipal | None:
         identities = []
         seen_tokens: set[str] = set()
         for identity, config in roster.items():
-            if not isinstance(identity, str) or not identity.strip() or not isinstance(config, dict):
+            if (
+                not isinstance(identity, str) or not identity.strip() or ":" in identity
+                or not isinstance(config, dict)
+            ):
                 return None
             token = config.get("token")
             repositories = config.get("repositories")

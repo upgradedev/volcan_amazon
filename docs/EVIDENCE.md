@@ -128,7 +128,7 @@ code operator named (`user.role not equals 'admin'`), while the screen and the B
 the literal `!=`.
 
 **Time to first result, measured on the development machine on 2026-09-26.** Step 1 printed
-`556 passed, 1 warning` (the count is the claim; the duration varies run to run). The server in step 2 answered its first `GET /health` with HTTP 200 **1.7 seconds**
+`572 passed, 1 warning` (the count is the claim; the duration varies run to run). The server in step 2 answered its first `GET /health` with HTTP 200 **1.7 seconds**
 after launch on 2026-09-26 (three runs that day read 1.7, 1.7 and 1.8 s), printed by [`scripts/measure_cold_start.py`](../scripts/measure_cold_start.py),
 which launches its own server on port 8000 (stop the one from step 2 first) and refuses to time
 a process that was already warm. Step 3 printed `22/22 checks passed, 0 failed`. The first
@@ -384,10 +384,20 @@ broke. It is tamper-evident, not tamper-proof: nothing here stops someone who ca
 whole chain from re-sealing it end to end, because the head hash is not published anywhere
 the writer cannot reach. `python -m pytest tests/unit/test_audit_chain.py -v` covers each
 detection path.
-In durable mode there is one chain per authenticated reviewer and repository, selected by a
-hashed partition key. `/api/audit_log` requires a reviewer credential and derives the only
-readable scopes from the server-side repository roster; it never accepts a caller-provided
-scope or exposes a global audit listing.
+In durable mode each chain lives under a hashed partition key, and no caller names the chain
+it reads. Actions staged through the public surface (REST and MCP `stage_governed_action`, which
+carry no credential) share one public demo chain, so the page's audit trail keeps working for
+an anonymous visitor. `/api/audit_log` returns the newest 50 records of that chain to anyone,
+with caller-written text withheld: a command, action id, action type or principal name is shown
+only when it is the page's own fixed value (`git diff HEAD`, `companion-operator`), and the
+payload hash, state, timestamp and chain position are always shown. A roster credential adds
+that reviewer's own review chains, derived from the server-side roster and shown in full.
+Anonymous review and voice sessions stay in their own private per-session chains and are never
+listed. The response carries a `note` saying so, and the page prints it under the list.
+[`src/application/public_audit.py`](../src/application/public_audit.py) holds the rules;
+[`tests/unit/test_durable_public_journey.py`](../tests/unit/test_durable_public_journey.py)
+stages canary strings through REST and MCP and checks that none of them, and no grant, reaches
+the public view.
 
 ---
 
@@ -436,12 +446,16 @@ companion page states what the answering server's `/health` reports and nothing 
 and successful reachability without publishing AWS resource identifiers, so transport
 statelessness or configuration alone is never presented as state durability.
 
-Durable voice turns also require the existing `VOLCAN_REVIEWERS` Bearer roster. The server
-derives the owner and allowed `owner/repository` from that credential, ignores the JSON
+A durable voice turn with a `VOLCAN_REVIEWERS` Bearer credential is bound to that reviewer: the
+server derives the owner and allowed `owner/repository` from the credential, ignores the JSON
 `user_id` for ownership and gives each owner/repository/session an opaque action namespace.
-This prevents caller-selected session or action ids from reading, approving or rejecting
-another reviewer's staged action. Local process-memory demos retain the unauthenticated
-simulated voice flow.
+Without a credential the turn runs the same simulated flow a local run offers (planned, never
+run) under one fixed anonymous owner, `public:anonymous`. The roster refuses any identity
+containing `:`, so no reviewer can share that owner, and a caller-selected session or action id
+cannot read, approve or reject a reviewer's staged action.
+`tests/e2e/test_durable_server_journey.py` runs the whole app in this configuration against
+in-memory DynamoDB and Secrets Manager fakes, with no reviewer roster, and walks the page's
+journey in Chromium.
 `MCP-Protocol-Version` is required on every request after initialize and is echoed on every
 response; `notifications/initialized` returns HTTP 202 with no body; JSON-RPC error codes
 `-32700`, `-32600`, `-32601` and `-32602` are all reachable; a failing tool is reported as
@@ -663,8 +677,9 @@ Measured on the development machine on 2026-09-08 with neither variable set:
 Live mode also requires `VOLCAN_REVIEWERS`, a server-only JSON roster, for example
 `{"alice":{"token":"<generate-a-random-secret-of-at-least-32-characters>","repositories":["owner/repo"]}}`.
 Use a distinct random credential per human, keep the GitHub token on the server, and use
-HTTPS outside loopback. Send `Authorization: Bearer <reviewer-token>` on every durable voice
-or REST review turn, and every MCP request calling `voice_turn` or `review_dialogue_turn`.
+HTTPS outside loopback. An identity may not contain `:`. Send `Authorization: Bearer
+<reviewer-token>` on every live review turn, and on every durable voice turn or audit read that
+should be bound to that reviewer.
 The companion has a password field
 for this reviewer credential; it is not saved in browser storage. Reload before changing
 reviewer. The server derives the approver from the roster and ignores JSON `user_id`
@@ -839,7 +854,7 @@ estimate unless it says ESTIMATE.
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **22 of 22 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 556 passing; 91.52% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-26 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 572 passing; 91.95% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-26 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.7 s on 2026-09-26 (three runs: 1.7, 1.7, 1.8 s) | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 31.3 ms on the first press, then 38.9, 30.5 and 28.7 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credentials | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |

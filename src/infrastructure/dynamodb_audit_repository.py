@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import random
 import time
 from collections.abc import Iterable
 from typing import Any
@@ -21,7 +22,14 @@ from src.infrastructure.dynamodb_state import (
 )
 from src.infrastructure.state_codec import action_to_dict, audit_from_dict, audit_to_dict
 
-AUDIT_APPEND_ATTEMPTS = 8
+#: The public demo chain is one head shared by every anonymous visitor, so a
+#: conflict on it is ordinary traffic, not a fault. Retries back off with
+#: jitter; the budget stays far inside the Lambda timeout.
+AUDIT_APPEND_ATTEMPTS = 24
+
+
+def _backoff(attempt: int) -> None:
+    time.sleep(random.uniform(0.002, 0.01) * min(attempt + 1, 8))
 
 class DynamoAuditRepository:
     """Per-authority hash chains with atomic action finalization.
@@ -71,7 +79,7 @@ class DynamoAuditRepository:
                 return sealed
             except Exception as exc:
                 if _transaction_conflict(exc) and attempt + 1 < AUDIT_APPEND_ATTEMPTS:
-                    time.sleep(0.005 * (attempt + 1))
+                    _backoff(attempt)
                     continue
                 if _transaction_conflict(exc):
                     raise StateConflict("audit head changed repeatedly before append") from exc
@@ -107,7 +115,7 @@ class DynamoAuditRepository:
                 if completed is not None:
                     return completed
                 if _transaction_conflict(exc) and attempt + 1 < AUDIT_APPEND_ATTEMPTS:
-                    time.sleep(0.005 * (attempt + 1))
+                    _backoff(attempt)
                     continue
                 if _transaction_conflict(exc):
                     raise StateConflict(
@@ -297,6 +305,37 @@ class DynamoAuditRepository:
         authorized = sorted({scope for scope in scopes if scope.strip()})
         records = [record for scope in authorized for record in self._query_scope(scope)]
         return sorted(records, key=lambda record: (record.audit_scope, record.sequence))
+
+    def list_recent(self, scope: str, limit: int) -> list[AuditLogRecord]:
+        """The newest ``limit`` records of one scope, oldest first.
+
+        One descending query with a Limit, so a long public chain costs one
+        bounded read rather than a walk of every record ever sealed.
+        """
+        if limit < 1:
+            return []
+        try:
+            response = self._table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+                ExpressionAttributeValues={
+                    ":pk": self.partition_for_scope(scope), ":prefix": "record#",
+                },
+                ScanIndexForward=False,
+                Limit=limit,
+                ConsistentRead=True,
+            )
+        except Exception as exc:
+            raise DurableStateError("scoped audit records could not be read") from exc
+        records = [
+            audit_from_dict(payload)
+            for row in response.get("Items", []) if (payload := _decode(row))
+        ]
+        return sorted(records, key=lambda record: record.sequence)
+
+    def record_count(self, scope: str) -> int:
+        """How many records the scope's chain holds, read from its head."""
+        head = self._head(scope)
+        return int(head["sequence"]) + 1 if head else 0
 
     def get_record(
         self, record_id: str, scopes: Iterable[str] | None = None

@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-556%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-572%20passing-brightgreen.svg)](tests/)
 
 **What it does.** Paste a patch or open a GitHub pull request. Volcan says the risky change
 first in one sentence, plays a cue whose pitch falls on a security finding and rises on a clean
@@ -108,7 +108,7 @@ python -m pip install -e ".[dev,bedrock]"
 python -m pytest tests/ -q
 ```
 
-On 2026-09-26 this printed `556 passed, 1 warning`. The `bedrock` extra installs
+On 2026-09-26 this printed `572 passed, 1 warning`. The `bedrock` extra installs
 `anthropic[bedrock]`. With AWS credentials as well, a Bedrock call is ready to attempt.
 Credentials and an importable SDK do not prove a model answered: the receipt is the digest
 response's `synthesis_mode: bedrock`. Without them the local engine answers, and the page says
@@ -154,7 +154,7 @@ its URL and type `open`; the full command list is in
 | Voice loop | Simulated: the browser's speech, not an Alexa skill, and no test drives a microphone | [Evidence](docs/EVIDENCE.md#what-is-true-and-what-is-simulated) |
 | Shared durable state | In the code and the Terraform, not deployed; a local run keeps state in memory | The `durable_state` field of `GET /health` says which |
 | Alexa+ integration, Echo test, demo video | Missing | [Known limitations](docs/EVIDENCE.md#known-limitations) |
-| Test suite | 556 passing, 91.52% statement coverage, 2026-09-26 | `python -m pytest tests/ -q --cov=src` |
+| Test suite | 572 passing, 91.95% statement coverage, 2026-09-26 | `python -m pytest tests/ -q --cov=src` |
 
 ## Who it is for and who pays
 

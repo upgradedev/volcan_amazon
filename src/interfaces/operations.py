@@ -12,11 +12,17 @@ import base64
 from typing import Any
 
 from src.application.durable_state import review_audit_scope
-from src.application.review_authorization import require_review_principal
-from src.domain.governed_action import Principal
+from src.application.public_audit import (
+    PUBLIC_AUDIT_LIMIT,
+    PUBLIC_DEMO_AUDIT_SCOPE,
+    PUBLIC_VIEW_NOTE,
+    public_record_view,
+)
+from src.application.review_authorization import current_review_principal
+from src.domain.governed_action import AuditLogRecord, Principal
 from src.domain.semantic_diff import category_words, line_counts
-from src.domain.spoken_form import speakable
 from src.domain.sonification import EarconType, earcon_for_report, earcon_for_section
+from src.domain.spoken_form import speakable
 from src.interfaces.composition import (
     audit_repo,
     digest_use_case,
@@ -155,35 +161,63 @@ async def op_confirm_action(req: ConfirmActionRequest) -> dict[str, Any]:
     }
 
 
+def _full_record_view(r: AuditLogRecord) -> dict[str, Any]:
+    return {
+        "id": r.record_id,
+        "action": r.action_id,
+        "action_type": r.action_type,
+        "command": r.command,
+        "payload_hash": r.payload_hash,
+        "state": r.state.value,
+        # What the release produced, in the words the executor used.
+        # For a review this is where "dry run, not sent" lives.
+        "outcome": r.execution_stdout,
+        "staged_by": r.staged_by,
+        "approved_by": r.approved_by,
+        "timestamp": r.timestamp,
+    }
+
+
 def op_audit_log() -> dict[str, Any]:
-    if getattr(audit_repo, "is_durable", False):
-        principal = require_review_principal()
+    """The audit trail this caller may read.
+
+    Process memory: every record this process sealed, as before. Durable
+    mode: anyone gets the newest part of the public demo chain with
+    caller-written text withheld; a roster credential adds that reviewer's
+    own review chains in full. No caller names a scope, and a credential that
+    does not match the roster is treated as no credential.
+    """
+    if not getattr(audit_repo, "is_durable", False):
+        records = audit_repo.list_records()
+        return {
+            "uri": "volcan://governance/audit_log",
+            "mimeType": "application/json",
+            "view": "process_memory",
+            "total_records": len(records),
+            "records": [_full_record_view(r) for r in records],
+        }
+
+    public = audit_repo.list_recent(PUBLIC_DEMO_AUDIT_SCOPE, PUBLIC_AUDIT_LIMIT)
+    rows = [(r.timestamp, public_record_view(r)) for r in public]
+    principal = current_review_principal.get()
+    if principal is not None:
         scopes = [
             review_audit_scope(principal.identity, repository)
             for repository in principal.repositories
         ]
-        records = audit_repo.list_records(scopes)
-    else:
-        records = audit_repo.list_records()
+        rows += [
+            (r.timestamp, {**_full_record_view(r), "chain": "reviewer", "sequence": r.sequence})
+            for r in audit_repo.list_records(scopes)
+        ]
+    # Oldest first, as in process-memory mode; the page reverses for display.
+    rows.sort(key=lambda row: row[0])
     return {
         "uri": "volcan://governance/audit_log",
         "mimeType": "application/json",
-        "total_records": len(records),
-        "records": [
-            {
-                "id": r.record_id,
-                "action": r.action_id,
-                "action_type": r.action_type,
-                "command": r.command,
-                "payload_hash": r.payload_hash,
-                "state": r.state.value,
-                # What the release produced, in the words the executor used.
-                # For a review this is where "dry run, not sent" lives.
-                "outcome": r.execution_stdout,
-                "staged_by": r.staged_by,
-                "approved_by": r.approved_by,
-                "timestamp": r.timestamp,
-            }
-            for r in records
-        ],
+        "view": "public_and_reviewer" if principal is not None else "public",
+        "note": PUBLIC_VIEW_NOTE,
+        "total_records": len(rows),
+        "public_chain_records": audit_repo.record_count(PUBLIC_DEMO_AUDIT_SCOPE),
+        "public_records_shown_limit": PUBLIC_AUDIT_LIMIT,
+        "records": [row[1] for row in rows],
     }

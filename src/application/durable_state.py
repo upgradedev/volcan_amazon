@@ -80,15 +80,6 @@ def private_review_audit_scope(owner: str, repository: str, session_id: str) -> 
     return f"review-session:{hashlib.sha256(material.encode('utf-8')).hexdigest()}"
 
 
-def governed_audit_scope(action_id: str) -> str:
-    """Private scope for generic public-surface actions.
-
-    Generic governed-action requests have no authenticated identity today, so
-    they are intentionally not co-mingled in a globally readable chain.
-    """
-    return f"governed:{action_id}"
-
-
 def voice_action_namespace(owner: str, repository: str, session_id: str) -> str:
     """Opaque per-session namespace for caller-selected voice action ids."""
     material = "\x00".join(
