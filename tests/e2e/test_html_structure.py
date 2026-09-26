@@ -181,24 +181,32 @@ def test_the_synthesis_engine_is_read_from_the_response():
 def test_the_first_screen_says_a_model_can_answer_and_who_reports_it():
     """A judge must not have to scroll to learn the product has an AI path.
 
-    The header is read before any button is pressed. If it never mentions
-    Amazon Bedrock, a reviewer whose install lacked the SDK concludes the AI is
-    absent rather than uninstalled. The sentence also has to point at the meter,
-    so the page keeps promising a report rather than a result.
+    Until 2026-09-26 this sentence sat in the header as "Bedrock attempt through
+    anthropic[bedrock]" and "Synthesis engine names who answered". A design
+    review called the package name in the header jargon, and the header's
+    words were needed for the finding the preview now leads with. The same
+    facts moved into the engine disclosure beside the answer drawn on load:
+    one press from the first screen, never scrolled to, and still naming the
+    package and the meter. They must not hide in a title attribute.
     """
     html = read_html()
-    header = html.split("<main", 1)[0]
-    assert "Bedrock" in header, (
+    first_screen = html.split('id="patchEditor"', 1)[0]
+    why = first_screen.split('id="previewEngineWhy"', 1)[1].split("</div>", 1)[0]
+    assert "Amazon Bedrock" in why, (
         "the first screen must state that a Bedrock model can synthesize the digest"
     )
-    assert "anthropic[bedrock]" in header, (
+    assert "anthropic[bedrock]" in why, (
         "the first screen must name the package that enables the model path"
     )
-    assert "Synthesis engine" in header, (
+    assert "Synthesis engine" in why and "meter" in why, (
         "the first screen must point at the meter that reports which engine answered"
     )
-    assert "will be answered by Amazon Bedrock" not in header, (
-        "the header may say a model can answer, never that one did"
+    assert 'aria-controls="previewEngineWhy"' in first_screen, (
+        "the disclosure must be opened by a button on the first screen"
+    )
+    assert "title=" not in why
+    assert "will be answered by Amazon Bedrock" not in first_screen, (
+        "the page may say a model can answer, never that one did"
     )
 
 
@@ -224,8 +232,11 @@ def test_the_earcon_empty_state_names_both_cues():
     """
     html = read_html()
     caption = html.split('id="earconCaption"', 1)[1].split("</p>", 1)[0]
-    assert "DIFF_READY" in caption and "SECURITY_FINDING" in caption
-    assert "rising" in caption and "falling" in caption
+    # Plain words since 2026-09-26: a design review flagged the raw enum names
+    # SECURITY_FINDING and DIFF_READY on the first screen. The server's type
+    # name still reaches the caption after a press, from the response.
+    assert "finding" in caption and "clean" in caption
+    assert "Rising cue" in caption and "Falling cue" in caption
 
 
 def test_an_unanswered_model_call_prints_its_reason_beside_the_engine():

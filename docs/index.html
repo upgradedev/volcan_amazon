@@ -443,6 +443,8 @@
     }
     #spokenPreview .rest[hidden] { display: none; }
     .engine-why { flex-basis: 100%; margin: 0; max-width: var(--measure); }
+    .engine-why p { margin: 6px 0 0; }
+    .engine-why code { font-size: 0.93em; }
     .engine-why[hidden] { display: none; }
     .spoken-text {
       margin: 0; font-size: clamp(1.2rem, 0.98rem + 0.6vw, 1.45rem); line-height: 1.34;
@@ -876,9 +878,7 @@
         <h1>Hear your code review <em>instead of scrubbing a diff.</em></h1>
         <p class="boundary" id="notASkill">
           <span class="sim">Simulated Alexa+ experience, not an Alexa skill</span>
-          <span>Live: server, MCP, GitHub read, Bedrock attempt through <code>anthropic[bedrock]</code></span>
-          <span>GitHub write: dry-run</span>
-          <span><b>Synthesis engine</b> names who answered</span>
+          <span>Live, except GitHub write: dry-run.</span>
         </p>
       </div>
     </header>
@@ -938,7 +938,7 @@
                 <p class="contour" id="earconContour" aria-hidden="true" hidden></p>
               </div>
               <div id="earconPlayer"></div>
-              <p class="caption legend" id="earconCaption" role="status" aria-live="polite"><span class="cue"><svg viewBox="0 0 30 18" aria-hidden="true" focusable="false"><polyline points="5,5 25,13"></polyline><circle cx="5" cy="5" r="3"></circle><circle cx="25" cy="13" r="3"></circle></svg><span class="visually-hidden">falling: </span><code>SECURITY_FINDING</code></span> <span class="cue"><svg viewBox="0 0 30 18" aria-hidden="true" focusable="false"><polyline points="4,14 15,9 26,4"></polyline><circle cx="4" cy="14" r="3"></circle><circle cx="15" cy="9" r="3"></circle><circle cx="26" cy="4" r="3"></circle></svg><span class="visually-hidden">rising: </span><code>DIFF_READY</code></span></p>
+              <p class="caption legend" id="earconCaption" role="status" aria-live="polite"><span class="cue"><svg viewBox="0 0 30 18" aria-hidden="true" focusable="false"><polyline points="5,5 25,13"></polyline><circle cx="5" cy="5" r="3"></circle><circle cx="25" cy="13" r="3"></circle></svg><span class="visually-hidden">Falling cue: </span>finding</span> <span class="cue"><svg viewBox="0 0 30 18" aria-hidden="true" focusable="false"><polyline points="4,14 15,9 26,4"></polyline><circle cx="4" cy="14" r="3"></circle><circle cx="15" cy="9" r="3"></circle><circle cx="26" cy="4" r="3"></circle></svg><span class="visually-hidden">Rising cue: </span>clean</span></p>
             </article>
 
             <article class="rendering r-spoken" aria-labelledby="r-spoken-heading">
@@ -953,7 +953,12 @@
                           aria-label="Which engine wrote this answer" title="Which engine wrote this answer, and why no model was called">
                     <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="8.2"></circle><path d="M10 9v5"></path><circle class="i-dot" cx="10" cy="6.2" r="1.1"></circle></svg>
                   </button></p>
-                <p class="engine-why" id="previewEngineWhy" hidden></p>
+                <div class="engine-why" id="previewEngineWhy" hidden>
+                  <p id="previewEngineFacts"></p>
+                  <p><b>Synthesis engine.</b> The button asks the server's default engine: Amazon Bedrock
+                    when AWS credentials resolve and <code>anthropic[bedrock]</code> is installed, the local
+                    heuristic otherwise. The meter under the button names which one answered.</p>
+                </div>
               </div>
               <p class="caption" id="spokenCaption"></p>
               <div id="securityAlert" role="alert"></div>
@@ -2250,13 +2255,13 @@
         clear($("spokenPreview")).appendChild(previewSentence(digest.voice_summary));
         drawSilentEarcon(digest.earcon);
         renderBraille(results[1].data, results[1].elapsedMs);
-        $("previewEngineWhy").textContent = "Engine: "
+        $("previewEngineFacts").textContent = "Engine: "
           + (digest.synthesis_mode === "bedrock" ? "Amazon Bedrock" : "local heuristic")
           + ". Reported by the server as synthesis_mode: " + digest.synthesis_mode + "."
           + (digest.synthesis_fallback_reason
             ? " No model answered, because " + digest.synthesis_fallback_reason + "." : "")
           + " The answer drawn when the page opens always names the local engine, so viewing"
-          + " this page never starts a model call. The button asks the server's default engine.";
+          + " this page never starts a model call.";
         $("previewState").hidden = false;
         stage.setAttribute("data-preview", "ready");
       } catch (error) {
