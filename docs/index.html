@@ -504,11 +504,8 @@
     }
     /* A box that holds more rows than it shows says so, in words and with a
        fade over its last visible row, instead of looking cut off. */
-    .cells.overflowing {
-      -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2.2rem), rgba(0, 0, 0, 0.25));
-              mask-image: linear-gradient(to bottom, #000 calc(100% - 2.2rem), rgba(0, 0, 0, 0.25));
-    }
-    .cells.overflowing:focus-visible, .cells.overflowing.scrolled-end { -webkit-mask-image: none; mask-image: none; }
+    .cells.overflowing { border-bottom: 3px solid var(--line-strong); }
+    .cells.overflowing.scrolled-end { border-bottom-width: 1px; }
     .scroll-hint { font-size: var(--t-xs); color: var(--ink-soft); margin: 6px 0 0; }
     .scroll-hint[hidden] { display: none; }
     .cells:has(> .empty-state-card) { background: none; border-style: dashed; white-space: normal; }
@@ -1118,10 +1115,10 @@
           </div>
           <div class="who-card">
             <h3>Who would pay <span class="tag-hypothesis">hypothesis</span></h3>
-            <p>The accessibility compliance owner at an employer bound by the European
-              Accessibility Act, which Member States apply from 28 June 2025
+            <p>The accessibility compliance owner at a company whose products or services
+              the European Accessibility Act covers, which Member States apply from 28 June 2025
               (<a href="https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32019L0882">Directive (EU) 2019/882, Article 31</a>),
-              or selling to US federal agencies under Section 508. No buyer has been
+              or at a supplier to US federal agencies under Section 508. No buyer has been
               interviewed and no price is set.</p>
           </div>
           <div class="who-card">
@@ -1823,8 +1820,10 @@
 
     function speakOrAnnounce(prefix, text, words, speech) {
       if (readerSpeaks()) {
+        // The listener's screen reader reads this, and at common punctuation
+        // settings it drops "!=". The spoken form names the operator.
         revealWords(words, Infinity);
-        announce("runStatus", prefix + " " + text);
+        announce("runStatus", prefix + " " + (speech || text));
         return;
       }
       if (!speak(text, words, speech) && speechAvailable()) {
@@ -2546,6 +2545,9 @@
       var target = document.querySelector(".r-earcon");
       var pane = $("spokenPane");
       if (!target || !pane || !target.scrollIntoView) { return; }
+      // Side by side, the answer sits beside the button already; only the
+      // stacked layout puts it below the fold.
+      if (window.matchMedia && !window.matchMedia("(max-width: 1000px)").matches) { return; }
       if (pane.getBoundingClientRect().top < window.innerHeight * 0.8) { return; }
       target.scrollIntoView({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
     }
@@ -2699,7 +2701,7 @@
         return;
       }
       if (readerSpeaks()) {
-        announce("runStatus", State.lastDigest.voice_summary);
+        announce("runStatus", State.lastDigest.voice_summary_for_speech || State.lastDigest.voice_summary);
         return;
       }
       dimWords(State.lastWords);
@@ -3105,7 +3107,10 @@
        history, not a live region, so it never reads a turn a second time. */
     function voiceTurn(data) {
       if (data.silent) { return; }
-      if (!speakTurn(data)) { announce("reviewStatus", data.readback + " " + (data.spoken || "")); }
+      if (!speakTurn(data)) {
+        announce("reviewStatus", (data.readback_for_speech || data.readback) + " "
+          + (data.spoken_for_speech || data.spoken || ""));
+      }
     }
 
     function speakAfterCue(data) {

@@ -55,10 +55,10 @@ labelled on the page as a simulated voice experience, not an Alexa skill.
 **Who uses it, who would pay, and the road to Alexa+.**
 
 * **User:** a blind or low-vision developer reviewing code an AI agent wrote.
-* **Buyer, a hypothesis:** the accessibility compliance owner at an employer bound by the
-  European Accessibility Act, which Member States apply from 28 June 2025
-  ([Directive (EU) 2019/882, Article 31](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32019L0882)), or by Section 508 in US
-  federal procurement. No buyer has been interviewed and no price is set; the reasoning is in
+* **Buyer, a hypothesis:** the accessibility compliance owner at a company whose products or
+  services the European Accessibility Act covers, which Member States apply from 28 June 2025
+  ([Directive (EU) 2019/882, Article 31](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32019L0882)), or at a supplier to US
+  federal agencies under Section 508. No buyer has been interviewed and no price is set; the reasoning is in
   [Who would buy this](#who-would-buy-this-and-out-of-which-budget).
 * **Alexa+, not built:** an Alexa+ integration would call this same MCP server. There is no
   Alexa skill, no Alexa+ connection and no test on an Echo device.

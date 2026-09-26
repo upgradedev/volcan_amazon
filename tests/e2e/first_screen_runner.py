@@ -270,6 +270,9 @@ def voice(base_url: str) -> None:
         print(json.dumps({"reader_dialogue": {"speak": reader["speak"], "regions": regions}}, indent=1))
         assert reader["speak"] == 0, "the page spoke although the screen reader is the voice"
         assert regions == ["reviewStatus"], regions
+        # The listener's screen reader gets the spoken form: operators named.
+        status = page.locator("#reviewStatus").inner_text()
+        assert "not equals" in status and "!=" not in status, status
 
         page.evaluate("window.__probe.live = []; window.__probe.speak = 0")
         page.locator('[data-testid="primary-hero-action"]').click()
@@ -280,6 +283,8 @@ def voice(base_url: str) -> None:
         regions = sorted({entry.split(":", 1)[0] for entry in hero["live"]})
         print(json.dumps({"reader_hero": {"speak": hero["speak"], "regions": regions}}, indent=1))
         assert hero["speak"] == 0 and regions == ["runStatus"], hero
+        status = page.locator("#runStatus").inner_text()
+        assert "not equals" in status and "!=" not in status, status
 
         # Remembered in this browser, and nothing is announced when restored.
         page.reload(wait_until="networkidle")
