@@ -172,6 +172,11 @@ class ReviewDialogue:
     file_index: int = 0
     hunk_index: int = 0
     line_index: int = 0
+    #: The line "spell that" means when it is not the cursor line. After
+    #: "read the lines" the cursor stays on the first line so "next" walks
+    #: the hunk from the top, but the listener's "that" is the change they
+    #: just heard, not the unchanged context above it. None means the cursor.
+    spell_index: int | None = None
     speech_rate: float = 1.0
     pending_body: str | None = None
     last_turn: DialogueTurn | None = None
@@ -249,6 +254,7 @@ class ReviewDialogue:
         for key, value in self._undo.items():
             setattr(self, key, value)
         self._undo = None
+        self.spell_index = None
         return True
 
     # -- loading -------------------------------------------------------------
@@ -577,6 +583,8 @@ class ReviewDialogue:
         hunk = self.hunk
         self.line_index = 0
         total = len(hunk.lines)
+        changed = [i for i, line in enumerate(hunk.lines[:LINES_PER_READ]) if line.kind != "context"]
+        self.spell_index = changed[0] if changed else None
         spoken_lines = [spoken_line(line, i, total) for i, line in enumerate(hunk.lines[:LINES_PER_READ])]
         head = (
             f"Hunk {self.hunk_index + 1} of {len(section.hunks)} in {section.file_path}"
@@ -619,6 +627,7 @@ class ReviewDialogue:
                           f"Line {wanted} is not inside any hunk of {section.file_path}.", error=True)
 
     def _speak_line(self, command: Command, understood: str) -> DialogueTurn:
+        self.spell_index = None
         hunk = self.hunk
         line = hunk.lines[self.line_index]
         return self._turn(command, understood, spoken_line(line, self.line_index, len(hunk.lines)),
@@ -627,8 +636,14 @@ class ReviewDialogue:
     def _spell(self, command: Command) -> DialogueTurn:
         if self.state is not DialogueState.LINES or self.hunk is None:
             return self._turn(command, command.words, "No line is selected. Say read the lines first.", error=True)
-        line = self.hunk.lines[self.line_index]
-        return self._turn(command, command.words, f"Line {self.line_index + 1}, spelled: {spell_out(line.text)}.",
+        hunk = self.hunk
+        index = self.line_index
+        if self.spell_index is not None and 0 <= self.spell_index < len(hunk.lines):
+            index = self.spell_index
+        line = hunk.lines[index]
+        kind = {"add": "added", "remove": "removed", "context": "unchanged"}[line.kind]
+        return self._turn(command, command.words,
+                          f"Line {index + 1} of {len(hunk.lines)}, {kind}, spelled: {spell_out(line.text)}.",
                           line=self._line_dict())
 
     def _line_dict(self) -> dict | None:

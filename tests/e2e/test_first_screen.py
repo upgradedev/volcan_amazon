@@ -76,3 +76,7 @@ def test_the_skip_link_moves_focus_into_main(base_url):
 
 def test_a_patch_changed_after_a_press_never_sits_beside_the_old_answer(base_url):
     _run("stale", base_url)
+
+
+def test_one_voice_per_answer_and_the_listener_chooses_which(base_url):
+    _run("voice", base_url)

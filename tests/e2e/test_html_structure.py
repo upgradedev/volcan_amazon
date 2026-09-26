@@ -381,12 +381,25 @@ def test_the_readback_precedes_the_answer_and_both_are_spoken_at_the_returned_ra
 
 
 def test_every_dialogue_state_change_is_announced_through_a_live_region():
+    """One live region for the dialogue, and one voice per turn.
+
+    The log and the review pane used to be live regions too, and the page's
+    voice then spoke the same turn, so a screen reader user heard each answer
+    two or three times over itself. The log is now a visible history, the
+    status line carries a turn only when the page's voice does not, and the
+    listener chooses which voice that is."""
     html = read_html()
     script = script_body()
     assert re.search(r'id="reviewStatus"[^>]*role="status"[^>]*aria-live="polite"', html)
-    assert re.search(r'id="dialogueLog"[^>]*aria-live="polite"', html)
-    assert re.search(r'id="reviewPane"[^>]*role="status"[^>]*aria-live="polite"', html)
+    for quiet in ("dialogueLog", "reviewPane", "govPane"):
+        tag = re.search(r'<[^>]*id="%s"[^>]*>' % quiet, html).group(0)
+        assert "aria-live" not in tag and "role=" not in tag, tag
     assert 'announce("reviewStatus"' in script
+    voice = function_body("voiceTurn")
+    assert "if (!speakTurn(data))" in voice and 'announce("reviewStatus"' in voice
+    assert "readerSpeaks()" in function_body("speakTurn")
+    assert 'id="voiceMode"' in html and 'aria-pressed="false"' in html
+    assert "localStorage" in function_body("loadVoiceMode") and "catch" in function_body("loadVoiceMode")
     assert "setDialogueState(data)" in function_body("sendTranscript")
     for state in ("IDLE", "OVERVIEW", "FILE", "LINES", "CONFIRM_REVIEW", "SUBMITTED", "RECORDED", "REFUSED"):
         assert f"{state}:" in script, f"the page has no label for dialogue state {state}"

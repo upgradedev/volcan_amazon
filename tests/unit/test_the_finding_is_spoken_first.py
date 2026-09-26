@@ -41,9 +41,19 @@ def _report(diff):
 def test_level_zero_opens_with_the_finding_and_keeps_the_counts():
     summary = _report(INVERTED).to_voice_summary(level=0)
     assert summary.startswith("In src/auth/permissions.py, " + FINDING), summary
-    assert "Modified 1 file with 1 addition and 1 deletion." in summary
-    assert summary.endswith("Note: 1 critical finding requires your verification.")
+    assert summary.endswith("Modified 1 file with 1 addition and 1 deletion."), summary
     assert ".." not in summary
+
+
+def test_level_zero_says_the_finding_once():
+    """A later review counted the finding three times in one answer: the
+    finding, then "Security-sensitive changes in src/auth/permissions.py", then
+    "Note: 1 critical finding requires your verification". For a listener the
+    repeats are 20 extra words before the counts. The finding is said once."""
+    summary = _report(INVERTED).to_voice_summary(level=0)
+    assert "Security-sensitive" not in summary
+    assert "Note:" not in summary and "requires your verification" not in summary
+    assert summary.count("permissions.py") == 1
 
 
 def test_a_clean_change_says_no_finding_first():

@@ -11,6 +11,16 @@ def plural(count: int, noun: str, suffix: str = "s") -> str:
     return f"{count} {noun}" if count == 1 else f"{count} {noun}{suffix}"
 
 
+def category_words(category: "ChangeCategory") -> str:
+    """A category as words a listener hears: "business logic", not BUSINESS_LOGIC."""
+    return category.value.replace("_", " ").lower()
+
+
+def line_counts(added: int, removed: int) -> str:
+    """Counts as a sentence fragment: "3 lines added, 1 removed", never "(+3, -1)"."""
+    return f"{plural(added, 'line')} added, {removed} removed"
+
+
 class ChangeCategory(str, Enum):
     SECURITY_SENSITIVE = "SECURITY_SENSITIVE"
     API_CONTRACT_CHANGE = "API_CONTRACT_CHANGE"
@@ -110,29 +120,40 @@ class SemanticDiffReport:
         """
         if level == 0:
             headline = self.executive_spoken_summary.rstrip().rstrip(".")
-            base = (
-                f"{headline}. Modified {plural(self.total_files_changed, 'file')} with "
+            counts = (
+                f"Modified {plural(self.total_files_changed, 'file')} with "
                 f"{plural(self.total_insertions, 'addition')} and "
                 f"{plural(self.total_deletions, 'deletion')}."
             )
-            if self.critical_findings:
-                # The finding is the first thing a listener hears. A review
-                # found the summary ended "1 critical finding requires your
-                # verification" and never said what the finding was, so the
-                # inverted comparison the product exists to catch was never
-                # spoken. It now leads, and the counts follow it.
-                lead = self.critical_findings[0].strip()
-                if not lead.endswith("."):
-                    lead += "."
-                count = len(self.critical_findings)
-                verb = "requires" if count == 1 else "require"
-                base = f"{lead} {base} Note: {plural(count, 'critical finding')} {verb} your verification."
-            return base
+            if not self.critical_findings:
+                return f"{headline}. {counts}"
+            # The finding is the first thing a listener hears, then the counts,
+            # and nothing else. The local engine's headline ("Security-sensitive
+            # changes in <file>") and a closing "Note: 1 critical finding
+            # requires your verification" only restated the finding, twice, in
+            # a product whose listener cannot skim past a repeat. A model's
+            # headline is its own words and stays, after the finding.
+            lead = self.critical_findings[0].strip()
+            if not lead.endswith("."):
+                lead += "."
+            parts = [lead]
+            if self.synthesis_mode == "bedrock" and headline:
+                parts.append(f"{headline}.")
+            more = len(self.critical_findings) - 1
+            if more:
+                parts.append(f"{plural(more, 'more security finding')}.")
+            parts.append(counts)
+            return " ".join(parts)
 
         if level == 1:
             lines = [self.to_voice_summary(level=0)]
             for idx, sec in enumerate(self.sections, start=1):
-                sec_desc = f"Section {idx}: {sec.file_path}, category {sec.category.value}. {sec.summary_spoken} (+{sec.added_count}, -{sec.removed_count})."
+                # The parser's own summary_spoken says "Changed N lines in
+                # <file>, <category>", which this line already says in full.
+                sec_desc = (
+                    f"Section {idx}: {sec.file_path}, {category_words(sec.category)}, "
+                    f"{line_counts(sec.added_count, sec.removed_count)}."
+                )
                 lines.append(sec_desc)
             return " ".join(lines)
 

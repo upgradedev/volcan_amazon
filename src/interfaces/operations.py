@@ -14,6 +14,8 @@ from typing import Any
 from src.application.durable_state import review_audit_scope
 from src.application.review_authorization import require_review_principal
 from src.domain.governed_action import Principal
+from src.domain.semantic_diff import category_words, line_counts
+from src.domain.spoken_form import speakable
 from src.domain.sonification import EarconType, earcon_for_report, earcon_for_section
 from src.interfaces.composition import (
     audit_repo,
@@ -39,6 +41,11 @@ async def op_digest(req: DigestRequest, engine: str = "auto") -> dict[str, Any]:
     cue, wav_bytes = sonify_use_case.execute(earcon_for_report(report))
     return {
         "voice_summary": report.to_voice_summary(level=req.level),
+        # The same sentence as a speech engine should say it: code operators
+        # named ("not equals" for !=), so a synthesiser that drops or slurs a
+        # symbol cannot turn the finding into its opposite. The display text
+        # above keeps the literal code, as does the Braille.
+        "voice_summary_for_speech": speakable(report.to_voice_summary(level=req.level)),
         "synthesis_mode": report.synthesis_mode,
         # Null when a model answered. Otherwise a bounded product-owned category
         # explains why the deterministic path answered. Provider payloads can
@@ -67,10 +74,13 @@ async def op_drill_down(req: DrillDownRequest) -> dict[str, Any]:
         )
     sec = report.sections[req.section_index]
     cue, wav_bytes = sonify_use_case.execute(earcon_for_section(sec))
+    # Words a listener hears, not identifiers: "business logic, low
+    # significance", and counts that agree with their noun. The raw enum
+    # values stay in the category and significance fields below.
     spoken = (
-        f"Inspecting {sec.file_path}. Category: {sec.category.value}. "
-        f"Significance is {sec.significance.value}. {sec.summary_spoken} "
-        f"(Added {sec.added_count} lines, removed {sec.removed_count} lines)."
+        f"Inspecting {sec.file_path}: {category_words(sec.category)}, "
+        f"{sec.significance.value.lower()} significance. "
+        f"{line_counts(sec.added_count, sec.removed_count)}."
     )
     if sec.security_findings:
         spoken += " Security alert: " + " ".join(
@@ -80,6 +90,7 @@ async def op_drill_down(req: DrillDownRequest) -> dict[str, Any]:
         spoken += f" Security alert: Flagged for {', '.join(sec.security_flags)}."
     return {
         "spoken_text": spoken,
+        "spoken_text_for_speech": speakable(spoken),
         "file_path": sec.file_path,
         "category": sec.category.value,
         "significance": sec.significance.value,

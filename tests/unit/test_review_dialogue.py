@@ -232,7 +232,21 @@ def test_spell_that_names_every_symbol_so_bang_equals_cannot_be_heard_as_equals(
     say(dialogue, "read the lines")
     say(dialogue, "line 14")
     turn = say(dialogue, "spell that")
-    assert turn.spoken.startswith("Line 4, spelled: 4 leading spaces, r, e, t, u, r, n, space, u, s, e, r, dot, r, o, l, e, space, bang, equals, space, double quote, a, d, m, i, n, double quote.")
+    # The spelled line says where it is and which side of the change it is on.
+    assert turn.spoken.startswith("Line 4 of 4, added, spelled: 4 leading spaces, r, e, t, u, r, n, space, u, s, e, r, dot, r, o, l, e, space, bang, equals, space, double quote, a, d, m, i, n, double quote.")
+
+
+def test_spell_that_after_reading_the_lines_spells_the_change_not_the_context():
+    """A review said "read the lines" then "spell that" and heard the unchanged
+    first line of the hunk spelled. "That" is the change just heard."""
+    dialogue = opened()
+    say(dialogue, "file 1")
+    say(dialogue, "read the lines")
+    turn = say(dialogue, "spell that")
+    assert turn.spoken.startswith("Line 3 of 4, removed, spelled: 4 leading spaces, r, e, t, u, r, n"), turn.spoken
+    assert "equals, equals" in turn.spoken
+    # "next" still walks the hunk from its first line.
+    assert say(dialogue, "next").spoken.startswith("Line 2 of 4")
 
 
 def test_spell_out_distinguishes_capitals_and_names_unicode():

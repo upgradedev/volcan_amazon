@@ -40,6 +40,10 @@ class MockBedrockSynthesis:
             category_breakdown={},
             critical_findings=[],
             sections=sections,
+            # This mock stands in for a model answer, so it says so: the level 0
+            # summary keeps a model's own headline after the finding, and drops
+            # only the local engine's headline, which restated the finding.
+            synthesis_mode="bedrock",
         )
 
 

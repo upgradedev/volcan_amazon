@@ -132,6 +132,7 @@ def review_dialogue_to_dict(dialogue: ReviewDialogue) -> dict[str, Any]:
         "file_index": dialogue.file_index,
         "hunk_index": dialogue.hunk_index,
         "line_index": dialogue.line_index,
+        "spell_index": dialogue.spell_index,
         "speech_rate": dialogue.speech_rate,
         "pending_body": dialogue.pending_body,
         "last_turn": turn_to_dict(dialogue.last_turn),
@@ -152,6 +153,9 @@ def review_dialogue_from_dict(value: dict[str, Any]) -> ReviewDialogue:
         file_index=int(value.get("file_index", 0)),
         hunk_index=int(value.get("hunk_index", 0)),
         line_index=int(value.get("line_index", 0)),
+        spell_index=(
+            int(value["spell_index"]) if value.get("spell_index") is not None else None
+        ),
         speech_rate=float(value.get("speech_rate", 1.0)),
         pending_body=value.get("pending_body"),
         last_turn=turn_from_dict(value.get("last_turn")),

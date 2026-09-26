@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Volcan: hear your code review</title>
-  <meta name="description" content="Volcan turns a code patch into a spoken digest, an audio earcon and Braille cells, so a blind or mobility-impaired developer can review an agent's work without reading a diff.">
+  <meta name="description" content="Volcan turns a code patch into a spoken digest, an audio earcon and Braille cells, so a blind or low-vision developer can review an agent's work without reading a diff.">
   <meta name="theme-color" content="#f6f2e9" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0d0e10" media="(prefers-color-scheme: dark)">
   <!-- The page requests nothing from another origin. Its two typefaces,
@@ -263,7 +263,14 @@
     .pill[data-state="offline"] .led { background: var(--warn); }
 
     .keys-btn { min-height: 36px; padding: 5px 12px; font-size: var(--t-xs); background: transparent; border-color: var(--line); }
-    .keys-btn kbd { font-size: var(--t-sm); padding: 0 7px; }
+    .voice-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 36px; min-width: 44px; padding: 5px 10px; background: transparent; border-color: var(--line);
+    }
+    .voice-btn svg { width: 20px; height: 20px; }
+    .voice-btn[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+    .keys-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; }
+    .keys-btn svg { width: 22px; height: 22px; }
 
     .intro {
       display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
@@ -274,6 +281,12 @@
       font-weight: 700; margin: 0; max-width: 17ch;
     }
     h1 em { font-style: normal; color: var(--ink-soft); }
+    /* Who it is for, in the first five seconds: a stranger reading only the
+       headline took this for a commute tool for sighted developers. */
+    .audience {
+      margin: 10px 0 0; font-size: var(--t-lg); line-height: 1.3; font-weight: 700;
+      color: var(--ember-hot);
+    }
 
     .boundary {
       margin: 0; font-size: var(--t-xs); line-height: 1.5; color: var(--ink-soft);
@@ -440,10 +453,6 @@
     .info-btn:hover, .info-btn[aria-expanded="true"] { color: var(--ink); border-color: var(--line-strong); }
     .info-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
     .info-btn svg .i-dot { fill: currentColor; stroke: none; }
-    .show-all {
-      margin-top: 6px; min-height: 32px; padding: 3px 12px; font-size: var(--t-xs);
-    }
-    #spokenPreview .rest[hidden] { display: none; }
     .engine-why { flex-basis: 100%; margin: 0; max-width: var(--measure); }
     .engine-why p { margin: 6px 0 0; }
     .engine-why code { font-size: 0.93em; }
@@ -873,14 +882,22 @@
           <b>Volcan</b>
         </p>
         <div class="bar-right">
+          <button type="button" class="voice-btn" id="voiceMode" aria-pressed="false"
+                  aria-label="My screen reader speaks the answers"
+                  title="Off, the default: this page speaks each answer in the browser's voice. On: this page stays silent and puts each whole answer in a status line for your own screen reader. Remembered in this browser only.">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z"></path><path d="M8 9.5h8M8 12.5h5"></path></svg>
+          </button>
           <p class="pill" id="connPill" data-state="checking"><span class="led" aria-hidden="true"></span><span class="visually-hidden">Volcan server: </span><span id="connPillText">Checking</span></p>
           <button type="button" class="keys-btn" id="keymapOpen" aria-haspopup="dialog" aria-label="Keyboard map"
-                  title="Open the keyboard map. The question mark key opens it from anywhere on the page"><kbd>?</kbd></button>
+                  title="Open the keyboard map. The question mark key opens it from anywhere on the page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2.5" y="6" width="19" height="12" rx="2"></rect><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M8 14h8"></path></svg></button>
         </div>
       </div>
 
       <div class="intro">
-        <h1>Hear your code review <em>instead of scrubbing a diff.</em></h1>
+        <div class="lead">
+          <h1>Hear your code review <em>instead of scrubbing a diff.</em></h1>
+          <p class="audience">For blind and low-vision developers.</p>
+        </div>
         <p class="boundary" id="notASkill">
           <span class="sim">Simulated Alexa+ experience, not an Alexa skill</span>
           <span>Live server, MCP. GitHub write: dry-run.</span>
@@ -1087,7 +1104,7 @@
               <span class="lease" id="dialogueState" data-state="idle">IDLE</span>
             </div>
             <p class="visually-hidden" id="reviewStatus" role="status" aria-live="polite"></p>
-            <ol class="dialogue" id="dialogueLog" aria-live="polite" aria-label="Review conversation, oldest first">
+            <ol class="dialogue" id="dialogueLog" aria-label="Review conversation, oldest first">
               <li class="empty-state-card">Nothing heard yet. Open a pull request or the patch above, then ask what changed. Each turn shows what was heard, what Volcan understood, and what it answered, and the same words are spoken at the rate the server returned.</li>
             </ol>
 
@@ -1167,7 +1184,7 @@
                 <h4 class="visually-hidden">Review action</h4>
                 <span class="side">POST /api/review/turn</span>
               </div>
-              <div id="reviewPane" role="status" aria-live="polite">
+              <div id="reviewPane">
                 <p class="empty-state-card">No review staged. Say <strong>request changes</strong> followed by your comment. The server binds the review to the head commit it read, issues a single-use grant with a 300 second lease, and waits for <strong>confirm</strong>. The outcome printed here is the server's: submitted, recorded and not sent, or refused with the reason.</p>
               </div>
             </div>
@@ -1273,13 +1290,15 @@
               <button type="button" id="rejectBtn" class="danger" title="Discard the staged action without presenting the grant">Reject</button>
             </div>
 
+            <p class="visually-hidden" id="govStatus" role="status" aria-live="polite"></p>
+
             <div class="gov-grid">
               <div class="panel">
                 <div class="panel-head">
                   <h3>Lease state</h3>
                   <span class="lease" id="leaseTag" data-state="idle">IDLE</span>
                 </div>
-                <div id="govPane" role="status" aria-live="polite">
+                <div id="govPane">
                   <p class="empty-state-card boxed">Nothing staged. Select <strong>Stage an action</strong> to open a 300 second lease on the server.</p>
                 </div>
               </div>
@@ -1429,7 +1448,8 @@
       cueHeard: false,
       previewSeq: 0,
       previewTimer: null,
-      pressSeq: 0
+      pressSeq: 0,
+      voice: "page"
     };
 
     var START_COMMAND = "python -m src.interfaces.mcp_server";
@@ -1615,13 +1635,18 @@
       if ("speechSynthesis" in window) { window.speechSynthesis.cancel(); }
     }
 
-    function speak(text, words) {
+    /* speech is the server's spoken form of text, with code operators named
+       ("not equals" for !=). When it differs from the words on screen, the
+       engine's word positions no longer point at those words, so the whole
+       sentence lights when speech starts instead: no word is lit by a guess. */
+    function speak(text, words, speech) {
       if (!("speechSynthesis" in window)) { revealWords(words, Infinity); return false; }
       try {
         window.speechSynthesis.cancel();
-        var utterance = new SpeechSynthesisUtterance(text);
+        var said = speech || text;
+        var utterance = new SpeechSynthesisUtterance(said);
         utterance.rate = 1.03;
-        if (words) { followSpeech(utterance, words); }
+        if (words) { followSpeech(utterance, words, said !== text); }
         window.speechSynthesis.speak(utterance);
         return true;
       } catch (error) { revealWords(words, Infinity); return false; }
@@ -1635,12 +1660,54 @@
        status line carry the answer itself. */
     function speechAvailable() { return "speechSynthesis" in window; }
 
+    /* Who speaks the answers is the listener's choice. By default this page
+       speaks them with the browser's voice, and the status line only says a
+       result arrived. A listener whose own screen reader should do the talking
+       turns on "My screen reader speaks the answers": the page's voice stays
+       silent and the whole answer goes to the status line instead. Either way
+       there is one voice per answer. The choice is remembered in this browser
+       only, and a browser that refuses storage simply starts in the default. */
+    var VOICE_KEY = "volcan.voice";
+
+    function readerSpeaks() { return State.voice === "reader"; }
+
+    function renderVoiceMode() {
+      $("voiceMode").setAttribute("aria-pressed", String(readerSpeaks()));
+    }
+
+    function loadVoiceMode() {
+      try { if (window.localStorage.getItem(VOICE_KEY) === "reader") { State.voice = "reader"; } }
+      catch (error) { State.voice = "page"; }
+      renderVoiceMode();
+    }
+
+    function toggleVoiceMode() {
+      State.voice = readerSpeaks() ? "page" : "reader";
+      try { window.localStorage.setItem(VOICE_KEY, State.voice); } catch (error) { State.voiceStored = false; }
+      if (readerSpeaks() && speechAvailable()) { window.speechSynthesis.cancel(); }
+      renderVoiceMode();
+    }
+
+    /* A short spoken confirmation outside the stage: the staged action, the
+       grant, the rejection. One voice, whichever the listener chose. */
+    function sayOrAnnounce(statusId, text) {
+      if (readerSpeaks() || !speak(text)) { announce(statusId, text); }
+    }
+
     function announceResult(prefix, text) {
+      // With the screen reader speaking, the answer is announced whole once
+      // the cue has ended, by speakOrAnnounce below.
+      if (readerSpeaks()) { return; }
       announce("runStatus", speechAvailable() ? prefix + " Speaking it now." : prefix + " " + text);
     }
 
-    function speakOrAnnounce(prefix, text, words) {
-      if (!speak(text, words) && speechAvailable()) {
+    function speakOrAnnounce(prefix, text, words, speech) {
+      if (readerSpeaks()) {
+        revealWords(words, Infinity);
+        announce("runStatus", prefix + " " + text);
+        return;
+      }
+      if (!speak(text, words, speech) && speechAvailable()) {
         // The engine exists but refused this utterance: the words go to the
         // status line after all, so nobody is left with silence.
         announce("runStatus", prefix + " " + text);
@@ -1755,17 +1822,18 @@
        that reports none gets the whole sentence lit once it starts speaking,
        and a browser that never starts gets it lit when the wait runs out.
        No word is ever lit on a timer that pretends to be speech. */
-    function followSpeech(utterance, words) {
+    function followSpeech(utterance, words, reworded) {
       var started = false;
       var sawBoundary = false;
       function all() { revealWords(words, Infinity); }
       utterance.onstart = function () {
         started = true;
+        if (reworded) { all(); return; }
         revealWords(words, 0);
         setTimeout(function () { if (!sawBoundary) { all(); } }, BOUNDARY_GRACE);
       };
       utterance.onboundary = function (event) {
-        if (event.name && event.name !== "word") { return; }
+        if (reworded || (event.name && event.name !== "word")) { return; }
         sawBoundary = true;
         revealWords(words, event.charIndex);
       };
@@ -2229,31 +2297,18 @@
       renderContour(contour);
     }
 
-    /* The first sentence of the answer is its verdict. The rest (the counts
-       and the note) is one press of Show all away, for every reader alike:
-       it is hidden, not clipped, so a screen reader gets exactly what a
-       sighted reader gets. The press speaks and shows the whole answer. */
+    /* The first sentence of the answer is its verdict, and it is all the
+       preview shows: the rest is the change counts, which the patch beside it
+       already shows and the press speaks and prints in full. The state line
+       says which it is, "first sentence" or the whole answer, so nothing
+       shown here passes for more of the server's answer than it is. */
     function previewSentence(text) {
-      var split = text.search(/\.\s+(?=[A-Z])/);
+      var split = text.search(/\.\s+(?=[A-Z0-9])/);
       var host = document.createElement("div");
-      var head = el("p", "spoken-text", split < 0 ? text : text.slice(0, split + 1));
-      host.appendChild(head);
-      if (split < 0) { return host; }
-      var rest = el("span", "rest", " " + text.slice(split + 1).trim());
-      rest.id = "previewRest";
-      rest.hidden = true;
-      head.appendChild(rest);
-      var more = el("button", "show-all", "Show all");
-      more.type = "button";
-      more.setAttribute("aria-expanded", "false");
-      more.setAttribute("aria-controls", "previewRest");
-      more.addEventListener("click", function () {
-        var open = rest.hidden;
-        rest.hidden = !open;
-        more.setAttribute("aria-expanded", String(open));
-        more.textContent = open ? "Show less" : "Show all";
-      });
-      host.appendChild(more);
+      host.appendChild(el("p", "spoken-text", split < 0 ? text : text.slice(0, split + 1)));
+      $("previewStateText").textContent = split < 0
+        ? "Server's real answer, not played yet."
+        : "Server's first sentence, not played yet.";
       return host;
     }
 
@@ -2422,7 +2477,9 @@
         revealAnswer();
         var prefix = "Round trip " + digest.elapsedMs.toFixed(1) + " milliseconds.";
         whenCueEnds(function () {
-          if (seq === State.pressSeq) { speakOrAnnounce(prefix, digest.data.voice_summary, words); }
+          if (seq === State.pressSeq) {
+            speakOrAnnounce(prefix, digest.data.voice_summary, words, digest.data.voice_summary_for_speech);
+          }
         });
         announceResult(prefix, digest.data.voice_summary);
       } catch (error) {
@@ -2456,7 +2513,9 @@
         var words = renderSpoken(digest.data, digest.elapsedMs, "Level 1 file-by-file digest");
         renderEarcon(digest.data.earcon);
         whenCueEnds(function () {
-          if (seq === State.pressSeq) { speakOrAnnounce("Level 1 digest.", digest.data.voice_summary, words); }
+          if (seq === State.pressSeq) {
+            speakOrAnnounce("Level 1 digest.", digest.data.voice_summary, words, digest.data.voice_summary_for_speech);
+          }
         });
         announceResult("Level 1 digest.", digest.data.voice_summary);
       } catch (error) {
@@ -2479,12 +2538,17 @@
         $("spokenCaption").textContent = "Drill down on " + drill.data.file_path
           + ", category " + drill.data.category + ", significance " + drill.data.significance
           + ", returned in " + drill.elapsedMs.toFixed(1) + " ms.";
-        State.lastDigest = { voice_summary: drill.data.spoken_text };
+        State.lastDigest = {
+          voice_summary: drill.data.spoken_text,
+          voice_summary_for_speech: drill.data.spoken_text_for_speech
+        };
         State.lastWords = sentence.words;
         renderEarcon(drill.data.earcon);
         var drillPrefix = "Drill down on " + drill.data.file_path + ".";
         whenCueEnds(function () {
-          if (seq === State.pressSeq) { speakOrAnnounce(drillPrefix, drill.data.spoken_text, sentence.words); }
+          if (seq === State.pressSeq) {
+            speakOrAnnounce(drillPrefix, drill.data.spoken_text, sentence.words, drill.data.spoken_text_for_speech);
+          }
         });
         announceResult(drillPrefix, drill.data.spoken_text);
       } catch (error) {
@@ -2499,8 +2563,12 @@
           "There is no digest to read yet. Select Hear this code review first.";
         return;
       }
+      if (readerSpeaks()) {
+        announce("runStatus", State.lastDigest.voice_summary);
+        return;
+      }
       dimWords(State.lastWords);
-      if (!speak(State.lastDigest.voice_summary, State.lastWords)) {
+      if (!speak(State.lastDigest.voice_summary, State.lastWords, State.lastDigest.voice_summary_for_speech)) {
         $("spokenCaption").textContent =
           "This browser exposes no speech engine, so the text above is the whole result.";
       }
@@ -2761,7 +2829,7 @@
           ["Round trip", staged.elapsedMs.toFixed(1) + " ms"]
         ]));
         pane.appendChild(el("p", "caption", staged.data.spoken_prompt));
-        speak(staged.data.spoken_prompt);
+        sayOrAnnounce("govStatus", staged.data.spoken_prompt);
         refreshAudit();
       } catch (error) {
         clear($("govPane")).appendChild(failureCard("Staging failed: " + error.message + "."));
@@ -2792,7 +2860,7 @@
           ["Round trip", confirmed.elapsedMs.toFixed(1) + " ms"]
         ]));
         pane.appendChild(el("p", "caption", confirmed.data.spoken_text));
-        speak(confirmed.data.spoken_text);
+        sayOrAnnounce("govStatus", confirmed.data.spoken_text);
         State.staged = null;
         refreshAudit();
       } catch (error) {
@@ -2812,7 +2880,7 @@
       pane.appendChild(el("p", null, "The grant was discarded in this browser and never "
         + "presented, so the server sealed no audit record for it. The staged action "
         + "expires on its own when the lease elapses."));
-      speak("Action rejected. The grant was never presented.");
+      sayOrAnnounce("govStatus", "Action rejected. The grant was never presented.");
       State.staged = null;
       refreshAudit();
     }
@@ -2877,12 +2945,14 @@
        readback is a separate utterance so a listener who hears a misheard
        command can say "no, I said ..." while the answer is still queued. */
     function speakTurn(data) {
-      if (!("speechSynthesis" in window) || data.silent) { return false; }
+      if (!("speechSynthesis" in window) || data.silent || readerSpeaks()) { return false; }
       try {
         window.speechSynthesis.cancel();
-        [data.readback, data.spoken].forEach(function (text) {
+        [data.readback, data.spoken].forEach(function (text, index) {
           if (!text) { return; }
-          var utterance = new SpeechSynthesisUtterance(text);
+          // The server's spoken form names each operator, so != is heard.
+          var said = (index === 0 ? data.readback_for_speech : data.spoken_for_speech) || text;
+          var utterance = new SpeechSynthesisUtterance(said);
           utterance.rate = data.speech_rate || 1;
           window.speechSynthesis.speak(utterance);
         });
@@ -2893,10 +2963,19 @@
     /* The cue arrives before the words. When the turn carries an earcon the
        sentence waits for it to end, with a bounded fallback so a browser that
        blocks autoplay still speaks. */
+    /* One voice per turn. The page's voice speaks the readback and the answer;
+       when the listener's screen reader is the voice, or no engine can speak,
+       the status line carries them instead. The conversation log is a visible
+       history, not a live region, so it never reads a turn a second time. */
+    function voiceTurn(data) {
+      if (data.silent) { return; }
+      if (!speakTurn(data)) { announce("reviewStatus", data.readback + " " + (data.spoken || "")); }
+    }
+
     function speakAfterCue(data) {
-      if (!data.earcon || !activeAudio) { speakTurn(data); return; }
+      if (!data.earcon || !activeAudio) { voiceTurn(data); return; }
       var spoken = false;
-      function once() { if (!spoken) { spoken = true; speakTurn(data); } }
+      function once() { if (!spoken) { spoken = true; voiceTurn(data); } }
       activeAudio.addEventListener("ended", once, { once: true });
       activeAudio.addEventListener("error", once, { once: true });
       setTimeout(once, CUE_TIMEOUT_MS);
@@ -2991,7 +3070,6 @@
       // before the server is asked, so the listener is never talked over.
       stopAudio();
       logTurn("you", (source === "microphone" ? "Heard: " : "Typed: ") + text);
-      announce("reviewStatus", "Heard: " + text + ". Sending it to the server.");
 
       var ready = await requireServer([
         ["reviewPane", "The dialogue needs POST /api/review/turn, and nothing answered on this origin."]
@@ -3037,7 +3115,6 @@
 
         if (data.earcon) { renderEarcon(data.earcon); }
         speakAfterCue(data);
-        announce("reviewStatus", data.readback + " " + (data.spoken || ""));
       } catch (error) {
         logTurn("you", "The turn failed: " + error.message);
         clear($("reviewPane")).appendChild(failureCard("The dialogue call failed: " + error.message + "."));
@@ -3279,6 +3356,8 @@
       if (node) { event.preventDefault(); node.focus(); }
     });
 
+    $("voiceMode").addEventListener("click", toggleVoiceMode);
+    loadVoiceMode();
     drawGhostCells();
     loadPreset(1);
     probeHealth().then(previewAnswer);

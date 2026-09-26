@@ -16,6 +16,10 @@ served the page, and a refused handshake prints the server's own reason.
 
 skip: the skip link moves focus into main, not back to the document body.
 
+voice: one voice per answer in the review dialogue, and "My screen reader
+speaks the answers" hands every answer to the status line with the page's own
+voice silent, on the stage and in the dialogue alike.
+
 stale: a patch changed after a press never sits beside the previous patch's
 answer. The stage returns to the new patch's silent answer, and the old
 answer is neither shown nor spoken.
@@ -145,12 +149,10 @@ def silent(base_url: str) -> None:
         assert "an authorization comparison was inverted" in snapshot
         expect(page.locator("#spokenPreview")).to_contain_text("user.role != 'admin'")
         assert "not played yet" in snapshot
-        # The verdict sentence shows first; the rest of the same answer is one
-        # disclosure away, hidden rather than clipped.
-        assert not page.locator("#previewRest").is_visible()
-        page.get_by_role("button", name="Show all").click()
-        expect(page.locator("#previewRest")).to_be_visible()
-        expect(page.locator("#previewRest")).to_contain_text("critical finding")
+        # The preview is the verdict sentence alone, and says so: the rest of
+        # the answer is the change counts, spoken and printed by the press.
+        expect(page.locator("#previewState")).to_contain_text("first sentence")
+        assert "Modified" not in page.locator("#spokenPreview").inner_text()
         page.locator("#previewEngine").click()
         expect(page.locator("#previewEngineWhy")).to_contain_text("local heuristic")
         expect(page.locator("#previewEngineWhy")).to_contain_text("synthesis_mode: heuristic-local")
@@ -230,6 +232,62 @@ def skip(base_url: str) -> None:
         browser.close()
 
 
+def voice(base_url: str) -> None:
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        context = browser.new_context(viewport={"width": 1280, "height": 720})
+        context.add_init_script(PROBE_JS)
+        page = context.new_page()
+        page.goto(base_url, wait_until="networkidle")
+        expect(page.locator("#stage")).to_have_attribute("data-preview", "ready", timeout=20_000)
+
+        # The page's voice, the default: a dialogue turn is spoken and no live
+        # region reads it a second time.
+        page.locator("#openReview").click()
+        expect(page.locator("#dialogueState")).to_have_text("OVERVIEW", timeout=20_000)
+        page.wait_for_timeout(2000)
+        page.evaluate("window.__probe.live = []; window.__probe.speak = 0")
+        page.locator("#cmdSummary").click()
+        expect(page.locator("#dialogueLog")).to_contain_text("an authorization comparison was inverted",
+                                                             timeout=20_000)
+        page.wait_for_timeout(2000)
+        page_voice = page.evaluate("window.__probe")
+        print(json.dumps({"page_voice": page_voice}, indent=1))
+        assert page_voice["speak"] >= 1, "the page's voice did not speak the turn"
+        assert page_voice["live"] == [], f"a live region read the turn as well: {page_voice['live']}"
+
+        # The listener's screen reader: nothing is spoken by the page, and the
+        # whole turn is in the one status line.
+        page.locator("#voiceMode").click()
+        expect(page.locator("#voiceMode")).to_have_attribute("aria-pressed", "true")
+        page.evaluate("window.__probe.live = []; window.__probe.speak = 0")
+        page.locator("#cmdSummary").click()
+        expect(page.locator("#reviewStatus")).to_contain_text("an authorization comparison was inverted",
+                                                              timeout=20_000)
+        page.wait_for_timeout(2000)
+        reader = page.evaluate("window.__probe")
+        regions = sorted({entry.split(":", 1)[0] for entry in reader["live"]})
+        print(json.dumps({"reader_dialogue": {"speak": reader["speak"], "regions": regions}}, indent=1))
+        assert reader["speak"] == 0, "the page spoke although the screen reader is the voice"
+        assert regions == ["reviewStatus"], regions
+
+        page.evaluate("window.__probe.live = []; window.__probe.speak = 0")
+        page.locator('[data-testid="primary-hero-action"]').click()
+        expect(page.locator("#runStatus")).to_contain_text("an authorization comparison was inverted",
+                                                           timeout=20_000)
+        page.wait_for_timeout(2500)
+        hero = page.evaluate("window.__probe")
+        regions = sorted({entry.split(":", 1)[0] for entry in hero["live"]})
+        print(json.dumps({"reader_hero": {"speak": hero["speak"], "regions": regions}}, indent=1))
+        assert hero["speak"] == 0 and regions == ["runStatus"], hero
+
+        # Remembered in this browser, and nothing is announced when restored.
+        page.reload(wait_until="networkidle")
+        expect(page.locator("#voiceMode")).to_have_attribute("aria-pressed", "true")
+        assert page.evaluate("window.__probe.live") == []
+        browser.close()
+
+
 def stale(base_url: str) -> None:
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
@@ -272,5 +330,5 @@ def stale(base_url: str) -> None:
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     modes = {"offline": offline, "silent": silent, "handshake": handshake, "skip": skip,
-             "stale": stale}
+             "stale": stale, "voice": voice}
     modes[sys.argv[1]](sys.argv[2].rstrip("/"))

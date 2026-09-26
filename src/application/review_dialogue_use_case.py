@@ -53,6 +53,7 @@ from src.domain.review_dialogue import (
     parse_command,
 )
 from src.domain.sonification import EarconType
+from src.domain.spoken_form import speakable
 
 ACTION_TYPE = "GITHUB_REQUEST_CHANGES"
 STAGING_PRINCIPAL = "volcan-review-dialogue"
@@ -542,6 +543,10 @@ class ReviewDialogueUseCase:
             "understood": turn.understood,
             "readback": turn.readback,
             "spoken": turn.spoken,
+            # What a speech engine is handed: the same words with each code
+            # operator named, so != is never heard as == or as nothing.
+            "readback_for_speech": speakable(turn.readback),
+            "spoken_for_speech": speakable(turn.spoken),
             "speech_rate": turn.speech_rate,
             "silent": turn.silent,
             "error": turn.error,
