@@ -52,10 +52,14 @@ def base_url():
 
 def _run(mode: str, url: str) -> None:
     result = subprocess.run([sys.executable, RUNNER, mode, url],
-                            capture_output=True, text=True, timeout=120)
+                            capture_output=True, text=True, encoding="utf-8",
+                            errors="replace", timeout=120)
     assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_the_page_renders_its_typefaces_with_every_outside_request_refused(base_url):
     _run("offline", base_url)
 
+
+def test_the_first_screen_shows_the_real_answer_without_speaking_playing_or_announcing(base_url):
+    _run("silent", base_url)

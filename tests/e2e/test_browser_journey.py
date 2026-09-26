@@ -28,7 +28,9 @@ def test_browser_walks_the_primary_digest_sound_and_braille_journey():
         env=server_env,
     )
     try:
-        deadline = time.monotonic() + 15
+        # Importing the app takes about ten seconds on a cold Windows machine,
+        # which made a 15 second wait fail before the browser ever opened.
+        deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             try:
                 if httpx.get(f"{base_url}/health", timeout=1).status_code == 200:

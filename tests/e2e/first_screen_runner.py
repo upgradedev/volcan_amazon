@@ -101,6 +101,9 @@ def silent(base_url: str) -> None:
         context = browser.new_context(viewport={"width": 1280, "height": 720})
         context.add_init_script(PROBE_JS)
         page = context.new_page()
+        digests: list[dict] = []
+        page.on("request", lambda r: digests.append(json.loads(r.post_data or "{}"))
+                if r.url.endswith("/api/digest_semantic_diff") else None)
         page.goto(base_url, wait_until="networkidle")
         expect(page.locator("#stage")).to_have_attribute("data-preview", "ready", timeout=20_000)
         page.wait_for_timeout(1500)
@@ -112,6 +115,10 @@ def silent(base_url: str) -> None:
         assert before["speak"] == 0, f"speech started before the press: {before}"
         assert before["play"] == 0, f"audio played before the press: {before}"
         assert before["live"] == [], f"a live region changed before the press: {before['live']}"
+        # A page view never asks for a model: every digest before the press
+        # names the local engine.
+        assert digests and all(d.get("engine") == "local" for d in digests), digests
+        seen_before_press = len(digests)
         # The live panes stay empty until the user acts; the preview lives beside them.
         assert page.locator("#spokenPane").inner_text().strip() == ""
         assert page.locator("#runStatus").inner_text().strip() == ""
@@ -124,6 +131,16 @@ def silent(base_url: str) -> None:
         assert "not played yet" in (page.locator("#earconWave").get_attribute("aria-label") or "")
         assert "Security-sensitive changes" in snapshot
         assert "not played yet" in snapshot
+        # The verdict sentence shows first; the rest of the same answer is one
+        # disclosure away, hidden rather than clipped.
+        assert not page.locator("#previewRest").is_visible()
+        page.get_by_role("button", name="Show all").click()
+        expect(page.locator("#previewRest")).to_be_visible()
+        expect(page.locator("#previewRest")).to_contain_text("critical finding")
+        page.locator("#previewEngine").click()
+        expect(page.locator("#previewEngineWhy")).to_contain_text("local heuristic")
+        expect(page.locator("#previewEngineWhy")).to_contain_text("synthesis_mode: heuristic-local")
+        assert page.evaluate("window.__probe.live") == [], "opening a disclosure is not an announcement"
 
         page.locator('[data-testid="primary-hero-action"]').click()
         expect(page.locator("#spokenPane")).to_contain_text("src/auth/permissions.py", timeout=30_000)
@@ -132,11 +149,16 @@ def silent(base_url: str) -> None:
         after = page.evaluate("window.__probe")
         print(json.dumps({"after_press": {"speak": after["speak"], "play": after["play"],
                                           "live_changes": len(after["live"])}}, indent=1))
+        assert len(digests) == seen_before_press + 1
+        assert "engine" not in digests[-1], "the press asks the server's default engine"
         assert after["play"] >= 1, "pressing the primary must play the cue"
         assert after["speak"] >= 1, "pressing the primary must speak the digest"
         assert after["live"], "the answer must be announced once the user asked for it"
+        assert not page.locator("#previewState").is_visible(), "a played answer is no longer 'not played yet'"
+        assert page.locator("#spokenPreview").inner_text().strip() == ""
         browser.close()
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")
     {"offline": offline, "silent": silent}[sys.argv[1]](sys.argv[2].rstrip("/"))

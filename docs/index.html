@@ -325,6 +325,10 @@
       background: transparent; border-color: var(--line);
     }
     .edit-btn svg { width: 16px; height: 16px; }
+    /* Icon only at every width: the button's name is "Edit the patch" and its
+       state is aria-expanded, so the first screen spends no word on it. */
+    .edit-btn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .edit-btn { padding: 5px 9px; }
 
     pre.patch-view {
       margin: 0; padding: 12px 0; overflow-x: auto;
@@ -414,7 +418,32 @@
     .caption code, .boundary code, .hint code { font-size: 0.93em; }
     .caption:empty { display: none; }
 
-    #spokenPane { min-height: 3.4rem; }
+    #spokenPreview:not(:empty), #spokenPane:not(:empty) { min-height: 3.4rem; }
+    /* Not yet spoken, so no word is lit or dimmed by speech: the preview
+       sentence is set in plain ink, and the state line says it has not played. */
+    #spokenPreview .spoken-text { color: var(--ink); }
+
+    .preview-state { font-size: var(--t-xs); color: var(--ink-soft); line-height: 1.4; margin: 0; }
+    .preview-state[hidden] { display: none; }
+    .preview-state .state { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
+    .preview-state .state::before {
+      content: ""; width: 7px; height: 7px; border-radius: 50%; flex: none;
+      border: 2px solid var(--earcon);
+    }
+    .info-btn {
+      display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
+      width: 28px; height: 28px; min-height: 28px; padding: 0; margin-left: 2px;
+      background: transparent; border: 1px solid transparent; border-radius: 50%; color: var(--ink-soft);
+    }
+    .info-btn:hover, .info-btn[aria-expanded="true"] { color: var(--ink); border-color: var(--line-strong); }
+    .info-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+    .info-btn svg .i-dot { fill: currentColor; stroke: none; }
+    .show-all {
+      margin-top: 6px; min-height: 32px; padding: 3px 12px; font-size: var(--t-xs);
+    }
+    #spokenPreview .rest[hidden] { display: none; }
+    .engine-why { flex-basis: 100%; margin: 0; max-width: var(--measure); }
+    .engine-why[hidden] { display: none; }
     .spoken-text {
       margin: 0; font-size: clamp(1.2rem, 0.98rem + 0.6vw, 1.45rem); line-height: 1.34;
       font-weight: 700; letter-spacing: -0.01em; max-width: 36ch;
@@ -837,7 +866,7 @@
           <b>Volcan</b>
         </p>
         <div class="bar-right">
-          <p class="pill" id="connPill" data-state="checking" role="status" aria-live="polite"><span class="led" aria-hidden="true"></span><span class="visually-hidden">Volcan server: </span><span id="connPillText">Checking</span></p>
+          <p class="pill" id="connPill" data-state="checking"><span class="led" aria-hidden="true"></span><span class="visually-hidden">Volcan server: </span><span id="connPillText">Checking</span></p>
           <button type="button" class="keys-btn" id="keymapOpen" aria-haspopup="dialog" aria-label="Keyboard map"
                   title="Open the keyboard map. The question mark key opens it from anywhere on the page"><kbd>?</kbd></button>
         </div>
@@ -855,7 +884,7 @@
     </header>
 
     <main id="main">
-      <section class="hero" id="stage" aria-labelledby="hero-heading">
+      <section class="hero" id="stage" aria-labelledby="hero-heading" data-preview="pending">
         <h2 id="hero-heading" class="visually-hidden">Turn the patch into sound and Braille</h2>
 
         <div class="stage" id="transform">
@@ -914,8 +943,17 @@
 
             <article class="rendering r-spoken" aria-labelledby="r-spoken-heading">
               <h3 id="r-spoken-heading">Speech</h3>
-              <div id="spokenPane" role="status" aria-live="polite">
+              <div id="spokenPreview">
                 <p class="empty-state-card">Nothing spoken yet.<span class="visually-hidden"> Select Hear this code review and the sentence the server returns appears here as it is spoken.</span></p>
+              </div>
+              <div id="spokenPane" role="status" aria-live="polite"></div>
+              <div class="preview-state" id="previewState" hidden>
+                <p class="state"><span id="previewStateText">Server's real answer, not played yet.</span>
+                  <button type="button" class="info-btn" id="previewEngine" aria-expanded="false" aria-controls="previewEngineWhy"
+                          aria-label="Which engine wrote this answer" title="Which engine wrote this answer, and why no model was called">
+                    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="8.2"></circle><path d="M10 9v5"></path><circle class="i-dot" cx="10" cy="6.2" r="1.1"></circle></svg>
+                  </button></p>
+                <p class="engine-why" id="previewEngineWhy" hidden></p>
               </div>
               <p class="caption" id="spokenCaption"></p>
               <div id="securityAlert" role="alert"></div>
@@ -1374,7 +1412,9 @@
       reviewPath: null,
       lastWords: null,
       lastSamples: null,
-      cueHeard: false
+      cueHeard: false,
+      previewSeq: 0,
+      previewTimer: null
     };
 
     var START_COMMAND = "python -m src.interfaces.mcp_server";
@@ -1612,7 +1652,10 @@
         }
         if (!inHunk || rows.length >= PATCH_VIEW_LINES || line === "") { return; }
         var mark = line.charAt(0);
-        rows.push([mark === "+" ? "add" : mark === "-" ? "del" : "ctx", line.slice(1)]);
+        // The view is "the patch as changed lines": unchanged context stays in
+        // the editor, so the first screen spends its words on what changed.
+        if (mark !== "+" && mark !== "-") { return; }
+        rows.push([mark === "+" ? "add" : "del", line.slice(1)]);
       });
 
       var indent = Infinity;
@@ -1929,7 +1972,7 @@
       State.lastDigest = data;
       var sentence = spokenSentence(data.voice_summary);
       State.lastWords = sentence.words;
-      clear($("spokenPane")).appendChild(sentence.node);
+      spokenTarget().appendChild(sentence.node);
       $("spokenCaption").textContent = label + " returned in " + elapsedMs.toFixed(1)
         + " ms. Synthesis mode reported by the server: " + data.synthesis_mode + ".";
       return sentence.words;
@@ -2039,6 +2082,10 @@
       State.brailleFidelity = fidelity;
       $("fidelityCode").setAttribute("aria-pressed", String(fidelity === "code"));
       $("fidelityLiterary").setAttribute("aria-pressed", String(fidelity === "literary"));
+      if (!State.lastDigest && $("stage").getAttribute("data-preview") === "ready") {
+        schedulePreview();
+        return;
+      }
       if (!State.lastDigest) {
         $("brailleCaption").textContent = "Fidelity set to " + fidelity
           + ". Select Hear this code review and the cells arrive in that table.";
@@ -2079,6 +2126,7 @@
     }
 
     function paneOffline(id, reason) {
+      if (id === "spokenPane") { endPreview(); }
       clear($(id)).appendChild(offlineCard(reason));
     }
 
@@ -2121,6 +2169,111 @@
       if (State.live) { return true; }
       (paneIds || []).forEach(function (pair) { paneOffline(pair[0], pair[1]); });
       return false;
+    }
+
+    /* --- the silent preview ------------------------------------------- */
+
+    /* Before anyone presses anything, the stage shows the server's real answer
+       for the patch on it: the waveform and contour from the returned WAV,
+       the sentence, and the Braille cells. It is drawn silently. Nothing
+       plays, nothing is spoken, and nothing is written into a live region;
+       the preview sits beside the live panes, which the press fills as
+       before. The request names the local engine, so opening this page never
+       starts a model call. */
+    function drawSilentEarcon(earcon) {
+      var samples = pcmSamples(base64ToBytes(earcon.wav_base64));
+      var contour = pitchContour(samples);
+      var canvas = $("earconWave");
+      canvas.setAttribute("aria-label",
+        "Amplitude of the " + earcon.type + " cue the server returned for this patch, not played yet, drawn from its "
+        + samples.length + " audio samples"
+        + (contour ? ", with a " + contour.direction + " pitch contour measured from them" : "") + ".");
+      State.lastSamples = samples;
+      State.cueHeard = false;
+      drawWaveform(canvas, samples, 0);
+      renderContour(contour);
+    }
+
+    /* The first sentence of the answer is its verdict. The rest (the counts
+       and the note) is one press of Show all away, for every reader alike:
+       it is hidden, not clipped, so a screen reader gets exactly what a
+       sighted reader gets. The press speaks and shows the whole answer. */
+    function previewSentence(text) {
+      var split = text.search(/\.\s+(?=[A-Z])/);
+      var host = document.createElement("div");
+      var head = el("p", "spoken-text", split < 0 ? text : text.slice(0, split + 1));
+      host.appendChild(head);
+      if (split < 0) { return host; }
+      var rest = el("span", "rest", " " + text.slice(split + 1).trim());
+      rest.id = "previewRest";
+      rest.hidden = true;
+      head.appendChild(rest);
+      var more = el("button", "show-all", "Show all");
+      more.type = "button";
+      more.setAttribute("aria-expanded", "false");
+      more.setAttribute("aria-controls", "previewRest");
+      more.addEventListener("click", function () {
+        var open = rest.hidden;
+        rest.hidden = !open;
+        more.setAttribute("aria-expanded", String(open));
+        more.textContent = open ? "Show less" : "Show all";
+      });
+      host.appendChild(more);
+      return host;
+    }
+
+    function endPreview() {
+      State.previewSeq += 1;
+      clearTimeout(State.previewTimer);
+      clear($("spokenPreview"));
+      $("previewState").hidden = true;
+    }
+
+    function spokenTarget() {
+      endPreview();
+      return clear($("spokenPane"));
+    }
+
+    async function previewAnswer() {
+      var stage = $("stage");
+      var seq = State.previewSeq += 1;
+      if (!State.live) { stage.setAttribute("data-preview", "offline"); return; }
+      stage.setAttribute("data-preview", "pending");
+      try {
+        var raw = $("diffInput").value;
+        var results = await Promise.all([
+          postJson("/api/digest_semantic_diff", { raw_diff: raw, level: 0, engine: "local" }),
+          postJson("/api/braille/diff_digest", { raw_diff: raw, fidelity: State.brailleFidelity })
+        ]);
+        if (seq !== State.previewSeq) { return; }
+        var digest = results[0].data;
+        clear($("spokenPreview")).appendChild(previewSentence(digest.voice_summary));
+        drawSilentEarcon(digest.earcon);
+        renderBraille(results[1].data, results[1].elapsedMs);
+        $("previewEngineWhy").textContent = "Engine: "
+          + (digest.synthesis_mode === "bedrock" ? "Amazon Bedrock" : "local heuristic")
+          + ". Reported by the server as synthesis_mode: " + digest.synthesis_mode + "."
+          + (digest.synthesis_fallback_reason
+            ? " No model answered, because " + digest.synthesis_fallback_reason + "." : "")
+          + " The answer drawn when the page opens always names the local engine, so viewing"
+          + " this page never starts a model call. The button asks the server's default engine.";
+        $("previewState").hidden = false;
+        stage.setAttribute("data-preview", "ready");
+      } catch (error) {
+        if (seq !== State.previewSeq) { return; }
+        // No server text is shown here: the empty states stay, and the button
+        // still reports its own request in full.
+        stage.setAttribute("data-preview", "failed");
+      }
+    }
+
+    /* A new patch before the first press gets its own silent answer. After a
+       press the stage belongs to what was played, and the next press
+       refreshes it. */
+    function schedulePreview(delay) {
+      if (!State.live || State.lastDigest) { return; }
+      clearTimeout(State.previewTimer);
+      State.previewTimer = setTimeout(previewAnswer, delay || 0);
     }
 
     /* --- the primary action -------------------------------------------- */
@@ -2184,7 +2337,7 @@
         announce("runStatus", "Cue: " + described + " " + digest.data.voice_summary
           + " Round trip " + digest.elapsedMs.toFixed(1) + " milliseconds.");
       } catch (error) {
-        clear($("spokenPane")).appendChild(failureCard("The digest call failed: " + error.message + "."));
+        spokenTarget().appendChild(failureCard("The digest call failed: " + error.message + "."));
         $("earconCaption").textContent = "No cue, because the digest request did not succeed.";
         $("meters").hidden = false;
         ["meterEngine", "meterLatency", "meterChange"].forEach(function (id) {
@@ -2211,7 +2364,7 @@
         whenCueEnds(function () { speak(digest.data.voice_summary, words); });
         announce("runStatus", "Level 1 digest. " + digest.data.voice_summary);
       } catch (error) {
-        clear($("spokenPane")).appendChild(failureCard("The level 1 digest call failed: " + error.message + "."));
+        spokenTarget().appendChild(failureCard("The level 1 digest call failed: " + error.message + "."));
       }
     }
 
@@ -2224,7 +2377,7 @@
         var drill = await postJson("/api/drill_down_section",
           { raw_diff: $("diffInput").value, section_index: 0 });
         var sentence = spokenSentence(drill.data.spoken_text);
-        clear($("spokenPane")).appendChild(sentence.node);
+        spokenTarget().appendChild(sentence.node);
         $("spokenCaption").textContent = "Drill down on " + drill.data.file_path
           + ", category " + drill.data.category + ", significance " + drill.data.significance
           + ", returned in " + drill.elapsedMs.toFixed(1) + " ms.";
@@ -2234,7 +2387,7 @@
         whenCueEnds(function () { speak(drill.data.spoken_text, sentence.words); });
         announce("runStatus", "Drill down on " + drill.data.file_path + ". " + drill.data.spoken_text);
       } catch (error) {
-        clear($("spokenPane")).appendChild(failureCard("The drill down call failed: " + error.message + ".",
+        spokenTarget().appendChild(failureCard("The drill down call failed: " + error.message + ".",
           "This patch may have no section at index 0. Run the review first to see how many sections the parser found."));
       }
     }
@@ -2900,6 +3053,7 @@
         $("preset" + n).setAttribute("aria-pressed", String(n === id));
       }
       renderPatchView();
+      schedulePreview();
     }
 
     $("runReview").addEventListener("click", runReview);
@@ -2920,12 +3074,20 @@
     $("fidelityCode").addEventListener("click", function () { setBrailleFidelity("code"); });
     $("fidelityLiterary").addEventListener("click", function () { setBrailleFidelity("literary"); });
 
+    $("previewEngine").addEventListener("click", function () {
+      var open = this.getAttribute("aria-expanded") !== "true";
+      this.setAttribute("aria-expanded", String(open));
+      $("previewEngineWhy").hidden = !open;
+    });
     $("editPatch").addEventListener("click", function () {
       var opening = $("patchEditor").hidden;
       setPatchEditor(opening);
       if (opening) { $("diffInput").focus(); }
     });
-    $("diffInput").addEventListener("input", renderPatchView);
+    $("diffInput").addEventListener("input", function () {
+      renderPatchView();
+      schedulePreview(600);
+    });
     $("keymapOpen").addEventListener("click", openKeymap);
     $("keymapOpenReview").addEventListener("click", openKeymap);
     $("keymapClose").addEventListener("click", closeKeymap);
@@ -3002,7 +3164,7 @@
 
     drawGhostCells();
     loadPreset(1);
-    probeHealth();
+    probeHealth().then(previewAnswer);
   </script>
 </body>
 </html>
