@@ -8,9 +8,16 @@ must still load both typefaces from its own bytes and log no console error, and
 it must not even try to reach another origin.
 
 silent: on load the stage draws the server's real answer, and nothing is spoken,
-played or announced until the primary action is pressed.
+played or announced until the primary action is pressed. After the press the
+answer reaches a listener through one channel: one status line, one utterance.
+
+handshake: the Evidence panel's MCP handshake succeeds against the server that
+served the page, and a refused handshake prints the server's own reason.
+
+skip: the skip link moves focus into main, not back to the document body.
 """
 import json
+import re
 import sys
 
 from playwright.sync_api import expect, sync_playwright
@@ -150,6 +157,18 @@ def silent(base_url: str) -> None:
         expect(page.locator("#runStatus")).to_contain_text("Round trip")
         page.wait_for_timeout(3500)
         after = page.evaluate("window.__probe")
+        # One channel: every live-region change the press caused is the status
+        # line, and it names the round trip and hands over to the speech engine
+        # rather than reading the answer over it a second time.
+        regions = sorted({entry.split(":", 1)[0] for entry in after["live"]})
+        print(json.dumps({"live_regions_written_by_the_press": regions,
+                          "status": page.locator("#runStatus").inner_text()}, indent=1))
+        assert regions == ["runStatus"], f"the press wrote to more than one live region: {regions}"
+        status = page.locator("#runStatus").inner_text()
+        assert "Speaking it now." in status, status
+        assert "authorization comparison" not in status, "the status line must not repeat the spoken answer"
+        assert after["speak"] == 1, f"the answer must be spoken exactly once: {after['speak']}"
+        expect(page.locator("#spokenPane")).to_contain_text("an authorization comparison was inverted")
         print(json.dumps({"after_press": {"speak": after["speak"], "play": after["play"],
                                           "live_changes": len(after["live"])}}, indent=1))
         assert len(digests) == seen_before_press + 1
@@ -162,6 +181,52 @@ def silent(base_url: str) -> None:
         browser.close()
 
 
+def handshake(base_url: str) -> None:
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(viewport={"width": 1280, "height": 720})
+        errors: list[str] = []
+        page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+        page.goto(base_url, wait_until="networkidle")
+        expect(page.locator("#connPillText")).to_have_text("Online", timeout=20_000)
+        page.locator("#runMcp").evaluate("button => button.click()")
+        expect(page.locator("#mcpVersion")).to_have_text("2025-11-25", timeout=20_000)
+        expect(page.locator("#mcpCount")).to_have_text(re.compile(r"^\d+$"), timeout=20_000)
+        count = page.locator("#mcpCount").inner_text()
+        print(json.dumps({"tools": count, "errors": errors}))
+        assert int(count) > 0
+        assert errors == [], errors
+
+        # A refusal keeps its reason. The body is the server's own 403 shape.
+        refusal = {"error": "origin_not_allowed",
+                   "detail": "Origin 'http://example.test' is not permitted. Set VOLCAN_ALLOWED_ORIGINS to allow it."}
+        page.route("**/mcp", lambda route: route.fulfill(
+            status=403, content_type="application/json", body=json.dumps(refusal)))
+        page.locator("#runMcp").evaluate("button => button.click()")
+        expect(page.locator("#mcpPane")).to_contain_text("HTTP 403", timeout=20_000)
+        expect(page.locator("#mcpPane")).to_contain_text("Set VOLCAN_ALLOWED_ORIGINS to allow it.")
+        assert "The handshake failed: ." not in page.locator("#mcpPane").inner_text()
+        browser.close()
+
+
+def skip(base_url: str) -> None:
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(viewport={"width": 1280, "height": 720})
+        page.goto(base_url, wait_until="networkidle")
+        page.keyboard.press("Tab")
+        assert page.evaluate("document.activeElement.className") == "skip-link"
+        page.keyboard.press("Enter")
+        focused = page.evaluate("document.activeElement.id")
+        print(json.dumps({"focused_after_skip": focused}))
+        assert focused == "main", f"the skip link left focus on {focused or 'BODY'}"
+        page.keyboard.press("Tab")
+        inside = page.evaluate("!!document.activeElement.closest('main')")
+        assert inside, "the next Tab after skipping must land inside main"
+        browser.close()
+
+
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
-    {"offline": offline, "silent": silent}[sys.argv[1]](sys.argv[2].rstrip("/"))
+    modes = {"offline": offline, "silent": silent, "handshake": handshake, "skip": skip}
+    modes[sys.argv[1]](sys.argv[2].rstrip("/"))

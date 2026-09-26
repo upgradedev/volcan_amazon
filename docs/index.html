@@ -166,6 +166,8 @@
       padding: 14px 22px; font-weight: 700; border-radius: 0 0 var(--r-m) 0;
     }
     .skip-link:focus { transform: none; }
+    /* The skip link moves focus to main itself (tabindex -1), so the next Tab
+       lands on the first control inside it rather than back at the top. */
 
     :focus-visible {
       outline: 3px solid var(--focus);
@@ -883,7 +885,7 @@
       </div>
     </header>
 
-    <main id="main">
+    <main id="main" tabindex="-1">
       <section class="hero" id="stage" aria-labelledby="hero-heading" data-preview="pending">
         <h2 id="hero-heading" class="visually-hidden">Turn the patch into sound and Braille</h2>
 
@@ -938,7 +940,7 @@
                 <p class="contour" id="earconContour" aria-hidden="true" hidden></p>
               </div>
               <div id="earconPlayer"></div>
-              <p class="caption legend" id="earconCaption" role="status" aria-live="polite"><span class="cue"><svg viewBox="0 0 30 18" aria-hidden="true" focusable="false"><polyline points="5,5 25,13"></polyline><circle cx="5" cy="5" r="3"></circle><circle cx="25" cy="13" r="3"></circle></svg><span class="visually-hidden">Falling cue: </span>finding</span> <span class="cue"><svg viewBox="0 0 30 18" aria-hidden="true" focusable="false"><polyline points="4,14 15,9 26,4"></polyline><circle cx="4" cy="14" r="3"></circle><circle cx="15" cy="9" r="3"></circle><circle cx="26" cy="4" r="3"></circle></svg><span class="visually-hidden">Rising cue: </span>clean</span></p>
+              <p class="caption legend" id="earconCaption"><span class="cue"><svg viewBox="0 0 30 18" aria-hidden="true" focusable="false"><polyline points="5,5 25,13"></polyline><circle cx="5" cy="5" r="3"></circle><circle cx="25" cy="13" r="3"></circle></svg><span class="visually-hidden">Falling cue: </span>finding</span> <span class="cue"><svg viewBox="0 0 30 18" aria-hidden="true" focusable="false"><polyline points="4,14 15,9 26,4"></polyline><circle cx="4" cy="14" r="3"></circle><circle cx="15" cy="9" r="3"></circle><circle cx="26" cy="4" r="3"></circle></svg><span class="visually-hidden">Rising cue: </span>clean</span></p>
             </article>
 
             <article class="rendering r-spoken" aria-labelledby="r-spoken-heading">
@@ -946,7 +948,7 @@
               <div id="spokenPreview">
                 <p class="empty-state-card">Nothing spoken yet.<span class="visually-hidden"> Select Hear this code review and the sentence the server returns appears here as it is spoken.</span></p>
               </div>
-              <div id="spokenPane" role="status" aria-live="polite"></div>
+              <div id="spokenPane"></div>
               <div class="preview-state" id="previewState" hidden>
                 <p class="state"><span id="previewStateText">Server's real answer, not played yet.</span>
                   <button type="button" class="info-btn" id="previewEngine" aria-expanded="false" aria-controls="previewEngineWhy"
@@ -961,7 +963,7 @@
                 </div>
               </div>
               <p class="caption" id="spokenCaption"></p>
-              <div id="securityAlert" role="alert"></div>
+              <div id="securityAlert"></div>
             </article>
 
             <article class="rendering r-braille" aria-labelledby="r-braille-heading">
@@ -1374,7 +1376,7 @@
 
       <ul class="promises">
         <li>Every audio cue carries a written description in the same live region.</li>
-        <li>Async results are announced through <code>aria-live</code>, security findings through <code>role="alert"</code>.</li>
+        <li>A result is announced once, through one polite status line. The sentence itself, finding first, is spoken by the browser's speech engine and stays on screen to be read again; when the browser has no speech engine, the status line carries the whole sentence instead.</li>
         <li>Every spoken command has a typed twin, and every answer reads back what was understood before it acts.</li>
         <li>The focus ring is a 3px outline offset from the control, in both colour schemes.</li>
         <li><code>prefers-reduced-motion</code> removes every animation and the smooth scroll; every state still changes, instantly.</li>
@@ -1615,6 +1617,26 @@
         window.speechSynthesis.speak(utterance);
         return true;
       } catch (error) { revealWords(words, Infinity); return false; }
+    }
+
+    /* One channel per result. A press used to write the sentence to four live
+       regions at once (the spoken pane, the cue caption, an alert and this
+       status line) and the speech engine then read it a fifth time over the
+       screen reader. Now the status line gets one short sentence and the
+       speech engine reads the answer; only when no engine can speak does the
+       status line carry the answer itself. */
+    function speechAvailable() { return "speechSynthesis" in window; }
+
+    function announceResult(prefix, text) {
+      announce("runStatus", speechAvailable() ? prefix + " Speaking it now." : prefix + " " + text);
+    }
+
+    function speakOrAnnounce(prefix, text, words) {
+      if (!speak(text, words) && speechAvailable()) {
+        // The engine exists but refused this utterance: the words go to the
+        // status line after all, so nobody is left with silence.
+        announce("runStatus", prefix + " " + text);
+      }
     }
 
     /* --- the stage: patch view, voice, contour, cells -------------------- */
@@ -2334,13 +2356,12 @@
           + "   +" + digest.data.insertions + " -" + digest.data.deletions;
 
         var words = renderSpoken(digest.data, digest.elapsedMs, "Level 0 executive digest");
-        var described = renderEarcon(digest.data.earcon);
+        renderEarcon(digest.data.earcon);
         renderBraille(braille.data, braille.elapsedMs);
         renderFindings(digest.data.critical_findings);
-        whenCueEnds(function () { speak(digest.data.voice_summary, words); });
-
-        announce("runStatus", "Cue: " + described + " " + digest.data.voice_summary
-          + " Round trip " + digest.elapsedMs.toFixed(1) + " milliseconds.");
+        var prefix = "Round trip " + digest.elapsedMs.toFixed(1) + " milliseconds.";
+        whenCueEnds(function () { speakOrAnnounce(prefix, digest.data.voice_summary, words); });
+        announceResult(prefix, digest.data.voice_summary);
       } catch (error) {
         spokenTarget().appendChild(failureCard("The digest call failed: " + error.message + "."));
         $("earconCaption").textContent = "No cue, because the digest request did not succeed.";
@@ -2366,8 +2387,8 @@
           { raw_diff: $("diffInput").value, level: 1 });
         var words = renderSpoken(digest.data, digest.elapsedMs, "Level 1 file-by-file digest");
         renderEarcon(digest.data.earcon);
-        whenCueEnds(function () { speak(digest.data.voice_summary, words); });
-        announce("runStatus", "Level 1 digest. " + digest.data.voice_summary);
+        whenCueEnds(function () { speakOrAnnounce("Level 1 digest.", digest.data.voice_summary, words); });
+        announceResult("Level 1 digest.", digest.data.voice_summary);
       } catch (error) {
         spokenTarget().appendChild(failureCard("The level 1 digest call failed: " + error.message + "."));
       }
@@ -2389,8 +2410,9 @@
         State.lastDigest = { voice_summary: drill.data.spoken_text };
         State.lastWords = sentence.words;
         renderEarcon(drill.data.earcon);
-        whenCueEnds(function () { speak(drill.data.spoken_text, sentence.words); });
-        announce("runStatus", "Drill down on " + drill.data.file_path + ". " + drill.data.spoken_text);
+        var drillPrefix = "Drill down on " + drill.data.file_path + ".";
+        whenCueEnds(function () { speakOrAnnounce(drillPrefix, drill.data.spoken_text, sentence.words); });
+        announceResult(drillPrefix, drill.data.spoken_text);
       } catch (error) {
         spokenTarget().appendChild(failureCard("The drill down call failed: " + error.message + ".",
           "This patch may have no section at index 0. Run the review first to see how many sections the parser found."));

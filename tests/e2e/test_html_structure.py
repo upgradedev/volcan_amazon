@@ -460,7 +460,10 @@ def test_every_rendering_panel_is_labelled_by_a_heading():
 
 def test_the_page_declares_meaningful_roles():
     html = read_html()
-    for role in ('role="status"', 'role="alert"', 'role="group"', 'role="region"', 'role="img"'):
+    # role="alert" left this list on 2026-09-26: it sat on the security
+    # finding, which is now the first sentence of the answer and is spoken
+    # once; an assertive alert read it again over the speech engine.
+    for role in ('role="status"', 'role="group"', 'role="region"', 'role="img"'):
         assert role in html, f"missing role: {role}"
 
 
@@ -561,7 +564,24 @@ def test_keyboard_shortcuts_are_wired_in_script():
 def test_results_are_announced_through_live_regions():
     html = read_html()
     assert html.count('aria-live="polite"') >= 3
-    assert 'role="alert"' in html, "security findings must be announced assertively"
+    assert re.search(r'id="runStatus"[^>]*role="status"[^>]*aria-live="polite"', html)
+
+
+def test_a_hero_result_reaches_a_listener_through_one_channel():
+    """A review measured one press writing to four live regions in 0.2 ms
+    (spokenPane, earconCaption, securityAlert with role=alert, and runStatus
+    repeating the summary), then the speech engine read the same summary over
+    the screen reader. The hero keeps exactly one live region, and the status
+    line hands over to the speech engine instead of reading the answer too.
+    The browser test in first_screen_runner.py counts the mutations."""
+    html = read_html()
+    script = script_body()
+    for quiet in ("spokenPane", "earconCaption", "securityAlert"):
+        tag = re.search(r'<[^>]*id="%s"[^>]*>' % quiet, html).group(0)
+        assert "aria-live" not in tag and "role=" not in tag, tag
+    assert 'role="alert"' not in html
+    assert "Speaking it now." in script
+    assert 'announce("runStatus", "Cue: "' not in script
 
 
 def test_every_audio_cue_carries_a_text_alternative():
@@ -569,9 +589,9 @@ def test_every_audio_cue_carries_a_text_alternative():
     html = read_html()
     script = script_body()
     assert 'id="earconCaption"' in html
-    assert re.search(r'id="earconCaption"[^>]*aria-live="polite"', html), (
-        "the cue description must be announced when it changes"
-    )
+    # The caption is no longer a live region (see the one-channel test
+    # above): the cue is heard, and its written description stays on screen.
+    assert not re.search(r'id="earconCaption"[^>]*aria-live', html)
     assert "spoken_fallback" in script, "the description must come from the server, not the page"
     assert "Written description:" in script
     assert 'setAttribute("aria-label"' in script, "the waveform image needs a described label"

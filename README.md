@@ -543,9 +543,14 @@ version, whether the server chose a stateful id or stateless mode, and each publ
 `inputSchema`.
 
 Accessibility is enforced rather than asserted. The page has semantic landmarks, a labelled
-and keyboard-scrollable Braille region, `aria-live` on every pane that answers something the
-reader asked for and `role="alert"` on security findings (the silent preview drawn on load is
-deliberately outside every live region, so opening the page announces nothing), a 3px focus ring in both colour schemes, a written
+and keyboard-scrollable Braille region, and one announcement per press: a single polite status
+line gives the round trip and hands over to the speech engine, which reads the answer finding
+first, and only a browser with no speech engine gets the whole answer in the status line
+instead. Until 2026-09-26 one press wrote the same sentence to four live regions and the
+speech engine then read it again over the screen reader; `tests/e2e/first_screen_runner.py`
+now counts the regions a press writes to and fails on more than one. The silent preview drawn
+on load sits outside every live region, so opening the page announces nothing. The skip link
+lands focus inside `main`. There is a 3px focus ring in both colour schemes, a written
 description of every audio cue taken from the server's own `spoken_fallback`, and no control
 that ships disabled. `prefers-reduced-motion` removes every animation and the smooth scroll;
 `prefers-color-scheme` selects a designed light or dark palette. The page requests nothing

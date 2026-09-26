@@ -1,4 +1,5 @@
-"""A real Chromium checks the first screen: no outside request, and a silent preview."""
+"""A real Chromium checks the first screen: no outside request, a silent preview,
+one announcement channel, a working MCP handshake and a skip link that lands."""
 import os
 import socket
 import subprocess
@@ -63,3 +64,11 @@ def test_the_page_renders_its_typefaces_with_every_outside_request_refused(base_
 
 def test_the_first_screen_shows_the_real_answer_without_speaking_playing_or_announcing(base_url):
     _run("silent", base_url)
+
+
+def test_the_mcp_handshake_works_on_the_serving_origin_and_prints_a_refusal(base_url):
+    _run("handshake", base_url)
+
+
+def test_the_skip_link_moves_focus_into_main(base_url):
+    _run("skip", base_url)
