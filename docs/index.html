@@ -517,7 +517,10 @@
       display: block; font-family: var(--sans); font-size: var(--t-xs); font-weight: 400;
       color: var(--ink-soft); margin-top: 3px; line-height: 1.45;
     }
-    .meters .note:empty { display: none; }
+    .meters .note:empty, .meters .note[hidden] { display: none; }
+    .meters dt { display: flex; align-items: center; gap: 6px; }
+    .meters dt .info-btn { margin: -6px 0; }
+    .r-earcon { scroll-margin-top: 12px; }
 
     .error-card {
       border: 1px solid var(--warn); border-radius: var(--r-s); background: var(--surface-2);
@@ -916,8 +919,12 @@
             <p class="visually-hidden" id="runStatus" role="status" aria-live="polite"></p>
             <dl class="meters" id="meters" hidden>
               <div>
-                <dt>Synthesis engine</dt>
-                <dd id="meterEngine">not run yet<span class="note" id="meterEngineNote"></span></dd>
+                <dt>Synthesis engine
+                  <button type="button" class="info-btn" id="meterEngineWhy" aria-expanded="false" aria-controls="meterEngineNote"
+                          aria-label="Why this engine answered" title="Why this engine answered, as the server reported it">
+                    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="8.2"></circle><path d="M10 9v5"></path><circle class="i-dot" cx="10" cy="6.2" r="1.1"></circle></svg>
+                  </button></dt>
+                <dd id="meterEngine">not run yet<span class="note" id="meterEngineNote" hidden></span></dd>
               </div>
               <div>
                 <dt>Round trip, measured here</dt>
@@ -2303,6 +2310,19 @@
       State.previewTimer = setTimeout(previewAnswer, delay || 0);
     }
 
+    /* On a phone the three renderings sit below the button and its meters, so
+       the answer a press returns arrived below the fold. When the spoken
+       sentence would start below the viewport, the view moves to the earcon
+       and the sentence under it. Focus stays on the button, and a reader who
+       prefers reduced motion gets a jump rather than a glide. */
+    function revealAnswer() {
+      var target = document.querySelector(".r-earcon");
+      var pane = $("spokenPane");
+      if (!target || !pane || !target.scrollIntoView) { return; }
+      if (pane.getBoundingClientRect().top < window.innerHeight * 0.8) { return; }
+      target.scrollIntoView({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    }
+
     /* --- the primary action -------------------------------------------- */
 
     async function runReview() {
@@ -2359,6 +2379,7 @@
         renderEarcon(digest.data.earcon);
         renderBraille(braille.data, braille.elapsedMs);
         renderFindings(digest.data.critical_findings);
+        revealAnswer();
         var prefix = "Round trip " + digest.elapsedMs.toFixed(1) + " milliseconds.";
         whenCueEnds(function () { speakOrAnnounce(prefix, digest.data.voice_summary, words); });
         announceResult(prefix, digest.data.voice_summary);
@@ -3109,6 +3130,14 @@
     $("fidelityCode").addEventListener("click", function () { setBrailleFidelity("code"); });
     $("fidelityLiterary").addEventListener("click", function () { setBrailleFidelity("literary"); });
 
+    /* The reason the engine answered is the server's own sentence. It is one
+       press away rather than printed under the meter, where on a phone it
+       pushed the answer below the fold. */
+    $("meterEngineWhy").addEventListener("click", function () {
+      var open = this.getAttribute("aria-expanded") !== "true";
+      this.setAttribute("aria-expanded", String(open));
+      $("meterEngineNote").hidden = !open;
+    });
     $("previewEngine").addEventListener("click", function () {
       var open = this.getAttribute("aria-expanded") !== "true";
       this.setAttribute("aria-expanded", String(open));
