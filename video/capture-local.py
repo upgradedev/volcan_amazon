@@ -11,20 +11,27 @@ What it records and what it refuses to do:
 * Every state on screen is the page reacting to a real response from the running
   server. The script presses keys and buttons and scrolls; it never writes into the
   page's DOM and never answers a request itself.
-* An init script observes, and only observes, when the page starts the earcon and
-  the browser's speech. Those timestamps place the product's own sound in the mix.
-* Headless Chromium records no audio. The earcon mixed into the video is the WAV the
-  server returned for the press, byte for byte. The spoken sentence is the exact text
-  the page handed to speechSynthesis, rendered again with the Windows system voice
-  that has the same name, and the build labels it on screen as the browser's system
-  voice.
+* An init script observes, and only observes, when the page starts each earcon and
+  each utterance it hands to the browser's speech engine, and when it cancels speech.
+  Those timestamps place the product's own sound in the mix.
+* Three turns are voiced, one per beat that carries a product sound window: the press
+  of Hear this code review, Findings on the pull request, and Confirm. For each, the
+  earcon mixed into the video is the WAV the server returned for that turn, byte for
+  byte, and every sentence is the exact text the page handed to speechSynthesis,
+  rendered again with the Windows system voice of the same name, because headless
+  Chromium records no audio. The build captions them as the product's voice.
+* Two turns are not voiced: opening the pull request and Request changes happen while
+  the narrator speaks. The page still plays its cue and speaks for them; the capture
+  logs exactly when, until the next command interrupts it, and the build labels that
+  stretch as the page's voice not being in the recording.
 * Two marker pages, one before and one after the journey, turn from white to black
   at a logged wall-clock time. Finding those two frames in the recording maps page
   time to video time, so the product's sound lands on the frame where the page made
   it, and any drift across the take is measured rather than assumed.
-* The take fails if the browser's speech has not ended inside the product sound
-  window, if the page logs an error, or if the recording is shorter than the
-  narration.
+* The take fails if a voiced turn's speech has not ended inside its window or was
+  interrupted, if the page logs an error, if the review dialogue refuses a turn, if the
+  Alexa+ replay serves fewer than three clients, if the picture goes flat for 0.75 s,
+  or if the recording is shorter than the narration.
 
 Environment:
   VOLCAN_VIDEO_ROOT    media root, outside git (reads narration/, writes capture/)
@@ -32,11 +39,7 @@ Environment:
   VOLCAN_APP_URL       default http://127.0.0.1:8801/
   FFMPEG               path to ffmpeg, for finding the marker frames
   VOLCAN_SPEECH_VOICE  default "Microsoft David Desktop", the System.Speech voice
-  VOLCAN_PR_URL        default PULL_REQUEST_URL below, the public pull request of beat 5
-
-Only beat 2's product sound is in the mix. In beat 5 the page also plays its own cue
-and speaks each dialogue answer; those are not rendered, and the build labels the
-beat on screen as missing them.
+  VOLCAN_PR_URL        default PULL_REQUEST_URL below, the public pull request of beat 3
 """
 
 from __future__ import annotations
@@ -56,11 +59,11 @@ from playwright.sync_api import sync_playwright
 
 
 EXPECTED_BEATS = [
-    "beat_01_hook",
-    "beat_02_one_button",
-    "beat_03_what_you_heard",
-    "beat_04_mcp_handshake",
-    "beat_05_pull_request",
+    "beat_01_press",
+    "beat_02_what_you_heard",
+    "beat_03_open_pull_request",
+    "beat_04_request_changes",
+    "beat_05_mcp_handshake",
     "beat_06_verification",
 ]
 VIEWPORT = {"width": 1280, "height": 720}
@@ -76,23 +79,35 @@ OBSERVER = r"""
   const log = [];
   Object.defineProperty(window, "__volcanCaptureLog", { value: log });
   const note = (kind, detail) => log.push({ kind, epoch: epoch(), detail: detail === undefined ? null : detail });
+  let media = 0;
   const play = HTMLMediaElement.prototype.play;
   HTMLMediaElement.prototype.play = function () {
-    const media = this;
-    note("media.play");
-    media.addEventListener("playing", () => note("media.playing", media.currentTime), { once: true });
-    media.addEventListener("timeupdate", () => note("media.timeupdate", media.currentTime));
-    media.addEventListener("ended", () => note("media.ended", media.currentTime), { once: true });
+    const element = this;
+    if (element.__volcanId === undefined) {
+      element.__volcanId = ++media;
+      const id = element.__volcanId;
+      element.addEventListener("playing", () => note("media.playing", { id, at: element.currentTime }));
+      element.addEventListener("timeupdate", () => note("media.timeupdate", { id, at: element.currentTime }));
+      element.addEventListener("ended", () => note("media.ended", { id, at: element.currentTime }));
+    }
+    note("media.play", { id: element.__volcanId });
     return play.apply(this, arguments);
   };
   if (window.speechSynthesis) {
+    let spoken = 0;
     const speak = window.speechSynthesis.speak.bind(window.speechSynthesis);
     window.speechSynthesis.speak = function (utterance) {
-      note("speech.speak", { text: utterance.text, rate: utterance.rate });
-      utterance.addEventListener("start", () => note("speech.start"));
-      utterance.addEventListener("end", () => note("speech.end"));
-      utterance.addEventListener("error", (event) => note("speech.error", event.error));
+      const index = spoken++;
+      note("speech.speak", { index, text: utterance.text, rate: utterance.rate });
+      utterance.addEventListener("start", () => note("speech.start", { index }));
+      utterance.addEventListener("end", () => note("speech.end", { index }));
+      utterance.addEventListener("error", (event) => note("speech.error", { index, error: event.error }));
       return speak(utterance);
+    };
+    const cancel = window.speechSynthesis.cancel.bind(window.speechSynthesis);
+    window.speechSynthesis.cancel = function () {
+      note("speech.cancel");
+      return cancel();
     };
   }
 })();
@@ -228,10 +243,13 @@ def main() -> None:
 
     with urllib.request.urlopen(app_url.rstrip("/") + "/health", timeout=10) as response:
         health = json.load(response)
+    if health.get("source_revision") != release_sha:
+        raise SystemExit("the server reports a different commit than VOLCAN_RELEASE_SHA; restart it")
 
     actions: list[dict[str, object]] = []
     errors: list[str] = []
-    press: dict[str, object] = {}
+    voiced: list[dict[str, object]] = []
+    unvoiced: list[dict[str, object]] = []
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(args=["--force-device-scale-factor=1"])
@@ -263,17 +281,27 @@ def main() -> None:
         origin = time.monotonic()
         timeline_epoch = page.evaluate("performance.timeOrigin + performance.now()")
 
+        def now() -> float:
+            return time.monotonic() - origin
+
         def act(label: str, run) -> None:
             run()
-            actions.append({"at": round(time.monotonic() - origin, 3), "action": label})
+            actions.append({"at": round(now(), 3), "action": label})
 
         def until(seconds: float) -> None:
-            remaining = seconds - (time.monotonic() - origin)
+            remaining = seconds - now()
             if remaining > 0:
                 page.wait_for_timeout(remaining * 1000)
 
         def beat_start(beat: str) -> float:
             return float(by_id[beat]["startSeconds"])
+
+        def beat_end(beat: str) -> float:
+            return beat_start(beat) + float(by_id[beat]["holdSeconds"])
+
+        def window_opens(beat: str) -> float:
+            """Where the narrator stops and the beat's product sound window begins."""
+            return beat_start(beat) + float(by_id[beat]["durationSeconds"]) + float(timing["tailSeconds"])
 
         def sentence(beat: str, index: int, fraction: float = 0.0) -> float:
             window = by_id[beat]["sentences"][index]
@@ -289,49 +317,40 @@ def main() -> None:
                 [selector, offset, behavior],
             )
 
-        # Beat 1: the patch, then the raw unified diff in the patch box.
-        until(sentence("beat_01_hook", 2))
-        act("Alt+2 opens the patch box", lambda: page.keyboard.press("Alt+2"))
+        def page_epoch() -> float:
+            return page.evaluate("performance.timeOrigin + performance.now()")
 
-        # Beat 2: the silent preview, the keyboard press, then the product's own sound.
-        until(beat_start("beat_02_one_button"))
-        act("scroll to the stage", lambda: page.evaluate("window.scrollTo({top: 0, behavior: 'smooth'})"))
-        until(sentence("beat_02_one_button", 2))
-        act("Alt+1 focuses Hear this code review", lambda: page.keyboard.press("Alt+1"))
-        window_opens = beat_start("beat_02_one_button") + float(by_id["beat_02_one_button"]["durationSeconds"]) \
-            + float(timing["tailSeconds"])
-        window_closes = beat_start("beat_03_what_you_heard")
-        until(window_opens)
+        def log_length() -> int:
+            return page.evaluate("window.__volcanCaptureLog.length")
 
-        def is_press(response) -> bool:
-            body = response.request.post_data or ""
-            return response.url.endswith("/api/digest_semantic_diff") and '"engine"' not in body
+        def speak_count() -> int:
+            return page.evaluate("window.__volcanCaptureLog.filter(e => e.kind === 'speech.speak').length")
 
-        with page.expect_response(is_press, timeout=15_000) as pressed:
-            act("Enter presses Hear this code review", lambda: page.keyboard.press("Enter"))
-        press = pressed.value.json()
-        page.wait_for_function(
-            "window.__volcanCaptureLog.some(e => e.kind === 'speech.end' || e.kind === 'speech.error')",
-            timeout=max(1.0, window_closes - (time.monotonic() - origin)) * 1000,
-        )
-        actions.append({"at": round(time.monotonic() - origin, 3), "action": "browser speech ended"})
+        def start_turn(label: str, run, endpoint: str, utterances: int, predicate=None) -> dict[str, object]:
+            """Press, and keep the server's response: its earcon bytes are what the mix plays."""
+            def matches(response) -> bool:
+                if not response.url.endswith(endpoint) or response.request.method != "POST":
+                    return False
+                return predicate(response) if predicate else True
 
-        # Beat 3: what was heard, and why the local engine answered.
-        until(beat_start("beat_03_what_you_heard"))
-        act("scroll to the earcon caption and meters", lambda: scroll_to(".r-earcon", 120))
-        until(sentence("beat_03_what_you_heard", 3))
-        act("open why this engine answered", lambda: page.click("#meterEngineWhy"))
+            first_speech = speak_count()
+            log_from = log_length()
+            with page.expect_response(matches, timeout=20_000) as answered:
+                act(label, run)
+            return {"label": label, "data": answered.value.json(), "firstSpeech": first_speech,
+                    "logFrom": log_from, "utterances": utterances,
+                    "timelineAction": actions[-1]["at"]}
 
-        # Beat 4: a real MCP handshake.
-        until(beat_start("beat_04_mcp_handshake"))
-        act("scroll to Evidence", lambda: scroll_to("#evidence"))
-        until(sentence("beat_04_mcp_handshake", 1))
-        act("Run a real MCP handshake", lambda: page.click("#runMcp"))
-        page.wait_for_selector("#mcpPane details", timeout=10_000)
-        act("scroll to the handshake facts", lambda: scroll_to("#mcp .row-actions", 24))
-        until(sentence("beat_04_mcp_handshake", 1, 0.72))
-        act("expand the first tool", lambda: page.click("#mcpPane details summary"))
-        act("scroll to its schema", lambda: scroll_to("#mcpPane", 90))
+        def finish_voiced(turn: dict[str, object], deadline: float) -> None:
+            """Wait for the last sentence of a voiced turn to end, inside its window."""
+            last = int(turn["firstSpeech"]) + int(turn["utterances"]) - 1
+            page.wait_for_function(
+                """(last) => window.__volcanCaptureLog.some(e =>
+                     (e.kind === 'speech.end' || e.kind === 'speech.error') && e.detail.index === last)""",
+                arg=last, timeout=max(0.5, deadline - now()) * 1000,
+            )
+            actions.append({"at": round(now(), 3), "action": f"{turn['label']}: speech ended"})
+            voiced.append(turn)
 
         def settled(timeout_seconds: float = 20.0) -> None:
             """Wait until the review dialogue has answered the last turn."""
@@ -354,36 +373,82 @@ def main() -> None:
         def turns() -> int:
             return page.evaluate("document.querySelectorAll('#dialogueLog li').length")
 
-        # Beat 5: a real public pull request, summary, request changes, confirm.
-        until(beat_start("beat_05_pull_request"))
+        def is_press(response) -> bool:
+            return '"engine"' not in (response.request.post_data or "")
+
+        # Beat 1: the first viewport, the keyboard press, then the product's own sound.
+        until(sentence("beat_01_press", 2, 0.6))
+        act("Alt+1 focuses Hear this code review", lambda: page.keyboard.press("Alt+1"))
+        until(window_opens("beat_01_press"))
+        press = start_turn("Enter presses Hear this code review", lambda: page.keyboard.press("Enter"),
+                           "/api/digest_semantic_diff", 1, is_press)
+        page.wait_for_function(
+            "window.__volcanCaptureLog.some(e => e.kind === 'speech.start')", timeout=10_000)
+        act("scroll so the earcon, the sentence and the Braille share the frame",
+            lambda: scroll_to(".r-earcon", 16))
+        finish_voiced(press, beat_start("beat_02_what_you_heard"))
+
+        # Beat 2: what was heard, and why the local engine answered.
+        until(sentence("beat_02_what_you_heard", 3))
+        act("open why this engine answered", lambda: page.click("#meterEngineWhy"))
+
+        # Beat 3: a real public pull request, opened by keyboard, then Findings, voiced.
+        until(beat_start("beat_03_open_pull_request"))
         act("scroll to Talk through a real pull request", lambda: scroll_to("#review", 8))
-        until(sentence("beat_05_pull_request", 1))
+        until(sentence("beat_03_open_pull_request", 1))
         act("Alt+6 focuses the pull request URL box", lambda: page.keyboard.press("Alt+6"))
         act("type the pull request URL", lambda: page.keyboard.type(
-            os.environ.get("VOLCAN_PR_URL", PULL_REQUEST_URL), delay=35))
+            os.environ.get("VOLCAN_PR_URL", PULL_REQUEST_URL), delay=30))
         before = turns()
-        act("Enter opens the pull request", lambda: page.keyboard.press("Enter"))
+        opened = start_turn("Enter opens the pull request", lambda: page.keyboard.press("Enter"),
+                            "/api/review/turn", 2)
         answered(before)
-        act("scroll to the dialogue", lambda: scroll_to("#review .review-grid", 8))
-        until(sentence("beat_05_pull_request", 2))
+        if "Opened octocat/Hello-World pull request 1" not in page.inner_text("#dialogueLog"):
+            raise SystemExit("the dialogue did not open the pull request")
+        until(sentence("beat_03_open_pull_request", 2))
+        act("scroll to the dialogue and the outlined next steps",
+            lambda: scroll_to("#reviewConvo", 12))
+        outlined = page.evaluate("[...document.querySelectorAll('button.suggested')].map(b => b.id)")
+        if "cmdFindings" not in outlined:
+            raise SystemExit(f"Findings is not an outlined next step: {outlined}")
+        until(window_opens("beat_03_open_pull_request"))
         before = turns()
-        act("Summary", lambda: page.click("#cmdSummary"))
+        findings = start_turn("Findings", lambda: page.click("#cmdFindings"), "/api/review/turn", 2)
+        unvoiced.append({"turn": opened, "interruptedBy": "Findings", "cutAt": findings["logFrom"]})
         answered(before)
-        until(sentence("beat_05_pull_request", 3))
+        finish_voiced(findings, beat_start("beat_04_request_changes"))
+
+        # Beat 4: request changes while the narrator speaks, then Confirm, voiced.
+        until(beat_start("beat_04_request_changes"))
         act("type the review comment", lambda: (page.click("#reviewComment"),
                                                  page.keyboard.type(REVIEW_COMMENT, delay=12)))
         before = turns()
-        act("Request changes", lambda: page.click("#cmdRequestChanges"))
+        staged = start_turn("Request changes", lambda: page.click("#cmdRequestChanges"), "/api/review/turn", 2)
         answered(before)
-        until(sentence("beat_05_pull_request", 4))
+        outlined = page.evaluate("[...document.querySelectorAll('button.suggested')].map(b => b.id)")
+        if "cmdConfirm" not in outlined:
+            raise SystemExit(f"Confirm is not an outlined next step: {outlined}")
+        until(window_opens("beat_04_request_changes"))
         before = turns()
-        act("Confirm", lambda: page.click("#cmdConfirm"))
+        confirm = start_turn("Confirm", lambda: page.click("#cmdConfirm"), "/api/review/turn", 2)
+        unvoiced.append({"turn": staged, "interruptedBy": "Confirm", "cutAt": confirm["logFrom"]})
         answered(before)
         if "recorded and not sent" not in page.inner_text("#reviewPane"):
             raise SystemExit("the review pane does not show a recorded, unsent review")
-        # Hold on the dialogue's dry-run answer, then show the request it recorded.
-        until(sentence("beat_05_pull_request", 4, 0.55))
+        until(window_opens("beat_04_request_changes") + 0.5 * float(by_id["beat_04_request_changes"]["productSoundSeconds"]))
         act("scroll to the recorded request", lambda: scroll_to("#reviewPane", 150))
+        finish_voiced(confirm, beat_start("beat_05_mcp_handshake"))
+
+        # Beat 5: a real MCP handshake.
+        until(beat_start("beat_05_mcp_handshake"))
+        act("scroll to Evidence", lambda: scroll_to("#evidence"))
+        until(sentence("beat_05_mcp_handshake", 1))
+        act("Run a real MCP handshake", lambda: page.click("#runMcp"))
+        page.wait_for_selector("#mcpPane details", timeout=10_000)
+        act("scroll to the handshake facts", lambda: scroll_to("#mcp .row-actions", 24))
+        until(sentence("beat_05_mcp_handshake", 1, 0.62))
+        act("expand the first tool", lambda: page.click("#mcpPane details summary"))
+        act("scroll to its schema", lambda: scroll_to("#mcpPane", 90))
 
         # Beat 6: the counts, the Alexa+ replay, the honest boundary, then the heading.
         until(beat_start("beat_06_verification"))
@@ -439,54 +504,145 @@ def main() -> None:
     def timeline_time(epoch_ms: float) -> float:
         return round((epoch_ms - timeline_epoch) / 1000, 3)
 
-    def first(kind: str) -> dict[str, object]:
+    def speech_events(index: int) -> dict[str, dict[str, object]]:
+        found: dict[str, dict[str, object]] = {}
         for entry in log:
-            if entry["kind"] == kind:
-                return entry
-        raise SystemExit(f"the page never reported {kind}")
+            detail = entry["detail"]
+            if isinstance(detail, dict) and detail.get("index") == index and entry["kind"].startswith("speech."):
+                found.setdefault(entry["kind"], entry)
+        return found
 
-    playing = first("media.playing")
-    ended = first("media.ended")
-    # Where the page's own playback clock says the cue started: each timeupdate
-    # reports how far into the WAV the element is, so its wall time minus that
-    # position is the start. Headless Chromium fires "playing" a few hundred
-    # milliseconds before the clock moves, and the waveform's playhead follows
-    # the clock, so this is the moment the picture shows the cue sounding.
-    # Only the press in beat 2: the review turns of beat 5 play cues of their own.
-    press_play = first("media.play")["epoch"]
-    clock_starts = sorted(
-        entry["epoch"] - float(entry["detail"]) * 1000
-        for entry in log
-        if entry["kind"] == "media.timeupdate"
-        and press_play <= entry["epoch"] <= ended["epoch"]
-        and 0 < float(entry["detail"] or 0) < float(ended["detail"])
-    )
-    if clock_starts:
-        earcon_start = clock_starts[len(clock_starts) // 2]
-        earcon_basis = f"median of {len(clock_starts)} timeupdate events, wall time minus currentTime"
-    else:
-        earcon_start = ended["epoch"] - float(ended["detail"]) * 1000
-        earcon_basis = "ended event minus the WAV length reported by currentTime"
-    spoken = first("speech.speak")
-    speech_start = first("speech.start")
-    speech_end = first("speech.end")
-    if spoken["detail"]["text"] != press.get("voice_summary_for_speech"):
-        raise SystemExit("the page spoke a sentence other than the one the server returned")
-    if timeline_time(speech_end["epoch"]) > window_closes:
-        raise SystemExit("the browser was still speaking when the next beat began")
+    def turn_earcon(turn: dict[str, object]) -> dict[str, object] | None:
+        """Where the page's own playback clock says this turn's cue started.
 
-    earcon = capture / "earcon-press.wav"
-    earcon.write_bytes(base64.b64decode(press["earcon"]["wav_base64"]))
-    text_file = capture / "browser-speech.txt"
-    text_file.write_text(spoken["detail"]["text"], encoding="utf-8")
+        Each timeupdate reports how far into the WAV the element is, so its wall time
+        minus that position is the start. Headless Chromium fires "playing" a few
+        hundred milliseconds before the clock moves, and the waveform's playhead
+        follows the clock, so this is the moment the picture shows the cue sounding."""
+        entries = log[int(turn["logFrom"]):]
+        play = next((entry for entry in entries if entry["kind"] == "media.play"), None)
+        if play is None:
+            return None
+        ident = play["detail"]["id"]
+        ended = next((entry for entry in entries if entry["kind"] == "media.ended"
+                      and entry["detail"]["id"] == ident and entry["epoch"] >= play["epoch"]), None)
+        if ended is None:
+            raise SystemExit(f"{turn['label']}: the page never finished playing its cue")
+        clock_starts = sorted(
+            entry["epoch"] - float(entry["detail"]["at"]) * 1000
+            for entry in entries
+            if entry["kind"] == "media.timeupdate" and entry["detail"]["id"] == ident
+            and play["epoch"] <= entry["epoch"] <= ended["epoch"]
+            and 0 < float(entry["detail"]["at"] or 0) < float(ended["detail"]["at"])
+        )
+        if clock_starts:
+            start = clock_starts[len(clock_starts) // 2]
+            basis = f"median of {len(clock_starts)} timeupdate events, wall time minus currentTime"
+        else:
+            start = ended["epoch"] - float(ended["detail"]["at"]) * 1000
+            basis = "ended event minus the WAV length reported by currentTime"
+        return {"epoch": start, "basis": basis, "ended": ended["epoch"]}
+
+    def expected_sentences(turn: dict[str, object]) -> list[str]:
+        data = turn["data"]
+        if "voice_summary_for_speech" in data:
+            return [data["voice_summary_for_speech"]]
+        pairs = [(data.get("readback"), data.get("readback_for_speech")),
+                 (data.get("spoken"), data.get("spoken_for_speech"))]
+        return [said or text for text, said in pairs if text]
+
+    def render_voice(text: str, stem: str) -> pathlib.Path:
+        text_file = capture / f"{stem}.txt"
+        text_file.write_text(text, encoding="utf-8")
+        wav = capture / f"{stem}.wav"
+        subprocess.run(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script),
+             "-TextFile", str(text_file), "-OutWav", str(wav), "-Voice", voice],
+            check=True, capture_output=True, text=True,
+        )
+        return wav
+
     script = capture / "render-system-voice.ps1"
     script.write_text(SAPI, encoding="utf-8")
-    speech_wav = capture / "browser-speech.wav"
-    subprocess.run(
-        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script),
-         "-TextFile", str(text_file), "-OutWav", str(speech_wav), "-Voice", voice],
-        check=True, capture_output=True, text=True,
-    )
+    product_audio: list[dict[str, object]] = []
+    beat_ids = [scene["id"] for scene in scenes]
+    for number, turn in enumerate(voiced, start=1):
+        slug = re.sub(r"[^a-z0-9]+", "-", str(turn["label"]).lower()).strip("-")[:24]
+        start_timeline = float(turn["timelineAction"])
+        beat = next(beat for beat in reversed(beat_ids) if beat_start(beat) <= start_timeline)
+        closes = beat_end(beat)
+        sentences = expected_sentences(turn)
+        if len(sentences) != int(turn["utterances"]):
+            raise SystemExit(f"{turn['label']}: expected {turn['utterances']} sentences, the server returned {len(sentences)}")
+        earcon = turn_earcon(turn)
+        data = turn["data"]
+        if earcon is not None:
+            if not (data.get("earcon") or {}).get("wav_base64"):
+                raise SystemExit(f"{turn['label']}: the page played a cue the response did not carry")
+            wav = capture / f"earcon-{number}-{slug}.wav"
+            wav.write_bytes(base64.b64decode(data["earcon"]["wav_base64"]))
+            product_audio.append({
+                "kind": "earcon", "turn": turn["label"], "beat": beat, "file": wav.name,
+                "earconType": data["earcon"].get("type"),
+                "sha256": sha256(wav), "seconds": round(probe_duration(wav), 3),
+                "source": "the earcon.wav_base64 bytes of the server's response to this turn, unchanged",
+                "timelineSeconds": timeline_time(earcon["epoch"]),
+                "timelineBasis": earcon["basis"],
+                "pageEndedTimelineSeconds": timeline_time(earcon["ended"]),
+            })
+        for offset, expected in enumerate(sentences):
+            index = int(turn["firstSpeech"]) + offset
+            events = speech_events(index)
+            if "speech.error" in events:
+                raise SystemExit(f"{turn['label']}: sentence {offset + 1} was interrupted "
+                                 f"({events['speech.error']['detail'].get('error')}); record again")
+            if not {"speech.speak", "speech.start", "speech.end"} <= set(events):
+                raise SystemExit(f"{turn['label']}: sentence {offset + 1} has no start and end events")
+            text = events["speech.speak"]["detail"]["text"]
+            if text != expected:
+                raise SystemExit(f"{turn['label']}: the page spoke a sentence other than the one the server returned")
+            ended_at = timeline_time(events["speech.end"]["epoch"])
+            if ended_at > closes:
+                raise SystemExit(f"{turn['label']}: the browser was still speaking when the next beat began")
+            wav = render_voice(text, f"speech-{number}-{offset + 1}-{slug}")
+            product_audio.append({
+                "kind": "speech", "turn": turn["label"], "beat": beat, "file": wav.name,
+                "sha256": sha256(wav), "seconds": round(probe_duration(wav), 3),
+                "text": text,
+                "pageRate": events["speech.speak"]["detail"]["rate"],
+                "browserDefaultVoice": default_voice,
+                "renderedWith": f"Windows System.Speech, voice {voice}, rate 0",
+                "source": "the exact text the page passed to speechSynthesis.speak, rendered again because headless capture records no audio",
+                "timelineSeconds": timeline_time(events["speech.start"]["epoch"]),
+                "pageEndedTimelineSeconds": ended_at,
+            })
+
+    # The turns the narrator talks over: from the page's first sound for the turn
+    # until the next command's cancel, which is where the page stopped speaking.
+    unrecorded: list[dict[str, object]] = []
+    for item in unvoiced:
+        turn = item["turn"]
+        entries = log[int(turn["logFrom"]):int(item["cutAt"])]
+        sounds = [entry["epoch"] for entry in entries
+                  if entry["kind"] in ("media.playing", "speech.start")]
+        if not sounds:
+            raise SystemExit(f"{turn['label']}: the page made no sound for the turn")
+        cut_entries = log[int(item["cutAt"]):]
+        stops = [entry["epoch"] for entry in cut_entries if entry["kind"] == "speech.cancel"]
+        ends = [entry["epoch"] for entry in log[int(turn["logFrom"]):]
+                if entry["kind"] in ("speech.end", "speech.error")
+                and isinstance(entry["detail"], dict)
+                and entry["detail"].get("index") == int(turn["firstSpeech"]) + int(turn["utterances"]) - 1]
+        until_epoch = min([*stops[:1], *ends[:1]]) if (stops or ends) else None
+        if until_epoch is None:
+            raise SystemExit(f"{turn['label']}: could not tell when the page stopped speaking")
+        unrecorded.append({
+            "turn": turn["label"],
+            "fromTimelineSeconds": timeline_time(min(sounds)),
+            "toTimelineSeconds": timeline_time(until_epoch),
+            "stoppedBy": item["interruptedBy"],
+            "sentences": expected_sentences(turn),
+        })
 
     blanks = blank_stretches(final, capture, trim_lead, trim_lead + total * scale)
     if blanks:
@@ -496,7 +652,7 @@ def main() -> None:
     if recorded < trim_lead + total * scale:
         raise SystemExit(f"the recording is {recorded:.3f}s, shorter than {trim_lead + total * scale:.3f}s")
     receipt = {
-        "schemaVersion": "volcan.video-capture/v1",
+        "schemaVersion": "volcan.video-capture/v2",
         "releaseSha": release_sha,
         "appUrl": app_url,
         "viewport": VIEWPORT,
@@ -519,37 +675,13 @@ def main() -> None:
         },
         "actions": actions,
         "press": {
-            "synthesisMode": press.get("synthesis_mode"),
-            "fallbackReason": press.get("synthesis_fallback_reason"),
-            "earconType": press["earcon"].get("type"),
-            "sentenceOnScreen": press.get("voice_summary"),
+            "synthesisMode": press["data"].get("synthesis_mode"),
+            "fallbackReason": press["data"].get("synthesis_fallback_reason"),
+            "earconType": press["data"]["earcon"].get("type"),
+            "sentenceOnScreen": press["data"].get("voice_summary"),
         },
-        "productAudio": [
-            {
-                "kind": "earcon",
-                "file": earcon.name,
-                "sha256": sha256(earcon),
-                "seconds": round(probe_duration(earcon), 3),
-                "source": "the earcon.wav_base64 bytes of the server's response to the press, unchanged",
-                "timelineSeconds": timeline_time(earcon_start),
-                "timelineBasis": earcon_basis,
-                "pagePlayingEventTimelineSeconds": timeline_time(playing["epoch"]),
-                "pageEndedTimelineSeconds": timeline_time(ended["epoch"]),
-            },
-            {
-                "kind": "browser-speech",
-                "file": speech_wav.name,
-                "sha256": sha256(speech_wav),
-                "seconds": round(probe_duration(speech_wav), 3),
-                "text": spoken["detail"]["text"],
-                "pageRate": spoken["detail"]["rate"],
-                "browserDefaultVoice": default_voice,
-                "renderedWith": f"Windows System.Speech, voice {voice}, rate 0",
-                "source": "the exact text the page passed to speechSynthesis.speak, rendered again because headless capture records no audio",
-                "timelineSeconds": timeline_time(speech_start["epoch"]),
-                "pageEndedTimelineSeconds": timeline_time(speech_end["epoch"]),
-            },
-        ],
+        "productAudio": product_audio,
+        "unrecordedProductVoice": unrecorded,
         "blankStretches": blanks,
         "pageErrors": errors,
         "bytes": final.stat().st_size,
@@ -557,9 +689,11 @@ def main() -> None:
     }
     (capture / "capture-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({key: receipt[key] for key in ("trimLeadSeconds", "recordedSeconds", "markers")}))
-    for item in receipt["productAudio"]:
-        print(item["kind"], item["timelineSeconds"], "to", item["pageEndedTimelineSeconds"],
+    for item in product_audio:
+        print(item["kind"], item["turn"], item["timelineSeconds"], "to", item["pageEndedTimelineSeconds"],
               "rendered", item["seconds"])
+    for item in unrecorded:
+        print("not recorded:", item["turn"], item["fromTimelineSeconds"], "to", item["toTimelineSeconds"])
 
 
 if __name__ == "__main__":

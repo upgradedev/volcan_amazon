@@ -1,25 +1,25 @@
 WEBVTT
 
 1
-00:00:03.500 --> 00:00:22.353
-This is the kind of patch an autonomous coding agent writes. A sighted reviewer scans it in seconds. A screen reader reads it one plus sign, one minus sign and one hunk header at a time, so the one line that flips an authorization check sounds like everything around it.
+00:00:03.000 --> 00:00:35.131
+This is Volcan. A screen reader reads a patch one plus sign at a time. Volcan turns it into sound, speech and Braille, with one key press. Listen.
 
 2
-00:00:22.353 --> 00:01:04.844
-This is Volcan, running locally on this machine. Before anything plays, the stage already shows the server's real answer for this patch, silently: the earcon's waveform with its falling pitch, the finding in words, and the Braille cells. One button plays it, pressed from the keyboard. Listen.
-
-3
-00:01:04.844 --> 00:01:27.554
+00:00:35.131 --> 00:00:57.840
 The earcon came first, so the verdict arrived before the sentence. This patch touches security, so the cue falls; a clean patch gets a rising cue. The sentence opens with the finding itself. The engine meter reads local heuristic, because this run has no cloud credentials, and the round trip was measured in this browser.
 
+3
+00:00:57.840 --> 00:01:22.489
+Now a real pull request, read from GitHub without a token. Alt and 6 jumps to the address box, and Enter opens it. The page outlines the next steps; ask for the findings. Listen.
+
 4
-00:01:27.554 --> 00:01:51.703
-Volcan's Model Context Protocol server is written by hand to revision 2025-11-25 over Streamable HTTP, with no SDK. This button runs a real initialize and a real tools list call, then prints the negotiated version, the session identifier from the response header, and the JSON Schema of all twelve tools.
+00:01:22.490 --> 00:01:58.993
+Request changes stages the review, bound to the head commit Volcan read, under a single-use grant, and outlines Confirm. Nothing leaves until you say it. Confirm, and listen.
 
 5
-00:01:51.703 --> 00:02:20.681
-Now a real pull request. Alt and 6 focuses the address box, and Enter opens a public one from GitHub, read without a token. Summary answers in one sentence. Request changes stages the review, bound to the head commit it read, under a single-use grant. Confirm, and the server re-reads that commit, records the exact request, and sends nothing: this run is a dry run.
+00:01:58.993 --> 00:02:16.640
+Under the page is Volcan's Model Context Protocol server, written by hand to revision 2025-11-25. This button runs a real handshake: the negotiated version, a session identifier, and all twelve tools with their schemas.
 
 6
-00:02:20.681 --> 00:02:50.819
-On this commit, 637 automated tests pass, and 23 of 23 protocol conformance checks. This button replays Amazon's documented Alexa+ requests as three clients, one without the version header; all three are served. Alexa+ itself has never called Volcan, and this run called no Bedrock model. Volcan is for the developer who reviews code by ear and by touch.
+00:02:16.640 --> 00:02:40.000
+On this commit, 646 tests pass, and 23 of 23 protocol conformance checks. This button replays Amazon's documented Alexa+ requests as three clients; all three are served. Alexa+ itself has never called Volcan. Volcan: code review by ear and by touch.

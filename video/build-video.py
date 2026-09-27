@@ -3,7 +3,7 @@
 
 Adapted from the submission kit's video pipeline (video/build-video.py in the kit).
 Kept from the kit: the capture is trimmed to exactly the measured narration length
-from the capture receipt's trimLeadSeconds, scaled and padded to 1920x1080 at 25 fps,
+from the capture receipt's trimLeadSeconds, scaled onto a 1920x1080 canvas at 25 fps,
 the SRT derived from the measured audio is burned in, each beat's audio is delayed to
 its measured start, the mix is loudness normalised to -16 LUFS, and the build probes
 its own output and exits non-zero when the duration, the dimensions, the stream count
@@ -12,25 +12,27 @@ or the length against the narration are wrong.
 What this copy adds, so the video carries its own honesty and the product's sound:
 
   1. A title card and an outro card, whose lines come from video/narration.json with
-     {sha7} replaced by the recorded commit. The title card says the video is a local
-     run of that commit and that the public deployment is pending. The cards give the
-     four part shape (title, screencast, web, outro) that scripts/verify_video_sync.py
-     checks, and the build writes the video_manifest.json and caption_windows.json
-     that gate reads, computed from timing.json and nothing else.
-  2. The product's sound, from the capture receipt: the earcon WAV the server returned
-     and the server's sentence in the system voice, each placed at the moment the page
-     started it. The spoken sentence carries an on-screen label naming it as the
-     browser's system voice, and a small corner tag names the local commit throughout.
-  3. Each source is brought to a measured loudness before the mix, because the earcon
-     is a pure tone about 18 LU louder than the narration as delivered.
-  4. The composed length must equal title + narration + outro within one frame.
-  5. Captions for the product's own speech. The narrator is silent while the page
-     speaks, so the server's sentence, as the capture receipt records it, is
-     captioned too, split into short cues across the rendered speech and marked with
-     the speaker. The cues are burned in and are part of caption_windows.json and of
-     the captions.en.srt meant for upload.
-  6. A label over beat 5 saying that the page's own cue and speech for the review
-     turns are not in the recording; only beat 2's product sound is mixed in.
+     {sha7} replaced by the recorded commit. The title card names the product and says
+     the video is a local run of that commit; the outro repeats the provenance. The
+     cards give the four part shape (title, screencast, web, outro) that
+     scripts/verify_video_sync.py checks, and the build writes the video_manifest.json
+     and caption_windows.json that gate reads, computed from timing.json and the
+     capture receipt and nothing else.
+  2. A caption band. The page is scaled to 1632x918 at the top of the frame, and
+     everything the build adds sits in the 162 pixel band under it: the captions, a
+     small tag naming the local commit, and the labels below. Nothing the build adds
+     covers the page, so the sentence the page shows while it speaks stays readable.
+  3. The product's sound, from the capture receipt: for each voiced turn, the earcon
+     WAV the server returned and each sentence the page spoke, in the system voice,
+     placed at the moment the page started it. Each is captioned: the sentences as
+     "Volcan (product voice):", the earcon as a sound description.
+  4. Each source is brought to a measured loudness before the mix, because the earcon
+     is a pure tone about 18 LU louder than the narration as delivered. Every earcon
+     takes the gain measured on the longest one: EBU R128 gates on 400 ms blocks, so a
+     cue shorter than that cannot be measured on its own.
+  5. The composed length must equal title + narration + outro within one frame.
+  6. For the turns the narrator talks over, a label in the band says, for exactly the
+     stretch the page spoke, that the page's own cue and voice are not in the recording.
   7. The receipt records the recorded commit, whether src/ and docs/ are unchanged
      between that commit and the commit that built the video, the voice, and the
      characters sent to the text to speech provider.
@@ -63,13 +65,16 @@ OUTPUT_NAME = "volcan-demo.mp4"
 CARD_COLOUR = "0x07111f"
 FONT = "C\\:/Windows/Fonts/segoeui.ttf"
 FONT_BOLD = "C\\:/Windows/Fonts/segoeuib.ttf"
+# The page sits at the top of the frame at 1.275x; the band under it holds captions.
+PAGE_WIDTH, PAGE_HEIGHT, PAGE_X = 1632, 918, 144
 # Loudness each source is brought to before the mix. The final loudnorm then sets
 # the programme to -16 LUFS. The earcon sits a little under the voices because a
 # pure tone reads louder than speech at the same integrated level.
-SOURCE_TARGET_LUFS = {"narration": -20.0, "browser-speech": -21.0, "earcon": -22.0}
-PRODUCT_SPEAKER = "Volcan"
+SOURCE_TARGET_LUFS = {"narration": -20.0, "speech": -21.0, "earcon": -22.0}
+PRODUCT_SPEAKER = "Volcan (product voice)"
+PRODUCT_COLOUR = "#ffc857"
 PRODUCT_CUE_CHARACTERS = 72
-UNRECORDED_SOUND_BEAT = "beat_05_pull_request"
+EARCON_CUE_MIN_SECONDS = 0.4
 
 
 def run(args: list[str], cwd: pathlib.Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -109,7 +114,7 @@ def card(lines: list[str], seconds: float, name: str) -> str:
     """A flat card: one large line, then smaller ones. Sparse on purpose, because the
     sync gate tells a card from content by how few edges it has."""
     parts = [f"color=c={CARD_COLOUR}:s=1920x1080:r={FPS}:d={seconds}"]
-    y = 400
+    y = 400 - 38 * max(0, len(lines) - 3)
     for index, line in enumerate(lines):
         size = 110 if index == 0 else 40
         font = FONT_BOLD if index == 0 else FONT
@@ -146,8 +151,8 @@ def write_srt(path: pathlib.Path, windows: list[tuple[float, float, str]]) -> No
 
 
 def product_speech_cues(text: str, start: float, end: float) -> list[tuple[float, float, str]]:
-    """The server's sentence as short cues, timed by character share across the rendered
-    speech, the rule the narration captions use. Each cue names the speaker."""
+    """One sentence the page spoke, as short cues timed by character share across the
+    rendered speech, the rule the narration captions use. Each cue names the speaker."""
     chunks: list[str] = []
     current = ""
     for word in text.split():
@@ -164,12 +169,19 @@ def product_speech_cues(text: str, start: float, end: float) -> list[tuple[float
     cursor = start
     for chunk in chunks:
         share = (end - start) * len(chunk) / weight
-        words = chunk.split()
-        half = max(1, len(words) // 2)
-        body = " ".join(words[:half]) + "\n" + " ".join(words[half:]) if len(chunk) > 48 else chunk
-        cues.append((round(cursor, 3), round(cursor + share, 3), f"{PRODUCT_SPEAKER}: {body}"))
+        cues.append((round(cursor, 3), round(cursor + share, 3), f"{PRODUCT_SPEAKER}:\n{chunk}"))
         cursor += share
     return cues
+
+
+def burned(text: str) -> str:
+    """The burn-in copy of a cue: the product's speaker name in its own colour."""
+    prefix = f"{PRODUCT_SPEAKER}:"
+    if text.startswith(prefix):
+        return f'<font color="{PRODUCT_COLOUR}">{prefix}</font>{text[len(prefix):]}'
+    if text.startswith("[Volcan"):
+        return f'<font color="{PRODUCT_COLOUR}">{text}</font>'
+    return text
 
 
 def product_code_unchanged(sha: str) -> bool:
@@ -193,6 +205,8 @@ def main() -> None:
     receipt_in = json.loads((CAPTURE / "capture-receipt.json").read_text(encoding="utf-8"))
     if receipt_in["releaseSha"] != release_sha:
         raise SystemExit("the capture was recorded from a different commit than VOLCAN_RELEASE_SHA")
+    if receipt_in["serverHealth"].get("sourceRevision") != release_sha:
+        raise SystemExit("the server in the capture reported a different commit than VOLCAN_RELEASE_SHA")
     scenes = timing["scenes"]
     total = float(timing["totalSeconds"])
     whole = title_seconds + total + outro_seconds
@@ -208,6 +222,16 @@ def main() -> None:
     OUTPUT.mkdir(parents=True, exist_ok=True)
     (OUTPUT / "overlays").mkdir(exist_ok=True)
 
+    product = sorted(receipt_in["productAudio"], key=lambda item: float(item["timelineSeconds"]))
+    earcons = [item for item in product if item["kind"] == "earcon"]
+    speech = [item for item in product if item["kind"] == "speech"]
+    if not speech:
+        raise SystemExit("the capture receipt carries no product speech")
+    earcon_gain = None
+    if earcons:
+        longest = max(earcons, key=lambda item: float(item["seconds"]))
+        earcon_gain = SOURCE_TARGET_LUFS["earcon"] - loudness(CAPTURE / longest["file"])
+
     args = [os.environ["FFMPEG"], "-y", "-i", str(CAPTURE / "production.webm")]
     filters: list[str] = []
     labels: list[str] = []
@@ -215,11 +239,11 @@ def main() -> None:
     sources: list[tuple[pathlib.Path, float, str]] = []
     for scene in scenes:
         sources.append((NARRATION / str(scene["audio"]), float(scene["startSeconds"]), "narration"))
-    for item in receipt_in["productAudio"]:
+    for item in product:
         sources.append((CAPTURE / item["file"], float(item["timelineSeconds"]), item["kind"]))
     for index, (path, start, kind) in enumerate(sources, start=1):
         args.extend(["-i", str(path)])
-        gain = SOURCE_TARGET_LUFS[kind] - loudness(path)
+        gain = earcon_gain if kind == "earcon" else SOURCE_TARGET_LUFS[kind] - loudness(path)
         gains[path.name] = round(gain, 2)
         delay = round((title_seconds + start) * 1000)
         label = f"a{index}"
@@ -229,61 +253,68 @@ def main() -> None:
         )
         labels.append(f"[{label}]")
 
-    speech = next(item for item in receipt_in["productAudio"] if item["kind"] == "browser-speech")
-    earcon = next(item for item in receipt_in["productAudio"] if item["kind"] == "earcon")
-    speech_from = float(speech["timelineSeconds"])
-    speech_to = speech_from + float(speech["seconds"])
-    earcon_from = float(earcon["timelineSeconds"])
+    # Each rendered sentence must end before the next one the page spoke, and before
+    # its beat ends, so the product voice never runs under the narrator.
     by_id = {scene["id"]: scene for scene in scenes}
-    next_beat = min(
-        (float(scene["startSeconds"]) for scene in scenes if float(scene["startSeconds"]) > speech_from),
-        default=total,
-    )
-    if speech_to > next_beat:
-        raise SystemExit(
-            f"the rendered product speech ends at {speech_to:.3f}s, after the next beat starts at {next_beat:.3f}s")
+    for item in speech:
+        begins = float(item["timelineSeconds"])
+        ends = begins + float(item["seconds"])
+        beat = by_id[item["beat"]]
+        closes = float(beat["startSeconds"]) + float(beat["holdSeconds"])
+        if ends > closes:
+            raise SystemExit(f"{item['file']} ends at {ends:.3f}s, after its beat closes at {closes:.3f}s")
+        following = [float(other["timelineSeconds"]) for other in speech if float(other["timelineSeconds"]) > begins]
+        if following and ends > min(following):
+            raise SystemExit(f"{item['file']} runs into the next sentence the page spoke")
+
     narration_cues = srt_windows(NARRATION / "captions.en.srt")
-    product_cues = product_speech_cues(str(speech["text"]), speech_from, speech_to)
-    all_cues = sorted(narration_cues + product_cues)
+    product_cues: list[tuple[float, float, str]] = []
+    for item in speech:
+        begins = float(item["timelineSeconds"])
+        product_cues.extend(product_speech_cues(str(item["text"]), begins, begins + float(item["seconds"])))
+    earcon_cues: list[tuple[float, float, str]] = []
+    for item in earcons:
+        begins = float(item["timelineSeconds"])
+        first_word = min((float(other["timelineSeconds"]) for other in speech
+                          if other["turn"] == item["turn"] and float(other["timelineSeconds"]) >= begins),
+                         default=begins + 1.5)
+        ends = min(begins + max(1.2, float(item["seconds"]) + 0.6), first_word - 0.05)
+        if ends - begins >= EARCON_CUE_MIN_SECONDS:
+            kind = str(item.get("earconType") or "cue").replace("_", " ").lower()
+            earcon_cues.append((round(begins, 3), round(ends, 3), f"[Volcan earcon: {kind}]"))
+    all_cues = sorted(narration_cues + product_cues + earcon_cues)
     for (_, first_end, _), (second_start, _, second_text) in zip(all_cues, all_cues[1:]):
         if second_start < first_end - 0.001:
             raise SystemExit(f"caption overlap at {second_start:.3f}s: {second_text!r}")
     burn = OUTPUT / "overlays" / "captions.burn.srt"
-    write_srt(burn, all_cues)
+    write_srt(burn, [(start, end, burned(text)) for start, end, text in all_cues])
     captions = escaped(burn)
-    silent_beat = by_id[UNRECORDED_SOUND_BEAT]
-    silent_from = float(silent_beat["startSeconds"])
-    silent_to = silent_from + float(silent_beat["holdSeconds"])
+    # libass lays SRT out on a 384x288 canvas; 11 there is about 41 pixels here, and a
+    # bottom margin of 12 keeps two lines inside the band under the page.
     style = (
-        "FontName=Segoe UI,FontSize=12,PrimaryColour=&H00FFFFFF,"
-        "BackColour=&H26000000,BorderStyle=4,Outline=0,Shadow=0,MarginV=34,Alignment=2"
+        "FontName=Segoe UI,FontSize=11,PrimaryColour=&H00FFFFFF,"
+        "BorderStyle=1,Outline=0,Shadow=0,MarginV=12,Alignment=2"
     )
     tag = text_file("tag.txt", f"Local run of commit {sha7}. Not the public deployment.")
-    earcon_label = text_file("earcon.txt", "Product sound: the earcon WAV the server returned")
-    speech_label = text_file(
-        "speech.txt",
-        "Product speech: the browser's system voice reading the server's sentence",
-    )
     unrecorded_label = text_file(
         "unrecorded.txt",
-        "Not in this recording: the page's own cue and speech for these review turns",
+        "Not in this recording: the page's own cue and voice for this turn",
     )
-    box = "box=1:boxcolor=0x07111f@0.85:boxborderw=18"
+    unrecorded = receipt_in.get("unrecordedProductVoice", [])
+    muted = "+".join(
+        f"between(t,{float(item['fromTimelineSeconds']):.3f},{float(item['toTimelineSeconds']):.3f})"
+        for item in unrecorded
+    ) or "0"
     filters.append(
         f"[0:v]trim=start={trim_lead}:end={trim_lead + total * video_per_page + 0.2},"
         f"setpts=(PTS-STARTPTS)/{video_per_page:.6f},trim=end={total},"
-        f"fps={FPS},scale=1920:1080:flags=lanczos:force_original_aspect_ratio=decrease,"
-        f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color={CARD_COLOUR},"
+        f"fps={FPS},scale={PAGE_WIDTH}:{PAGE_HEIGHT}:flags=lanczos,"
+        f"pad=1920:1080:{PAGE_X}:0:color={CARD_COLOUR},"
         f"subtitles='{captions}':force_style='{style}',"
-        f"drawtext=fontfile='{FONT}':textfile='{tag}':fontcolor=white:fontsize=22:"
-        f"x=w-text_w-24:y=h-text_h-12:box=1:boxcolor=0x07111f@0.8:boxborderw=8,"
-        f"drawtext=fontfile='{FONT_BOLD}':textfile='{earcon_label}':fontcolor=white:fontsize=34:"
-        f"x=(w-text_w)/2:y=110:{box}:enable='between(t,{earcon_from:.3f},{speech_from:.3f})',"
-        f"drawtext=fontfile='{FONT_BOLD}':textfile='{speech_label}':fontcolor=white:fontsize=34:"
-        f"x=(w-text_w)/2:y=110:{box}:enable='between(t,{speech_from:.3f},{speech_to:.3f})',"
-        f"drawtext=fontfile='{FONT}':textfile='{unrecorded_label}':fontcolor=white:fontsize=22:"
-        f"x=24:y=h-text_h-12:box=1:boxcolor=0x07111f@0.8:boxborderw=8:"
-        f"enable='between(t,{silent_from:.3f},{silent_to:.3f})',"
+        f"drawtext=fontfile='{FONT}':textfile='{tag}':fontcolor=0x9aa4b2:fontsize=20:"
+        f"x=w-text_w-24:y=h-text_h-10,"
+        f"drawtext=fontfile='{FONT}':textfile='{unrecorded_label}':fontcolor=0xffc857:fontsize=20:"
+        f"x=24:y=h-text_h-10:enable='{muted}',"
         f"format=yuv420p[content]"
     )
     title_lines = [line.replace("{sha7}", sha7) for line in cards["title_lines"]]
@@ -314,7 +345,7 @@ def main() -> None:
     streams = media["streams"]
     videos = [item for item in streams if item.get("codec_type") == "video"]
     audios = [item for item in streams if item.get("codec_type") == "audio"]
-    if not 90 <= duration < 179 or len(videos) != 1 or len(audios) != 1:
+    if not 90 <= duration < 175 or len(videos) != 1 or len(audios) != 1:
         raise SystemExit("final media contract failed")
     if videos[0].get("width") != 1920 or videos[0].get("height") != 1080:
         raise SystemExit("final video dimensions are not 1920x1080")
@@ -357,7 +388,7 @@ def main() -> None:
     head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True,
                           text=True).stdout.strip()
     receipt = {
-        "schemaVersion": "volcan.video-receipt/v1",
+        "schemaVersion": "volcan.video-receipt/v2",
         "file": final.name,
         "recordedSha": release_sha,
         "builtFromHead": head,
@@ -366,12 +397,13 @@ def main() -> None:
         "width": 1920,
         "height": 1080,
         "fps": FPS,
+        "pageArea": {"x": PAGE_X, "y": 0, "width": PAGE_WIDTH, "height": PAGE_HEIGHT,
+                     "note": "captions, the commit tag and the labels sit in the band under the page"},
         "sceneCount": len(scenes),
-        "captionCues": {"narration": len(narration_cues), "productSpeech": len(product_cues)},
-        "unrecordedProductSound": {
-            "beat": UNRECORDED_SOUND_BEAT,
-            "note": "the page's own cue and speech for the review turns are not in the mix; an on-screen label says so",
-        },
+        "captionCues": {"narration": len(narration_cues), "productSpeech": len(product_cues),
+                        "earcon": len(earcon_cues)},
+        "voicedTurns": sorted({str(item["turn"]) for item in product}),
+        "unrecordedProductVoice": unrecorded,
         "titleSeconds": title_seconds,
         "narrationSeconds": total,
         "outroSeconds": outro_seconds,
