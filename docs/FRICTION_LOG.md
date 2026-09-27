@@ -292,12 +292,16 @@ then a mistake in the first fix for it. The server listed 2025-03-26 as supporte
 honouring it (no version header in that revision, and batches it must accept). Echoing
 2025-03-26 back, the first fix, left a client that speaks both revisions with no header to send,
 and the replay showed it refused. Removing 2025-03-26 from the supported list, so that such a
-client is answered 2025-11-25, is what `docs/EVIDENCE.md`, Road to Alexa+, records.
+client is answered 2025-11-25, was the second fix, and it refused a third kind of client, one
+that declares 2025-03-26 in its header, which the server had served before. The replay played
+two kinds of client and could not show it; an audit did. The third fix accepts that header
+without negotiating the revision, and the replay now plays all three. `docs/EVIDENCE.md`, Road
+to Alexa+, records each step.
 
 **What would remove it.** One recorded request from the Alexa+ client, headers included, on
-the lifecycle page. Separately, the toolkit and simulator are for select partners only, so a
-builder outside that group can check a manifest against the documented schema and nothing
-more.
+the lifecycle page. Separately, the hackathon FAQ says the toolkit and simulator are for
+select partners only and that participants cannot get access, so a builder outside that group
+can check a manifest against the documented schema and nothing more.
 
 ---
 

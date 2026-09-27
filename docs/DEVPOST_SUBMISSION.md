@@ -199,9 +199,11 @@ covered. We deleted all of it. The page now shows a real result or an honest emp
   miss fails the build and closing one means deleting its id from the list.
 * **JavaScript and TypeScript, on a held-out half.** Rules for the same three structural
   findings were added on 2026-09-27, tuned on a training half of 64 self-authored, synthetic
-  patches and measured on the other half: recall 25.0% to 50.0% for JavaScript and 37.5% to
+  patches and measured on the other half (independent of the tuning, not of the author): recall 25.0% to 50.0% for JavaScript and 37.5% to
   75.0% for TypeScript, 8 patches per language that must flag. False positives stayed at 0.0%
-  and 25.0% of 8, all from the unchanged keyword pass. Printed by
+  and 25.0% of 8, all from the unchanged keyword pass on this corpus. The rules read one line
+  at a time: eight probes written after them to find where that breaks gave 0 of 4 detected
+  and 4 of 4 over-flagged, all by a structural rule (`--probes`). Printed by
   `python scripts/benchmark_js_ts_detection.py`; the split rule, the seed and every miss are in
   `docs/EVIDENCE.md`.
 
@@ -321,9 +323,10 @@ does and does not compound, is in `docs/EVIDENCE.md`.
 * **Track: Alexa+.** Claimed as a real MCP server that an Alexa+ MCP add-on would call, plus an
   explicitly simulated voice web experience. The add-on package in `alexa_plus/` is built and
   tested locally, not certified or deployed; needs the owner's Amazon developer account, and
-  Amazon lists the MCP Toolkit for select partners only. A replay of Amazon's documented Alexa+
-  client requests gets the finding back from a client that follows the protocol's version
-  rules, and is refused for one that never sends the version header. Alexa+ has never called Volcan. The claim is the protocol work, not a
+  the hackathon FAQ says participants cannot get MCP Toolkit access. A replay of Amazon's
+  documented Alexa+ client requests, against a local build and not the registered endpoint,
+  gets the finding back from a client that follows the protocol's version rules or declares
+  the revision it asked for, and is refused for one that never sends the version header. Alexa+ has never called Volcan. The claim is the protocol work, not a
   certified add-on or skill.
 * **Mini challenge: AWS Builder.** Claimed as a real Amazon Bedrock adapter whose responses
   state which path produced them. The claim is the labelled integration and safe fallback,
@@ -333,8 +336,9 @@ does and does not compound, is in `docs/EVIDENCE.md`.
 
 ## What is next
 
-1. **Deploy the Alexa+ add-on** so the voice experience stops being a simulation. The
-   package in `alexa_plus/` passes Amazon's documented schema locally; the gap is MCP Toolkit
+1. **Deploy the Alexa+ add-on, if Amazon grants MCP Toolkit access**, which the hackathon FAQ
+   says participants cannot get at present, so the voice experience stops being a simulation.
+   The package in `alexa_plus/` passes Amazon's documented schema locally; the gap is that
    access, the owner's hosted privacy page and images, a redeploy of the current commit, the
    header question the replay raised, and a test in Amazon's simulator and on an Echo device.
 2. **Send one live review** with `VOLCAN_GITHUB_WRITE=1` and a fine-grained token against a

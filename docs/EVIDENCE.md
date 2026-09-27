@@ -134,8 +134,8 @@ code operator named (`user.role not equals 'admin'`), while the screen and the B
 the literal `!=`.
 
 **Time to first result, measured on the development machine on 2026-09-26.** Step 1 printed
-`623 passed, 1 warning` on 2026-09-27 (the count is the claim; the duration varies run to run;
-the same day, before the JavaScript and TypeScript rules and the Alexa+ package, it was 577). The server in step 2 answered its first `GET /health` with HTTP 200 **1.7 seconds**
+`631 passed, 1 warning` on 2026-09-27 (the count is the claim; the duration varies run to run;
+the same day, before the JavaScript and TypeScript rules and the Alexa+ package, it was 577, and before the audit fixes 623). The server in step 2 answered its first `GET /health` with HTTP 200 **1.7 seconds**
 after launch on 2026-09-26 (three runs that day read 1.7, 1.7 and 1.8 s), printed by [`scripts/measure_cold_start.py`](../scripts/measure_cold_start.py),
 which launches its own server on port 8000 (stop the one from step 2 first) and refuses to time
 a process that was already warm. Step 3 printed `22/22 checks passed, 0 failed`. The first
@@ -185,8 +185,10 @@ deployed; it needs the owner's Amazon developer account.** Amazon's route for a 
 this is an MCP add-on, in which Alexa+ is the MCP client of this same server. The add-on
 manifest is in the repository and a replay of Amazon's documented client requests runs against
 the server, but no add-on has been deployed and Alexa+ has never called Volcan: no skill, no
-Alexa+ connection, no Echo run. [Road to Alexa+](#road-to-alexa) has the sources, what was
-built, what the replay found and what only the owner can do. The page says so in a band below
+Alexa+ connection, no Echo run. The hackathon FAQ says participants cannot get access to the
+MCP Toolkit, so an account is not enough: deployment waits on Amazon granting that access.
+[Road to Alexa+](#road-to-alexa) has the sources, what was built, what the replay found and
+what only the owner can do. The page says so in a band below
 its first screen and draws the add-on as a dashed box in its Evidence tab. Until 2026-09-27
 this paragraph said the road was "stated, not built", which was true then.
 
@@ -870,14 +872,15 @@ estimate unless it says ESTIMATE.
 | Security-flag detection, Python corpus | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **81.8% recall over n=40 labelled patches**, 22 that must flag and 18 that must not, with 0% false positives. Unchanged on 2026-09-27 by the JavaScript and TypeScript rules. Of the 40, 36 are Python files: 85.0% recall (17/20) and 0.0% false positives (0/16) over those, printed on the "Python files only" line | `python scripts/benchmark_suite.py` |
 | Security-flag detection, JavaScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 25.0% recall (2/8), 0.0% false positives (0/8), the parser before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **50.0% recall (4/8), 0.0% false positives (0/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
 | Security-flag detection, TypeScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 37.5% recall (3/8), 25.0% false positives (2/8), before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **75.0% recall (6/8), 25.0% false positives (2/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
-| Documented Alexa+ client session, replayed locally, `tools/call` round trip | not applicable | 33.2 ms (client asks for revision 2025-03-26) and 28.2 ms (asks for 2025-11-25), spec-following client, over local HTTP after three warm-up sessions, local engine, no AWS credentials, 2026-09-27, against Amazon's documented limit of 500 ms. A client that never sends the `MCP-Protocol-Version` header is refused. Not the Lambda, not Alexa+ | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8761/mcp` |
+| Security-flag detection, JavaScript and TypeScript, eight probes written after the rules to find where they break (4 must flag, 4 must not; self-authored, synthetic; not part of the corpus or either half) | not applicable | **0 of 4 detected; all 4 that must not flag are flagged, each by a structural rule**, 2026-09-27 | `python scripts/benchmark_js_ts_detection.py --probes` |
+| Documented Alexa+ client session, replayed locally, `tools/call` round trip | not applicable | Median of 15 sessions per client shape, against a local build of `f3331d6` on 127.0.0.1 after three warm-up sessions, local engine, no AWS credentials, 2026-09-27: 21.3 ms (range 17.3 to 31.5) for a client that asks for revision 2025-03-26 and follows the protocol, 21.2 ms (16.2 to 50.6) for one that asks for 2025-03-26 and declares it in its header, 27.2 ms (20.8 to 48.7) for one that asks for 2025-11-25; Amazon's documented limit is 500 ms. A client that never sends the `MCP-Protocol-Version` header is refused. Earlier the same day this row quoted single samples, 33.2 ms and 28.2 ms. Not the endpoint registered in the add-on manifest, which runs an older build, and not Alexa+ | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8784/mcp --runs 15` |
 | Digest earcon, benign patch vs security-sensitive patch | **byte-identical until 2026-09-08**: both returned `DIFF_READY`, 19448 WAV bytes, `sha256[:16] 08f48648388bff02` | 19448 bytes `08f48648388bff02` for the benign patch, 26504 bytes `22c91bec11e275d1` for the security-sensitive one | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
 | Patch parse latency, 1000 steady runs | not measured | mean 0.281 ms; p95 0.448 ms | `python scripts/benchmark_suite.py` |
 | Earcon synthesis latency, 1000 steady runs | not measured | mean 3.592 ms; p95 6.565 ms | `python scripts/benchmark_suite.py` |
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **22 of 22 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 623 passing; 92.08% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-27 (577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 631 passing; 92.11% statement coverage (4195 statements, 331 missed), including a real Chromium judge journey and Lambda bridge, 2026-09-27 (623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.7 s on 2026-09-26 (three runs: 1.7, 1.7, 1.8 s) | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 31.3 ms on the first press, then 38.9, 30.5 and 28.7 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credentials | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -928,8 +931,10 @@ the Python figure above did not move.
 
 *The corpus.* 64 patches in [`tests/fixtures/diff_corpus_js_ts.py`](../tests/fixtures/diff_corpus_js_ts.py),
 16 per language and label. They are self-authored and synthetic, written by the same engineer
-who then wrote the rules, before any JavaScript or TypeScript rule existed, and committed on
-their own first (`aedccbf`) with the baseline in the commit message. Positives include cases no
+who then wrote the rules, and committed on their own first (`aedccbf`) with the baseline in
+the commit message. The rules were committed 3 min 34 s later (`cc1c7f0`), so history proves
+the order of the commits, not the order of the writing, and the author knew what rules he was
+about to write. Positives include cases no
 rule was expected to catch (a negated `includes`, an `innerHTML` sink, MD5, a cookie that lost
 its flags, SQL built by interpolation, a route that lost its middleware). Negatives use the
 words the keyword pass reacts to, because ordinary JavaScript does (`Object.keys`, `keydown`,
@@ -938,9 +943,11 @@ a chat message `role` check flipped, a floor-plan comparison flipped, CORS narro
 
 *The split.* Group the cases by language and label; sort each group by fixture id; shuffle it
 with `random.Random(20260927)`; the first half of each group is training, the second half
-held-out. 32 cases each, 8 per language and label. Tuning looked at training cases only. The
-held-out half was measured before the rules as aggregates, then once more after the rules were
-frozen, and its misses are recorded, not fixed. The engineer who wrote the rules also wrote the
+held-out. 32 cases each, 8 per language and label. By the author's account, tuning looked at
+training cases only, and the held-out half was measured before the rules as aggregates, then
+once more after the rules were frozen; no artefact proves that sequence. Its misses are
+recorded, not fixed. The split seed was checked afterwards by an audit: over 2000 other seeds
+the held-out recall averages 11.5 of 16, against 10 of 16 for the published one. The engineer who wrote the rules also wrote the
 held-out cases, so the held-out figure is independent of the tuning, not of the author.
 
 | Half | Language | Recall before | Recall after | False positives before | False positives after |
@@ -961,7 +968,9 @@ pass; after them, 6 of the 10 held-out detections come from a structural rule.
   With 8 cases per cell, one case moves a figure by 12.5 points.
 * *False positives did not fall.* All 6 of the 32 negatives that raise a flag, across both
   halves, are the keyword pass, which was left unchanged so the Python figure stays
-  comparable. No structural rule over-flags on either half.
+  comparable. No structural rule over-flags on either half of this corpus. That does not
+  generalise: the rules read one changed line at a time, and eight probes written after them
+  (below) were all misjudged.
 * *A stricter authorization test.* A flipped comparison counts only when it names a principal
   (`user`, `session`, `account`, `member` ...) or a privileged value (`admin`, `owner` ...).
   The training case that forced this is a chat renderer flipping `message.role === 'assistant'`.
@@ -977,6 +986,21 @@ which is not a removed call). Training misses: `js-pos-11` (`innerHTML`), `ts-po
 (`new Function`), `ts-pos-11` (MD5).
 [`tests/unit/test_js_ts_detection_corpus.py`](../tests/unit/test_js_ts_detection_corpus.py)
 pins every miss and every over-flag by id.
+
+*Probes written after the rules (added 2026-09-27, after an audit).*
+[`tests/fixtures/diff_corpus_js_ts_probes.py`](../tests/fixtures/diff_corpus_js_ts_probes.py)
+holds eight patches that are not part of the corpus or of either half. Four are the audit's;
+the rule author added four more of the same kinds, with each label fixed from what the change
+means before the rules ran on it. They aim at the line-at-a-time limit. Must not flag: an
+early-return refactor of an admin check, a test assertion rewritten to an equivalent negated
+form, a wildcard origin in a local development server, and `!(a === b)` rewritten as
+`a !== b`. Must flag: a negated `isAdmin(user)` or `canEdit(...)` helper un-negated, an admin
+comparison flipped across two lines, and a CORS origin widened with the value on its own line.
+`python scripts/benchmark_js_ts_detection.py --probes` prints 0 of 4 detected and all 4
+negatives flagged, each by a structural rule. The rules were not changed. The corpus figures
+above hold for that corpus; the probes show what a reader should not assume beyond it. The
+next corpus should be written by someone other than the rule author, with refactor negatives
+of this kind in its held-out half.
 
 The engine latency figures are the single run recorded in `benchmarks_summary.json`, not a stable
 constant. The parse mean rose from 0.041 ms to a fraction of a millisecond when the
@@ -1141,9 +1165,12 @@ sources fetched with `curl` on 2026-09-27; the date after each link is the page'
   handler to translate into an MCP call, and no speech for Volcan to write: a custom-skill
   handler of that kind belongs to the older Alexa Skills Kit, not to Alexa+, and was not built.
   The QuickStart also requires a round trip under 500 ms.
-* Access. Amazon's add-on docs home says the Category SDK and MCP Toolkit are available to
-  select partners only, and the hackathon FAQ says participants cannot get access to the
-  Alexa+ add-on tools (CLI, MCP Toolkit, web simulator). Setting up also needs an AWS account
+* Access. The [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) says the
+  Alexa+ add-on tools (CLI, MCP Toolkit, web simulator) are in preview for select partners
+  only and that participants currently have no way to apply for or gain access. The owner's
+  developer account is therefore not the gating item. Until an audit on 2026-09-27 this
+  bullet also attributed the restriction to Amazon's add-on docs home; the audit did not find
+  it on the overview, quickstart or integration-approach pages, so the FAQ is the source. Setting up also needs an AWS account
   that assumes an Amazon-owned role, and a private npm registry for the CLI
   ([set up](https://developer.amazon.com/docs/alexaplus/add-ons/set-up-your-development-environment.html),
   Jul 15, 2026). None of that was attempted, and nothing was installed from it.
@@ -1158,39 +1185,64 @@ sources fetched with `curl` on 2026-09-27; the date after each link is the page'
 
 **What the replay found.**
 
-The lifecycle page shows bodies and no headers, so the replay plays two kinds of client for each
-revision Amazon names: a spec-following one, which adopts the revision the server answers with
-and sends the `MCP-Protocol-Version` header when that revision defines one, and one that never
-sends the header, as a client that only knows 2025-03-26 would.
+The lifecycle page shows bodies and no headers, so the replay plays three kinds of client for
+each revision Amazon names: a spec-following one, which adopts the revision the server answers
+with and sends the `MCP-Protocol-Version` header when that revision defines one; one that
+declares the revision it asked for in that header, whatever it was answered, which breaks the
+lifecycle rule but fits the documented bodies as well as the others; and one that never sends
+the header, as a client that only knows 2025-03-26 would. The third shape was added on
+2026-09-27 after an audit; until then the replay played two and missed the one change below
+that refused a client.
 
-* *The server listed a revision it did not honour, now corrected.* Amazon's example client asks
-  for `2025-03-26`. Volcan listed that revision as supported but did not honour it: that
-  revision has no version header, which Volcan requires after initialize, and it requires a
-  server to accept JSON-RPC batches, which Volcan refuses. A first attempt that day
-  (`2de4663`) made initialize echo `2025-03-26` back, and the replay showed it made things
-  worse: a spec-following client, told `2025-03-26`, sent no header and was refused. `76f017c`
-  removed `2025-03-26` from the supported list instead. A client asking for it is now answered
-  `2025-11-25`, as the lifecycle rule directs for a revision the server does not support, and a
-  client that also speaks `2025-11-25` then sends the header and is served.
+* *The server listed a revision it did not honour; two attempts each refused a client, the
+  third serves all that were served before.* Amazon's example client asks for `2025-03-26`.
+  Volcan listed that revision as supported but did not honour it: that revision has no version
+  header, which Volcan requires after initialize, and it requires a server to accept JSON-RPC
+  batches, which Volcan refuses. A first attempt that day (`2de4663`) made initialize echo
+  `2025-03-26` back, and a spec-following client, told `2025-03-26`, sent no header and was
+  refused. `76f017c` removed `2025-03-26` from the supported list instead. That one constant
+  also decided which header values are accepted after initialize, so the same edit refused a
+  client that asks for `2025-03-26` and then declares it, which `4e1e098` served. The replay
+  then played only two shapes and could not show it; an audit found it. `f3331d6` split the
+  constant. A client asking for `2025-03-26` is still answered `2025-11-25`, as the lifecycle
+  rule directs for a revision the server does not support, and a `2025-03-26` header after
+  initialize is accepted again. A batch is still refused with -32600, and any other header
+  value is still refused. The trade-off, stated: that client and the server then disagree
+  about the revision, which the header rule exists to prevent; the only 2025-03-26 behaviour
+  Volcan lacks, batching, fails with an error naming 2025-11-25, so it does not fail silently.
 * *An open risk, recorded and not changed.* A client that never sends the header is refused
   after initialize (the deliberate rule in [The MCP surface](#the-mcp-surface)), whichever
   revision it asked for. The rule was not loosened on a guess about what Alexa+ sends, and the
   public Lambda is stateless, so an exception scoped to a session would not reach it. The owner
-  decides once a real Alexa+ request can be seen. A client that speaks only 2025-03-26 could
-  not use this server before this round either.
+  decides once a real Alexa+ request can be seen. That shape was refused at `4e1e098` too. Of
+  the three shapes, only the one that declares 2025-03-26 changed outcome this round: refused
+  at `76f017c`, served again at `f3331d6`.
 
-The replay on 2026-09-27, local HTTP, local engine, no AWS credentials, three warm-up sessions,
-run against the server sources of three commits exported side by side:
+The replay on 2026-09-27, local HTTP, local engine, no AWS credentials, three warm-up sessions
+then 15 sessions per client shape, run by `python scripts/replay_alexa_plus_envelopes.py
+<url> --runs 15` against the server sources of each commit exported with `git archive`. Only
+served or refused is compared across commits. Medians of the same shape moved by 10 to 25 ms
+between runs while other local servers were up, so a latency gap between commits is noise.
 
-| Client | `4e1e098`, before this round | `2de4663`, echo attempt | `76f017c`, now |
-|---|---|---|---|
-| Asks for 2025-03-26, spec-following | answered 2025-11-25, header sent, finding named, 47.5 ms | answered 2025-03-26, no header, refused | answered 2025-11-25, header sent, finding named, 33.2 ms |
-| Asks for 2025-11-25, spec-following | finding named, 33.1 ms | finding named, 29.3 ms | finding named, 28.2 ms |
-| Never sends the header, either revision | refused after initialize | refused after initialize | refused after initialize |
+| Client | `4e1e098`, before this round | `2de4663`, echo attempt | `76f017c`, second attempt | `f3331d6`, now |
+|---|---|---|---|---|
+| Asks for 2025-03-26, spec-following | answered 2025-11-25, header 2025-11-25, served | answered 2025-03-26, no header, refused | answered 2025-11-25, header 2025-11-25, served | answered 2025-11-25, header 2025-11-25, served |
+| Asks for 2025-03-26, declares 2025-03-26 | answered 2025-11-25, served | answered 2025-03-26, served | answered 2025-11-25, **refused** | answered 2025-11-25, served |
+| Asks for 2025-11-25, spec-following or declaring it | served | served | served | served |
+| Never sends the header, either revision | refused after initialize | refused after initialize | refused after initialize | refused after initialize |
+
+At `f3331d6` the tool-call round trip, median of 15 sessions with its range, was 21.3 ms (17.3
+to 31.5) and 21.2 ms (16.2 to 50.6) for the two served 2025-03-26 shapes, and 27.2 ms (20.8 to
+48.7) and 26.5 ms (20.7 to 50.4) for the two 2025-11-25 shapes. History: the first version of
+this table, earlier on 2026-09-27, quoted single samples, 47.5 ms at `4e1e098` and 33.2 ms at
+`76f017c`, which read like a speedup. The audit measured 37.4 ms and 27.5 ms on the same two
+commits, so that gap was run-to-run noise, and the cross-commit latency column was dropped.
 
 The finding the tool call returned in each served case begins
 `In p.py, an authorization comparison was inverted: user.role == 'admin' became user.role != 'admin'`.
-Those round trips are a warm local server, not the Lambda and not Alexa+. With Amazon Bedrock
+Those round trips are a warm local server built from this repository on 127.0.0.1. They are
+not the endpoint the add-on manifest registers, which is the public Lambda and runs an older
+build, and not Alexa+. With Amazon Bedrock
 answering, the digest call would add a model round trip that has never been measured here, so
 whether that path meets the 500 ms limit is unknown.
 
@@ -1206,7 +1258,8 @@ whether that path meets the 500 ms limit is unknown.
 * Amazon's certification criteria include VoiceView, captions and screen magnifier support on
   Alexa devices. Nothing here was tried on a device.
 
-**What only the owner can do.** Request MCP Toolkit access. Host the privacy page, terms page,
+**What only the owner can do.** Obtain MCP Toolkit access, which the hackathon FAQ says
+participants cannot get at present. Host the privacy page, terms page,
 icons and carousel image, and replace the nine placeholders. Redeploy the current commit to the
 endpoint. Install the Alexa AI CLI and run `alexa-ai deploy` from `alexa_plus/`. Test in the web
 simulator in isolation mode, and record which headers the real client sends.
@@ -1306,7 +1359,10 @@ simulator in isolation mode, and record which headers the real client sends.
   misses in Measured numbers are. A Python line that does not parse produces no finding rather
   than a guess. The JavaScript and TypeScript rules read tokens one line at a time, not a
   syntax tree, and their held-out recall is 50.0% (JavaScript) and 75.0% (TypeScript) on a
-  self-authored corpus. Until 2026-09-27 this entry said Python only.
+  self-authored corpus, independent of the tuning, not of the author. Eight probes written
+  after the rules show the limit: a flip through a helper call or across two lines is missed,
+  and an equivalent rewrite of a check is flagged (0 of 4 detected, 4 of 4 over-flagged).
+  Until 2026-09-27 this entry said Python only.
 * **The public endpoint runs an older build, and Alexa hardware remains untested.** On
   2026-09-23 `GET /health`, `/`, the REST digest and the MCP initialize/tool path answered
   successfully. On 2026-09-27 the same endpoint reported `source_revision` `2d0b8f8`, an
