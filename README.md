@@ -105,7 +105,7 @@ sequenceDiagram
     Volcan-->>Dev: dry run, recorded and not sent, sealed in the audit chain
 ```
 
-![The same screen in the daylight theme after one keyboard press on a local server: the waveform drawn in ember now that the cue has played, a Replay the cue button, the caption naming the falling security finding cue, the whole spoken answer, and the engine meter reading local heuristic with its reason: the Anthropic SDK is not installed.](docs/assets/volcan-after-one-press.png)
+![The same screen in the daylight theme after one keyboard press, Alt+1 then Enter, on a local server with no cloud credentials: the card reading "Live MCP server, simulated Alexa+ front end" and "Not an Alexa skill. GitHub: dry-run.", the focus ring still on Hear this code review, the waveform drawn in ember now that the falling cue has played, a Replay the cue button and its caption, the spoken sentence naming the inverted authorization comparison, and the engine meter reading local heuristic beside the round trip measured on that run.](docs/assets/volcan-after-one-press.png)
 
 ## Run it locally
 
