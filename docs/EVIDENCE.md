@@ -1259,6 +1259,28 @@ build, and not Alexa+. With Amazon Bedrock
 answering, the digest call would add a model round trip that has never been measured here, so
 whether that path meets the 500 ms limit is unknown.
 
+**A scripted Alexa+ conversation, turn by turn.** Scripted, not recorded: Alexa+ has never
+called this server, and which tool Alexa+ would pick for a turn is its own choice, not
+Volcan's. Each spoken turn below is one the review grammar in `src/domain/review_dialogue.py`
+accepts, and each call is one of the 12 tools `tools/list` returns. The developer's words
+would travel as `transcript`; `session_id` is the gap named in the next list.
+
+| Developer says | MCP call Alexa+ would make | What the server returns |
+|---|---|---|
+| "Review octocat Hello-World pull request one." | `tools/call review_dialogue_turn` with `transcript` "open" and `pr_url` `https://github.com/octocat/Hello-World/pull/1` | A readback of what was opened and the head commit, from an unauthenticated GitHub read |
+| "What changed?" | `review_dialogue_turn`, `transcript` "summary" | The spoken digest with the finding named first, and the verdict earcon |
+| "Read the lines." | `review_dialogue_turn`, `transcript` "read the lines" | The exact numbered source lines of the current hunk |
+| "Spell that." | `review_dialogue_turn`, `transcript` "spell that" | The current line symbol by symbol, so `==` is heard as "equals, equals" and `!=` as "bang, equals" |
+| "How does that feel in Braille?" | `tools/call braille_diff_digest` with the same patch | Eight-dot code cells, one per character |
+| "Request changes: restore the equality check." | `review_dialogue_turn`, `transcript` "request changes restore the equality check" | A readback of the comment and a single-use `approval_grant` bound to the head commit |
+| "Confirm." | `review_dialogue_turn`, `transcript` "confirm", with that `approval_grant` | The head commit re-read; without `VOLCAN_GITHUB_WRITE=1` and a token, the review is recorded and not sent, and the outcome says so |
+
+`python -m pytest tests/integration/test_review_dialogue_api.py -v` sends the open and
+request-changes turns over MCP and the whole journey over REST, against a scripted GitHub;
+`python -m pytest tests/unit/test_review_dialogue.py tests/unit/test_review_dialogue_use_case.py -v`
+covers the dialogue turns by injected transcript, the confirm included. The Alexa+ framing is
+the untested part.
+
 **What else stands between this package and a certified add-on, none of it tested.**
 
 * `review_dialogue_turn` asks for a `session_id`. Amazon's lifecycle page says Alexa+ keeps its
