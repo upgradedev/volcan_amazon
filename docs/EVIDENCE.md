@@ -1406,9 +1406,10 @@ simulator in isolation mode, and record which headers the real client sends.
   ancestor of this branch 43 commits behind `6d2e227`; see
   [The public deployment](#the-public-deployment). No Alexa skill or Echo-device execution is
   inferred from that server proof.
-* **No video has been published.** A 168 second render of a local run of `de30b11` exists
-  outside the repository, pending upload by the owner; [`video/README.md`](../video/README.md)
-  says how it was made. `video/` holds no footage, so gates E2 and E4 stay red.
+* **No video has been published.** A 174.32 second render at 1920x1080 of a local run of
+  `1dc939f` exists outside the repository, pending upload by the owner; it supersedes the
+  earlier render of `de30b11`. [`video/README.md`](../video/README.md) says how it was made.
+  `video/` holds no footage, so gates E2 and E4 stay red.
 * **Durability is deployment-dependent and bounded.** A local run without
   `VOLCAN_STATE_TABLE` keeps dialogue, actions, spent nonces and audit records in process
   memory, and a restart loses them. The Terraform deployment passes only an existing
