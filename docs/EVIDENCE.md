@@ -995,27 +995,36 @@ named governed-action calls only.
 
 ## The public deployment
 
-**Checked on 2026-09-26, and behind this branch.** The endpoint is
-`https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com`. What it served that day:
+**Checked on 2026-09-27, and behind this branch.** The endpoint is
+`https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com`. What it served that day, against
+this branch at `6d2e227` (every later commit adds one to the count; the last command gives
+the figure for whatever commit you hold):
 
 ```bash
 curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health | python -m json.tool
-git rev-list --count 2d0b8f8..9e6f215     # printed 28
+curl -s -o /dev/null -w "%{http_code} %{size_download}\n" https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/   # printed 200 101802
+git cat-file -s 6d2e227:docs/index.html   # printed 271646
+git rev-list --count 2d0b8f8..6d2e227     # printed 43
+git rev-list --count 2d0b8f8..HEAD
 ```
 
 * `/health` reported `source_revision` `2d0b8f810e1a0292d979913b886589ae47af3ba4`, an
-  ancestor of this branch, 28 commits behind `9e6f215`. Its `bedrock_model_path` read
+  ancestor of this branch, 43 commits behind `6d2e227`. Its `bedrock_model_path` read
   `ready_to_attempt` in `eu-west-1`, its `github_review_path` read `dry_run_no_token`, and it
   carried no `durable_state` field, because that build predates the durable mode.
 * `GET /` answered HTTP 200 with 101,802 bytes, an older build of the page; `docs/index.html`
-  at `9e6f215` is 263,438 bytes.
-* `POST /api/digest_semantic_diff` with the inverted admin check answered
-  `synthesis_mode: heuristic-local` with the reason `Amazon Bedrock access is not authorized for
-  the configured model; the local deterministic digest answered instead`, and the sentence
-  `Security-sensitive changes in p.py. Modified 1 file with 1 addition and 1 deletion. Note: 1
-  critical finding requires your verification.` This branch names the change instead: `an
-  authorization comparison was inverted`. The public build therefore does not show the
-  headline finding, and it does not show a Bedrock answer.
+  at `6d2e227` is 271,646 bytes.
+* `POST /api/digest_semantic_diff` with the inverted admin check (sent with
+  `curl -s -X POST -H "Content-Type: application/json" --data @inverted.json <endpoint>/api/digest_semantic_diff`,
+  where `inverted.json` holds a two-line patch of `p.py` turning `user.role == "admin"` into
+  `user.role != "admin"` at `level` 0) answered `synthesis_mode: heuristic-local` with the
+  reason `Amazon Bedrock access is not authorized for the configured model; the local
+  deterministic digest answered instead`. Its `critical_findings` field names the change:
+  `In p.py, an authorization comparison was inverted: user.role == 'admin' became user.role !=
+  'admin'.` Its spoken `voice_summary` does not: `Security-sensitive changes in p.py. Modified
+  1 file with 1 addition and 1 deletion. Note: 1 critical finding requires your verification.`
+  This branch opens the spoken summary with the finding itself. The public build therefore
+  does not speak the headline finding, and it does not show a Bedrock answer.
 
 [`deploy_teardown_receipt.json`](../deploy_teardown_receipt.json) is a superseded probe from
 2026-09-05 of an even older commit, `38668ad`, and says so in its `_note`. Readiness gates D2
@@ -1117,8 +1126,8 @@ the new `source_revision`. Until then, run the server locally to see this branch
   does not parse as Python produces no finding rather than a guess.
 * **The public endpoint runs an older build, and Alexa hardware remains untested.** On
   2026-09-23 `GET /health`, `/`, the REST digest and the MCP initialize/tool path answered
-  successfully. On 2026-09-26 the same endpoint reported `source_revision` `2d0b8f8`, an
-  ancestor of this branch 28 commits behind `9e6f215`; see
+  successfully. On 2026-09-27 the same endpoint reported `source_revision` `2d0b8f8`, an
+  ancestor of this branch 43 commits behind `6d2e227`; see
   [The public deployment](#the-public-deployment). No Alexa skill or Echo-device execution is
   inferred from that server proof.
 * **No video has been published.** A 168 second render of a local run of `de30b11` exists

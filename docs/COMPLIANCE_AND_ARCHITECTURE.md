@@ -10,9 +10,10 @@ measurement was taken.
 the endpoint at `https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com` served the
 companion, REST API and MCP Streamable HTTP surface of the candidate deployed that day.
 `GET /health` reports the immutable `source_revision`. **It is not the current build.** On
-2026-09-26 it reported `2d0b8f8`, an ancestor 28 commits behind `9e6f215`; its page is an
-older design, its digest does not name the inverted authorization check, and its Bedrock call
-was refused as not authorized, so the local engine answered. `docs/EVIDENCE.md`, section "The
+2026-09-27 it reported `2d0b8f8`, an ancestor 43 commits behind `6d2e227`; its page is an
+older design, its spoken summary does not name the inverted authorization check (its
+`critical_findings` field does), and its Bedrock call was refused as not authorized, so the
+local engine answered. `docs/EVIDENCE.md`, section "The
 public deployment", records the commands. A staged and confirmed dry-run governed action produced bounded EMF logs
 and the two declared metrics in CloudWatch. This proves that deployment only; it does not
 prove Alexa hardware, a live GitHub write or a human accessibility outcome.

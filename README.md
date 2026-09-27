@@ -30,7 +30,7 @@ that shows this version.
 
 | | |
 |---|---|
-| **Live endpoint** | [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health) serves revision `2d0b8f8`, which is **behind this branch** (28 commits behind `9e6f215`, checked 2026-09-26). It shows an older page, its digest does not name the inverted check, and its Bedrock call is refused as not authorized, so the local engine answers. [Details](docs/EVIDENCE.md#the-public-deployment). |
+| **Live endpoint** | [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health) serves revision `2d0b8f8`, which is **behind this branch** (43 commits behind `6d2e227`, checked 2026-09-27). It shows an older page, its spoken summary (`voice_summary`) does not name the inverted check although its `critical_findings` field does, and its Bedrock call is refused as not authorized, so the local engine answers. [Details](docs/EVIDENCE.md#the-public-deployment). |
 | **Run it** | [Run it locally](#run-it-locally), no cloud account needed |
 | **Evidence** | [docs/EVIDENCE.md](docs/EVIDENCE.md): every claim with the command that prints it |
 | **Source** | Private until the submission window opens; until then, start from the submitted archive |
