@@ -607,28 +607,16 @@
     }
     .chapter-head p, section.block > p { color: var(--ink-soft); margin: 0; max-width: var(--measure); }
 
-    /* How it works: four steps along one line of time. */
-    .steps {
-      list-style: none; margin: 0; padding: 0;
-      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px;
-      counter-reset: step;
-    }
-    .steps li { padding-top: 16px; border-top: 2px solid var(--line-strong); }
-    .steps li:first-child { border-top-color: var(--ember); }
-    .steps h3 { font-size: var(--t-md); margin: 10px 0 6px; line-height: 1.3; }
-    .steps p { margin: 0; color: var(--ink-soft); font-size: var(--t-sm); }
-    .steps svg { width: 44px; height: 26px; display: block; }
-    .steps svg .ink { fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-    .steps svg .hot { fill: none; stroke: var(--ember); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
-    .steps svg .dot { fill: var(--ink); }
-    .steps svg .dot.off { fill: var(--dot-off); }
 
     /* Who it is for: three plain cards, one of them a labelled hypothesis
        and one a labelled plan. */
-    .who-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
-    .who-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); padding: 18px 20px; }
-    .who-card h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 8px; font-size: var(--t-md); }
-    .who-card p { margin: 0; color: var(--ink-soft); font-size: var(--t-sm); }
+    /* One compact band, not two chapters: the stage above already shows how
+       one press works, so only who it is for and the road to Alexa+ remain. */
+    section.band { margin: 0 0 48px; border-top: 1px solid var(--line); padding-top: 20px; }
+    section.chapter .band-head { font-size: var(--t-md); margin: 0 0 12px; }
+    .who-band { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 28px; margin: 0; }
+    .who-band dt { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-weight: 700; margin: 0 0 4px; }
+    .who-band dd { margin: 0; color: var(--ink-soft); font-size: var(--t-sm); }
     .tag-hypothesis, .tag-notbuilt {
       font-size: var(--t-xs); font-weight: 700; letter-spacing: 0.04em;
       border: 1px solid currentColor; border-radius: 999px; padding: 1px 10px;
@@ -857,8 +845,7 @@
       .stage { grid-template-columns: minmax(0, 1fr); }
       .review-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "rail" "convo" "keys"; grid-template-rows: auto; }
       .gov-grid { grid-template-columns: minmax(0, 1fr); }
-      .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .who-grid { grid-template-columns: minmax(0, 1fr); }
+      .who-band { grid-template-columns: minmax(0, 1fr); }
     }
 
     @media (max-width: 620px) {
@@ -878,7 +865,6 @@
       .waveform { height: 64px; }
       .rendering h3 { grid-row: auto; }
       .rendering > * { grid-column: 1; }
-      .steps { grid-template-columns: minmax(0, 1fr); gap: 20px; }
       .path-arrow { display: none; }
       .composer-row { flex-wrap: wrap; }
       .composer-row input { flex-basis: 100%; }
@@ -1114,72 +1100,36 @@
       <nav class="jump" aria-label="Sections of this page">
         <ul>
           <li><a href="#who">Who it is for</a></li>
-          <li><a href="#how">How one press works</a></li>
           <li><a href="#review">Talk through a pull request</a></li>
           <li><a href="#evidence">Evidence</a></li>
         </ul>
       </nav>
 
-      <section class="chapter" id="who" aria-labelledby="who-heading">
-        <div class="chapter-head">
-          <p class="eyebrow">Who it is for</p>
-          <h2 id="who-heading">Who uses it, who would pay, and the road to Alexa+</h2>
-        </div>
-        <div class="who-grid">
-          <div class="who-card">
-            <h3>Who uses it</h3>
-            <p>Blind and low-vision developers who have to review code an AI agent wrote.
-              Today that means a screen reader reading a diff one plus sign at a time.
-              Volcan gives the verdict as a sound, the finding as one sentence, and every
-              symbol as eight-dot Braille.</p>
+      <section class="chapter band" id="who" aria-labelledby="who-heading">
+        <h2 id="who-heading" class="band-head">Who it is for, who would pay, and the road to Alexa+</h2>
+        <dl class="who-band">
+          <div>
+            <dt>User</dt>
+            <dd>Blind and low-vision developers reviewing code an AI agent wrote, which today
+              means a screen reader reading a diff one plus sign at a time.</dd>
           </div>
-          <div class="who-card">
-            <h3>Who would pay <span class="tag-hypothesis">hypothesis</span></h3>
-            <p>The accessibility compliance owner at a company whose products or services
-              the European Accessibility Act covers, which Member States apply from 28 June 2025
+          <div>
+            <dt>Buyer <span class="tag-hypothesis">hypothesis</span></dt>
+            <dd>An accessibility compliance owner under the European Accessibility Act, applied
+              from 28 June 2025
               (<a href="https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32019L0882">Directive (EU) 2019/882, Article 31</a>),
-              or at a supplier to US federal agencies under Section 508. No buyer has been
-              interviewed and no price is set.</p>
+              or a Section 508 supplier. No buyer has been interviewed and no price is set.</dd>
           </div>
-          <div class="who-card">
-            <h3>Road to Alexa+ <span class="tag-notbuilt">local only</span></h3>
-            <p>Alexa+ would call this same MCP server through an add-on. The
-              <a href="https://amazonappdev2026.devpost.com/details/faqs">hackathon FAQ</a> says the add-on tools are
-              "available to select partners only" and asks for a self-hosted MCP server with
-              its own front end: this page. The package is built and tested locally, not
-              certified or deployed. Alexa+ has never called Volcan:
-              no Alexa skill and no test on an Echo device.</p>
+          <div>
+            <dt>Alexa+ <span class="tag-notbuilt">local only</span></dt>
+            <dd>An assistant that already speaks is where a review by ear belongs: Alexa+ would
+              call this MCP server through an add-on. The
+              <a href="https://amazonappdev2026.devpost.com/details/faqs">hackathon FAQ</a> says those tools are
+              "available to select partners only", so the package is built and tested locally,
+              not certified or deployed. Alexa+ has never called Volcan: no Alexa skill and
+              no test on an Echo device.</dd>
           </div>
-        </div>
-      </section>
-
-      <section class="chapter" id="how" aria-labelledby="how-heading">
-        <div class="chapter-head">
-          <p class="eyebrow">How one press works</p>
-          <h2 id="how-heading">The verdict first, then the words, then the code under a fingertip</h2>
-        </div>
-        <ol class="steps">
-          <li>
-            <svg viewBox="0 0 44 26" aria-hidden="true" focusable="false"><polyline class="hot" points="4,6 22,13 40,21"></polyline></svg>
-            <h3>A cue you hear before any word</h3>
-            <p>The server returns a WAV. Its pitch falls for a security finding and rises for a clean patch.</p>
-          </li>
-          <li>
-            <svg viewBox="0 0 44 26" aria-hidden="true" focusable="false"><path class="ink" d="M4 7h36M4 13h28M4 19h32"></path></svg>
-            <h3>One sentence, security named first</h3>
-            <p>The digest leads with what matters. Ask for the exact numbered lines only when you want them.</p>
-          </li>
-          <li>
-            <svg viewBox="0 0 44 26" aria-hidden="true" focusable="false"><circle class="dot" cx="6" cy="5" r="3"></circle><circle class="dot" cx="6" cy="13" r="3"></circle><circle class="dot off" cx="6" cy="21" r="3"></circle><circle class="dot off" cx="15" cy="5" r="3"></circle><circle class="dot" cx="15" cy="13" r="3"></circle><circle class="dot" cx="15" cy="21" r="3"></circle><circle class="dot" cx="29" cy="5" r="3"></circle><circle class="dot off" cx="29" cy="13" r="3"></circle><circle class="dot" cx="29" cy="21" r="3"></circle><circle class="dot off" cx="38" cy="5" r="3"></circle><circle class="dot" cx="38" cy="13" r="3"></circle><circle class="dot off" cx="38" cy="21" r="3"></circle></svg>
-            <h3>Braille that keeps every symbol</h3>
-            <p>Eight-dot code cells give <code>!=</code> and <code>==</code> different dots, so a finger cannot confuse them.</p>
-          </li>
-          <li>
-            <svg viewBox="0 0 44 26" aria-hidden="true" focusable="false"><path class="ink" d="M6 13l8 8L38 5"></path></svg>
-            <h3>A review that waits for you</h3>
-            <p>Request changes is bound to the commit you heard, read back, and dry-run unless its owner enables the write.</p>
-          </li>
-        </ol>
+        </dl>
       </section>
 
       <section class="chapter" id="review" aria-labelledby="review-heading">
