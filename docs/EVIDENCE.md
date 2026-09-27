@@ -495,6 +495,15 @@ surfaces later and somewhere else. It is a deliberate deviation and this is wher
 written down. `POST` answers `-32600` inside a JSON-RPC envelope; `GET` and `DELETE` carry no
 envelope, so they answer HTTP 400 with the same sentence.
 
+*A declared `2025-03-26` is accepted; a missing header is not.* Since 2026-09-27 (`f3331d6`) a
+request whose header names `2025-03-26` is served, although initialize never negotiates that
+revision ([Road to Alexa+](#road-to-alexa) says why). This sits uneasily with the reason
+above: that client and this server do disagree about the revision. The difference is that the
+client has said which revision it believes, and the one 2025-03-26 behaviour Volcan lacks,
+batching, fails at once with an error naming 2025-11-25. Any other header value is refused
+with `-32600`, and the error's data lists the negotiable revisions (`supported`) and the
+accepted header values (`accepted_header`).
+
 *A review round reported that a `tools/list` carrying a valid session but no version header
 returned HTTP 200 with an empty tools array.* **That did not reproduce here.** It was re-run on
 2026-09-08 against a server started for the purpose, and both the session-present and
@@ -946,8 +955,10 @@ with `random.Random(20260927)`; the first half of each group is training, the se
 held-out. 32 cases each, 8 per language and label. By the author's account, tuning looked at
 training cases only, and the held-out half was measured before the rules as aggregates, then
 once more after the rules were frozen; no artefact proves that sequence. Its misses are
-recorded, not fixed. The split seed was checked afterwards by an audit: over 2000 other seeds
-the held-out recall averages 11.5 of 16, against 10 of 16 for the published one. The engineer who wrote the rules also wrote the
+recorded, not fixed. An audit checked the split seed afterwards with a script of its own, not
+in this repository: it reports that over 2000 other seeds the held-out recall averages 11.5 of
+16, against 10 of 16 for the published seed. That is the audit's measurement; no command here
+reproduces it. The engineer who wrote the rules also wrote the
 held-out cases, so the held-out figure is independent of the tuning, not of the author.
 
 | Half | Language | Recall before | Recall after | False positives before | False positives after |
@@ -989,9 +1000,11 @@ pins every miss and every over-flag by id.
 
 *Probes written after the rules (added 2026-09-27, after an audit).*
 [`tests/fixtures/diff_corpus_js_ts_probes.py`](../tests/fixtures/diff_corpus_js_ts_probes.py)
-holds eight patches that are not part of the corpus or of either half. Four are the audit's;
-the rule author added four more of the same kinds, with each label fixed from what the change
-means before the rules ran on it. They aim at the line-at-a-time limit. Must not flag: an
+holds eight patches that are not part of the corpus or of either half. Four are the audit's
+(`probe-01`, `-02`, `-03`, `-05`); the rule author added four more of the same kinds
+(`probe-04`, `-06`, `-07`, `-08`), with each label fixed from what the change means before the
+rules ran on it. `probe-03`'s label is a judgement: a wildcard origin in a server that only runs
+locally is harmless, and the patch says so only in a comment. They aim at the line-at-a-time limit. Must not flag: an
 early-return refactor of an admin check, a test assertion rewritten to an equivalent negated
 form, a wildcard origin in a local development server, and `!(a === b)` rewritten as
 `a !== b`. Must flag: a negated `isAdmin(user)` or `canEdit(...)` helper un-negated, an admin
@@ -1221,8 +1234,9 @@ that refused a client.
 The replay on 2026-09-27, local HTTP, local engine, no AWS credentials, three warm-up sessions
 then 15 sessions per client shape, run by `python scripts/replay_alexa_plus_envelopes.py
 <url> --runs 15` against the server sources of each commit exported with `git archive`. Only
-served or refused is compared across commits. Medians of the same shape moved by 10 to 25 ms
-between runs while other local servers were up, so a latency gap between commits is noise.
+served or refused is compared across commits. Within one run at `2de4663`, the spec-following
+and declaring clients asking for 2025-11-25 send identical requests after initialize, and their
+medians were 52.8 ms and 33.3 ms, so a latency gap of that size between commits is noise.
 
 | Client | `4e1e098`, before this round | `2de4663`, echo attempt | `76f017c`, second attempt | `f3331d6`, now |
 |---|---|---|---|---|

@@ -4,9 +4,10 @@ Built and tested locally, not certified or deployed; needs the owner's Amazon
 developer account. Alexa+ has never called this server. The bodies come from
 Amazon's "Alexa+ MCP Client and App Lifecycle" page (see
 ``tests/fixtures/alexa_plus_envelopes.py`` for the URL and date). That page
-shows bodies without headers, so both header cases are pinned here: with the
-``MCP-Protocol-Version`` header the documented session works end to end, and
-without it Volcan refuses every request after initialize. The second outcome is
+shows bodies without headers, so three header cases are pinned here: with the
+``MCP-Protocol-Version`` header of the negotiated revision, or of the revision
+the client asked for, the documented session works end to end, and without it
+Volcan refuses every request after initialize. The last outcome is
 an open integration risk recorded in docs/EVIDENCE.md, not a behaviour this
 test endorses.
 """

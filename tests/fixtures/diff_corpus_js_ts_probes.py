@@ -3,10 +3,14 @@
 How these were written, on 2026-09-27. An audit of the JS/TS rules showed
 that the rules read one changed line at a time, so a rewrite that keeps the
 meaning can still look like a flipped check, and a flip that goes through a
-helper call looks like nothing. The audit wrote four such patches (``probe-01``
-to ``probe-04`` below, as it described them). The engineer who wrote the rules
-then added four more of the same kinds (``probe-05`` to ``probe-08``), with the
-label decided from what the change means before the rules were run on them.
+helper call looks like nothing. The audit described four such patches, written
+here as ``probe-01``, ``probe-02``, ``probe-03`` and ``probe-05`` (three that
+must not flag, one that must). The engineer who wrote the rules then added four
+more of the same kinds, ``probe-04``, ``probe-06``, ``probe-07`` and
+``probe-08`` (one that must not flag, three that must), with each label decided
+from what the change means before the rules were run on it. ``probe-03``'s label
+is a judgement: a wildcard origin is harmless in a server that only ever runs
+locally, and the patch says so only in a comment.
 
 This is not part of the 64-case corpus and not part of its held-out half: it
 was written with full knowledge of the rules, to find where they break. It is
