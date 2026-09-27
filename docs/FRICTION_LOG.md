@@ -42,7 +42,7 @@ client sees.
 of request fixtures with the expected status code and JSON-RPC error code for each. That
 single artifact would remove the ambiguity without changing the specification's tone.
 `scripts/mcp_conformance.py` in this repository is a small version of what that artifact
-would look like; running it prints a pass or fail line for each of 22 checks.
+would look like; running it prints a pass or fail line for each of 23 checks.
 
 ---
 
@@ -284,9 +284,11 @@ Amazon documents.
 
 **Observed friction.** The lifecycle page shows the initialize and `tools/call` bodies and no
 HTTP headers. Its initialize asks for revision `2025-03-26`, while the overview says Alexa+
-supports `2025-11-25`. Revision 2025-03-26 had no `MCP-Protocol-Version` header, and this
-server refuses any request after initialize that lacks it. So the documentation cannot tell a
-server author whether the real client will be refused. `python scripts/replay_alexa_plus_envelopes.py`
+supports `2025-11-25`. Revision 2025-03-26 had no `MCP-Protocol-Version` header, and until
+2026-09-27 this server refused any request after initialize that lacked it. So the
+documentation cannot tell a server author whether the real client sends the header. This
+server now follows the specification's fallback for a missing header (the negotiated
+revision, else 2025-03-26), so the answer no longer decides whether the client is served. `python scripts/replay_alexa_plus_envelopes.py`
 prints both cases side by side. The same replay caught a mistake of this server's own, and
 then a mistake in the first fix for it. The server listed 2025-03-26 as supported without
 honouring it (no version header in that revision, and batches it must accept). Echoing

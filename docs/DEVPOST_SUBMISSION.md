@@ -160,12 +160,13 @@ covered. We deleted all of it. The page now shows a real result or an honest emp
 
 * **A hand-written MCP server with no SDK.** `python scripts/mcp_conformance.py` runs a
   full client handshake against a running instance and prints a pass or fail line for each of
-  22 checks. All 22 passed in both stateful and stateless transport modes on 2026-09-23,
+  23 checks. All 23 passed in both stateful and stateless transport modes on 2026-09-27,
   including the ones that are easy to get wrong: HTTP
   404 for a session the server never minted, HTTP 202 with no body for
   `notifications/initialized`, `-32602` rather than a transport error for an unknown tool, a
-  405 whose `Allow` header names every method the endpoint really accepts, and `-32600` for a
-  missing version header on every method, session or no session.
+  405 whose `Allow` header names every method the endpoint really accepts, a request without
+  the version header served under the session's negotiated revision or as 2025-03-26 as the
+  specification directs, and HTTP 400 for an unsupported version header on every verb.
 * **A review journey that reads back before it acts, and refuses when it should.** The
   dialogue is driven by injected transcripts in `tests/unit/test_review_dialogue.py`, the
   grant and the GitHub port in `tests/unit/test_review_dialogue_use_case.py`, and the whole
@@ -226,7 +227,7 @@ those defects became build failures instead of things to remember.
 
 **Live, and checkable in one command.** The MCP server. Start it with
 `python -m src.interfaces.mcp_server` and run
-`python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` to watch 22 of 22 protocol
+`python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` to watch 23 of 23 protocol
 checks pass. The companion page performs the same `initialize` and `tools/list` handshake in
 the browser and renders the negotiated protocol version, the stateful or stateless transport
 choice and every published tool schema. The public Lambda chooses stateless transport so an
@@ -329,8 +330,9 @@ does and does not compound, is in `docs/EVIDENCE.md`.
   end." The add-on package in `alexa_plus/` is built and tested locally, not certified or
   deployed, because the FAQ says the add-on tools are "available to select partners only". A replay of Amazon's
   documented Alexa+ client requests, against a local build and not the registered endpoint,
-  gets the finding back from a client that follows the protocol's version rules or declares
-  the revision it asked for, and is refused for one that never sends the version header. Alexa+ has never called Volcan. The claim is the protocol work, not a
+  gets the finding back from all three client shapes it plays: one that follows the protocol's
+  version rules, one that declares the revision it asked for, and one that never sends the
+  version header. Alexa+ has never called Volcan. The claim is the protocol work, not a
   certified add-on or skill.
 * **Mini challenge: AWS Builder.** Claimed as a real Amazon Bedrock adapter whose responses
   state which path produced them. The claim is the labelled integration and safe fallback,

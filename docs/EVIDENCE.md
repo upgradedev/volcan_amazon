@@ -138,7 +138,7 @@ the literal `!=`.
 the same day, before the JavaScript and TypeScript rules and the Alexa+ package, it was 577, and before the audit fixes 623). The server in step 2 answered its first `GET /health` with HTTP 200 **1.7 seconds**
 after launch on 2026-09-26 (three runs that day read 1.7, 1.7 and 1.8 s), printed by [`scripts/measure_cold_start.py`](../scripts/measure_cold_start.py),
 which launches its own server on port 8000 (stop the one from step 2 first) and refuses to time
-a process that was already warm. Step 3 printed `22/22 checks passed, 0 failed`. The first
+a process that was already warm. Step 3 printed `23/23 checks passed, 0 failed` on 2026-09-27. The first
 digest round trip in step 4 was **31.3 ms** in headless Chromium at 1440x900, read from the
 page's own meter, with the server started as in step 2 on port 8746 without AWS credentials;
 three further presses read 38.9, 30.5 and 28.7 ms. The page measures the round trip itself
@@ -482,55 +482,48 @@ cannot read, approve or reject a reviewer's staged action.
 `tests/e2e/test_durable_server_journey.py` runs the whole app in this configuration against
 in-memory DynamoDB and Secrets Manager fakes, with no reviewer roster, and walks the page's
 journey in Chromium.
-`MCP-Protocol-Version` is required on every request after initialize and is echoed on every
-response; `notifications/initialized` returns HTTP 202 with no body; JSON-RPC error codes
-`-32700`, `-32600`, `-32601` and `-32602` are all reachable; a failing tool is reported as
-`isError` inside the result rather than as a transport failure; a browser `Origin` outside
-the allowlist is rejected while an absent `Origin` is allowed so non-browser clients work;
-and `PUT /mcp` returns 405 with an `Allow` header.
+`MCP-Protocol-Version` is echoed on every response; `notifications/initialized` returns HTTP
+202 with no body; JSON-RPC error codes `-32700`, `-32600`, `-32601` and `-32602` are all
+reachable; a failing tool is reported as `isError` inside the result rather than as a
+transport failure; a browser `Origin` outside the allowlist is rejected while an absent
+`Origin` is allowed so non-browser clients work; and `PUT /mcp` returns 405 with an `Allow`
+header.
 
-**On the version header, two things a reviewer should know.**
+**The version header rule, as the specification states it.** The 2025-11-25 transport
+specification ("Protocol Version Header") says a client MUST send `MCP-Protocol-Version` on
+every request after initialize; that a server which receives none, and has no other way to
+identify the version, for example the one negotiated during initialization, SHOULD assume
+`2025-03-26`; and that an invalid or unsupported header MUST get 400 Bad Request. Since
+2026-09-27 Volcan does exactly that, in one function used by `POST`, `GET` and `DELETE`:
 
-*It is refused, not assumed.* The transport specification permits a server that receives no
-`MCP-Protocol-Version` header to fall back to assuming the older `2025-03-26` revision. This
-server refuses instead, because assuming lets a client and a server disagree about the
-revision they are speaking while both believe the handshake succeeded, and that disagreement
-surfaces later and somewhere else. It is a deliberate deviation and this is where it is
-written down. `POST` answers `-32600` inside a JSON-RPC envelope; `GET` and `DELETE` carry no
-envelope, so they answer HTTP 400 with the same sentence.
+* A header, when present, is the version. An empty header counts as present and is refused.
+* Without a header, a request carrying a session id this server issued is served under the
+  revision negotiated for that session.
+* Without a header or a session, which is every request to a stateless deployment such as the
+  public Lambda, the request is served as `2025-03-26`, which this server accepts. The one
+  2025-03-26 behaviour Volcan lacks, JSON-RPC batching, still fails at once with `-32600` and
+  an error naming 2025-11-25.
+* An unknown or terminated session id is still HTTP 404 before any version rule runs.
+* A header naming any revision other than `2025-11-25`, `2025-06-18` or `2025-03-26` gets HTTP
+  400 on every verb. On `POST` the body is a JSON-RPC `-32600` error against the request id,
+  whose data lists the negotiable revisions (`supported`) and the accepted header values
+  (`accepted_header`).
 
-*A declared `2025-03-26` is accepted; a missing header is not.* Since 2026-09-27 (`f3331d6`) a
-request whose header names `2025-03-26` is served, although initialize never negotiates that
-revision ([Road to Alexa+](#road-to-alexa) says why). This sits uneasily with the reason
-above: that client and this server do disagree about the revision. The difference is that the
-client has said which revision it believes, and the one 2025-03-26 behaviour Volcan lacks,
-batching, fails at once with an error naming 2025-11-25. Any other header value is refused
-with `-32600`, and the error's data lists the negotiable revisions (`supported`) and the
-accepted header values (`accepted_header`).
+*What changed, and why.* Until 2026-09-27 Volcan refused a request without the header: `-32600`
+inside HTTP 200 on `POST`, HTTP 400 on `GET` and `DELETE`. This file called that a deliberate
+deviation, on the grounds that assuming a revision lets a client and server disagree while both
+believe the handshake succeeded. The deviation broke the interoperability the specification's
+fallback exists for: a client that only knows 2025-03-26 could initialize and then do nothing
+else, and the Alexa+ replay showed it. The same review found that `POST` answered an
+unsupported header with HTTP 200, where the specification says 400. Both are fixed, and
+`python -m pytest tests/integration/test_mcp_conformance.py -k "version or header" -v` pins
+each case above.
 
-*A review round reported that a `tools/list` carrying a valid session but no version header
-returned HTTP 200 with an empty tools array.* **That did not reproduce here.** It was re-run on
-2026-09-08 against a server started for the purpose, and both the session-present and
-session-absent requests were refused identically:
-
-```
-tools/list  session YES, version header NO -> 200 {"jsonrpc":"2.0","id":2,"error":{"code":-32600,"message":"Missing MCP-Protocol-Version header; it is required on every request after initialize.","data":{"expected":"2025-11-25"}}}
-tools/list  session NO,  version header NO -> 200 {"jsonrpc":"2.0","id":3,"error":{"code":-32600,"message":"Missing MCP-Protocol-Version header; it is required on every request after initialize.","data":{"expected":"2025-11-25"}}}
-tools/list  session YES, version header YES -> 200 tools: 12
-```
-
-`tests/integration/test_mcp_conformance.py::test_a_valid_session_never_excuses_a_missing_protocol_version`
-now pins both halves and additionally asserts that no `result` member is present, because the
-dangerous shape of that failure is not an error but a plausible-looking answer.
-`test_the_version_rule_runs_before_dispatch_for_every_post_initialize_method` extends the same
-assertion to `tools/call`, `ping`, `resources/list` and an unknown method, with and without a
-valid session: each is refused `-32600` for the missing header and never reaches the `-32601`
-that would tell a client the header was fine. What the same
-investigation *did* find is that `GET /mcp` and `DELETE /mcp` accepted a request with no
-version header at all: the stream opened with HTTP 200 and the session terminated with HTTP
-204. The README already claimed the header was required on every request, and two verbs were
-not keeping that promise. All three verbs now enforce one rule from one function, and the
-conformance script checks each of them.
+*An earlier report, kept for the record.* A review round on 2026-09-08 reported that a
+`tools/list` carrying a valid session but no version header returned HTTP 200 with an empty
+tools array. That did not reproduce then, and it cannot happen now for a different reason: the
+request is served, and `test_missing_protocol_version_with_a_session_uses_the_negotiated_revision`
+asserts that it returns the real catalog, not an empty one.
 
 The REST surface at `/api` is ordinary JSON over HTTP for the web companion. It is not MCP
 and is not described as MCP anywhere in this repository.
@@ -886,12 +879,12 @@ estimate unless it says ESTIMATE.
 | Security-flag detection, JavaScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 25.0% recall (2/8), 0.0% false positives (0/8), the parser before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **50.0% recall (4/8), 0.0% false positives (0/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
 | Security-flag detection, TypeScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 37.5% recall (3/8), 25.0% false positives (2/8), before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **75.0% recall (6/8), 25.0% false positives (2/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
 | Security-flag detection, JavaScript and TypeScript, eight probes written after the rules to find where they break (4 must flag, 4 must not; self-authored, synthetic; not part of the corpus or either half) | not applicable | **0 of 4 detected; all 4 that must not flag are flagged, each by a structural rule**, 2026-09-27 | `python scripts/benchmark_js_ts_detection.py --probes` |
-| Documented Alexa+ client session, replayed locally, `tools/call` round trip | not applicable | Median of 15 sessions per client shape, against a local build of `f3331d6` on 127.0.0.1 after three warm-up sessions, local engine, no AWS credentials, 2026-09-27: 21.3 ms (range 17.3 to 31.5) for a client that asks for revision 2025-03-26 and follows the protocol, 21.2 ms (16.2 to 50.6) for one that asks for 2025-03-26 and declares it in its header, 27.2 ms (20.8 to 48.7) for one that asks for 2025-11-25; Amazon's documented limit is 500 ms. A client that never sends the `MCP-Protocol-Version` header is refused. Earlier the same day this row quoted single samples, 33.2 ms and 28.2 ms. Not the endpoint registered in the add-on manifest, which runs an older build, and not Alexa+ | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8784/mcp --runs 15` |
+| Documented Alexa+ client session, replayed locally, `tools/call` round trip | not applicable | Median of 15 sessions per client shape, against a local server on 127.0.0.1:8841 (`python -m src.interfaces.mcp_server --port 8841`) after three warm-up sessions, local engine, no AWS credentials, 2026-09-27, after the version-header fix: every one of the six shapes (asks for 2025-03-26 or 2025-11-25; follows the protocol, declares the revision it asked for, or never sends the header) answered in 15 of 15 sessions with the finding in the first sentence. Medians for the 2025-03-26 shapes: 32.0 ms (range 25.6 to 50.4) spec-following, 27.3 ms (24.1 to 36.9) declaring, 26.8 ms (21.5 to 33.8) no header; for the 2025-11-25 shapes: 29.1 ms (23.8 to 38.4), 27.3 ms (24.5 to 39.8), 27.8 ms (23.6 to 29.4). Amazon's documented limit is 500 ms. Earlier the same day, at `f3331d6`, the no-header shape was refused. Not the endpoint registered in the add-on manifest, which runs an older build that still refuses that shape, and not Alexa+ | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8841/mcp --runs 15` |
 | Digest earcon, benign patch vs security-sensitive patch | **byte-identical until 2026-09-08**: both returned `DIFF_READY`, 19448 WAV bytes, `sha256[:16] 08f48648388bff02` | 19448 bytes `08f48648388bff02` for the benign patch, 26504 bytes `22c91bec11e275d1` for the security-sensitive one | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
 | Patch parse latency, 1000 steady runs | not measured | mean 0.281 ms; p95 0.448 ms | `python scripts/benchmark_suite.py` |
 | Earcon synthesis latency, 1000 steady runs | not measured | mean 3.592 ms; p95 6.565 ms | `python scripts/benchmark_suite.py` |
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
-| MCP protocol conformance | not applicable | **22 of 22 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
+| MCP protocol conformance | not applicable | **23 of 23 conformance checks pass**, stateful on port 8841 and stateless (`VOLCAN_MCP_SESSION_MODE=stateless`, `--expect-mode stateless`) on port 8842, 2026-09-27 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Automated tests | not applicable | 631 passing; 92.11% statement coverage (4195 statements, 331 missed), including a real Chromium judge journey and Lambda bridge, 2026-09-27 (623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.7 s on 2026-09-26 (three runs: 1.7, 1.7, 1.8 s) | `python scripts/measure_cold_start.py` |
@@ -1059,7 +1052,7 @@ magnitude as the claim and rerun each command on your own hardware.
 | A moved head, a missing grant, a self-approval and an unauthorized token are each refused | `python -m pytest tests/unit/test_review_dialogue_use_case.py tests/unit/test_github_review_adapter.py -v` |
 | The whole journey over REST and MCP ends in a recorded, not sent, review | `python -m pytest tests/integration/test_review_dialogue_api.py -v` |
 | Code-fidelity Braille is one to one over 95 characters and literary names its losses | `python -m pytest tests/unit/test_braille_code_fidelity.py -v` |
-| A missing version header is refused for every method, session or not | `python -m pytest tests/integration/test_mcp_conformance.py -k version -v` |
+| A missing version header is resolved as the specification directs, and an unsupported one gets HTTP 400 | `python -m pytest tests/integration/test_mcp_conformance.py -k "version or header" -v` |
 
 `ci/readiness.py` is written so that it can fail, and it does. On 2026-09-26 it printed
 `42/53 passed, 0 blocking failures, 11 externally blocked`. The remaining red gates require
@@ -1214,7 +1207,7 @@ that refused a client.
 * *The server listed a revision it did not honour; two attempts each refused a client, the
   third serves all that were served before.* Amazon's example client asks for `2025-03-26`.
   Volcan listed that revision as supported but did not honour it: that revision has no version
-  header, which Volcan requires after initialize, and it requires a server to accept JSON-RPC
+  header, which Volcan then required after initialize, and it requires a server to accept JSON-RPC
   batches, which Volcan refuses. A first attempt that day (`2de4663`) made initialize echo
   `2025-03-26` back, and a spec-following client, told `2025-03-26`, sent no header and was
   refused. `76f017c` removed `2025-03-26` from the supported list instead. That one constant
@@ -1227,13 +1220,15 @@ that refused a client.
   value is still refused. The trade-off, stated: that client and the server then disagree
   about the revision, which the header rule exists to prevent; the only 2025-03-26 behaviour
   Volcan lacks, batching, fails with an error naming 2025-11-25, so it does not fail silently.
-* *An open risk, recorded and not changed.* A client that never sends the header is refused
-  after initialize (the deliberate rule in [The MCP surface](#the-mcp-surface)), whichever
-  revision it asked for. The rule was not loosened on a guess about what Alexa+ sends, and the
-  public Lambda is stateless, so an exception scoped to a session would not reach it. The owner
-  decides once a real Alexa+ request can be seen. That shape was refused at `4e1e098` too. Of
-  the three shapes, only the one that declares 2025-03-26 changed outcome this round: refused
-  at `76f017c`, served again at `f3331d6`.
+* *The client that never sends the header: refused until 2026-09-27, served since.* Through
+  `f3331d6` Volcan refused every request after initialize from this client, whichever revision
+  it asked for, as a stated deviation from the specification. The specification's own rule is
+  to use the revision negotiated for the session and otherwise assume 2025-03-26, and Volcan
+  now follows it ([The MCP surface](#the-mcp-surface)). Because the fallback does not depend on
+  a session, it also reaches the stateless public Lambda once that is redeployed; the build it
+  runs today still refuses this client. The replay against a stateless local server
+  (`VOLCAN_MCP_SESSION_MODE=stateless`, port 8842, `--runs 5`) served all six shapes in 5 of 5
+  sessions.
 
 The replay on 2026-09-27, local HTTP, local engine, no AWS credentials, three warm-up sessions
 then 15 sessions per client shape, run by `python scripts/replay_alexa_plus_envelopes.py
@@ -1242,14 +1237,14 @@ served or refused is compared across commits. Within one run at `2de4663`, the s
 and declaring clients asking for 2025-11-25 send identical requests after initialize, and their
 medians were 52.8 ms and 33.3 ms, so a latency gap of that size between commits is noise.
 
-| Client | `4e1e098`, before this round | `2de4663`, echo attempt | `76f017c`, second attempt | `f3331d6`, now |
-|---|---|---|---|---|
-| Asks for 2025-03-26, spec-following | answered 2025-11-25, header 2025-11-25, served | answered 2025-03-26, no header, refused | answered 2025-11-25, header 2025-11-25, served | answered 2025-11-25, header 2025-11-25, served |
-| Asks for 2025-03-26, declares 2025-03-26 | answered 2025-11-25, served | answered 2025-03-26, served | answered 2025-11-25, **refused** | answered 2025-11-25, served |
-| Asks for 2025-11-25, spec-following or declaring it | served | served | served | served |
-| Never sends the header, either revision | refused after initialize | refused after initialize | refused after initialize | refused after initialize |
+| Client | `4e1e098`, before this round | `2de4663`, echo attempt | `76f017c`, second attempt | `f3331d6` | version-header fix, now |
+|---|---|---|---|---|---|
+| Asks for 2025-03-26, spec-following | answered 2025-11-25, header 2025-11-25, served | answered 2025-03-26, no header, refused | answered 2025-11-25, header 2025-11-25, served | answered 2025-11-25, header 2025-11-25, served | served |
+| Asks for 2025-03-26, declares 2025-03-26 | answered 2025-11-25, served | answered 2025-03-26, served | answered 2025-11-25, **refused** | answered 2025-11-25, served | served |
+| Asks for 2025-11-25, spec-following or declaring it | served | served | served | served | served |
+| Never sends the header, either revision | refused after initialize | refused after initialize | refused after initialize | refused after initialize | **served** |
 
-At `f3331d6` the tool-call round trip, median of 15 sessions with its range, was 21.3 ms (17.3
+The medians after the version-header fix are in [Measured numbers](#measured-numbers). At `f3331d6` the tool-call round trip, median of 15 sessions with its range, was 21.3 ms (17.3
 to 31.5) and 21.2 ms (16.2 to 50.6) for the two served 2025-03-26 shapes, and 27.2 ms (20.8 to
 48.7) and 26.5 ms (20.7 to 50.4) for the two 2025-11-25 shapes. History: the first version of
 this table, earlier on 2026-09-27, quoted single samples, 47.5 ms at `4e1e098` and 33.2 ms at

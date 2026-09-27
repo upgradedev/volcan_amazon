@@ -39,7 +39,7 @@ public endpoint runs an older build, as the table below says.
 
 | | |
 |---|---|
-| **Live endpoint** | [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health) serves revision `2d0b8f8`, which is **behind this branch** (43 commits behind `6d2e227`, checked 2026-09-27). It shows an older page, its spoken summary (`voice_summary`) does not name the inverted check although its `critical_findings` field does, and its Bedrock call is refused as not authorized, so the local engine answers. [Details](docs/EVIDENCE.md#the-public-deployment). |
+| **Live endpoint** | [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health) serves revision `2d0b8f8`, which is **behind this branch**: an ancestor of it, checked 2026-09-27 with `git merge-base --is-ancestor 2d0b8f8 HEAD`; `git rev-list --count 2d0b8f8..HEAD` prints the current gap. That build still refuses an MCP client that omits the `MCP-Protocol-Version` header, which this branch serves. It shows an older page, its spoken summary (`voice_summary`) does not name the inverted check although its `critical_findings` field does, and its Bedrock call is refused as not authorized, so the local engine answers. [Details](docs/EVIDENCE.md#the-public-deployment). |
 | **Run it** | [Run it locally](#run-it-locally), no cloud account needed |
 | **Evidence** | [docs/EVIDENCE.md](docs/EVIDENCE.md): every claim with the command that prints it |
 | **Source** | A private repository. The [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) rule for one: "Add the Amazon and Devpost reviewers as collaborators before the submission deadline". That is an owner step. The MIT licence is in [LICENSE](LICENSE) |
@@ -139,8 +139,11 @@ It answered its first `GET /health` 1.7 s after launch on 2026-09-26, measured b
 python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp
 ```
 
-On 2026-09-26 it printed `22/22 checks passed, 0 failed`, and its `tools/list` check found 12
-tools.
+On 2026-09-27 it printed `23/23 checks passed, 0 failed` (23 of 23 conformance checks), and
+its `tools/list` check found 12 tools. The checks include the version-header rule of the
+2025-11-25 transport specification: a request without the header is served under the
+revision negotiated for its session, or as 2025-03-26 without one, and an unsupported header
+gets HTTP 400.
 
 ### 4. Hear a code review
 
@@ -163,7 +166,7 @@ its URL and type `open`; the full command list is in
 | Digest by Claude on Amazon Bedrock | Real code with a stated fallback. A provider failure returns a fixed public category; raw account, role and request identifiers never enter the anonymous response. No Bedrock answer has been recorded: locally the SDK was absent, and the public build's call is refused as not authorized | `python -m pytest tests/unit/test_bedrock_synthesis_path.py -v` |
 | Voice loop | Simulated: the browser's speech, not an Alexa skill, and no test drives a microphone | [Evidence](docs/EVIDENCE.md#what-is-true-and-what-is-simulated) |
 | Shared durable state | In the code and the Terraform, not deployed; a local run keeps state in memory | The `durable_state` field of `GET /health` says which |
-| Alexa+ MCP add-on package | Built and tested locally, not certified or deployed: the hackathon FAQ says the add-on tools are "available to select partners only", so participants cannot deploy it. A replay of Amazon's documented Alexa+ client requests, against a local build of this commit and not the registered endpoint (which runs an older build), gets the finding back from a client that follows the protocol's version rules or declares the revision it asked for, and is refused for a client that never sends the version header. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
+| Alexa+ MCP add-on package | Built and tested locally, not certified or deployed: the hackathon FAQ says the add-on tools are "available to select partners only", so participants cannot deploy it. A replay of Amazon's documented Alexa+ client requests, against a local build of this commit and not the registered endpoint (which runs an older build), gets the finding back from all three client shapes: one that follows the protocol's version rules, one that declares the revision it asked for, and one that never sends the version header. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
 | Demo video | Rendered locally from a run of `de30b11`, pending upload; no public link yet | [video/README.md](video/README.md) |
 | Test suite | 631 passing, 92.11% statement coverage, 2026-09-27 | `python -m pytest tests/ -q --cov=src` |
 
@@ -194,9 +197,13 @@ Deploying the add-on waits on Amazon granting access. Replaying Amazon's
 documented client requests, against a local build of this commit rather than the registered
 endpoint, found that the server listed protocol revision 2025-03-26, which Amazon's example
 client asks for, without honouring it. It no longer offers that revision, and still serves a
-client that declares it in its header; the first version of that fix refused one. One risk
-stays open: a client that never sends the `MCP-Protocol-Version` header is refused after
-initialize.
+client that declares it in its header; the first version of that fix refused one. A client
+that never sends the `MCP-Protocol-Version` header was refused after initialize until
+2026-09-27. It is now served as the 2025-11-25 transport specification directs: under the
+revision negotiated for its session, or as 2025-03-26 when there is no session. On 2026-09-27
+the replay against a local server on port 8841 answered all six shapes (two requested
+revisions, three clients each) in 15 of 15 sessions, with tool-call medians from 26.8 ms to
+32.0 ms against Amazon's documented 500 ms.
 There is no Alexa skill, no certification and no test on an Echo device; for this track the
 FAQ says "no physical device needed".
 
