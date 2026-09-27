@@ -2,6 +2,18 @@
 
 > **Volcan lets blind and low-vision software developers review autonomous coding agents by ear and by touch instead of by reading a diff.**
 
+**Status: a live MCP server with a simulated Alexa+ front end.** The voice is the browser's
+own speech, not an Alexa skill; GitHub reviews are dry-run; the demo video is rendered and
+not yet published. [What is real and what is not](#what-is-real-and-what-is-not).
+
+```bash
+python -m pip install -e ".[dev,bedrock]"
+python -m src.interfaces.mcp_server
+```
+
+Then open `http://127.0.0.1:8000/` and press **Hear this code review**. No cloud account is
+needed; [step by step](#run-it-locally).
+
 ![Volcan's first screen at 1280 by 720 in the dark theme, before any press: the headline "Hear your code review instead of scrubbing a diff", the line "For blind and low-vision developers.", a card reading "Live MCP server, simulated Alexa+ front end" and "Not an Alexa skill. GitHub: dry-run.", a two-line patch that turns user.role == "admin" into user.role != "admin", one "Hear this code review" button, and the server's real answer drawn silently beside it: a falling earcon waveform, the sentence "an authorization comparison was inverted", and eight-dot Braille cells.](docs/assets/volcan-first-viewport.png)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -23,26 +35,6 @@ Volcan sends the digest request to Claude on Amazon Bedrock; otherwise, or when 
 a local deterministic engine answers and the response says why. No Bedrock answer has been
 recorded yet. The public endpoint is an AWS Lambda in eu-west-1, and [`infra/`](infra/) declares
 a Lambda with a function URL and a DynamoDB table in Terraform.
-
-**Honest status.** *Real:* the MCP server, the spoken digest, the earcon, the Braille, the live
-GitHub read, the grants and the hash-chained audit log. *Simulated:* the voice loop is the
-browser's own speech recognition and synthesis, labelled on the page as not an Alexa skill.
-*Submission shape:* a self-hosted MCP server demoed through its own web front end, which is
-what the [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) asks for: "build a self-hosted MCP server (or Agent
-Skill) per the Official Rules, and demo it via your own web-based simulator or front end."
-*Not possible for participants:* deploying the add-on package, because the add-on tools are
-partner-only (FAQ), so Alexa+ has never called Volcan. *Not tested:* an Echo device; the FAQ
-says "no physical device needed". *Missing:* a published demo video (a render of a local
-run exists, pending upload), a live GitHub write and a recorded Bedrock answer. *Not required
-for this track:* a public build of this version; the FAQ says "hosting isn't required", and the
-public endpoint runs an older build, as the table below says.
-
-| | |
-|---|---|
-| **Live endpoint** | [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health) serves revision `2d0b8f8`, which is **behind this branch**: an ancestor of it, checked 2026-09-27 with `git merge-base --is-ancestor 2d0b8f8 HEAD`; `git rev-list --count 2d0b8f8..HEAD` prints the current gap. That build still refuses an MCP client that omits the `MCP-Protocol-Version` header, which this branch serves. It shows an older page, its spoken summary (`voice_summary`) does not name the inverted check although its `critical_findings` field does, and its Bedrock call is refused as not authorized, so the local engine answers. [Details](docs/EVIDENCE.md#the-public-deployment). |
-| **Run it** | [Run it locally](#run-it-locally), no cloud account needed |
-| **Evidence** | [docs/EVIDENCE.md](docs/EVIDENCE.md): every claim with the command that prints it |
-| **Source** | A private repository. The [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) rule for one: "Add the Amazon and Devpost reviewers as collaborators before the submission deadline". That is an owner step. The MIT licence is in [LICENSE](LICENSE) |
 
 ## Table of Contents
 
@@ -155,6 +147,25 @@ its URL and type `open`; the full command list is in
 [the evidence](docs/EVIDENCE.md#the-review-journey).
 
 ## What is real and what is not
+
+**Honest status.** *Real:* the MCP server, the spoken digest, the earcon, the Braille, the live
+GitHub read, the grants and the hash-chained audit log. *Simulated:* the voice loop is the
+browser's own speech recognition and synthesis, labelled on the page as not an Alexa skill.
+*Submission shape:* a self-hosted MCP server demoed through its own web front end, which is
+what the [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) asks for: "build a self-hosted MCP server (or Agent
+Skill) per the Official Rules, and demo it via your own web-based simulator or front end."
+*Not possible for participants:* deploying the add-on package, because the add-on tools are
+partner-only (FAQ), so Alexa+ has never called Volcan. *Not tested:* an Echo device; the FAQ
+says "no physical device needed". *Missing:* a published demo video (a render of a local
+run exists, pending upload), a live GitHub write and a recorded Bedrock answer. *Not required
+for this track:* a public build of this version; the FAQ says "hosting isn't required", and the
+public endpoint runs an older build, as the table below says.
+
+| | |
+|---|---|
+| **Live endpoint** | [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health) serves revision `2d0b8f8`, which is **behind this branch**: an ancestor of it, checked 2026-09-27 with `git merge-base --is-ancestor 2d0b8f8 HEAD`; `git rev-list --count 2d0b8f8..HEAD` prints the current gap. That build still refuses an MCP client that omits the `MCP-Protocol-Version` header, which this branch serves. It shows an older page, its spoken summary (`voice_summary`) does not name the inverted check although its `critical_findings` field does, and its Bedrock call is refused as not authorized, so the local engine answers. [Details](docs/EVIDENCE.md#the-public-deployment). |
+| **Evidence** | [docs/EVIDENCE.md](docs/EVIDENCE.md): every claim with the command that prints it |
+| **Source** | A private repository. The [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) rule for one: "Add the Amazon and Devpost reviewers as collaborators before the submission deadline". That is an owner step. The MIT licence is in [LICENSE](LICENSE) |
 
 | Part | Status | Check it |
 |---|---|---|
