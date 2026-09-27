@@ -32,6 +32,11 @@ Environment:
   VOLCAN_APP_URL       default http://127.0.0.1:8801/
   FFMPEG               path to ffmpeg, for finding the marker frames
   VOLCAN_SPEECH_VOICE  default "Microsoft David Desktop", the System.Speech voice
+  VOLCAN_PR_URL        default PULL_REQUEST_URL below, the public pull request of beat 5
+
+Only beat 2's product sound is in the mix. In beat 5 the page also plays its own cue
+and speaks each dialogue answer; those are not rendered, and the build labels the
+beat on screen as missing them.
 """
 
 from __future__ import annotations
@@ -55,10 +60,15 @@ EXPECTED_BEATS = [
     "beat_02_one_button",
     "beat_03_what_you_heard",
     "beat_04_mcp_handshake",
-    "beat_05_governance",
+    "beat_05_pull_request",
     "beat_06_verification",
 ]
 VIEWPORT = {"width": 1280, "height": 720}
+# A public pull request the server reads from GitHub without a token, and a comment
+# that claims nothing about its content. The review is recorded, never sent: the
+# server runs without VOLCAN_GITHUB_WRITE and without a token.
+PULL_REQUEST_URL = "https://github.com/octocat/Hello-World/pull/1"
+REVIEW_COMMENT = "Volcan demo: a dry-run request changes review, recorded and not sent."
 
 OBSERVER = r"""
 (() => {
@@ -278,19 +288,71 @@ def main() -> None:
         act("expand the first tool", lambda: page.click("#mcpPane details summary"))
         act("scroll to its schema", lambda: scroll_to("#mcpPane", 90))
 
-        # Beat 5: stage, then approve with the grant.
-        until(beat_start("beat_05_governance"))
-        act("Governed actions tab", lambda: page.click("#tabGov"))
-        act("scroll to the governed action", lambda: scroll_to("#evidenceTabs", 24))
-        until(sentence("beat_05_governance", 0, 0.35))
-        act("Stage an action", lambda: page.click("#stageBtn"))
-        until(sentence("beat_05_governance", 1))
-        act("Approve with the grant", lambda: page.click("#approveBtn"))
+        def settled(timeout_seconds: float = 20.0) -> None:
+            """Wait until the review dialogue has answered the last turn."""
+            page.wait_for_timeout(250)
+            page.wait_for_function(
+                "document.querySelector('#reviewConvo').getAttribute('aria-busy') === 'false'",
+                timeout=timeout_seconds * 1000,
+            )
 
-        # Beat 6: the honest boundary, then the heading.
+        def answered(turns_before: int) -> None:
+            settled()
+            count = page.evaluate("document.querySelectorAll('#dialogueLog li').length")
+            if count <= turns_before:
+                raise SystemExit("the review dialogue did not answer the turn")
+            rejected = page.evaluate(
+                "[...document.querySelectorAll('#dialogueLog li')].some(li => li.textContent.startsWith('Not sent'))")
+            if rejected:
+                raise SystemExit("the page refused a turn because the last one was still in flight")
+
+        def turns() -> int:
+            return page.evaluate("document.querySelectorAll('#dialogueLog li').length")
+
+        # Beat 5: a real public pull request, summary, request changes, confirm.
+        until(beat_start("beat_05_pull_request"))
+        act("scroll to Talk through a real pull request", lambda: scroll_to("#review", 8))
+        until(sentence("beat_05_pull_request", 1))
+        act("Alt+6 focuses the pull request URL box", lambda: page.keyboard.press("Alt+6"))
+        act("type the pull request URL", lambda: page.keyboard.type(
+            os.environ.get("VOLCAN_PR_URL", PULL_REQUEST_URL), delay=35))
+        before = turns()
+        act("Enter opens the pull request", lambda: page.keyboard.press("Enter"))
+        answered(before)
+        act("scroll to the dialogue", lambda: scroll_to("#review .review-grid", 8))
+        until(sentence("beat_05_pull_request", 2))
+        before = turns()
+        act("Summary", lambda: page.click("#cmdSummary"))
+        answered(before)
+        until(sentence("beat_05_pull_request", 3))
+        act("type the review comment", lambda: (page.click("#reviewComment"),
+                                                 page.keyboard.type(REVIEW_COMMENT, delay=12)))
+        before = turns()
+        act("Request changes", lambda: page.click("#cmdRequestChanges"))
+        answered(before)
+        until(sentence("beat_05_pull_request", 4))
+        before = turns()
+        act("Confirm", lambda: page.click("#cmdConfirm"))
+        answered(before)
+        if "recorded and not sent" not in page.inner_text("#reviewPane"):
+            raise SystemExit("the review pane does not show a recorded, unsent review")
+        # Hold on the dialogue's dry-run answer, then show the request it recorded.
+        until(sentence("beat_05_pull_request", 4, 0.55))
+        act("scroll to the recorded request", lambda: scroll_to("#reviewPane", 150))
+
+        # Beat 6: the counts, the Alexa+ replay, the honest boundary, then the heading.
         until(beat_start("beat_06_verification"))
         act("Server and MCP tab", lambda: page.click("#tabServer"))
-        act("scroll to the connection strip", lambda: scroll_to("#evidence"))
+        act("scroll to the connection strip", lambda: scroll_to("#evidenceTabs", 24))
+        until(sentence("beat_06_verification", 1))
+        act("scroll to the Alexa+ replay", lambda: scroll_to("#alexaReplay", 24))
+        act("Replay the documented Alexa+ requests", lambda: page.click("#runReplay"))
+        page.wait_for_function(
+            "/of 3 clients served/.test(document.querySelector('#replayPane').textContent)", timeout=10_000)
+        if "3 of 3 clients served" not in page.inner_text("#replayPane"):
+            raise SystemExit("the Alexa+ replay did not serve all three clients")
+        until(sentence("beat_06_verification", 2))
+        act("scroll to the connection strip and the Alexa+ box", lambda: scroll_to("#evidenceTabs", 24))
         until(sentence("beat_06_verification", 3))
         act("scroll to the heading", lambda: page.evaluate("window.scrollTo({top: 0, behavior: 'smooth'})"))
         until(total + 1.5)
@@ -321,8 +383,11 @@ def main() -> None:
 
     trim_lead = video_time(timeline_epoch)
 
+    # Timeline times are page-clock seconds from the start of the journey. The
+    # recording can run slower or faster than the page clock when the machine is
+    # loaded; the build retimes it by videoPerPageSecond so both clocks agree.
     def timeline_time(epoch_ms: float) -> float:
-        return round(video_time(epoch_ms) - trim_lead, 3)
+        return round((epoch_ms - timeline_epoch) / 1000, 3)
 
     def first(kind: str) -> dict[str, object]:
         for entry in log:
@@ -337,10 +402,14 @@ def main() -> None:
     # position is the start. Headless Chromium fires "playing" a few hundred
     # milliseconds before the clock moves, and the waveform's playhead follows
     # the clock, so this is the moment the picture shows the cue sounding.
+    # Only the press in beat 2: the review turns of beat 5 play cues of their own.
+    press_play = first("media.play")["epoch"]
     clock_starts = sorted(
         entry["epoch"] - float(entry["detail"]) * 1000
         for entry in log
-        if entry["kind"] == "media.timeupdate" and 0 < float(entry["detail"] or 0) < float(ended["detail"])
+        if entry["kind"] == "media.timeupdate"
+        and press_play <= entry["epoch"] <= ended["epoch"]
+        and 0 < float(entry["detail"] or 0) < float(ended["detail"])
     )
     if clock_starts:
         earcon_start = clock_starts[len(clock_starts) // 2]
@@ -370,8 +439,8 @@ def main() -> None:
     )
 
     recorded = probe_duration(final)
-    if recorded < trim_lead + total:
-        raise SystemExit(f"the recording is {recorded:.3f}s, shorter than {trim_lead + total:.3f}s")
+    if recorded < trim_lead + total * scale:
+        raise SystemExit(f"the recording is {recorded:.3f}s, shorter than {trim_lead + total * scale:.3f}s")
     receipt = {
         "schemaVersion": "volcan.video-capture/v1",
         "releaseSha": release_sha,
@@ -392,6 +461,7 @@ def main() -> None:
             "videoSeconds": [round(value, 3) for value in flips],
             "pageClockSeconds": round((end_marker - start_marker) / 1000, 3),
             "videoPerPageSecond": round(scale, 6),
+            "note": "timeline times below are page-clock seconds; the build retimes the recording by videoPerPageSecond",
         },
         "actions": actions,
         "press": {

@@ -1,7 +1,7 @@
 {
   "project": "volcan_amazon",
   "title": "Volcan: hear your code review instead of scrubbing a diff",
-  "target_duration_seconds": 167.991,
+  "target_duration_seconds": 172.82,
   "max_allowed_seconds": 180.0,
   "narration_audio": {
     "generated": false,
@@ -36,7 +36,7 @@
       "timestamp_end": 22.354,
       "narration_text": "This is the kind of patch an autonomous coding agent writes. A sighted reviewer scans it in seconds. A screen reader reads it one plus sign, one minus sign and one hunk header at a time, so the one line that flips an authorization check sounds like everything around it.",
       "speech_text": "This is the kind of patch an autonomous coding agent writes. A sighted reviewer scans it in seconds. A screen reader reads it one plus sign, one minus sign, and one hunk header at a time, so the one line that flips an authorization check sounds like everything around it.",
-      "visual_action": "The companion page at first paint with the Inverted admin check preset, the label Simulated Alexa+ experience, not an Alexa skill, and GitHub write: dry-run. On the second sentence, Alt and 2 opens the patch box and shows the raw unified diff with its hunk header and plus and minus lines. No screen reader is recorded: headless capture has none."
+      "visual_action": "The companion page at first paint with the Inverted admin check preset and the label Live MCP server, simulated Alexa+ front end. Not an Alexa skill. GitHub: dry-run. On the third sentence, Alt and 2 opens the patch box and shows the raw unified diff with its hunk header and plus and minus lines. No screen reader is recorded: headless capture has none."
     },
     {
       "beat_id": "beat_02_one_button",
@@ -65,20 +65,20 @@
       "visual_action": "In Evidence, tab Server and MCP, press Run a real MCP handshake, hold on the four facts (2025-11-25, volcan-accessible-forge 0.1.0, the session id, 12 tools), then expand the first tool to show its published inputSchema."
     },
     {
-      "beat_id": "beat_05_governance",
+      "beat_id": "beat_05_pull_request",
       "timestamp_start": 110.203,
-      "timestamp_end": 139.414,
-      "narration_text": "A high-consequence command is staged behind a single-use grant, bound by HMAC-SHA256 to its payload hash and to a lease. A human presents the grant, and the server answers: accepted, released to you, nothing run. The plan, git diff HEAD, stays a plan. No file under src imports subprocess, and a test walks every module's syntax tree to keep it that way.",
-      "speech_text": "A high-consequence command is staged behind a single-use grant, bound by H MAC, SHA two fifty-six, to its payload hash and to a lease. A human presents the grant, and the server answers: accepted, released to you, nothing run. The plan, git diff head, stays a plan. No file under source imports subprocess, and a test walks every module's syntax tree to keep it that way.",
-      "visual_action": "In Evidence, select the Governed actions tab, press Stage an action and hold on the lease countdown, then press Approve with the grant and hold on GRANT ACCEPTED, the Outcome row released to you, nothing run, the line Dry run only, nothing was executed, and the audit row."
+      "timestamp_end": 139.181,
+      "narration_text": "Now a real pull request. Alt and 6 focuses the address box, and Enter opens a public one from GitHub, read without a token. Summary answers in one sentence. Request changes stages the review, bound to the head commit it read, under a single-use grant. Confirm, and the server re-reads that commit, records the exact request, and sends nothing: this run is a dry run.",
+      "speech_text": "Now a real pull request. Alt and six focuses the address box, and Enter opens a public one from GitHub, read without a token. Summary answers in one sentence. Request changes stages the review, bound to the head commit it read, under a single-use grant. Confirm, and the server re-reads that commit, records the exact request, and sends nothing: this run is a dry run.",
+      "visual_action": "In Talk through a real pull request, Alt and 6 focuses the pull request URL box, the URL of octocat/Hello-World pull request 1 is typed and Enter opens it. Summary, then a neutral comment and Request changes, which shows the server's readback bound to head commit 7044a8a, then Confirm. Hold on the answer Dry run. Nothing was sent to GitHub, and the review pane with Outcome recorded and not sent and the exact POST request the server recorded. The page also plays its own cue and speaks each answer; that sound is not in this recording, and an on-screen label says so."
     },
     {
       "beat_id": "beat_06_verification",
-      "timestamp_start": 139.413,
-      "timestamp_end": 164.49,
-      "narration_text": "On this commit, 572 automated tests pass, and 22 of 22 protocol conformance checks pass against this server. There is no Alexa skill yet, the public endpoint runs an older commit, and this run called no Bedrock model. The page says so on screen. Volcan is for the developer who reviews code by ear and by touch.",
-      "speech_text": "On this commit, five hundred and seventy-two automated tests pass, and twenty-two of twenty-two protocol conformance checks pass against this server. There is no Alexa skill yet, the public endpoint runs an older commit, and this run called no Bedrock model. The page says so on screen. Volcan is for the developer who reviews code by ear and by touch.",
-      "visual_action": "Back to Evidence, tab Server and MCP: the connection strip with SERVER REACHED and the model path the server reported for this run, and the path strip whose Alexa+ box reads not built: no skill, no connection, no device test. Close on the page heading and the Simulated Alexa+ experience label."
+      "timestamp_start": 139.181,
+      "timestamp_end": 169.32,
+      "narration_text": "On this commit, 637 automated tests pass, and 23 of 23 protocol conformance checks. This button replays Amazon's documented Alexa+ requests as three clients, one without the version header; all three are served. Alexa+ itself has never called Volcan, and this run called no Bedrock model. Volcan is for the developer who reviews code by ear and by touch.",
+      "speech_text": "On this commit, six hundred and thirty-seven automated tests pass, and twenty-three of twenty-three protocol conformance checks. This button replays Amazon's documented Alexa plus requests as three clients, one without the version header; all three are served. Alexa plus itself has never called Volcan, and this run called no Bedrock model. Volcan is for the developer who reviews code by ear and by touch.",
+      "visual_action": "Evidence, tab Server and MCP: SERVER REACHED with the model path the server reported for this run, and the path strip whose Alexa+ add-on box reads package built and tested locally, not certified or deployed. Press Replay the documented Alexa+ requests and hold on the three client lines and 3 of 3 clients served. Back to the connection strip and the Alexa+ box, then close on the page heading and the Live MCP server, simulated Alexa+ front end label. The test and conformance counts are stated, not filmed."
     }
   ]
 }

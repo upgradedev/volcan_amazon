@@ -24,7 +24,14 @@ What this copy adds, so the video carries its own honesty and the product's soun
   3. Each source is brought to a measured loudness before the mix, because the earcon
      is a pure tone about 18 LU louder than the narration as delivered.
   4. The composed length must equal title + narration + outro within one frame.
-  5. The receipt records the recorded commit, whether src/ and docs/ are unchanged
+  5. Captions for the product's own speech. The narrator is silent while the page
+     speaks, so the server's sentence, as the capture receipt records it, is
+     captioned too, split into short cues across the rendered speech and marked with
+     the speaker. The cues are burned in and are part of caption_windows.json and of
+     the captions.en.srt meant for upload.
+  6. A label over beat 5 saying that the page's own cue and speech for the review
+     turns are not in the recording; only beat 2's product sound is mixed in.
+  7. The receipt records the recorded commit, whether src/ and docs/ are unchanged
      between that commit and the commit that built the video, the voice, and the
      characters sent to the text to speech provider.
 
@@ -60,6 +67,9 @@ FONT_BOLD = "C\\:/Windows/Fonts/segoeuib.ttf"
 # the programme to -16 LUFS. The earcon sits a little under the voices because a
 # pure tone reads louder than speech at the same integrated level.
 SOURCE_TARGET_LUFS = {"narration": -20.0, "browser-speech": -21.0, "earcon": -22.0}
+PRODUCT_SPEAKER = "Volcan"
+PRODUCT_CUE_CHARACTERS = 72
+UNRECORDED_SOUND_BEAT = "beat_05_pull_request"
 
 
 def run(args: list[str], cwd: pathlib.Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -121,8 +131,45 @@ def srt_windows(path: pathlib.Path) -> list[tuple[float, float, str]]:
     for block in path.read_text(encoding="utf-8").strip().split("\n\n"):
         lines = block.splitlines()
         start, end = (part.strip() for part in lines[1].split("-->"))
-        windows.append((seconds(start), seconds(end), " ".join(lines[2:])))
+        windows.append((seconds(start), seconds(end), "\n".join(lines[2:])))
     return windows
+
+
+def write_srt(path: pathlib.Path, windows: list[tuple[float, float, str]]) -> None:
+    path.write_text(
+        "\n".join(
+            f"{number}\n{stamp(start)} --> {stamp(end)}\n{text}\n"
+            for number, (start, end, text) in enumerate(windows, start=1)
+        ),
+        encoding="utf-8",
+    )
+
+
+def product_speech_cues(text: str, start: float, end: float) -> list[tuple[float, float, str]]:
+    """The server's sentence as short cues, timed by character share across the rendered
+    speech, the rule the narration captions use. Each cue names the speaker."""
+    chunks: list[str] = []
+    current = ""
+    for word in text.split():
+        candidate = f"{current} {word}".strip()
+        if current and len(candidate) > PRODUCT_CUE_CHARACTERS:
+            chunks.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        chunks.append(current)
+    weight = sum(len(chunk) for chunk in chunks) or 1
+    cues = []
+    cursor = start
+    for chunk in chunks:
+        share = (end - start) * len(chunk) / weight
+        words = chunk.split()
+        half = max(1, len(words) // 2)
+        body = " ".join(words[:half]) + "\n" + " ".join(words[half:]) if len(chunk) > 48 else chunk
+        cues.append((round(cursor, 3), round(cursor + share, 3), f"{PRODUCT_SPEAKER}: {body}"))
+        cursor += share
+    return cues
 
 
 def product_code_unchanged(sha: str) -> bool:
@@ -152,6 +199,12 @@ def main() -> None:
     trim_lead = float(receipt_in["trimLeadSeconds"])
     if not 0 <= trim_lead <= 30:
         raise SystemExit("capture trim lead is outside the bounded contract")
+    # The capture measures how many recorded seconds pass per page-clock second
+    # between its two marker flips; the picture is retimed by it so an action the
+    # page logged at a timeline second is shown at that second.
+    video_per_page = float(receipt_in["markers"].get("videoPerPageSecond", 1.0))
+    if not 0.95 <= video_per_page <= 1.05:
+        raise SystemExit(f"the recording drifted {video_per_page:.6f}x against the page clock; record again")
     OUTPUT.mkdir(parents=True, exist_ok=True)
     (OUTPUT / "overlays").mkdir(exist_ok=True)
 
@@ -181,7 +234,26 @@ def main() -> None:
     speech_from = float(speech["timelineSeconds"])
     speech_to = speech_from + float(speech["seconds"])
     earcon_from = float(earcon["timelineSeconds"])
-    captions = escaped(NARRATION / "captions.en.srt")
+    by_id = {scene["id"]: scene for scene in scenes}
+    next_beat = min(
+        (float(scene["startSeconds"]) for scene in scenes if float(scene["startSeconds"]) > speech_from),
+        default=total,
+    )
+    if speech_to > next_beat:
+        raise SystemExit(
+            f"the rendered product speech ends at {speech_to:.3f}s, after the next beat starts at {next_beat:.3f}s")
+    narration_cues = srt_windows(NARRATION / "captions.en.srt")
+    product_cues = product_speech_cues(str(speech["text"]), speech_from, speech_to)
+    all_cues = sorted(narration_cues + product_cues)
+    for (_, first_end, _), (second_start, _, second_text) in zip(all_cues, all_cues[1:]):
+        if second_start < first_end - 0.001:
+            raise SystemExit(f"caption overlap at {second_start:.3f}s: {second_text!r}")
+    burn = OUTPUT / "overlays" / "captions.burn.srt"
+    write_srt(burn, all_cues)
+    captions = escaped(burn)
+    silent_beat = by_id[UNRECORDED_SOUND_BEAT]
+    silent_from = float(silent_beat["startSeconds"])
+    silent_to = silent_from + float(silent_beat["holdSeconds"])
     style = (
         "FontName=Segoe UI,FontSize=12,PrimaryColour=&H00FFFFFF,"
         "BackColour=&H26000000,BorderStyle=4,Outline=0,Shadow=0,MarginV=34,Alignment=2"
@@ -192,9 +264,14 @@ def main() -> None:
         "speech.txt",
         "Product speech: the browser's system voice reading the server's sentence",
     )
+    unrecorded_label = text_file(
+        "unrecorded.txt",
+        "Not in this recording: the page's own cue and speech for these review turns",
+    )
     box = "box=1:boxcolor=0x07111f@0.85:boxborderw=18"
     filters.append(
-        f"[0:v]trim=start={trim_lead}:end={trim_lead + total},setpts=PTS-STARTPTS,"
+        f"[0:v]trim=start={trim_lead}:end={trim_lead + total * video_per_page + 0.2},"
+        f"setpts=(PTS-STARTPTS)/{video_per_page:.6f},trim=end={total},"
         f"fps={FPS},scale=1920:1080:flags=lanczos:force_original_aspect_ratio=decrease,"
         f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color={CARD_COLOUR},"
         f"subtitles='{captions}':force_style='{style}',"
@@ -204,6 +281,9 @@ def main() -> None:
         f"x=(w-text_w)/2:y=110:{box}:enable='between(t,{earcon_from:.3f},{speech_from:.3f})',"
         f"drawtext=fontfile='{FONT_BOLD}':textfile='{speech_label}':fontcolor=white:fontsize=34:"
         f"x=(w-text_w)/2:y=110:{box}:enable='between(t,{speech_from:.3f},{speech_to:.3f})',"
+        f"drawtext=fontfile='{FONT}':textfile='{unrecorded_label}':fontcolor=white:fontsize=22:"
+        f"x=24:y=h-text_h-12:box=1:boxcolor=0x07111f@0.8:boxborderw=8:"
+        f"enable='between(t,{silent_from:.3f},{silent_to:.3f})',"
         f"format=yuv420p[content]"
     )
     title_lines = [line.replace("{sha7}", sha7) for line in cards["title_lines"]]
@@ -263,16 +343,10 @@ def main() -> None:
     (OUTPUT / "video_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     windows = [
         [round(title_seconds + start, 3), round(title_seconds + end, 3), text]
-        for start, end, text in srt_windows(NARRATION / "captions.en.srt")
+        for start, end, text in all_cues
     ]
     (OUTPUT / "caption_windows.json").write_text(json.dumps(windows, indent=2) + "\n", encoding="utf-8")
-    (OUTPUT / "captions.en.srt").write_text(
-        "\n".join(
-            f"{number}\n{stamp(start)} --> {stamp(end)}\n{text}\n"
-            for number, (start, end, text) in enumerate(windows, start=1)
-        ),
-        encoding="utf-8",
-    )
+    write_srt(OUTPUT / "captions.en.srt", [(start, end, text) for start, end, text in windows])
 
     ledger = NARRATION / "tts-ledger.jsonl"
     billed = sum(
@@ -293,6 +367,11 @@ def main() -> None:
         "height": 1080,
         "fps": FPS,
         "sceneCount": len(scenes),
+        "captionCues": {"narration": len(narration_cues), "productSpeech": len(product_cues)},
+        "unrecordedProductSound": {
+            "beat": UNRECORDED_SOUND_BEAT,
+            "note": "the page's own cue and speech for the review turns are not in the mix; an on-screen label says so",
+        },
         "titleSeconds": title_seconds,
         "narrationSeconds": total,
         "outroSeconds": outro_seconds,
@@ -303,6 +382,7 @@ def main() -> None:
         "charactersSentToElevenLabsTotal": billed,
         "sourceGainsDb": gains,
         "captureSha256": receipt_in["sha256"],
+        "captureVideoPerPageSecond": video_per_page,
         "serverHealth": receipt_in["serverHealth"],
         "productAudio": receipt_in["productAudio"],
     }

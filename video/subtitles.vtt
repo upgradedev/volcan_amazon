@@ -17,9 +17,9 @@ The earcon came first, so the verdict arrived before the sentence. This patch to
 Volcan's Model Context Protocol server is written by hand to revision 2025-11-25 over Streamable HTTP, with no SDK. This button runs a real initialize and a real tools list call, then prints the negotiated version, the session identifier from the response header, and the JSON Schema of all twelve tools.
 
 5
-00:01:50.203 --> 00:02:19.413
-A high-consequence command is staged behind a single-use grant, bound by HMAC-SHA256 to its payload hash and to a lease. A human presents the grant, and the server answers: accepted, released to you, nothing run. The plan, git diff HEAD, stays a plan. No file under src imports subprocess, and a test walks every module's syntax tree to keep it that way.
+00:01:50.203 --> 00:02:19.181
+Now a real pull request. Alt and 6 focuses the address box, and Enter opens a public one from GitHub, read without a token. Summary answers in one sentence. Request changes stages the review, bound to the head commit it read, under a single-use grant. Confirm, and the server re-reads that commit, records the exact request, and sends nothing: this run is a dry run.
 
 6
-00:02:19.413 --> 00:02:44.490
-On this commit, 572 automated tests pass, and 22 of 22 protocol conformance checks pass against this server. There is no Alexa skill yet, the public endpoint runs an older commit, and this run called no Bedrock model. The page says so on screen. Volcan is for the developer who reviews code by ear and by touch.
+00:02:19.181 --> 00:02:49.319
+On this commit, 637 automated tests pass, and 23 of 23 protocol conformance checks. This button replays Amazon's documented Alexa+ requests as three clients, one without the version header; all three are served. Alexa+ itself has never called Volcan, and this run called no Bedrock model. Volcan is for the developer who reviews code by ear and by touch.
