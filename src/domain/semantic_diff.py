@@ -166,6 +166,39 @@ class SemanticDiffReport:
         return " ".join(lines)
 
 
+#: A definition keyword followed by its name, in a hunk header or a changed line.
+_DEFINITION = re.compile(r"\b(?:def|class|function|func|fn)\s+([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def touched_names(section: "DiffSectionDigest") -> list[str]:
+    """The functions and classes a file's change sits in or defines, in order.
+
+    Two sources, both already parsed: the hunk header, which git fills with the
+    nearest definition above the hunk (usually, not always, the enclosing one),
+    and any definition line the patch adds or removes. A caller says the change
+    "touches" these names, never that it changed them.
+    """
+    names: list[str] = []
+    for hunk in section.hunks:
+        found = _DEFINITION.search(hunk.header)
+        candidates = [found.group(1)] if found else []
+        for line in hunk.removed_lines + hunk.added_lines:
+            defined = _DEFINITION.search(line.strip()[:200])
+            if defined and line.strip().startswith(("def ", "async def ", "class ")):
+                candidates.append(defined.group(1))
+        for name in candidates:
+            if name not in names:
+                names.append(name)
+    return names
+
+
+def join_words(items: list[str]) -> str:
+    """"a", "a and b", "a, b and c": the way a sentence lists things."""
+    if len(items) <= 1:
+        return "".join(items)
+    return f"{', '.join(items[:-1])} and {items[-1]}"
+
+
 class UnifiedDiffParser:
     """Deterministic parser that decomposes unified diff strings into structured models."""
 

@@ -26,9 +26,14 @@ import importlib.util
 import os
 import threading
 import time
-from collections import Counter
 
-from src.domain.semantic_diff import DiffSectionDigest, SemanticDiffReport, plural
+from src.domain.semantic_diff import (
+    DiffSectionDigest,
+    SemanticDiffReport,
+    join_words,
+    plural,
+    touched_names,
+)
 
 MODE_BEDROCK = "bedrock"
 MODE_HEURISTIC = "heuristic-local"
@@ -372,5 +377,19 @@ class BedrockSynthesisAdapter:
                 headline += f" and {plural(len(flagged) - 1, 'other file')}"
             return headline
 
-        top_category = Counter(section.category.value for section in sections).most_common(1)[0][0]
-        return f"Changes are mostly {top_category.replace('_', ' ').lower()}"
+        # "Changes are mostly business logic" said nothing that "no finding"
+        # did not. The parser already knows which files changed and which
+        # definitions each hunk sits in, so the clean case names them: at most
+        # two files and three names each, because a listener hears all of it.
+        parts = []
+        for section in sections[:2]:
+            names = touched_names(section)
+            if len(names) > 3:
+                names = names[:3] + [f"{len(names) - 3} more"]
+            parts.append(
+                f"{join_words(names)} in {section.file_path}" if names else section.file_path
+            )
+        others = len(sections) - 2
+        if others > 0:
+            parts.append(plural(others, "other file"))
+        return f"The change touches {join_words(parts)}; no security rule matched"

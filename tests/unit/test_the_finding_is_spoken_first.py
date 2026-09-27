@@ -59,7 +59,11 @@ def test_level_zero_says_the_finding_once():
 def test_a_clean_change_says_no_finding_first():
     summary = _report(CLEAN).to_voice_summary(level=0)
     assert "critical finding" not in summary
-    assert summary.startswith("Changes are")
+    # The clean case names what changed instead of "Changes are mostly
+    # business logic", which said nothing a "no finding" did not.
+    assert summary.startswith(
+        "The change touches greet in src/app/greeting.py; no security rule matched."
+    ), summary
 
 
 def test_the_rest_endpoint_and_the_local_engine_speak_it_first():

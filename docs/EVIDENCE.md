@@ -109,7 +109,7 @@ the server will produce, and
 [`tests/e2e/test_shipped_presets_reach_their_rule.py`](../tests/e2e/test_shipped_presets_reach_their_rule.py)
 runs each shipped preset through the production parser and fails the build if a label and its
 rule ever separate. All four, posted to `POST /api/digest_semantic_diff` on a running server on
-2026-09-26, answered:
+2026-09-27, answered:
 
 ```
 preset 1: cue=SECURITY_FINDING
@@ -119,10 +119,15 @@ preset 2: cue=SECURITY_FINDING
 preset 3: cue=SECURITY_FINDING
    voice: In src/webhooks/receiver.py, the call verify_signature(payload, request.headers['X-Signature']) was removed and nothing replaced it. Modified 1 file with 0 additions and 1 deletion.
 preset 4: cue=DIFF_READY
-   voice: Changes are mostly business logic. Modified 1 file with 3 additions and 1 deletion.
+   voice: The change touches normalise in src/utils/parser.py; no security rule matched. Modified 1 file with 3 additions and 1 deletion.
 ```
 
-The finding is said once and leads; the counts follow. The same response carries
+The finding is said once and leads; the counts follow. With no finding, the local engine names
+the files and the definitions each hunk sits in (from the hunk header, plus any `def` or `class`
+line the patch adds or removes), at most two files and three names each. On
+`psf/requests#6710` it said: `The change touches build_response, _get_connection,
+get_connection_with_tls_context and 2 more in src/requests/adapters.py; no security rule
+matched.` The same response carries
 `voice_summary_for_speech`, the sentence as the page hands it to the speech engine, with each
 code operator named (`user.role not equals 'admin'`), while the screen and the Braille keep
 the literal `!=`.
