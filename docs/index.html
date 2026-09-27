@@ -1734,9 +1734,15 @@
           + " (" + (path.resolved_capability || "not reported") + ")"
           + " Whether a model answered is reported per digest by the synthesis meter, which "
           + "also prints the reason when none did.";
+        // Which commit answers, in the server's own words: a deploy's
+        // SOURCE_REVISION or, on a local run, the checkout's HEAD.
+        var revision = health.source_revision && health.source_revision !== "unavailable"
+          ? "Commit " + String(health.source_revision).slice(0, 7) + " ("
+            + (health.source_revision_origin || "origin not reported") + "). "
+          : "Commit not reported. ";
         setConnection("live", "Server reached",
           "GET " + base + "/health answered HTTP " + response.status + " in "
-          + elapsed.toFixed(1) + " ms. MCP revision " + mcp + " is served at " + base
+          + elapsed.toFixed(1) + " ms. " + revision + "MCP revision " + mcp + " is served at " + base
           + "/mcp. " + engine);
         // Whether a confirmed review is sent or recorded is the server's
         // decision, from two facts it holds and this page never sees. The

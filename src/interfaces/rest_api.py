@@ -6,7 +6,6 @@ at /mcp and speaks JSON-RPC.
 """
 import asyncio
 import base64
-import os
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response
@@ -14,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Response
 from src.application.durable_state import DurableStateError, SessionOwnerMismatch, StateConflict
 from src.application.review_authorization import ReviewAuthorizationError
 from src.domain.sonification import EarconType
+from src.infrastructure.source_revision import source_revision
 from src.interfaces.composition import (
     accessibility_use_case,
     ast_checker,
@@ -70,7 +70,9 @@ async def health_check(refresh: int = 0) -> dict[str, Any]:
         "status": "degraded" if durable.get("reachable") is False else "ok",
         "service": SERVER_NAME,
         "version": SERVER_VERSION,
-        "source_revision": os.getenv("SOURCE_REVISION", "unavailable"),
+        # A deployment's SOURCE_REVISION, or on a local run the checkout's own
+        # HEAD, with the origin saying which, so a judge can see the commit.
+        **source_revision(),
         "mcp": {
             "endpoint": "/mcp",
             "protocol_version": PROTOCOL_VERSION,
