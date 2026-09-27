@@ -61,3 +61,22 @@ def test_published_figures():
     assert measured["heldout"]["javascript"]["false_positive_pct"] == 0.0
     assert measured["heldout"]["typescript"]["recall_pct"] == 75.0
     assert measured["heldout"]["typescript"]["false_positive_pct"] == 25.0
+
+
+def test_the_probes_written_after_the_rules_break_them_as_recorded():
+    """Eight probes written after the rules, to find where line-at-a-time
+    reading breaks (tests/fixtures/diff_corpus_js_ts_probes.py). Measured once
+    on 2026-09-27 and recorded, not fixed: every probe that must flag is
+    missed, and every probe that must not flag is flagged by a structural rule.
+    Closing one means changing its expected outcome here and in the docs."""
+    from scripts.benchmark_js_ts_detection import measure
+    from tests.fixtures.diff_corpus_js_ts_probes import PROBES
+
+    assert len(PROBES) == 8
+    rows = measure(PROBES)
+    assert set(rows["javascript"]["missed_fixture_ids"]) == {"probe-05", "probe-07"}
+    assert set(rows["typescript"]["missed_fixture_ids"]) == {"probe-06", "probe-08"}
+    assert set(rows["javascript"]["false_positive_fixture_ids"]) == {"probe-01", "probe-03"}
+    assert set(rows["typescript"]["false_positive_fixture_ids"]) == {"probe-02", "probe-04"}
+    assert rows["javascript"]["false_positives_from_structural_rule"] == 2
+    assert rows["typescript"]["false_positives_from_structural_rule"] == 2

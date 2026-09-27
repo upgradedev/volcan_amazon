@@ -10,6 +10,11 @@ Run command:
     python scripts/benchmark_js_ts_detection.py                  # both splits
     python scripts/benchmark_js_ts_detection.py --split train
     python scripts/benchmark_js_ts_detection.py --split heldout --aggregate-only
+    python scripts/benchmark_js_ts_detection.py --probes          # probes only
+
+The probes (``tests/fixtures/diff_corpus_js_ts_probes.py``) are eight patches
+written after the rules, to find where reading one line at a time breaks. They
+are not part of either half and their figure is printed on its own.
 
 Nothing is written. Every figure is recomputed from the production parser.
 
@@ -27,6 +32,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from src.domain.semantic_diff import UnifiedDiffParser  # noqa: E402
 from tests.fixtures.diff_corpus_js_ts import CASES, SPLIT_SEED, split  # noqa: E402
+from tests.fixtures.diff_corpus_js_ts_probes import PROBES  # noqa: E402
 
 STRUCTURAL_RULES = {"authz_comparison_inverted", "permissive_cors_origin", "security_call_removed"}
 LANGUAGES = ("javascript", "typescript")
@@ -95,7 +101,16 @@ def main(argv: list[str] | None = None) -> dict:
     parser.add_argument("--split", choices=("train", "heldout", "both"), default="both")
     parser.add_argument("--aggregate-only", action="store_true",
                         help="print counts and rates only, never fixture ids")
+    parser.add_argument("--probes", action="store_true",
+                        help="measure the eight probes written after the rules instead of the corpus")
     args = parser.parse_args(argv)
+
+    if args.probes:
+        print(f"JS/TS security detection. Probes: {len(PROBES)} self-authored synthetic patches written "
+              "after the rules, to find where they break; not part of the corpus or its held-out half.")
+        results = {"probes": measure(PROBES)}
+        _print_rows(results["probes"], args.aggregate_only)
+        return results
 
     halves = split()
     names = ("train", "heldout") if args.split == "both" else (args.split,)
@@ -105,15 +120,19 @@ def main(argv: list[str] | None = None) -> dict:
     for name in names:
         results[name] = measure(halves[name])
         print(f"\n[{name}] {len(halves[name])} cases")
-        for language, row in results[name].items():
-            print(f"  {language}: recall {row['recall_pct']}% ({row['detected']}/{row['n_should_flag']}; "
-                  f"structural {row['detected_by_structural_rule']}, keyword only {row['detected_by_keyword_only']}), "
-                  f"false positives {row['false_positive_pct']}% ({row['false_positives']}/{row['n_should_not_flag']}; "
-                  f"from a structural rule {row['false_positives_from_structural_rule']})")
-            if not args.aggregate_only:
-                print(f"    missed: {', '.join(row['missed_fixture_ids']) or 'none'}")
-                print(f"    over-flagged: {', '.join(row['false_positive_fixture_ids']) or 'none'}")
+        _print_rows(results[name], args.aggregate_only)
     return results
+
+
+def _print_rows(languages: dict[str, dict[str, object]], aggregate_only: bool) -> None:
+    for language, row in languages.items():
+        print(f"  {language}: recall {row['recall_pct']}% ({row['detected']}/{row['n_should_flag']}; "
+              f"structural {row['detected_by_structural_rule']}, keyword only {row['detected_by_keyword_only']}), "
+              f"false positives {row['false_positive_pct']}% ({row['false_positives']}/{row['n_should_not_flag']}; "
+              f"from a structural rule {row['false_positives_from_structural_rule']})")
+        if not aggregate_only:
+            print(f"    missed: {', '.join(row['missed_fixture_ids']) or 'none'}")
+            print(f"    over-flagged: {', '.join(row['false_positive_fixture_ids']) or 'none'}")
 
 
 if __name__ == "__main__":
