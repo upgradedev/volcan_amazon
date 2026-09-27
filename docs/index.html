@@ -557,7 +557,7 @@
 
     #securityAlert:empty { display: none; }
     .finding {
-      display: flex; gap: 12px; align-items: flex-start;
+      display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
       border: 2px solid var(--bad); border-radius: var(--r-s);
       background: var(--surface); padding: 12px 14px; margin: 8px 0 0;
     }
@@ -567,6 +567,7 @@
     }
     .finding p { margin: 0 0 4px; font-size: var(--t-xs); font-weight: 700; }
     .finding ul { margin: 0; padding-left: 18px; font-size: var(--t-xs); color: var(--ink-soft); }
+    .finding ul, .finding p { overflow-wrap: anywhere; }
 
     /* --- below the stage: try another patch, and more of the same answer -- */
 
@@ -2399,18 +2400,22 @@
       }
     }
 
-    function renderFindings(findings) {
+    function renderFindings(findings, spoken) {
       var host = clear($("securityAlert"));
       if (!findings || !findings.length) { return; }
       var box = el("div", "finding");
-      // The finding itself, once, under a plain title. The sentence above
-      // already speaks it; this box is where a reader finds every one.
+      // The tag sits above the text, so a phone does not squeeze the finding
+      // into a narrow column beside it. One finding that the speech already
+      // opens with is not printed a second time; the box points to it.
       box.appendChild(el("span", "tag", findings.length === 1 ? "Security finding" : plural(findings.length, "security finding")));
-      var body = document.createElement("div");
-      var list = document.createElement("ul");
-      findings.forEach(function (finding) { list.appendChild(el("li", null, finding)); });
-      body.appendChild(list);
-      box.appendChild(body);
+      var said = String(spoken || "");
+      if (findings.length === 1 && said.indexOf(String(findings[0]).replace(/\.$/, "")) === 0) {
+        box.appendChild(el("p", null, "The sentence above names it."));
+      } else {
+        var list = document.createElement("ul");
+        findings.forEach(function (finding) { list.appendChild(el("li", null, finding)); });
+        box.appendChild(list);
+      }
       host.appendChild(box);
     }
 
@@ -2663,7 +2668,7 @@
         var words = renderSpoken(digest.data, digest.elapsedMs, "Level 0 executive digest");
         renderEarcon(digest.data.earcon);
         renderBraille(braille.data, braille.elapsedMs);
-        renderFindings(digest.data.critical_findings);
+        renderFindings(digest.data.critical_findings, digest.data.voice_summary);
         revealAnswer();
         var prefix = "Round trip " + digest.elapsedMs.toFixed(1) + " milliseconds.";
         whenCueEnds(function () {

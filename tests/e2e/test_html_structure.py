@@ -891,3 +891,16 @@ def test_enter_in_the_pull_request_url_box_opens_it():
     script = script_body()
     handler = script.split('$("prUrl").addEventListener("keydown"', 1)[1].split("});", 1)[0]
     assert 'event.key === "Enter"' in handler and 'sendTranscript("open"' in handler
+
+
+def test_the_finding_box_stacks_and_does_not_repeat_the_spoken_sentence():
+    """Round 4 saw the tag and the finding side by side on a phone, the
+    finding squeezed into a column about 120px wide and repeating the speech
+    word for word. The box now stacks, and a single finding the speech
+    already opens with is pointed to rather than printed again."""
+    html = read_html()
+    css = html.split(".finding {", 1)[1].split("}", 1)[0]
+    assert "flex-direction: column" in css
+    body = function_body("renderFindings")
+    assert "The sentence above names it." in body
+    assert "renderFindings(digest.data.critical_findings, digest.data.voice_summary)" in script_body()
