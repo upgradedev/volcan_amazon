@@ -37,6 +37,7 @@ from src.application.review_authorization import current_review_principal
 from src.infrastructure.observability_harness import PrivateObservabilityHarness
 from src.interfaces.composition import allowed_origins, mcp_session_mode, sessions
 from src.interfaces.mcp_protocol import (
+    ACCEPTED_VERSION_HEADERS,
     INVALID_REQUEST,
     PARSE_ERROR,
     PROTOCOL_VERSION,
@@ -175,14 +176,20 @@ def _protocol_version_problem(request: Request) -> tuple[str, dict[str, Any]] | 
     the handshake succeeded, which is a failure that surfaces later and
     somewhere else. Volcan refuses instead and names the header, and docs/EVIDENCE.md
     states that it is required on every request after initialize.
+
+    A header that names ``2025-03-26`` explicitly is accepted, although that
+    revision is never negotiated (see ``ACCEPTED_VERSION_HEADERS``): the client
+    has said which revision it believes in, the methods it can send are shaped
+    the same, and the one 2025-03-26 feature this server lacks, batching, is
+    refused with an error that names the revision this server speaks.
     """
     declared = request.headers.get("mcp-protocol-version")
     if declared is None:
         return _VERSION_MISSING, {"expected": PROTOCOL_VERSION}
-    if declared not in SUPPORTED_PROTOCOL_VERSIONS:
+    if declared not in ACCEPTED_VERSION_HEADERS:
         return (
             f"Unsupported MCP-Protocol-Version '{declared}'.",
-            {"supported": list(SUPPORTED_PROTOCOL_VERSIONS)},
+            {"supported": list(SUPPORTED_PROTOCOL_VERSIONS), "accepted_header": list(ACCEPTED_VERSION_HEADERS)},
         )
     return None
 

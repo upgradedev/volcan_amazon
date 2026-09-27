@@ -35,6 +35,17 @@ PROTOCOL_VERSION = "2025-11-25"
 #: asks for it is answered with PROTOCOL_VERSION, as the lifecycle rule directs
 #: for a revision the server does not support.
 SUPPORTED_PROTOCOL_VERSIONS = (PROTOCOL_VERSION, "2025-06-18")
+#: The MCP-Protocol-Version header values accepted after initialize. This is
+#: the negotiable revisions plus 2025-03-26, which is accepted here and never
+#: negotiated: initialize still answers PROTOCOL_VERSION, the server still
+#: speaks it, and a JSON-RPC batch is still refused with -32600. It is kept
+#: because Amazon documents its Alexa+ MCP client asking for 2025-03-26 and
+#: documents none of its headers, and a client that declares the revision it
+#: asked for was served by this server until 2026-09-27. Removing it with the
+#: negotiation change on that day refused such a client, which is recorded in
+#: docs/EVIDENCE.md, Road to Alexa+. tools/list, tools/call and ping have the
+#: same shape in 2025-03-26 as in the negotiated revisions.
+ACCEPTED_VERSION_HEADERS = SUPPORTED_PROTOCOL_VERSIONS + ("2025-03-26",)
 
 SERVER_NAME = "volcan-accessible-forge"
 SERVER_VERSION = "0.1.0"

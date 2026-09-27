@@ -44,6 +44,18 @@ def test_a_spec_following_client_completes_the_documented_session_and_hears_the_
 
 
 @pytest.mark.parametrize("version", envelopes.DOCUMENTED_VERSIONS)
+def test_a_client_that_declares_the_revision_it_asked_for_completes_the_session(version):
+    """The third shape: it ignores the answer and sends the revision it asked
+    for as its header. For 2025-03-26 this was served before 2026-09-27,
+    refused by 76f017c, and is served again."""
+    run = replay(_post, version, client="own")
+    assert run["negotiated"] == "2025-11-25"
+    assert run["version_header"] == version
+    assert [step["ok"] for step in run["steps"]] == [True, True, True, True]
+    assert run["finding_in_spoken_text"], run["steps"][3]["summary"]
+
+
+@pytest.mark.parametrize("version", envelopes.DOCUMENTED_VERSIONS)
 def test_a_client_that_never_sends_the_version_header_is_refused_after_initialize(version):
     """Recorded, not endorsed: a client that only knows 2025-03-26 never sends it."""
     run = replay(_post, version, client="never")

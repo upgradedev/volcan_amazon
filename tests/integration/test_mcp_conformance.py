@@ -613,20 +613,53 @@ def test_an_unsupported_requested_revision_is_answered_with_the_latest():
     assert response.json()["result"]["protocolVersion"] == PROTOCOL_VERSION
 
 
+def _initialize_asking_for(revision):
+    response = client.post("/mcp", json={
+        "jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"protocolVersion": revision, "capabilities": {}},
+    })
+    return response.json()["result"]["protocolVersion"], response.headers["mcp-session-id"]
+
+
 def test_2025_03_26_is_not_offered_because_this_server_does_not_honour_it():
     """That revision has no version header and requires batch support.
 
     Amazon documents its Alexa+ MCP client asking for 2025-03-26. The server
     answers with its own revision, and a client on it then sends the header.
     """
-    response = client.post("/mcp", json={
-        "jsonrpc": "2.0", "id": 1, "method": "initialize",
-        "params": {"protocolVersion": "2025-03-26", "capabilities": {}},
-    })
-    assert response.json()["result"]["protocolVersion"] == PROTOCOL_VERSION
-    session_id = response.headers["mcp-session-id"]
+    negotiated, _ = _initialize_asking_for("2025-03-26")
+    assert negotiated == PROTOCOL_VERSION
+
+
+def test_a_2025_03_26_header_is_accepted_after_initialize_although_never_negotiated():
+    """Changed on 2026-09-27 with the behaviour, after an audit.
+
+    Until then this test asserted that the header was refused. That refusal had
+    arrived with the negotiation change of the same day and removed a path that
+    worked before it: a client that asks for 2025-03-26 and then declares it.
+    Amazon documents no headers for its Alexa+ client, so that shape is served
+    again. It is still told 2025-11-25, and a batch is still refused.
+    """
+    _, session_id = _initialize_asking_for("2025-03-26")
+    headers = {"Mcp-Session-Id": session_id, "MCP-Protocol-Version": "2025-03-26"}
+    served = client.post("/mcp", headers=headers, json={"jsonrpc": "2.0", "id": 2, "method": "ping"})
+    assert served.status_code == 200
+    assert served.json()["result"] == {}
+    listed = client.post("/mcp", headers=headers, json={"jsonrpc": "2.0", "id": 3, "method": "tools/list"})
+    assert "tools" in listed.json()["result"]
+    batch = client.post("/mcp", headers=headers, json=[{"jsonrpc": "2.0", "id": 4, "method": "ping"}])
+    assert batch.json()["error"]["code"] == INVALID_REQUEST
+    assert "2025-11-25" in batch.json()["error"]["message"]
+
+
+@pytest.mark.parametrize("header", ["2024-11-05", "2025-03-27", "latest", ""])
+def test_any_other_version_header_is_still_refused_after_initialize(header):
+    _, session_id = _initialize_asking_for(PROTOCOL_VERSION)
     refused = client.post(
-        "/mcp", headers={"Mcp-Session-Id": session_id, "MCP-Protocol-Version": "2025-03-26"},
+        "/mcp", headers={"Mcp-Session-Id": session_id, "MCP-Protocol-Version": header},
         json={"jsonrpc": "2.0", "id": 2, "method": "ping"},
     )
-    assert refused.json()["error"]["code"] == INVALID_REQUEST
+    error = refused.json()["error"]
+    assert error["code"] == INVALID_REQUEST
+    assert error["data"]["supported"] == ["2025-11-25", "2025-06-18"]
+    assert "2025-03-26" not in error["data"]["supported"]

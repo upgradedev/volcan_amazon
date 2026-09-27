@@ -8,15 +8,24 @@ Volcan MCP endpoint and prints what came back and how long each round trip
 took, beside the documented requirement of a round trip under 500 ms.
 
 The documentation shows bodies, not headers, so each requested revision is
-replayed by two kinds of client:
+replayed by three kinds of client:
 
 * spec: adopts the revision the server answers with, and sends the
   ``MCP-Protocol-Version`` header when that revision defines one (2025-06-18
   and later; 2025-03-26 had no such header). This is a client that speaks
   2025-11-25 as well, which Amazon's overview implies by naming 2025-11-25.
+* own: sends the ``MCP-Protocol-Version`` header set to the revision it asked
+  for, whatever the server answered. For 2025-11-25 this is the spec client;
+  for 2025-03-26 it declares a revision that defines no such header. This does
+  not follow the lifecycle rule, but the page documents no headers, so it is
+  as plausible for the real client as the other two.
 * never: never sends the header, as a client that only knows 2025-03-26
   would. Volcan refuses every request after initialize from such a client, and
   the replay prints that refusal rather than hiding it.
+
+Each shape is replayed ``--runs`` times and the tool-call round trip is
+reported as the median with the range, because one sample of a warm local
+server varies by about 10 ms from run to run.
 
 Run command:
     python -m src.interfaces.mcp_server --port 8743      # terminal 1
@@ -25,6 +34,7 @@ Run command:
 import argparse
 import json
 import os
+import statistics
 import sys
 import time
 import urllib.error
@@ -91,13 +101,13 @@ def _summary(body: object) -> tuple[bool, str]:
 #: Revisions that define the MCP-Protocol-Version header.
 REVISIONS_WITH_VERSION_HEADER = ("2025-06-18", "2025-11-25")
 
-CLIENTS = ("spec", "never")
+CLIENTS = ("spec", "own", "never")
 
 
 def replay(post: Post, protocol_version: str, client: str) -> dict:
     """One documented session: initialize, initialized, tools/list, tools/call.
 
-    ``client`` is "spec" or "never", as the module docstring describes.
+    ``client`` is "spec", "own" or "never", as the module docstring describes.
     """
     if client not in CLIENTS:
         raise ValueError(f"client must be one of {CLIENTS}")
@@ -121,6 +131,8 @@ def replay(post: Post, protocol_version: str, client: str) -> dict:
     negotiated = ((first["body"] or {}).get("result") or {}).get("protocolVersion") if isinstance(first["body"], dict) else None
     if client == "spec" and negotiated in REVISIONS_WITH_VERSION_HEADER:
         headers["MCP-Protocol-Version"] = negotiated
+    elif client == "own":
+        headers["MCP-Protocol-Version"] = protocol_version
     step("notifications/initialized", envelopes.initialized_notification())
     step("tools/list", envelopes.tools_list())
     call = step("tools/call digest_semantic_diff", envelopes.tool_call())
@@ -132,6 +144,7 @@ def replay(post: Post, protocol_version: str, client: str) -> dict:
         "protocol_version": protocol_version,
         "client": client,
         "version_header_sent": "MCP-Protocol-Version" in headers,
+        "version_header": headers.get("MCP-Protocol-Version"),
         "negotiated": negotiated,
         "steps": steps,
         # The first text block is the spoken digest; the finding leads it.
@@ -140,36 +153,53 @@ def replay(post: Post, protocol_version: str, client: str) -> dict:
     }
 
 
+LABELS = {
+    "spec": "spec-following client",
+    "own": "client that sends the revision it asked for as MCP-Protocol-Version",
+    "never": "client that never sends MCP-Protocol-Version",
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("url", nargs="?", default="http://127.0.0.1:8000/mcp")
     parser.add_argument("--warmups", type=int, default=3,
                         help="documented sessions run first and not reported, so the figures are warm")
+    parser.add_argument("--runs", type=int, default=15,
+                        help="sessions per client shape; the tool-call round trip is their median")
     args = parser.parse_args(argv)
+    if args.runs < 1:
+        parser.error("--runs must be at least 1")
     post = http_post(args.url)
     print("Replay of Amazon's documented Alexa+ MCP client requests. Built and tested locally,")
     print("not certified or deployed; needs the owner's Amazon developer account. Alexa+ did not send these.")
     print(f"Source: {envelopes.SOURCE_URL} (fetched {envelopes.FETCHED_ON}). Target: {args.url}")
+    print(f"{args.warmups} warm-up sessions, then {args.runs} sessions per client shape.")
     for _ in range(args.warmups):
         replay(post, "2025-11-25", "spec")
     worst = 0
     for version in envelopes.DOCUMENTED_VERSIONS:
         for client in CLIENTS:
-            run = replay(post, version, client)
-            label = ("spec-following client" if client == "spec"
-                     else "client that never sends MCP-Protocol-Version")
-            print(f"\n[asks for {version}, {label}; answered {run['negotiated']}; "
-                  f"header sent: {'yes' if run['version_header_sent'] else 'no'}]")
+            runs = [replay(post, version, client) for _ in range(args.runs)]
+            run = runs[0]
+            print(f"\n[asks for {version}, {LABELS[client]}; answered {run['negotiated']}; "
+                  f"header sent: {run['version_header'] or 'none'}]")
             for record in run["steps"]:
                 mark = "ok  " if record["ok"] else "FAIL"
-                print(f"  {mark} {record['step']}: HTTP {record['status']}, {record['round_trip_ms']} ms; {record['summary']}")
-            call_ok = run["steps"][-1]["ok"]
-            if call_ok:
-                within = run["tool_call_round_trip_ms"] < DOCUMENTED_LATENCY_MS
-                print(f"  tool call answered; finding in its first sentence: "
-                      f"{'yes' if run['finding_in_spoken_text'] else 'no'}; round trip "
-                      f"{run['tool_call_round_trip_ms']} ms against the documented < {DOCUMENTED_LATENCY_MS:.0f} ms: "
-                      f"{'within' if within else 'OVER'}")
+                print(f"  {mark} {record['step']}: HTTP {record['status']}; {record['summary']}")
+            served = [r for r in runs if r["steps"][-1]["ok"]]
+            if len(served) == len(runs):
+                times = sorted(r["tool_call_round_trip_ms"] for r in runs)
+                median = statistics.median(times)
+                heard = all(r["finding_in_spoken_text"] for r in runs)
+                within = median < DOCUMENTED_LATENCY_MS
+                print(f"  tool call answered in {len(runs)}/{len(runs)} sessions; finding in its first sentence: "
+                      f"{'yes' if heard else 'no'}; round trip median {median:.1f} ms "
+                      f"(range {times[0]:.1f} to {times[-1]:.1f}) against the documented "
+                      f"< {DOCUMENTED_LATENCY_MS:.0f} ms: {'within' if within else 'OVER'}")
+            elif served:
+                print(f"  tool call answered in only {len(served)}/{len(runs)} sessions")
+                worst = 1
             else:
                 print("  tool call refused, so there is no answer and no latency to compare")
                 worst = 1
