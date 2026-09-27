@@ -33,15 +33,16 @@ Skill) per the Official Rules, and demo it via your own web-based simulator or f
 *Not possible for participants:* deploying the add-on package, because the add-on tools are
 partner-only (FAQ), so Alexa+ has never called Volcan. *Not tested:* an Echo device; the FAQ
 says "no physical device needed". *Missing:* a published demo video (a render of a local
-run exists, pending upload), a live GitHub write, a recorded Bedrock answer, and a public build
-that shows this version (for this track the FAQ says "hosting isn't required").
+run exists, pending upload), a live GitHub write and a recorded Bedrock answer. *Not required
+for this track:* a public build of this version; the FAQ says "hosting isn't required", and the
+public endpoint runs an older build, as the table below says.
 
 | | |
 |---|---|
 | **Live endpoint** | [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health) serves revision `2d0b8f8`, which is **behind this branch** (43 commits behind `6d2e227`, checked 2026-09-27). It shows an older page, its spoken summary (`voice_summary`) does not name the inverted check although its `critical_findings` field does, and its Bedrock call is refused as not authorized, so the local engine answers. [Details](docs/EVIDENCE.md#the-public-deployment). |
 | **Run it** | [Run it locally](#run-it-locally), no cloud account needed |
 | **Evidence** | [docs/EVIDENCE.md](docs/EVIDENCE.md): every claim with the command that prints it |
-| **Source** | A private repository. The [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) rule for one: "Add the Amazon and Devpost reviewers as collaborators before the submission deadline", which gives them clone access. That is an owner step. The MIT licence is in [LICENSE](LICENSE) |
+| **Source** | A private repository. The [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) rule for one: "Add the Amazon and Devpost reviewers as collaborators before the submission deadline". That is an owner step. The MIT licence is in [LICENSE](LICENSE) |
 
 ## Table of Contents
 
