@@ -149,9 +149,13 @@ security | earcon SECURITY_FINDING | sha256[:16] 22c91bec11e275d1 | 26504 WAV by
 
 ## 3. What an Alexa+ integration would need, and does not have here
 
+Amazon's route for a service like this is an MCP add-on, in which Alexa+ is the MCP client and
+writes the reply itself. `docs/EVIDENCE.md`, Road to Alexa+, has the sources.
+
 | Requirement | Status |
 |---|---|
-| A skill manifest and interaction model | Not written; the earlier one pointed at a route that returns HTTP 404 and was deleted |
+| An Alexa+ MCP add-on manifest | `alexa_plus/addon-package/addon.json`, built and tested locally, not certified or deployed; needs the owner's Amazon developer account. `python scripts/validate_alexa_addon.py` checks it against Amazon's documented schema |
+| A skill manifest and interaction model | Not written; the Alexa+ path above has none. An earlier skill manifest pointed at a route that returns HTTP 404 and was deleted |
 | A publicly reachable HTTPS endpoint serving `/mcp` | Available at the public deployment; MCP initialize and governed-action tool calls were verified on 2026-09-23 |
 | Account linking for a developer's repository | Not designed |
 | Certification | Not attempted |

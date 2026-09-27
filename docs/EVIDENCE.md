@@ -21,8 +21,9 @@ its history in [`FRICTION_LOG.md`](FRICTION_LOG.md).
 12. [Verify every claim yourself](#verify-every-claim-yourself)
 13. [Operational telemetry](#operational-telemetry)
 14. [The public deployment](#the-public-deployment)
-15. [Known limitations](#known-limitations)
-16. [Who would buy this, and out of which budget](#who-would-buy-this-and-out-of-which-budget)
+15. [Road to Alexa+](#road-to-alexa)
+16. [Known limitations](#known-limitations)
+17. [Who would buy this, and out of which budget](#who-would-buy-this-and-out-of-which-budget)
 
 ---
 
@@ -133,7 +134,8 @@ code operator named (`user.role not equals 'admin'`), while the screen and the B
 the literal `!=`.
 
 **Time to first result, measured on the development machine on 2026-09-26.** Step 1 printed
-`577 passed, 1 warning` on 2026-09-27 (the count is the claim; the duration varies run to run). The server in step 2 answered its first `GET /health` with HTTP 200 **1.7 seconds**
+`622 passed, 1 warning` on 2026-09-27 (the count is the claim; the duration varies run to run;
+the same day, before the JavaScript and TypeScript rules and the Alexa+ package, it was 577). The server in step 2 answered its first `GET /health` with HTTP 200 **1.7 seconds**
 after launch on 2026-09-26 (three runs that day read 1.7, 1.7 and 1.8 s), printed by [`scripts/measure_cold_start.py`](../scripts/measure_cold_start.py),
 which launches its own server on port 8000 (stop the one from step 2 first) and refuses to time
 a process that was already warm. Step 3 printed `22/22 checks passed, 0 failed`. The first
@@ -178,13 +180,20 @@ content blocks carrying the synthesized earcons.
 `python scripts/mcp_conformance.py` runs a full client handshake against a running server
 and prints a pass or fail line for each of its 22 conformance checks.
 
-**The road to Alexa+ is stated, not built.** An Alexa+ integration would call this same MCP
-server. None exists: no skill, no Alexa+ connection, no Echo run. The page says so in a band
-below its first screen and draws the missing piece as a dashed box in its Evidence tab.
+**The road to Alexa+ is an add-on package, built and tested locally, not certified or
+deployed; it needs the owner's Amazon developer account.** Amazon's route for a service like
+this is an MCP add-on, in which Alexa+ is the MCP client of this same server. The add-on
+manifest is in the repository and a replay of Amazon's documented client requests runs against
+the server, but no add-on has been deployed and Alexa+ has never called Volcan: no skill, no
+Alexa+ connection, no Echo run. [Road to Alexa+](#road-to-alexa) has the sources, what was
+built, what the replay found and what only the owner can do. The page says so in a band below
+its first screen and draws the add-on as a dashed box in its Evidence tab. Until 2026-09-27
+this paragraph said the road was "stated, not built", which was true then.
 
 **Simulated, and labelled as such everywhere it appears, the page included.** The voice
 experience is a web companion, not an Alexa skill. There is no Alexa skill package in this
-repository, no skill has been submitted for certification, and nothing here has been tested on
+repository (the Alexa+ add-on package that is here has never been deployed), no skill has been
+submitted for certification, and nothing here has been tested on
 an Echo device. The companion listens with the browser's `SpeechRecognition` API where the
 browser has one (Chrome and Edge do, Firefox does not), speaks with `speechSynthesis`, keeps a
 typed twin for every spoken command, and calls the same server an Alexa+ integration would
@@ -858,14 +867,17 @@ estimate unless it says ESTIMATE.
 
 | Metric | Baseline | Volcan | Command that prints it |
 |---|---|---|---|
-| Security-flag detection | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **81.8% recall over n=40 labelled patches**, 22 that must flag and 18 that must not, with 0% false positives | `python scripts/benchmark_suite.py` |
+| Security-flag detection, Python corpus | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **81.8% recall over n=40 labelled patches**, 22 that must flag and 18 that must not, with 0% false positives. Unchanged on 2026-09-27 by the JavaScript and TypeScript rules. Of the 40, 36 are Python files: 17 of 20 Python positives flagged (85.0%), 0 of 16 Python negatives | `python scripts/benchmark_suite.py` |
+| Security-flag detection, JavaScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 25.0% recall (2/8), 0.0% false positives (0/8), today's parser before the JS/TS rules, 2026-09-27 | **50.0% recall (4/8), 0.0% false positives (0/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
+| Security-flag detection, TypeScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 37.5% recall (3/8), 25.0% false positives (2/8), before the JS/TS rules, 2026-09-27 | **75.0% recall (6/8), 25.0% false positives (2/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
+| Documented Alexa+ client session, replayed locally, `tools/call` round trip | not applicable | 28.7 ms (revision 2025-03-26) and 31.7 ms (2025-11-25) over local HTTP after three warm-up sessions, local engine, no AWS credentials, 2026-09-27, against Amazon's documented limit of 500 ms. Refused without the `MCP-Protocol-Version` header. Not the Lambda, not Alexa+ | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8761/mcp` |
 | Digest earcon, benign patch vs security-sensitive patch | **byte-identical until 2026-09-08**: both returned `DIFF_READY`, 19448 WAV bytes, `sha256[:16] 08f48648388bff02` | 19448 bytes `08f48648388bff02` for the benign patch, 26504 bytes `22c91bec11e275d1` for the security-sensitive one | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
 | Patch parse latency, 1000 steady runs | not measured | mean 0.281 ms; p95 0.448 ms | `python scripts/benchmark_suite.py` |
 | Earcon synthesis latency, 1000 steady runs | not measured | mean 3.592 ms; p95 6.565 ms | `python scripts/benchmark_suite.py` |
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **22 of 22 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 577 passing; 91.98% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-27 | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 622 passing; 92.08% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-27 (577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.7 s on 2026-09-26 (three runs: 1.7, 1.7, 1.8 s) | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 31.3 ms on the first press, then 38.9, 30.5 and 28.7 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credentials | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -898,11 +910,72 @@ recall is 81.8% and not a round hundred:
 | `pos-19` | an authorization guard block deleted | no rule reads deleted blocks, only deleted calls |
 | `pos-20` | a permission decorator removed | a bare decorator line is not parseable Python on its own |
 | `pos-21` | `verify=False` added to an outbound call | no rule inspects argument values |
-| `pos-22` | an IAM policy widened in JSON | the syntax-tree rules are Python only |
+| `pos-22` | an IAM policy widened in JSON | no rule reads JSON; the structural rules read Python, JavaScript and TypeScript |
 
 [`tests/unit/test_security_detection_corpus.py`](../tests/unit/test_security_detection_corpus.py)
 recomputes the published figures and pins that list by fixture id, so a new miss fails the
 build and closing one of these means deleting its id from the list.
+
+**JavaScript and TypeScript, measured on a held-out half (added 2026-09-27).** Until that date
+the structural rules read Python only, and a review found the digest had nothing structural to
+say about JavaScript or TypeScript. [`src/domain/js_security_rules.py`](../src/domain/js_security_rules.py)
+now answers the same three questions for `.js`, `.jsx`, `.mjs`, `.cjs`, `.ts`, `.tsx`, `.mts`
+and `.cts` files, with the same rule ids and the same kind of spoken sentence. They are token
+rules, not a full parse: each changed line is split into JavaScript tokens and the rules read
+patterns in them, so the product gains no parser dependency, and a statement spread over
+several lines is read one line at a time. Every other file keeps the Python rules, which is why
+the Python figure above did not move.
+
+*The corpus.* 64 patches in [`tests/fixtures/diff_corpus_js_ts.py`](../tests/fixtures/diff_corpus_js_ts.py),
+16 per language and label. They are self-authored and synthetic, written by the same engineer
+who then wrote the rules, before any JavaScript or TypeScript rule existed, and committed on
+their own first (`aedccbf`) with the baseline in the commit message. Positives include cases no
+rule was expected to catch (a negated `includes`, an `innerHTML` sink, MD5, a cookie that lost
+its flags, SQL built by interpolation, a route that lost its middleware). Negatives use the
+words the keyword pass reacts to, because ordinary JavaScript does (`Object.keys`, `keydown`,
+`keyof`, `author`, `tokenizer`), and tempt the structural rules (an ARIA `role` check flipped,
+a chat message `role` check flipped, a floor-plan comparison flipped, CORS narrowed).
+
+*The split.* Group the cases by language and label; sort each group by fixture id; shuffle it
+with `random.Random(20260927)`; the first half of each group is training, the second half
+held-out. 32 cases each, 8 per language and label. Tuning looked at training cases only. The
+held-out half was measured before the rules as aggregates, then once more after the rules were
+frozen, and its misses are recorded, not fixed. The engineer who wrote the rules also wrote the
+held-out cases, so the held-out figure is independent of the tuning, not of the author.
+
+| Half | Language | Recall before | Recall after | False positives before | False positives after |
+|---|---|---|---|---|---|
+| held-out | JavaScript | 25.0% (2/8) | **50.0% (4/8)** | 0.0% (0/8) | **0.0% (0/8)** |
+| held-out | TypeScript | 37.5% (3/8) | **75.0% (6/8)** | 25.0% (2/8) | **25.0% (2/8)** |
+| training | JavaScript | 37.5% (3/8) | 87.5% (7/8) | 37.5% (3/8) | 37.5% (3/8) |
+| training | TypeScript | 12.5% (1/8) | 75.0% (6/8) | 12.5% (1/8) | 12.5% (1/8) |
+
+Printed by `python scripts/benchmark_js_ts_detection.py` (both halves, with fixture ids), or
+`--split heldout --aggregate-only`. Before the rules, every detection came from the keyword
+pass; after them, 6 of the 10 held-out detections come from a structural rule.
+
+*The trade-offs, both sides measured.*
+
+* *Training fits better than new cases.* JavaScript is 87.5% on training and 50.0% held-out.
+  With 8 cases per cell, one case moves a figure by 12.5 points.
+* *False positives did not fall.* All 6 of the 32 negatives that raise a flag, across both
+  halves, are the keyword pass, which was left unchanged so the Python figure stays
+  comparable. No structural rule over-flags on either half.
+* *A stricter authorization test.* A flipped comparison counts only when it names a principal
+  (`user`, `session`, `account`, `member` ...) or a privileged value (`admin`, `owner` ...).
+  The training case that forced this is a chat renderer flipping `message.role === 'assistant'`.
+  The same test refuses the held-out ARIA and floor-plan flips, and misses `user.accessLevel`
+  flipped (`js-pos-15`), because `accessLevel` is not in the shared list of authorization words.
+* *Python rules no longer read JavaScript lines.* Measured cost on this corpus: none; before the
+  change the Python rules fired on 0 of the 64 patches.
+
+Held-out misses: `js-pos-12` (a negated `includes`, not a flipped operator), `js-pos-13`
+(cookie flags), `js-pos-15` (`accessLevel`), `js-pos-16` (SQL interpolation), `ts-pos-08`
+(`assertCanEdit` names no security object), `ts-pos-15` (CSRF middleware no longer mounted,
+which is not a removed call). Training misses: `js-pos-11` (`innerHTML`), `ts-pos-10`
+(`new Function`), `ts-pos-11` (MD5).
+[`tests/unit/test_js_ts_detection_corpus.py`](../tests/unit/test_js_ts_detection_corpus.py)
+pins every miss and every over-flag by id.
 
 The engine latency figures are the single run recorded in `benchmarks_summary.json`, not a stable
 constant. The parse mean rose from 0.041 ms to a fraction of a millisecond when the
@@ -924,6 +997,9 @@ magnitude as the claim and rerun each command on your own hardware.
 | The MCP server speaks the protocol | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | The tests pass, and how many | `python -m pytest tests/ -q` |
 | The benchmark numbers above | `python scripts/benchmark_suite.py` |
+| JavaScript and TypeScript detection, per half and language | `python scripts/benchmark_js_ts_detection.py` |
+| The Alexa+ add-on manifest meets Amazon's documented schema, and which values the owner must fill | `python scripts/validate_alexa_addon.py` |
+| Amazon's documented Alexa+ client requests, replayed against a running server | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp` |
 | Every readiness gate, including the failing ones | `python ci/readiness.py` |
 | Forged and replayed grants are refused | `python -m pytest tests/unit/test_governance.py -v` |
 | The security rules catch an inverted check, and refuse a lookalike | `python -m pytest tests/unit/test_ast_security_rules.py -v` |
@@ -1035,12 +1111,107 @@ the new `source_revision`. Until then, run the server locally to see this branch
 
 ---
 
+## Road to Alexa+
+
+**Status: built and tested locally, not certified or deployed; needs the owner's Amazon
+developer account.** Alexa+ has never called Volcan. Nothing here ran on an Echo device or in
+Amazon's web simulator. Until 2026-09-27 this road was "stated, not built"; this section records
+what changed that day.
+
+**What an Alexa+ integration for a developer tool consists of today.** Read from primary
+sources fetched with `curl` on 2026-09-27; the date after each link is the page's own.
+
+* The hackathon [rules](https://amazonappdev2026.devpost.com/rules) ask an Alexa+ entry for an
+  Agent Skill or a self-hosted MCP server at revision 2025-11-25 or later over Streamable HTTP,
+  or a simulated Alexa+ experience. Volcan's MCP server is the second.
+* Amazon's add-on docs name two paths
+  ([integration approach](https://developer.amazon.com/docs/alexaplus/add-ons/choose-the-proper-alexaplus-integration-approach.html),
+  Jul 10, 2026): the Category SDK for fixed categories such as restaurant reservations and ride
+  booking, and the MCP Toolkit for any other service. A code review tool fits no category.
+* In the MCP Toolkit, Alexa+ is the MCP client
+  ([overview](https://developer.amazon.com/docs/alexaplus/add-ons/mcp-toolkit-overview.html),
+  Aug 03, 2026). The server exposes tools over Streamable HTTP at a remote HTTPS URL, a manifest
+  at `addon-package/addon.json` registers that URL, and `alexa-ai deploy` uploads it
+  ([QuickStart](https://developer.amazon.com/docs/alexaplus/add-ons/mcp-toolkit-quickstart.html),
+  Jul 10, 2026). Alexa+ does the language understanding and writes the spoken reply from what
+  the tools return; Amazon's
+  [design guide](https://developer.amazon.com/docs/alexaplus/add-ons/mcp-addon-tools-schema-data-design.html)
+  (Jul 21, 2026) says the reply cannot be scripted. So there is no Alexa request envelope for a
+  handler to translate into an MCP call, and no speech for Volcan to write: a custom-skill
+  handler of that kind belongs to the older Alexa Skills Kit, not to Alexa+, and was not built.
+  The QuickStart also requires a round trip under 500 ms.
+* Access. Amazon's add-on docs home says the Category SDK and MCP Toolkit are available to
+  select partners only, and the hackathon FAQ says participants cannot get access to the
+  Alexa+ add-on tools (CLI, MCP Toolkit, web simulator). Setting up also needs an AWS account
+  that assumes an Amazon-owned role, and a private npm registry for the CLI
+  ([set up](https://developer.amazon.com/docs/alexaplus/add-ons/set-up-your-development-environment.html),
+  Jul 15, 2026). None of that was attempted, and nothing was installed from it.
+
+**What was built.**
+
+| Piece | What it is | Check it |
+|---|---|---|
+| [`alexa_plus/addon-package/addon.json`](../alexa_plus/addon-package/addon.json) | The MCP Toolkit manifest: name, descriptions, four example phrases and the MCP endpoint, which is the public Lambda URL and runs an older build today ([The public deployment](#the-public-deployment)). Nine values are placeholders on the reserved `.invalid` domain: the privacy page, the terms page, six icons and a carousel image, which must be the owner's own hosted files | `python scripts/validate_alexa_addon.py` prints `schema: pass` and lists the nine; `--strict` fails on them |
+| [`scripts/validate_alexa_addon.py`](../scripts/validate_alexa_addon.py) | Checks the constraints in Amazon's schema reference: name up to 30 characters, short description up to 123, 3 to 4 example phrases, HTTPS URIs, the six icon sizes, a 600x900 carousel image, an MCP integration over HTTPS. A local stand-in: Amazon's CLI, which really validates, was not run | `python -m pytest tests/integration/test_alexa_plus_client_replay.py -v` |
+| [`tests/fixtures/alexa_plus_envelopes.py`](../tests/fixtures/alexa_plus_envelopes.py) and [`scripts/replay_alexa_plus_envelopes.py`](../scripts/replay_alexa_plus_envelopes.py) | The initialize and `tools/call` bodies Amazon documents for its Alexa+ MCP client, copied from the [lifecycle page](https://developer.amazon.com/docs/alexaplus/add-ons/mcp-toolkit-client-lifecycle.html) (Jul 10, 2026), with Amazon's example hotel tool swapped for `digest_semantic_diff` and the inverted admin-check patch, sent to a running server | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp` |
+
+**What the replay found.**
+
+* *A defect, fixed.* Amazon's lifecycle page shows the Alexa+ client asking for revision
+  `2025-03-26` and the server answering with the same revision. Volcan accepted that revision in
+  its version header but answered every initialize with `2025-11-25`. By the MCP lifecycle rule
+  a server that supports the requested revision answers with it, and a client that cannot speak
+  the answered revision should disconnect. Volcan now answers with the requested revision when
+  it supports it, and `tests/integration/test_mcp_conformance.py` pins that for all three.
+* *An open risk, recorded and not changed.* The lifecycle page shows bodies and no headers.
+  Revision 2025-03-26 had no `MCP-Protocol-Version` header, so a client on it has no reason to
+  send one, and Volcan refuses every request after initialize without it (the deliberate rule in
+  [The MCP surface](#the-mcp-surface)). With the header, both documented revisions complete the
+  session and name the finding. The rule was not loosened on a guess about what Alexa+ sends,
+  and the public Lambda is stateless, so an exception scoped to a session would not reach it.
+  The owner decides once a real Alexa+ request can be seen.
+
+The replay on 2026-09-27, local server on port 8761, local engine, no AWS credentials, after
+three warm-up sessions:
+
+```
+[2025-03-26, headers as documented (none)]  initialize ok; then -32600 Missing MCP-Protocol-Version header, three times
+[2025-03-26, with MCP-Protocol-Version]     tools/call 28.7 ms: In p.py, an authorization comparison was inverted: ...
+[2025-11-25, headers as documented (none)]  initialize ok; then -32600 Missing MCP-Protocol-Version header, three times
+[2025-11-25, with MCP-Protocol-Version]     tools/call 31.7 ms: the same sentence
+```
+
+Those round trips are a warm local server, not the Lambda and not Alexa+. With Amazon Bedrock
+answering, the digest call would add a model round trip that has never been measured here, so
+whether that path meets the 500 ms limit is unknown.
+
+**What else stands between this package and a certified add-on, none of it tested.**
+
+* `review_dialogue_turn` asks for a `session_id`. Amazon's lifecycle page says Alexa+ keeps its
+  own conversation context and names no session identifier it would send, so the model would
+  have to supply one.
+* The tools answer with a text block, an audio block and a JSON text block, not the
+  `structuredContent` field Amazon's example response shows. Whether Alexa+ plays an MCP audio
+  block is not documented; PCM/WAVE in its codec list says nothing about tool results.
+* The endpoint has no OAuth. Amazon's authentication checklist applies to a private server.
+* Amazon's certification criteria include VoiceView, captions and screen magnifier support on
+  Alexa devices. Nothing here was tried on a device.
+
+**What only the owner can do.** Request MCP Toolkit access. Host the privacy page, terms page,
+icons and carousel image, and replace the nine placeholders. Redeploy the current commit to the
+endpoint. Install the Alexa AI CLI and run `alexa-ai deploy` from `alexa_plus/`. Test in the web
+simulator in isolation mode, and record which headers the real client sends.
+
+---
+
 ## Known limitations
 
-* **No Alexa skill.** No skill package is submitted, no certification has been sought, and
-  nothing has been tested on an Echo device. The Alexa+ claim is the MCP server plus a web
-  companion that simulates the voice experience and says so on screen, in the header paragraph
-  with id `notASkill`, which a test now holds in place.
+* **No Alexa skill, and an Alexa+ add-on that has never run.** No skill package is submitted,
+  no certification has been sought, and nothing has been tested on an Echo device. The Alexa+
+  claim is the MCP server, an MCP add-on package built and tested locally, not certified or
+  deployed, which needs the owner's Amazon developer account (see [Road to Alexa+](#road-to-alexa)),
+  and a web companion that simulates the voice experience and says so on screen, in the
+  header paragraph with id `notASkill`, which a test now holds in place.
 * **No live GitHub review has been sent from this repository.** The write path in
   [`src/infrastructure/github_review_adapter.py`](../src/infrastructure/github_review_adapter.py)
   is real code, shape-tested against `httpx.MockTransport` for the accepted review, the stale
@@ -1119,11 +1290,14 @@ the new `source_revision`. Until then, run the server locally to see this branch
 
   A successful receipt is that last line reading `bedrock | None`. Anything else prints the
   bounded reason category and confirms that the deterministic fallback answered.
-* **The syntax-tree security rules cover three change classes and Python only.** An inverted
-  authorization comparison, a widened cross-origin policy, and a removed verification call. A
-  deleted guard block, a removed decorator, a dangerous argument value and any non-Python file
-  are outside them, which is what the four named misses in Measured numbers are. A line that
-  does not parse as Python produces no finding rather than a guess.
+* **The structural security rules cover three change classes, in Python, JavaScript and
+  TypeScript only.** An inverted authorization comparison, a widened cross-origin policy, and a
+  removed verification call. A deleted guard block, a removed decorator, a dangerous argument
+  value and any other language, JSON included, are outside them, which is what the four named
+  misses in Measured numbers are. A Python line that does not parse produces no finding rather
+  than a guess. The JavaScript and TypeScript rules read tokens one line at a time, not a
+  syntax tree, and their held-out recall is 50.0% (JavaScript) and 75.0% (TypeScript) on a
+  self-authored corpus. Until 2026-09-27 this entry said Python only.
 * **The public endpoint runs an older build, and Alexa hardware remains untested.** On
   2026-09-23 `GET /health`, `/`, the REST digest and the MCP initialize/tool path answered
   successfully. On 2026-09-27 the same endpoint reported `source_revision` `2d0b8f8`, an

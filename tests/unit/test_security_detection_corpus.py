@@ -18,7 +18,7 @@ KNOWN_MISSES = {
     "pos-19",  # an authorization guard block deleted; no rule reads deleted blocks
     "pos-20",  # a permission decorator removed; a bare decorator line does not parse
     "pos-21",  # verify=False added to an outbound call; no rule reads argument values
-    "pos-22",  # an IAM policy widened in JSON; the AST rules are Python only
+    "pos-22",  # an IAM policy widened in JSON; no structural rule reads JSON
 }
 
 #: Negatives this parser over-flags today. Empty, and it has to stay a set the

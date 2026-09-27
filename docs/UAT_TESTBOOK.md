@@ -122,7 +122,7 @@ python -m pytest tests/ -v
 | Gap | Why it is not covered | What would close it |
 |---|---|---|
 | Real assistive-technology journey | Playwright drives the primary digest, MCP, earcon and Braille path, but cannot establish real screen-reader or refreshable-display usability | Run the scripted task with a consenting target user and record completion, errors, time and feedback |
-| Echo device dialogue | No Alexa skill exists and none was submitted | Build and certify a skill, then test on hardware |
+| Echo device dialogue | No Alexa skill exists and none was submitted; the Alexa+ add-on package is built and tested locally, not certified or deployed | The owner deploys the add-on with MCP Toolkit access, then tests in Amazon's simulator and on hardware |
 | Refreshable Braille display | No display was available | Verify the U+2800 stream on a Focus 40 or an Orbit Reader |
 | Sip-and-puff switch | No switch was available | Feed real pulse timings through `process_switch_pulse` |
 | A live `REQUEST_CHANGES` review on GitHub | The write is dry-run by default and the flag has never been set here; sending one needs a token with `pull_requests: write` on a repository the owner controls | Start the server with `VOLCAN_GITHUB_WRITE=1` and `GITHUB_TOKEN`, run scenario 8, and keep the review id the panel prints; the Known limitations in `docs/EVIDENCE.md` carry the exact commands |

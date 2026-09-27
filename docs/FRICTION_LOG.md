@@ -8,8 +8,9 @@ here describes hardware, an SDK or a device that this project never exercised. W
 number appears, the command that printed it appears beside it.
 
 What this project did **not** exercise, and therefore says nothing about: the Alexa Skills
-Kit, the Alexa developer console, skill certification, any Echo device, and Alexa
-Presentation Language on real hardware. The public Lambda did reach the Amazon Bedrock
+Kit, the Alexa developer console, the Alexa AI CLI, skill or add-on certification, any Echo
+device, and Alexa Presentation Language on real hardware. Section 8 is about Amazon's
+Alexa+ documentation as read, not about running Amazon's tools. The public Lambda did reach the Amazon Bedrock
 Mantle authorization boundary on 2026-09-23, but its execution role was denied before a
 model response. The log therefore discusses that observed authorization failure and does
 not claim a successful Bedrock generation.
@@ -264,9 +265,40 @@ collected after them; `python scripts/measure_cold_start.py` printed 1.7, 1.7 an
 three runs. The README became a one-screen story and the full record moved to
 `docs/EVIDENCE.md`.
 
+**Figures and wording until 2026-09-27, before the JavaScript and TypeScript rules and the
+Alexa+ add-on package.** The README and `docs/EVIDENCE.md` said `577 passed` and 91.98%
+statement coverage; `python -m pytest tests/ -q --cov=src` printed 622 and 92.08% after the
+round. The README's security row said the rules read Python only, which was true; the Python
+corpus figure, 81.8% recall and 0% false positives over n=40, did not change. The README and
+the page said the road to Alexa+ was not built, which was true until the add-on package was
+committed.
+
 ---
 
-## 8. What worked well
+## 8. Amazon documents the Alexa+ MCP client by body, not by header
+
+**Context.** On 2026-09-27 the Alexa+ add-on docs were read to find what an integration for a
+developer tool consists of. The MCP Toolkit path makes Alexa+ the MCP client of the server
+this repository already has, so the useful local test was to replay the client requests
+Amazon documents.
+
+**Observed friction.** The lifecycle page shows the initialize and `tools/call` bodies and no
+HTTP headers. Its initialize asks for revision `2025-03-26`, while the overview says Alexa+
+supports `2025-11-25`. Revision 2025-03-26 had no `MCP-Protocol-Version` header, and this
+server refuses any request after initialize that lacks it. So the documentation cannot tell a
+server author whether the real client will be refused. `python scripts/replay_alexa_plus_envelopes.py`
+prints both cases side by side. The same replay caught a defect of this server's own: it
+answered every initialize with `2025-11-25`, even to a client that asked for a revision the
+server supports.
+
+**What would remove it.** One recorded request from the Alexa+ client, headers included, on
+the lifecycle page. Separately, the toolkit and simulator are for select partners only, so a
+builder outside that group can check a manifest against the documented schema and nothing
+more.
+
+---
+
+## 9. What worked well
 
 * The Model Context Protocol is a good fit for assistive tooling. Because tools are
   described by JSON Schema, Volcan generates its whole catalog from the pydantic models

@@ -1138,11 +1138,15 @@
               interviewed and no price is set.</p>
           </div>
           <div class="who-card">
-            <h3>Road to Alexa+ <span class="tag-notbuilt">not built</span></h3>
-            <p>An Alexa+ integration would call this same MCP server: revision 2025-11-25,
-              the tools listed under Evidence after the handshake. None exists yet: there is
-              no Alexa skill, no Alexa+ connection and no test on an Echo device. This page is
-              the stand-in, and says so at the top.</p>
+            <h3>Road to Alexa+ <span class="tag-notbuilt">local only</span></h3>
+            <p>Amazon's route for a server like this is an MCP add-on: Alexa+ calls the
+              same MCP server the Evidence tab handshakes. The add-on package exists, built
+              and tested locally, not certified or deployed; needs the owner's Amazon
+              developer account, and Amazon lists the toolkit for select partners only. A
+              replay of the requests Amazon documents for its Alexa+ client gets the finding
+              back, but only with the protocol version header. Alexa+ has never called
+              Volcan: no Alexa skill, no certification and no test on an Echo device. This
+              page is the stand-in, and says so at the top.</p>
           </div>
         </div>
       </section>
@@ -1319,9 +1323,9 @@
           </div>
 
           <figure class="path-strip" aria-labelledby="pathStripCaption">
-            <figcaption id="pathStripCaption">Where Alexa+ would connect. The dashed box does not exist yet.</figcaption>
+            <figcaption id="pathStripCaption">Where Alexa+ would connect. The dashed box has never run against Alexa+.</figcaption>
             <ol>
-              <li class="path-box planned"><b>Alexa+</b><span>not built: no skill, no connection, no device test</span></li>
+              <li class="path-box planned"><b>Alexa+ add-on</b><span>package built and tested locally, not certified or deployed; no device test</span></li>
               <li class="path-arrow" aria-hidden="true">&#8594;</li>
               <li class="path-box"><b><code>POST /mcp</code></b><span>MCP 2025-11-25, Streamable HTTP; the handshake below checks it</span></li>
               <li class="path-arrow" aria-hidden="true">&#8594;</li>

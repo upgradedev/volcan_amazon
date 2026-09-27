@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-577%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-622%20passing-brightgreen.svg)](tests/)
 
 **What it does.** Paste a patch or open a GitHub pull request. Volcan says the risky change
 first in one sentence, plays a cue whose pitch falls on a security finding and rises on a clean
@@ -15,7 +15,9 @@ patch, and prints the code as eight-dot Braille. Then you can stage a request-ch
 that is a dry run by default and needs a single-use approval grant from a human.
 
 **Amazon technology.** A hand-written Model Context Protocol server (revision 2025-11-25),
-the interface an Alexa+ integration would call. With AWS credentials and the `bedrock` extra,
+the interface an Alexa+ MCP add-on calls. The add-on package for it is in
+[`alexa_plus/`](alexa_plus/addon-package/addon.json), built and tested locally, not certified
+or deployed; needs the owner's Amazon developer account. With AWS credentials and the `bedrock` extra,
 Volcan sends the digest request to Claude on Amazon Bedrock; otherwise, or when the call fails,
 a local deterministic engine answers and the response says why. No Bedrock answer has been
 recorded yet. The public endpoint is an AWS Lambda in eu-west-1, and [`infra/`](infra/) declares
@@ -24,7 +26,8 @@ a Lambda with a function URL and a DynamoDB table in Terraform.
 **Honest status.** *Real:* the MCP server, the spoken digest, the earcon, the Braille, the live
 GitHub read, the grants and the hash-chained audit log. *Simulated:* the voice loop is the
 browser's own speech recognition and synthesis, labelled on the page as not an Alexa skill.
-*Missing:* any Alexa+ connection or Echo test, a published demo video (a render of a local
+*Missing:* any Alexa+ connection or Echo test (the add-on package has never been deployed or
+called by Alexa+), a published demo video (a render of a local
 run exists, pending upload), a live GitHub write, a recorded Bedrock answer, and a public build
 that shows this version.
 
@@ -109,7 +112,7 @@ python -m pip install -e ".[dev,bedrock]"
 python -m pytest tests/ -q
 ```
 
-On 2026-09-27 this printed `577 passed, 1 warning`. The `bedrock` extra installs
+On 2026-09-27 this printed `622 passed, 1 warning`. The `bedrock` extra installs
 `anthropic[bedrock]`. With AWS credentials as well, a Bedrock call is ready to attempt.
 Credentials and an importable SDK do not prove a model answered: the receipt is the digest
 response's `synthesis_mode: bedrock`. Without them the local engine answers, and the page says
@@ -147,16 +150,16 @@ its URL and type `open`; the full command list is in
 | Part | Status | Check it |
 |---|---|---|
 | MCP server, 12 tools, Streamable HTTP | Real, written by hand | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Security finding named first | Real: 81.8% recall over n=40 labelled patches with 0% false positives, against a baseline of 0% for a screen reader reading the raw patch. The fixtures are self-written, the rules read Python only, and four known misses are named | `python scripts/benchmark_suite.py` |
+| Security finding named first | Real. Python corpus: 81.8% recall over n=40 labelled patches with 0% false positives, against a baseline of 0% for a screen reader reading the raw patch, four known misses named. JavaScript and TypeScript, on a held-out half of 16 patches per language: recall 50.0% (JS) and 75.0% (TS), false positives 0.0% and 25.0%, up from 25.0% and 37.5% recall before the JS/TS rules. Every corpus is self-written and synthetic | `python scripts/benchmark_suite.py` and `python scripts/benchmark_js_ts_detection.py` |
 | Earcon that encodes the verdict | Real: different WAV bytes for a finding and a clean patch | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
 | Eight-dot code Braille | Real and lossless over 95 ASCII characters. Not reviewed by a Braille transcriber, not read on a physical display | `python -m pytest tests/unit/test_braille_code_fidelity.py -v` |
 | Governed review | Real: HMAC single-use grants, self-approval refused, head commit re-read, dry run by default. No live GitHub review has ever been sent | `python -m pytest tests/unit/test_governance.py -v` |
 | Digest by Claude on Amazon Bedrock | Real code with a stated fallback. A provider failure returns a fixed public category; raw account, role and request identifiers never enter the anonymous response. No Bedrock answer has been recorded: locally the SDK was absent, and the public build's call is refused as not authorized | `python -m pytest tests/unit/test_bedrock_synthesis_path.py -v` |
 | Voice loop | Simulated: the browser's speech, not an Alexa skill, and no test drives a microphone | [Evidence](docs/EVIDENCE.md#what-is-true-and-what-is-simulated) |
 | Shared durable state | In the code and the Terraform, not deployed; a local run keeps state in memory | The `durable_state` field of `GET /health` says which |
-| Alexa+ integration, Echo test | Missing | [Known limitations](docs/EVIDENCE.md#known-limitations) |
+| Alexa+ MCP add-on package | Built and tested locally, not certified or deployed; needs the owner's Amazon developer account. A replay of Amazon's documented Alexa+ client requests gets the finding back only when the client sends the protocol version header. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
 | Demo video | Rendered locally from a run of `de30b11`, pending upload; no public link yet | [video/README.md](video/README.md) |
-| Test suite | 577 passing, 91.98% statement coverage, 2026-09-27 | `python -m pytest tests/ -q --cov=src` |
+| Test suite | 622 passing, 92.08% statement coverage, 2026-09-27 | `python -m pytest tests/ -q --cov=src` |
 
 ## Who it is for and who pays
 
@@ -172,8 +175,17 @@ accessible. No buyer has been interviewed, and there is no price and no market s
 because none has been measured. The reasoning and the first ten organisations to ask are in
 [the evidence](docs/EVIDENCE.md#who-would-buy-this-and-out-of-which-budget).
 
-**Road to Alexa+, not built.** An Alexa+ integration would call this same MCP server. There
-is no Alexa skill, no Alexa+ connection and no test on an Echo device.
+**Road to Alexa+: an add-on package, built and tested locally, not certified or deployed;
+needs the owner's Amazon developer account.** Amazon's route for a service outside its fixed
+categories is an MCP add-on: Alexa+ is the MCP client and calls this same server, and Alexa+
+writes the spoken reply from what the tools return. [`alexa_plus/addon-package/addon.json`](alexa_plus/addon-package/addon.json)
+is that manifest, checked against Amazon's documented schema; the privacy page, terms page,
+icons and carousel image are placeholders for the owner to host. Amazon's pages and the
+hackathon FAQ say the MCP Toolkit is open to select partners only, so an account alone may
+not be enough to deploy it. Replaying Amazon's documented client requests found one defect,
+fixed (the server answered a newer protocol revision than the one requested), and one open
+risk: without the `MCP-Protocol-Version` header every request after initialize is refused.
+There is no Alexa skill, no certification and no test on an Echo device.
 
 ## The full evidence
 

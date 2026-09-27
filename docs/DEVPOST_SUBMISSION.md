@@ -73,9 +73,10 @@ Around those renderings:
 
 * **Security flags come before comprehension, and they say what changed.** Two deterministic
   passes run. A keyword pass catches authentication, cryptographic, database and
-  process-execution vocabulary. A syntax-tree pass then compares the added and removed lines
-  as parsed Python and reports what the change *did*: an authorization comparison inverted, a
-  cross-origin policy widened to any origin, a verification call deleted and not replaced.
+  process-execution vocabulary. A structural pass then compares the added and removed lines,
+  as parsed Python or, for JavaScript and TypeScript files, as tokens, and reports what the
+  change *did*: an authorization comparison inverted, a cross-origin policy widened to any
+  origin, a verification call deleted and not replaced.
   The second pass exists because `user.role == "admin"` and `user.role != "admin"` contain
   identical words, so no keyword matcher can tell them apart, and the finding is spoken ahead
   of the line detail rather than in line order.
@@ -196,6 +197,13 @@ covered. We deleted all of it. The page now shows a real result or an honest emp
   decorator, `verify=False` added to an outbound call, and an IAM policy widened in JSON.
   Recall fell to 81.8% and became worth reading. The four are pinned by fixture id, so a new
   miss fails the build and closing one means deleting its id from the list.
+* **JavaScript and TypeScript, on a held-out half.** Rules for the same three structural
+  findings were added on 2026-09-27, tuned on a training half of 64 self-authored, synthetic
+  patches and measured on the other half: recall 25.0% to 50.0% for JavaScript and 37.5% to
+  75.0% for TypeScript, 8 patches per language that must flag. False positives stayed at 0.0%
+  and 25.0% of 8, all from the unchanged keyword pass. Printed by
+  `python scripts/benchmark_js_ts_detection.py`; the split rule, the seed and every miss are in
+  `docs/EVIDENCE.md`.
 
 ---
 
@@ -269,7 +277,8 @@ E4 report red until footage exists.
 **Deployed.** On 2026-09-23 the public endpoint served `GET /health`, the current companion,
 the REST digest and MCP initialize/tool calls. Health exposes the immutable source revision.
 A governed action remained a dry-run and its bounded EMF records were read back from
-CloudWatch. Alexa skill certification, Echo testing and a live GitHub write remain absent.
+CloudWatch. An Alexa+ add-on deployment, Alexa skill certification, Echo testing and a live
+GitHub write remain absent.
 
 ---
 
@@ -309,9 +318,13 @@ does and does not compound, is in `docs/EVIDENCE.md`.
 
 ## Track and mini challenge
 
-* **Track: Alexa+.** Claimed as a real MCP server that an Alexa+ integration would call, plus
-  an explicitly simulated voice web experience. The claim is the protocol work, not a
-  certified skill.
+* **Track: Alexa+.** Claimed as a real MCP server that an Alexa+ MCP add-on calls, plus an
+  explicitly simulated voice web experience. The add-on package in `alexa_plus/` is built and
+  tested locally, not certified or deployed; needs the owner's Amazon developer account, and
+  Amazon lists the MCP Toolkit for select partners only. A replay of Amazon's documented Alexa+
+  client requests gets the finding back when the client sends the protocol version header, and
+  is refused without it. Alexa+ has never called Volcan. The claim is the protocol work, not a
+  certified add-on or skill.
 * **Mini challenge: AWS Builder.** Claimed as a real Amazon Bedrock adapter whose responses
   state which path produced them. The claim is the labelled integration and safe fallback,
   not a quality benchmark against other models.
@@ -320,10 +333,10 @@ does and does not compound, is in `docs/EVIDENCE.md`.
 
 ## What is next
 
-1. **Submit an Alexa skill for certification** so the voice experience stops being a
-   simulation. The `review_dialogue_turn` tool already takes a transcript and returns the
-   readback, the answer and the cue a skill handler needs, and the gap is certification and an
-   Echo device, not code.
+1. **Deploy the Alexa+ add-on** so the voice experience stops being a simulation. The
+   package in `alexa_plus/` passes Amazon's documented schema locally; the gap is MCP Toolkit
+   access, the owner's hosted privacy page and images, a redeploy of the current commit, the
+   header question the replay raised, and a test in Amazon's simulator and on an Echo device.
 2. **Send one live review** with `VOLCAN_GITHUB_WRITE=1` and a fine-grained token against a
    repository the owner controls, and record the receipt. The code path exists and is tested
    against a mock; the receipt does not.

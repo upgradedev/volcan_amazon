@@ -818,16 +818,24 @@ def test_no_element_is_left_open_and_nesting_never_crosses():
 def test_the_buyer_and_the_alexa_path_are_labelled_as_what_they_are():
     """The investor and executive lenses asked who pays and how this reaches
     Alexa+. Both answers are on the page, and both carry their status: the
-    buyer is a hypothesis with nobody interviewed, the Alexa+ path is not built.
-    The one date quoted is Article 31(2) of the Directive, linked beside it."""
+    buyer is a hypothesis with nobody interviewed, and the Alexa+ add-on package
+    is built and tested locally, not certified or deployed, and has never been
+    called by Alexa+. Until 2026-09-27 the band said "not built", which was true
+    then. The one date quoted is Article 31(2) of the Directive, linked beside it."""
     html = read_html()
     who = html.split('id="who"', 1)[1].split("</section>", 1)[0]
     assert "hypothesis" in who and "No buyer has been" in who and "no price" in who
-    assert "not built" in who and "no Alexa skill" in who and "no test on an Echo device" in who
+    label = " ".join("""built
+              and tested locally, not certified or deployed; needs the owner's Amazon
+              developer account""".split())
+    assert label in " ".join(who.split())
+    assert "Alexa+ has never called" in " ".join(who.split())
+    assert "no Alexa skill" in who and "no test on an Echo device" in who
     assert "28 June 2025" in who and "eur-lex.europa.eu" in who and "Article 31" in who
     assert html.index('id="who"') > html.index('id="runReview"'), "the band sits below the first screen"
     strip = html.split('class="path-strip"', 1)[1].split("</figure>", 1)[0]
-    assert "path-box planned" in strip and "not built" in strip
+    assert "path-box planned" in strip and "not certified or deployed" in strip
+    assert "never run against Alexa+" in strip
 
 
 def test_durability_is_stated_from_health_and_never_typed():
