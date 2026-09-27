@@ -267,7 +267,7 @@ three runs. The README became a one-screen story and the full record moved to
 
 **Figures and wording until 2026-09-27, before the JavaScript and TypeScript rules and the
 Alexa+ add-on package.** The README and `docs/EVIDENCE.md` said `577 passed` and 91.98%
-statement coverage; `python -m pytest tests/ -q --cov=src` printed 622 and 92.08% after the
+statement coverage; `python -m pytest tests/ -q --cov=src` printed 623 and 92.08% after the
 round. The README's security row said the rules read Python only, which was true; the Python
 corpus figure, 81.8% recall and 0% false positives over n=40, did not change. The README and
 the page said the road to Alexa+ was not built, which was true until the add-on package was
@@ -287,9 +287,12 @@ HTTP headers. Its initialize asks for revision `2025-03-26`, while the overview 
 supports `2025-11-25`. Revision 2025-03-26 had no `MCP-Protocol-Version` header, and this
 server refuses any request after initialize that lacks it. So the documentation cannot tell a
 server author whether the real client will be refused. `python scripts/replay_alexa_plus_envelopes.py`
-prints both cases side by side. The same replay caught a defect of this server's own: it
-answered every initialize with `2025-11-25`, even to a client that asked for a revision the
-server supports.
+prints both cases side by side. The same replay caught a mistake of this server's own, and
+then a mistake in the first fix for it. The server listed 2025-03-26 as supported without
+honouring it (no version header in that revision, and batches it must accept). Echoing
+2025-03-26 back, the first fix, left a client that speaks both revisions with no header to send,
+and the replay showed it refused. Removing 2025-03-26 from the supported list, so that such a
+client is answered 2025-11-25, is what `docs/EVIDENCE.md`, Road to Alexa+, records.
 
 **What would remove it.** One recorded request from the Alexa+ client, headers included, on
 the lifecycle page. Separately, the toolkit and simulator are for select partners only, so a

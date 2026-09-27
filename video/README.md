@@ -49,7 +49,7 @@ python scripts/synthesize_video_assets.py         # cue sheet and subtitles from
 `python tests/video/verify_gate_selftest.py` proves the gate still fails on a mis-ordered
 video, a caption that runs into the outro and an audio track longer than the picture. It
 passed on 2026-09-27. It is not collected by pytest. Beat 6 says 572 tests, the count on the
-commit it was rendered from; the suite now collects 622, and the page's Alexa+ box now reads
+commit it was rendered from; the suite now collects 623, and the page's Alexa+ box now reads
 "package built and tested locally, not certified or deployed" rather than "not built", so
 beat 6 has to be re-rendered before the final take.
 

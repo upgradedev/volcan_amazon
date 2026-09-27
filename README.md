@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-622%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-623%20passing-brightgreen.svg)](tests/)
 
 **What it does.** Paste a patch or open a GitHub pull request. Volcan says the risky change
 first in one sentence, plays a cue whose pitch falls on a security finding and rises on a clean
@@ -15,7 +15,7 @@ patch, and prints the code as eight-dot Braille. Then you can stage a request-ch
 that is a dry run by default and needs a single-use approval grant from a human.
 
 **Amazon technology.** A hand-written Model Context Protocol server (revision 2025-11-25),
-the interface an Alexa+ MCP add-on calls. The add-on package for it is in
+the interface an Alexa+ MCP add-on would call. The add-on package for it is in
 [`alexa_plus/`](alexa_plus/addon-package/addon.json), built and tested locally, not certified
 or deployed; needs the owner's Amazon developer account. With AWS credentials and the `bedrock` extra,
 Volcan sends the digest request to Claude on Amazon Bedrock; otherwise, or when the call fails,
@@ -112,7 +112,7 @@ python -m pip install -e ".[dev,bedrock]"
 python -m pytest tests/ -q
 ```
 
-On 2026-09-27 this printed `622 passed, 1 warning`. The `bedrock` extra installs
+On 2026-09-27 this printed `623 passed, 1 warning`. The `bedrock` extra installs
 `anthropic[bedrock]`. With AWS credentials as well, a Bedrock call is ready to attempt.
 Credentials and an importable SDK do not prove a model answered: the receipt is the digest
 response's `synthesis_mode: bedrock`. Without them the local engine answers, and the page says
@@ -157,9 +157,9 @@ its URL and type `open`; the full command list is in
 | Digest by Claude on Amazon Bedrock | Real code with a stated fallback. A provider failure returns a fixed public category; raw account, role and request identifiers never enter the anonymous response. No Bedrock answer has been recorded: locally the SDK was absent, and the public build's call is refused as not authorized | `python -m pytest tests/unit/test_bedrock_synthesis_path.py -v` |
 | Voice loop | Simulated: the browser's speech, not an Alexa skill, and no test drives a microphone | [Evidence](docs/EVIDENCE.md#what-is-true-and-what-is-simulated) |
 | Shared durable state | In the code and the Terraform, not deployed; a local run keeps state in memory | The `durable_state` field of `GET /health` says which |
-| Alexa+ MCP add-on package | Built and tested locally, not certified or deployed; needs the owner's Amazon developer account. A replay of Amazon's documented Alexa+ client requests gets the finding back only when the client sends the protocol version header. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
+| Alexa+ MCP add-on package | Built and tested locally, not certified or deployed; needs the owner's Amazon developer account. A replay of Amazon's documented Alexa+ client requests gets the finding back from a client that follows the protocol's version rules, and is refused for a client that never sends the version header. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
 | Demo video | Rendered locally from a run of `de30b11`, pending upload; no public link yet | [video/README.md](video/README.md) |
-| Test suite | 622 passing, 92.08% statement coverage, 2026-09-27 | `python -m pytest tests/ -q --cov=src` |
+| Test suite | 623 passing, 92.08% statement coverage, 2026-09-27 | `python -m pytest tests/ -q --cov=src` |
 
 ## Who it is for and who pays
 
@@ -177,14 +177,15 @@ because none has been measured. The reasoning and the first ten organisations to
 
 **Road to Alexa+: an add-on package, built and tested locally, not certified or deployed;
 needs the owner's Amazon developer account.** Amazon's route for a service outside its fixed
-categories is an MCP add-on: Alexa+ is the MCP client and calls this same server, and Alexa+
-writes the spoken reply from what the tools return. [`alexa_plus/addon-package/addon.json`](alexa_plus/addon-package/addon.json)
+categories is an MCP add-on: Alexa+ would be the MCP client of this same server, and would
+write the spoken reply from what the tools return. [`alexa_plus/addon-package/addon.json`](alexa_plus/addon-package/addon.json)
 is that manifest, checked against Amazon's documented schema; the privacy page, terms page,
 icons and carousel image are placeholders for the owner to host. Amazon's pages and the
 hackathon FAQ say the MCP Toolkit is open to select partners only, so an account alone may
-not be enough to deploy it. Replaying Amazon's documented client requests found one defect,
-fixed (the server answered a newer protocol revision than the one requested), and one open
-risk: without the `MCP-Protocol-Version` header every request after initialize is refused.
+not be enough to deploy it. Replaying Amazon's documented client requests found that the
+server listed protocol revision 2025-03-26, which Amazon's example client asks for, without
+honouring it; it no longer offers that revision. One risk stays open: a client that never sends
+the `MCP-Protocol-Version` header is refused after initialize.
 There is no Alexa skill, no certification and no test on an Echo device.
 
 ## The full evidence

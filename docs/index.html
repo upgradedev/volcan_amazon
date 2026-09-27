@@ -1144,7 +1144,7 @@
               and tested locally, not certified or deployed; needs the owner's Amazon
               developer account, and Amazon lists the toolkit for select partners only. A
               replay of the requests Amazon documents for its Alexa+ client gets the finding
-              back, but only with the protocol version header. Alexa+ has never called
+              back, unless the client never sends the protocol version header. Alexa+ has never called
               Volcan: no Alexa skill, no certification and no test on an Echo device. This
               page is the stand-in, and says so at the top.</p>
           </div>
@@ -1325,7 +1325,7 @@
           <figure class="path-strip" aria-labelledby="pathStripCaption">
             <figcaption id="pathStripCaption">Where Alexa+ would connect. The dashed box has never run against Alexa+.</figcaption>
             <ol>
-              <li class="path-box planned"><b>Alexa+ add-on</b><span>package built and tested locally, not certified or deployed; no device test</span></li>
+              <li class="path-box planned"><b>Alexa+ add-on</b><span>package built and tested locally, not certified or deployed; needs the owner's Amazon developer account; no device test</span></li>
               <li class="path-arrow" aria-hidden="true">&#8594;</li>
               <li class="path-box"><b><code>POST /mcp</code></b><span>MCP 2025-11-25, Streamable HTTP; the handshake below checks it</span></li>
               <li class="path-arrow" aria-hidden="true">&#8594;</li>

@@ -318,12 +318,12 @@ does and does not compound, is in `docs/EVIDENCE.md`.
 
 ## Track and mini challenge
 
-* **Track: Alexa+.** Claimed as a real MCP server that an Alexa+ MCP add-on calls, plus an
+* **Track: Alexa+.** Claimed as a real MCP server that an Alexa+ MCP add-on would call, plus an
   explicitly simulated voice web experience. The add-on package in `alexa_plus/` is built and
   tested locally, not certified or deployed; needs the owner's Amazon developer account, and
   Amazon lists the MCP Toolkit for select partners only. A replay of Amazon's documented Alexa+
-  client requests gets the finding back when the client sends the protocol version header, and
-  is refused without it. Alexa+ has never called Volcan. The claim is the protocol work, not a
+  client requests gets the finding back from a client that follows the protocol's version
+  rules, and is refused for one that never sends the version header. Alexa+ has never called Volcan. The claim is the protocol work, not a
   certified add-on or skill.
 * **Mini challenge: AWS Builder.** Claimed as a real Amazon Bedrock adapter whose responses
   state which path produced them. The claim is the labelled integration and safe fallback,

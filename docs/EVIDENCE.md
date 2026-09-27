@@ -134,7 +134,7 @@ code operator named (`user.role not equals 'admin'`), while the screen and the B
 the literal `!=`.
 
 **Time to first result, measured on the development machine on 2026-09-26.** Step 1 printed
-`622 passed, 1 warning` on 2026-09-27 (the count is the claim; the duration varies run to run;
+`623 passed, 1 warning` on 2026-09-27 (the count is the claim; the duration varies run to run;
 the same day, before the JavaScript and TypeScript rules and the Alexa+ package, it was 577). The server in step 2 answered its first `GET /health` with HTTP 200 **1.7 seconds**
 after launch on 2026-09-26 (three runs that day read 1.7, 1.7 and 1.8 s), printed by [`scripts/measure_cold_start.py`](../scripts/measure_cold_start.py),
 which launches its own server on port 8000 (stop the one from step 2 first) and refuses to time
@@ -867,17 +867,17 @@ estimate unless it says ESTIMATE.
 
 | Metric | Baseline | Volcan | Command that prints it |
 |---|---|---|---|
-| Security-flag detection, Python corpus | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **81.8% recall over n=40 labelled patches**, 22 that must flag and 18 that must not, with 0% false positives. Unchanged on 2026-09-27 by the JavaScript and TypeScript rules. Of the 40, 36 are Python files: 17 of 20 Python positives flagged (85.0%), 0 of 16 Python negatives | `python scripts/benchmark_suite.py` |
-| Security-flag detection, JavaScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 25.0% recall (2/8), 0.0% false positives (0/8), today's parser before the JS/TS rules, 2026-09-27 | **50.0% recall (4/8), 0.0% false positives (0/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
-| Security-flag detection, TypeScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 37.5% recall (3/8), 25.0% false positives (2/8), before the JS/TS rules, 2026-09-27 | **75.0% recall (6/8), 25.0% false positives (2/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
-| Documented Alexa+ client session, replayed locally, `tools/call` round trip | not applicable | 28.7 ms (revision 2025-03-26) and 31.7 ms (2025-11-25) over local HTTP after three warm-up sessions, local engine, no AWS credentials, 2026-09-27, against Amazon's documented limit of 500 ms. Refused without the `MCP-Protocol-Version` header. Not the Lambda, not Alexa+ | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8761/mcp` |
+| Security-flag detection, Python corpus | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **81.8% recall over n=40 labelled patches**, 22 that must flag and 18 that must not, with 0% false positives. Unchanged on 2026-09-27 by the JavaScript and TypeScript rules. Of the 40, 36 are Python files: 85.0% recall (17/20) and 0.0% false positives (0/16) over those, printed on the "Python files only" line | `python scripts/benchmark_suite.py` |
+| Security-flag detection, JavaScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 25.0% recall (2/8), 0.0% false positives (0/8), the parser before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **50.0% recall (4/8), 0.0% false positives (0/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
+| Security-flag detection, TypeScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 37.5% recall (3/8), 25.0% false positives (2/8), before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **75.0% recall (6/8), 25.0% false positives (2/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
+| Documented Alexa+ client session, replayed locally, `tools/call` round trip | not applicable | 33.2 ms (client asks for revision 2025-03-26) and 28.2 ms (asks for 2025-11-25), spec-following client, over local HTTP after three warm-up sessions, local engine, no AWS credentials, 2026-09-27, against Amazon's documented limit of 500 ms. A client that never sends the `MCP-Protocol-Version` header is refused. Not the Lambda, not Alexa+ | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8761/mcp` |
 | Digest earcon, benign patch vs security-sensitive patch | **byte-identical until 2026-09-08**: both returned `DIFF_READY`, 19448 WAV bytes, `sha256[:16] 08f48648388bff02` | 19448 bytes `08f48648388bff02` for the benign patch, 26504 bytes `22c91bec11e275d1` for the security-sensitive one | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
 | Patch parse latency, 1000 steady runs | not measured | mean 0.281 ms; p95 0.448 ms | `python scripts/benchmark_suite.py` |
 | Earcon synthesis latency, 1000 steady runs | not measured | mean 3.592 ms; p95 6.565 ms | `python scripts/benchmark_suite.py` |
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **22 of 22 conformance checks pass** | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 622 passing; 92.08% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-27 (577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 623 passing; 92.08% statement coverage, including a real Chromium judge journey and Lambda bridge, 2026-09-27 (577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.7 s on 2026-09-26 (three runs: 1.7, 1.7, 1.8 s) | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 31.3 ms on the first press, then 38.9, 30.5 and 28.7 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credentials | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -951,7 +951,8 @@ held-out cases, so the held-out figure is independent of the tuning, not of the 
 | training | TypeScript | 12.5% (1/8) | 75.0% (6/8) | 12.5% (1/8) | 12.5% (1/8) |
 
 Printed by `python scripts/benchmark_js_ts_detection.py` (both halves, with fixture ids), or
-`--split heldout --aggregate-only`. Before the rules, every detection came from the keyword
+`--split heldout --aggregate-only`; the "before" columns come from the same command run on
+commit `aedccbf`, which has the corpus and no JavaScript or TypeScript rule. Before the rules, every detection came from the keyword
 pass; after them, 6 of the 10 held-out detections come from a structural rule.
 
 *The trade-offs, both sides measured.*
@@ -1157,30 +1158,38 @@ sources fetched with `curl` on 2026-09-27; the date after each link is the page'
 
 **What the replay found.**
 
-* *A defect, fixed.* Amazon's lifecycle page shows the Alexa+ client asking for revision
-  `2025-03-26` and the server answering with the same revision. Volcan accepted that revision in
-  its version header but answered every initialize with `2025-11-25`. By the MCP lifecycle rule
-  a server that supports the requested revision answers with it, and a client that cannot speak
-  the answered revision should disconnect. Volcan now answers with the requested revision when
-  it supports it, and `tests/integration/test_mcp_conformance.py` pins that for all three.
-* *An open risk, recorded and not changed.* The lifecycle page shows bodies and no headers.
-  Revision 2025-03-26 had no `MCP-Protocol-Version` header, so a client on it has no reason to
-  send one, and Volcan refuses every request after initialize without it (the deliberate rule in
-  [The MCP surface](#the-mcp-surface)). With the header, both documented revisions complete the
-  session and name the finding. The rule was not loosened on a guess about what Alexa+ sends,
-  and the public Lambda is stateless, so an exception scoped to a session would not reach it.
-  The owner decides once a real Alexa+ request can be seen.
+The lifecycle page shows bodies and no headers, so the replay plays two kinds of client for each
+revision Amazon names: a spec-following one, which adopts the revision the server answers with
+and sends the `MCP-Protocol-Version` header when that revision defines one, and one that never
+sends the header, as a client that only knows 2025-03-26 would.
 
-The replay on 2026-09-27, local server on port 8761, local engine, no AWS credentials, after
-three warm-up sessions:
+* *The server listed a revision it did not honour, now corrected.* Amazon's example client asks
+  for `2025-03-26`. Volcan listed that revision as supported but did not honour it: that
+  revision has no version header, which Volcan requires after initialize, and it requires a
+  server to accept JSON-RPC batches, which Volcan refuses. A first attempt that day
+  (`2de4663`) made initialize echo `2025-03-26` back, and the replay showed it made things
+  worse: a spec-following client, told `2025-03-26`, sent no header and was refused. `76f017c`
+  removed `2025-03-26` from the supported list instead. A client asking for it is now answered
+  `2025-11-25`, as the lifecycle rule directs for a revision the server does not support, and a
+  client that also speaks `2025-11-25` then sends the header and is served.
+* *An open risk, recorded and not changed.* A client that never sends the header is refused
+  after initialize (the deliberate rule in [The MCP surface](#the-mcp-surface)), whichever
+  revision it asked for. The rule was not loosened on a guess about what Alexa+ sends, and the
+  public Lambda is stateless, so an exception scoped to a session would not reach it. The owner
+  decides once a real Alexa+ request can be seen. A client that speaks only 2025-03-26 could
+  not use this server before this round either.
 
-```
-[2025-03-26, headers as documented (none)]  initialize ok; then -32600 Missing MCP-Protocol-Version header, three times
-[2025-03-26, with MCP-Protocol-Version]     tools/call 28.7 ms: In p.py, an authorization comparison was inverted: ...
-[2025-11-25, headers as documented (none)]  initialize ok; then -32600 Missing MCP-Protocol-Version header, three times
-[2025-11-25, with MCP-Protocol-Version]     tools/call 31.7 ms: the same sentence
-```
+The replay on 2026-09-27, local HTTP, local engine, no AWS credentials, three warm-up sessions,
+run against the server sources of three commits exported side by side:
 
+| Client | `4e1e098`, before this round | `2de4663`, echo attempt | `76f017c`, now |
+|---|---|---|---|
+| Asks for 2025-03-26, spec-following | answered 2025-11-25, header sent, finding named, 47.5 ms | answered 2025-03-26, no header, refused | answered 2025-11-25, header sent, finding named, 33.2 ms |
+| Asks for 2025-11-25, spec-following | finding named, 33.1 ms | finding named, 29.3 ms | finding named, 28.2 ms |
+| Never sends the header, either revision | refused after initialize | refused after initialize | refused after initialize |
+
+The finding the tool call returned in each served case begins
+`In p.py, an authorization comparison was inverted: user.role == 'admin' became user.role != 'admin'`.
 Those round trips are a warm local server, not the Lambda and not Alexa+. With Amazon Bedrock
 answering, the digest call would add a model round trip that has never been measured here, so
 whether that path meets the 500 ms limit is unknown.
