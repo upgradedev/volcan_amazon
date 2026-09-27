@@ -871,3 +871,23 @@ def test_on_a_phone_the_conversation_comes_before_the_keyboard_card():
     assert grid.index('class="convo"') < grid.index("Hands on the keyboard")
     assert grid.index("1</span> Open a pull request") < grid.index('class="convo"')
     assert 'grid-template-areas: "rail" "convo" "keys"' in html
+
+
+def test_a_turn_in_flight_marks_the_conversation_busy_and_refuses_a_second_command():
+    """Round 4 pressed Open on a GitHub read of 4 to 12 s, sent another command
+    meanwhile and got "Nothing is open yet" with the log out of order. A turn in
+    flight now marks the conversation busy, names what it is doing, and a
+    second command is refused out loud instead of racing the first."""
+    html = read_html()
+    script = script_body()
+    assert 'id="reviewConvo" aria-busy="false"' in html
+    assert "if (Review.inFlight) {" in script and '"Not sent: " + text' in script
+    assert '"Reading the pull request"' in script
+    assert '$("reviewConvo").setAttribute("aria-busy", "true")' in script
+    assert 'open.setAttribute("aria-disabled", "true")' in script
+
+
+def test_enter_in_the_pull_request_url_box_opens_it():
+    script = script_body()
+    handler = script.split('$("prUrl").addEventListener("keydown"', 1)[1].split("});", 1)[0]
+    assert 'event.key === "Enter"' in handler and 'sendTranscript("open"' in handler
