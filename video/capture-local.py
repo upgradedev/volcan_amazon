@@ -345,12 +345,16 @@ def main() -> None:
         act("Server and MCP tab", lambda: page.click("#tabServer"))
         act("scroll to the connection strip", lambda: scroll_to("#evidenceTabs", 24))
         until(sentence("beat_06_verification", 1))
+        # The replay section ends the tab, so the page cannot scroll it to the top
+        # until its results have made the page taller: press, wait, then scroll.
         act("scroll to the Alexa+ replay", lambda: scroll_to("#alexaReplay", 24))
+        page.wait_for_timeout(700)
         act("Replay the documented Alexa+ requests", lambda: page.click("#runReplay"))
         page.wait_for_function(
             "/of 3 clients served/.test(document.querySelector('#replayPane').textContent)", timeout=10_000)
         if "3 of 3 clients served" not in page.inner_text("#replayPane"):
             raise SystemExit("the Alexa+ replay did not serve all three clients")
+        act("scroll to the replay results", lambda: scroll_to("#alexaReplay", 24))
         until(sentence("beat_06_verification", 2))
         act("scroll to the connection strip and the Alexa+ box", lambda: scroll_to("#evidenceTabs", 24))
         until(sentence("beat_06_verification", 3))
