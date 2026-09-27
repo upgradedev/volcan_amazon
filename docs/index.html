@@ -214,6 +214,8 @@
 
     .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
     .chips button { min-height: 40px; padding: 7px 14px; font-size: var(--t-xs); }
+    /* The commands that make sense from the state the server just reported. */
+    .chips button.suggested, .row-actions button.suggested { border: 2px solid var(--ember); padding: 6px 13px; }
 
     label { display: block; font-weight: 700; font-size: var(--t-sm); margin: 0 0 6px; }
     .hint { color: var(--ink-soft); font-size: var(--t-xs); margin: 6px 0 0; max-width: var(--measure); }
@@ -3265,6 +3267,27 @@
       var tag = $("dialogueState");
       tag.setAttribute("data-state", pair[0]);
       tag.textContent = label;
+      suggestNext(data.state);
+    }
+
+    /* After every answer, the commands that fit the state the server reported
+       are named above the chips and outlined, so the next step is visible
+       without reading the help. Nothing is spoken or announced for it. */
+    var NEXT_STEPS = {
+      OVERVIEW: ["Next: file by file, findings, or read the lines.", ["cmdFiles", "cmdFindings", "cmdReadLines"]],
+      FILE: ["Next: read the lines, or next for the next file.", ["cmdReadLines", "cmdNext"]],
+      LINES: ["Next: spell that, next, previous, or where am I.", ["cmdSpell", "cmdNext", "cmdPrevious", "cmdWhere"]],
+      CONFIRM_REVIEW: ["Next: confirm or cancel, beside the comment.", ["cmdConfirm", "cmdCancel"]],
+      RECORDED: ["Next: summary, or open another pull request.", ["cmdSummary"]],
+      SUBMITTED: ["Next: summary, or open another pull request.", ["cmdSummary"]],
+      REFUSED: ["Next: where am I, or open the pull request again.", ["cmdWhere"]]
+    };
+    function suggestNext(state) {
+      var step = NEXT_STEPS[state] || ["Or say one of these", []];
+      $("chipsLabel").textContent = step[0];
+      var marked = document.querySelectorAll("button.suggested");
+      for (var i = 0; i < marked.length; i++) { marked[i].classList.remove("suggested"); }
+      step[1].forEach(function (id) { var b = $(id); if (b) { b.classList.add("suggested"); } });
     }
 
     function logTurn(kind, text) {
