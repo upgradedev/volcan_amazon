@@ -5,21 +5,21 @@ WEBVTT
 This is the kind of patch an autonomous coding agent writes. A sighted reviewer scans it in seconds. A screen reader reads it one plus sign, one minus sign and one hunk header at a time, so the one line that flips an authorization check sounds like everything around it.
 
 2
-00:00:22.353 --> 00:01:03.344
+00:00:22.353 --> 00:01:04.844
 This is Volcan, running locally on this machine. Before anything plays, the stage already shows the server's real answer for this patch, silently: the earcon's waveform with its falling pitch, the finding in words, and the Braille cells. One button plays it, pressed from the keyboard. Listen.
 
 3
-00:01:03.344 --> 00:01:26.054
+00:01:04.844 --> 00:01:27.554
 The earcon came first, so the verdict arrived before the sentence. This patch touches security, so the cue falls; a clean patch gets a rising cue. The sentence opens with the finding itself. The engine meter reads local heuristic, because this run has no cloud credentials, and the round trip was measured in this browser.
 
 4
-00:01:26.054 --> 00:01:50.203
+00:01:27.554 --> 00:01:51.703
 Volcan's Model Context Protocol server is written by hand to revision 2025-11-25 over Streamable HTTP, with no SDK. This button runs a real initialize and a real tools list call, then prints the negotiated version, the session identifier from the response header, and the JSON Schema of all twelve tools.
 
 5
-00:01:50.203 --> 00:02:19.181
+00:01:51.703 --> 00:02:20.681
 Now a real pull request. Alt and 6 focuses the address box, and Enter opens a public one from GitHub, read without a token. Summary answers in one sentence. Request changes stages the review, bound to the head commit it read, under a single-use grant. Confirm, and the server re-reads that commit, records the exact request, and sends nothing: this run is a dry run.
 
 6
-00:02:19.181 --> 00:02:49.319
+00:02:20.681 --> 00:02:50.819
 On this commit, 637 automated tests pass, and 23 of 23 protocol conformance checks. This button replays Amazon's documented Alexa+ requests as three clients, one without the version header; all three are served. Alexa+ itself has never called Volcan, and this run called no Bedrock model. Volcan is for the developer who reviews code by ear and by touch.
