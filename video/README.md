@@ -16,7 +16,7 @@ Readiness gates E2 and E4 look for footage inside `video/`, so they stay red.
 | Sync gate | `scripts/verify_video_sync.py`: all gates passed, 25 caption windows |
 | Narration voice | ElevenLabs, voice id `21m00Tcm4TlvDq8ikWAM`, model `eleven_multilingual_v2` |
 | Characters sent to ElevenLabs for this render | 775, for beats 5 and 6 only. Beats 1 to 4 kept their speech text and reused the audio synthesized on 2026-09-27 for the earlier render. 2,001 characters are in the beats that shipped |
-| Product code on camera | `src/` and `docs/` identical to `1dc939f` when the video was built |
+| Product code on camera | `src/` and `docs/` identical to `1dc939f` when the video was built. Changed since, so not on camera: the page folds "Who it is for" and "How one press works" into one band and outlines the next command after each answer, the review dialogue keeps one cursor, `/health` reports the local git HEAD, and the README opens with a status line. A re-render would show them |
 
 ---
 
