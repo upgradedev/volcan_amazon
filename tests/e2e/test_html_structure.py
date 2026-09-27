@@ -918,3 +918,24 @@ def test_the_finding_box_stacks_and_does_not_repeat_the_spoken_sentence():
     body = function_body("renderFindings")
     assert "The sentence above names it." in body
     assert "renderFindings(digest.data.critical_findings, digest.data.voice_summary)" in script_body()
+
+
+def test_the_alexa_replay_panel_runs_on_press_against_this_origin_and_prints_only_responses():
+    """Added 2026-09-27 with the version-header fix: the Evidence tab replays
+    Amazon's documented Alexa+ bodies as three clients, one of which never
+    sends MCP-Protocol-Version. It must run only when pressed, only against
+    this origin, send no version header for that client, and print figures
+    read from the responses and the browser's own clock."""
+    html = read_html()
+    panel = html.split('id="alexaReplay"', 1)[1].split("</section>", 1)[0]
+    assert 'id="runReplay"' in panel and 'role="status"' in panel
+    assert "Alexa+ did not send them" in panel
+    script = script_body()
+    assert '$("runReplay").addEventListener("click", runAlexaReplay);' in script
+    assert script.count("runAlexaReplay") == 2, "bound to the button and called nowhere else"
+    shape = script.split("async function replayShape", 1)[1].split("\n    }\n", 1)[0]
+    assert 'State.apiBase + "/mcp"' in script.split("async function replayPost", 1)[1].split("\n    }\n", 1)[0]
+    assert 'shape === "own"' in shape and 'shape === "spec"' in shape
+    assert 'shape === "never"' not in shape, "the header-less client is the one no branch adds a header for"
+    assert "performance.now()" in script.split("async function replayPost", 1)[1].split("\n    }\n", 1)[0]
+    assert 'protocolVersion: "2025-03-26"' in shape, "the documented initialize asks for 2025-03-26"

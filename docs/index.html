@@ -710,6 +710,10 @@
     .rail-card h3 { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; font-size: var(--t-md); }
     .rail-card h3 .n { font-family: var(--mono); color: var(--ink-faint); font-size: var(--t-sm); }
     .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
+    .replay-list { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 10px; font-size: var(--t-sm); }
+    .replay-list li { border-left: 3px solid var(--line-strong); padding: 2px 0 2px 12px; overflow-wrap: anywhere; }
+    .replay-list b { display: block; color: var(--ink); }
+    .replay-list span { color: var(--ink-soft); }
     .rail-card input { margin: 0; }
     details.token { margin: 14px 0 0; }
     details.token summary { cursor: pointer; font-size: var(--t-xs); font-weight: 700; color: var(--ink-soft); }
@@ -958,8 +962,8 @@
           <p class="audience">For blind and low-vision developers.</p>
         </div>
         <p class="boundary" id="notASkill">
-          <span class="sim">Simulated Alexa+ experience, not an Alexa skill</span>
-          <span>Live server, MCP. GitHub write: <span id="writeMode">dry-run.</span></span>
+          <span class="sim">Live MCP server, simulated Alexa+ front end</span>
+          <span>Not an Alexa skill. GitHub: <span id="writeMode">dry-run.</span></span>
         </p>
       </div>
     </header>
@@ -1139,17 +1143,12 @@
           </div>
           <div class="who-card">
             <h3>Road to Alexa+ <span class="tag-notbuilt">local only</span></h3>
-            <p>Amazon's route for a server like this is an MCP add-on: Alexa+ calls the
-              same MCP server the Evidence tab handshakes. The add-on package exists, built
-              and tested locally, not certified or deployed: the
+            <p>Alexa+ would call this same MCP server through an add-on. The
               <a href="https://amazonappdev2026.devpost.com/details/faqs">hackathon FAQ</a> says the add-on tools are
-              "available to select partners only", and asks instead for a self-hosted MCP
-              server demoed via "your own web-based simulator or front end", which is this
-              page. A replay, against a local build of this code, of the requests Amazon
-              documents for its Alexa+ client gets the finding back, unless the client never
-              sends the protocol version header. Alexa+ has never called
-              Volcan: no Alexa skill, no certification and no test on an Echo device. This
-              page is the stand-in, and says so at the top.</p>
+              "available to select partners only" and asks for a self-hosted MCP server with
+              its own front end: this page. The package is built and tested locally, not
+              certified or deployed. Alexa+ has never called Volcan:
+              no Alexa skill and no test on an Echo device.</p>
           </div>
         </div>
       </section>
@@ -1339,13 +1338,11 @@
           <section class="block" id="mcp" aria-labelledby="mcp-heading">
             <h2 id="mcp-heading">Model Context Protocol, handshaken in your browser</h2>
             <p>
-              Volcan's MCP server is written by hand against revision 2025-11-25 over the
-              Streamable HTTP transport, with no MCP SDK. This button performs a real
-              <code>initialize</code>, a real <code>notifications/initialized</code> and a real
-              <code>tools/list</code> against <code>POST /mcp</code>, then prints what came
-              back: whether the endpoint chose a stateful identifier or stateless mode, and the
-              JSON Schema of every tool exactly as the server published it. The public Lambda is
-              transport-stateless, so request-contained calls need no process-specific MCP id.
+              Written by hand against revision 2025-11-25 over Streamable HTTP, with no MCP
+              SDK. This button sends a real <code>initialize</code>,
+              <code>notifications/initialized</code> and <code>tools/list</code> to
+              <code>POST /mcp</code> and prints what came back: stateful or stateless
+              transport, and every tool's JSON Schema as published.
               <span id="stateDurability">Where this server keeps dialogue and pending approvals is
               read from <code>GET /health</code>, and stated here once it answers.</span> Check it independently with
               <code class="origin-mcp">python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp</code>.
@@ -1379,6 +1376,23 @@
 
             <div id="mcpPane">
               <p class="empty-state-card boxed">The tool catalog appears here after the handshake. Each entry expands to the exact <code>inputSchema</code> the server published, generated from the model that parses that tool's arguments.</p>
+            </div>
+          </section>
+
+          <section class="block" id="alexaReplay" aria-labelledby="replay-heading">
+            <h2 id="replay-heading">Amazon's documented Alexa+ requests, replayed from your browser</h2>
+            <p>
+              Amazon documents its Alexa+ client's request bodies, not its headers. This button
+              sends them to <code>POST /mcp</code> as three clients: one follows the version
+              rules, one declares the revision it asked for, one never sends
+              <code>MCP-Protocol-Version</code>. Alexa+ did not send them.
+            </p>
+            <div class="row-actions">
+              <button type="button" id="runReplay" title="Send Amazon's documented initialize and tools/call bodies to POST /mcp as three kinds of client">Replay the documented Alexa+ requests</button>
+            </div>
+            <p class="visually-hidden" id="replayStatus" role="status" aria-live="polite"></p>
+            <div id="replayPane">
+              <p class="empty-state-card boxed">One line per client appears here after the replay: the header it sent, the HTTP status of each step, and the tool call's round trip as this browser timed it.</p>
             </div>
           </section>
         </div>
@@ -2938,6 +2952,133 @@
       State.mcpSession = null;
     }
 
+    /* --- documented Alexa+ requests, replayed -------------------------------
+       The bodies are the ones in tests/fixtures/alexa_plus_envelopes.py, copied
+       from Amazon's lifecycle page, with its example tool swapped for the
+       digest. Every figure printed comes from a response to a request sent
+       here; nothing is prewritten. */
+
+    var REPLAY_FINDING = "an authorization comparison was inverted";
+    var REPLAY_PATCH = "diff --git a/p.py b/p.py\n--- a/p.py\n+++ b/p.py\n@@ -1 +1 @@\n"
+      + "-    return user.role == \"admin\"\n"
+      + "+    return user.role != \"admin\"\n";
+    var REPLAY_SHAPES = [
+      ["spec", "Follows the version rules"],
+      ["own", "Declares the revision it asked for"],
+      ["never", "Never sends MCP-Protocol-Version"]
+    ];
+
+    async function replayPost(message, headers) {
+      var started = performance.now();
+      var response = await fetch(State.apiBase + "/mcp", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, headers),
+        body: JSON.stringify(message)
+      });
+      var body = null;
+      try { body = await response.json(); } catch (parseError) { body = null; }
+      return { status: response.status, body: body, ms: performance.now() - started,
+        sessionId: response.headers.get("Mcp-Session-Id") };
+    }
+
+    function replayError(step) {
+      var error = step.body && step.body.error;
+      if (!error) { return ""; }
+      return typeof error === "string" ? (step.body.detail || error) : (error.message || String(error.code));
+    }
+
+    async function replayShape(shape) {
+      var init = await replayPost({
+        jsonrpc: "2.0", method: "initialize", id: "4e3bdaee-0",
+        params: { protocolVersion: "2025-03-26", capabilities: { roots: { listChanged: true } },
+          clientInfo: { name: "Alexa+ MCP Client", version: "1.0.0" } }
+      }, {});
+      var negotiated = init.body && init.body.result ? init.body.result.protocolVersion : null;
+      var headers = {};
+      if (init.sessionId) { headers["Mcp-Session-Id"] = init.sessionId; }
+      if (shape === "spec" && (negotiated === "2025-06-18" || negotiated === "2025-11-25")) {
+        headers["MCP-Protocol-Version"] = negotiated;
+      } else if (shape === "own") {
+        headers["MCP-Protocol-Version"] = "2025-03-26";
+      }
+      var noted = await replayPost({ jsonrpc: "2.0", method: "notifications/initialized" }, headers);
+      var listed = await replayPost({ jsonrpc: "2.0", method: "tools/list", id: "4e3bdaee-list", params: {} }, headers);
+      var called = await replayPost({
+        jsonrpc: "2.0", method: "tools/call", id: "4a5bda6e-1",
+        params: { name: "digest_semantic_diff", arguments: { raw_diff: REPLAY_PATCH, level: 0 } }
+      }, headers);
+      if (init.sessionId) {
+        await fetch(State.apiBase + "/mcp", { method: "DELETE",
+          headers: { "Mcp-Session-Id": init.sessionId, "MCP-Protocol-Version": negotiated || PROTOCOL_VERSION } });
+      }
+      var tools = listed.body && listed.body.result && listed.body.result.tools;
+      var result = called.body && called.body.result;
+      var text = "";
+      if (result && result.content) {
+        result.content.some(function (block) {
+          if (block.type === "text") { text = block.text || ""; return true; }
+          return false;
+        });
+      }
+      var served = init.status === 200 && noted.status === 202 && listed.status === 200 && !!tools
+        && called.status === 200 && !!result && !result.isError;
+      return {
+        served: served,
+        header: headers["MCP-Protocol-Version"] || "none",
+        negotiated: negotiated,
+        statuses: [init.status, noted.status, listed.status, called.status],
+        tools: tools ? tools.length : null,
+        callMs: called.ms,
+        findingFirst: text.split(". ")[0].toLowerCase().indexOf(REPLAY_FINDING) !== -1,
+        refusal: served ? "" : (replayError(called) || replayError(listed) || replayError(noted) || replayError(init))
+      };
+    }
+
+    async function runAlexaReplay() {
+      var button = $("runReplay");
+      setBusy(button, true, "Replaying");
+      announce("replayStatus", "Sending Amazon's documented Alexa+ requests as three kinds of client.");
+      if (!State.live) { await probeHealth(); }
+      if (!State.live) {
+        setBusy(button, false);
+        clear($("replayPane")).appendChild(offlineCard(
+          "The replay needs a live MCP endpoint at POST /mcp on this origin."));
+        announce("replayStatus", "No server answered, so nothing was replayed.");
+        return;
+      }
+      try {
+        var list = el("ul", "replay-list");
+        var servedCount = 0;
+        for (var i = 0; i < REPLAY_SHAPES.length; i += 1) {
+          var run = await replayShape(REPLAY_SHAPES[i][0]);
+          if (run.served) { servedCount += 1; }
+          var item = document.createElement("li");
+          item.appendChild(el("b", null, REPLAY_SHAPES[i][1] + ": " + (run.served ? "served" : "refused")));
+          item.appendChild(el("span", null,
+            "Asked for 2025-03-26, answered " + (run.negotiated || "nothing") + ". Header sent: "
+            + run.header + ". HTTP " + run.statuses.join(", ") + " for initialize, initialized, "
+            + "tools/list and tools/call. "
+            + (run.served
+              ? plural(run.tools, "tool") + " listed; the call took " + run.callMs.toFixed(1)
+                + " ms in this browser; finding named in the first sentence: "
+                + (run.findingFirst ? "yes." : "no.")
+              : "The server's reason: " + (run.refusal || "none in the response body") + ".")));
+          list.appendChild(item);
+        }
+        var pane = clear($("replayPane"));
+        pane.appendChild(list);
+        pane.appendChild(el("p", "caption", servedCount + " of " + REPLAY_SHAPES.length
+          + " clients served."));
+        announce("replayStatus", "Replay finished. " + servedCount + " of "
+          + REPLAY_SHAPES.length + " clients served.");
+      } catch (error) {
+        clear($("replayPane")).appendChild(failureCard("The replay failed. " + error.message));
+        announce("replayStatus", "The replay failed. " + error.message);
+      } finally {
+        setBusy(button, false);
+      }
+    }
+
     /* --- governed actions ------------------------------------------------ */
 
     function setLease(state, label) {
@@ -3537,6 +3678,7 @@
     $("copyBraille").addEventListener("click", copyBraille);
     $("runMcp").addEventListener("click", runMcpHandshake);
     $("endMcp").addEventListener("click", endMcpSession);
+    $("runReplay").addEventListener("click", runAlexaReplay);
     $("stageBtn").addEventListener("click", stageAction);
     $("approveBtn").addEventListener("click", approveAction);
     $("rejectBtn").addEventListener("click", rejectAction);
