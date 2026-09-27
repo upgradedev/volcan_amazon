@@ -162,6 +162,51 @@ def marker_times(video: pathlib.Path, work: pathlib.Path) -> list[float]:
     return flips
 
 
+def blank_stretches(video: pathlib.Path, work: pathlib.Path, start: float, end: float,
+                    min_seconds: float = 0.75) -> list[tuple[float, float]]:
+    """Stretches of the take where the picture is one flat colour.
+
+    A page frame always has text on it, so its darkest and brightest pixels differ by
+    far more than a flat frame's. A long scroll on a loaded machine can outrun
+    rasterisation and record blank tiles; this finds them from the pixels."""
+    stats = work / "blank-range.txt"
+    filters = (f"trim=start={start:.3f}:end={end:.3f},setpts=PTS-STARTPTS,fps=4,scale=320:180,signalstats,"
+               f"metadata=print:file={stats.name}")
+    subprocess.run(
+        [env("FFMPEG"), "-v", "error", "-i", str(video), "-vf", filters, "-f", "null", "-"],
+        check=True, capture_output=True, text=True, cwd=work,
+    )
+    samples: list[tuple[float, float, float]] = []
+    current: float | None = None
+    low = high = None
+    for line in stats.read_text(encoding="utf-8").splitlines():
+        found = re.search(r"pts_time:([0-9.]+)", line)
+        if found:
+            current, low, high = float(found.group(1)), None, None
+        found = re.search(r"YMIN=([0-9.]+)", line)
+        if found:
+            low = float(found.group(1))
+        found = re.search(r"YMAX=([0-9.]+)", line)
+        if found:
+            high = float(found.group(1))
+        if current is not None and low is not None and high is not None:
+            samples.append((current, low, high))
+            current = None
+    stretches = []
+    run_start = None
+    for when, low, high in samples:
+        flat = high - low < 24
+        if flat and run_start is None:
+            run_start = when
+        if not flat and run_start is not None:
+            if when - run_start >= min_seconds:
+                stretches.append((round(start + run_start, 2), round(start + when, 2)))
+            run_start = None
+    if run_start is not None and samples and samples[-1][0] - run_start >= min_seconds:
+        stretches.append((round(start + run_start, 2), round(start + samples[-1][0], 2)))
+    return stretches
+
+
 def main() -> None:
     root = pathlib.Path(env("VOLCAN_VIDEO_ROOT"))
     release_sha = env("VOLCAN_RELEASE_SHA")
@@ -235,13 +280,13 @@ def main() -> None:
             return beat_start(beat) + float(window["start"]) + fraction * (
                 float(window["end"]) - float(window["start"]))
 
-        def scroll_to(selector: str, offset: int = 16) -> None:
+        def scroll_to(selector: str, offset: int = 16, behavior: str = "smooth") -> None:
             page.evaluate(
-                """([selector, offset]) => {
+                """([selector, offset, behavior]) => {
                   const top = document.querySelector(selector).getBoundingClientRect().top + scrollY - offset;
-                  window.scrollTo({ top, behavior: 'smooth' });
+                  window.scrollTo({ top, behavior });
                 }""",
-                [selector, offset],
+                [selector, offset, behavior],
             )
 
         # Beat 1: the patch, then the raw unified diff in the patch box.
@@ -343,12 +388,12 @@ def main() -> None:
         # Beat 6: the counts, the Alexa+ replay, the honest boundary, then the heading.
         until(beat_start("beat_06_verification"))
         act("Server and MCP tab", lambda: page.click("#tabServer"))
-        act("scroll to the connection strip", lambda: scroll_to("#evidenceTabs", 24))
+        act("jump to the connection strip", lambda: scroll_to("#evidenceTabs", 24, "instant"))
         until(sentence("beat_06_verification", 1))
         # The replay section ends the tab, so the page cannot scroll it to the top
         # until its results have made the page taller: press, wait, then scroll.
-        act("scroll to the Alexa+ replay", lambda: scroll_to("#alexaReplay", 24))
-        page.wait_for_timeout(700)
+        act("jump to the Alexa+ replay", lambda: scroll_to("#alexaReplay", 24, "instant"))
+        page.wait_for_timeout(400)
         act("Replay the documented Alexa+ requests", lambda: page.click("#runReplay"))
         page.wait_for_function(
             "/of 3 clients served/.test(document.querySelector('#replayPane').textContent)", timeout=10_000)
@@ -356,7 +401,8 @@ def main() -> None:
             raise SystemExit("the Alexa+ replay did not serve all three clients")
         act("scroll to the replay results", lambda: scroll_to("#alexaReplay", 24))
         until(sentence("beat_06_verification", 2))
-        act("scroll to the connection strip and the Alexa+ box", lambda: scroll_to("#evidenceTabs", 24))
+        act("jump to the connection strip and the Alexa+ box",
+            lambda: scroll_to("#evidenceTabs", 24, "instant"))
         until(sentence("beat_06_verification", 3))
         act("scroll to the heading", lambda: page.evaluate("window.scrollTo({top: 0, behavior: 'smooth'})"))
         until(total + 1.5)
@@ -442,6 +488,10 @@ def main() -> None:
         check=True, capture_output=True, text=True,
     )
 
+    blanks = blank_stretches(final, capture, trim_lead, trim_lead + total * scale)
+    if blanks:
+        raise SystemExit(f"the recording shows a blank page at video seconds {blanks}; record again")
+
     recorded = probe_duration(final)
     if recorded < trim_lead + total * scale:
         raise SystemExit(f"the recording is {recorded:.3f}s, shorter than {trim_lead + total * scale:.3f}s")
@@ -500,6 +550,7 @@ def main() -> None:
                 "pageEndedTimelineSeconds": timeline_time(speech_end["epoch"]),
             },
         ],
+        "blankStretches": blanks,
         "pageErrors": errors,
         "bytes": final.stat().st_size,
         "sha256": sha256(final),
