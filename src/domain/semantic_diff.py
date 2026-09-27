@@ -3,7 +3,7 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 
-from src.domain import ast_security_rules
+from src.domain import ast_security_rules, js_security_rules
 
 
 def plural(count: int, noun: str, suffix: str = "s") -> str:
@@ -363,7 +363,15 @@ class UnifiedDiffParser:
                         f"text matching the {flag_name} keyword set appears in this change"
                     )
 
-            for finding in ast_security_rules.evaluate(added_lines, removed_lines):
+            # JavaScript and TypeScript lines are read by the token rules;
+            # every other file keeps the Python syntax-tree rules, so the
+            # Python figure is unchanged by the JavaScript work.
+            rules = (
+                js_security_rules
+                if file_path.lower().endswith(js_security_rules.JS_TS_EXTENSIONS)
+                else ast_security_rules
+            )
+            for finding in rules.evaluate(added_lines, removed_lines):
                 # Structural findings lead: they say what happened, so a
                 # listener hears the deletion before the vocabulary match.
                 security_flags.insert(0, finding.rule_id)
