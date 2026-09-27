@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-631%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-637%20passing-brightgreen.svg)](tests/)
 
 **What it does.** Paste a patch or open a GitHub pull request. Volcan says the risky change
 first in one sentence, plays a cue whose pitch falls on a security finding and rises on a clean
@@ -118,7 +118,7 @@ python -m pip install -e ".[dev,bedrock]"
 python -m pytest tests/ -q
 ```
 
-On 2026-09-27 this printed `631 passed, 1 warning`. The `bedrock` extra installs
+On 2026-09-27 this printed `637 passed, 1 warning`. The `bedrock` extra installs
 `anthropic[bedrock]`. With AWS credentials as well, a Bedrock call is ready to attempt.
 Credentials and an importable SDK do not prove a model answered: the receipt is the digest
 response's `synthesis_mode: bedrock`. Without them the local engine answers, and the page says
@@ -168,7 +168,7 @@ its URL and type `open`; the full command list is in
 | Shared durable state | In the code and the Terraform, not deployed; a local run keeps state in memory | The `durable_state` field of `GET /health` says which |
 | Alexa+ MCP add-on package | Built and tested locally, not certified or deployed: the hackathon FAQ says the add-on tools are "available to select partners only", so participants cannot deploy it. A replay of Amazon's documented Alexa+ client requests, against a local build of this commit and not the registered endpoint (which runs an older build), gets the finding back from all three client shapes: one that follows the protocol's version rules, one that declares the revision it asked for, and one that never sends the version header. The page's Evidence tab, Server and MCP, runs the same three clients from the browser on a press. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
 | Demo video | Rendered locally from a run of `de30b11`, pending upload; no public link yet | [video/README.md](video/README.md) |
-| Test suite | 631 passing, 92.11% statement coverage, 2026-09-27 | `python -m pytest tests/ -q --cov=src` |
+| Test suite | 637 passing, 92.22% statement coverage, 2026-09-27 | `python -m pytest tests/ -q --cov=src` |
 
 ## Who it is for and who pays
 
