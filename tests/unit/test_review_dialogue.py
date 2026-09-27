@@ -199,13 +199,16 @@ def test_read_the_lines_speaks_every_numbered_line_of_the_hunk_verbatim():
     assert "Old lines 12 to 14, new lines 12 to 14, 4 lines" in turn.spoken
     assert 'Line 3 of 4, removed, old line 14:     return user.role == "admin".' in turn.spoken
     assert 'Line 4 of 4, added, new line 14:     return user.role != "admin".' in turn.spoken
-    assert turn.line["index"] == 0 and turn.line["total"] == 4
+    # The cursor lands on the first change, and the turn says so.
+    assert turn.spoken.endswith("Cursor on line 3 of 4, the first change. Say spell that, next or previous.")
+    assert turn.line["index"] == 2 and turn.line["total"] == 4
 
 
 def test_next_line_previous_line_and_the_edges_of_a_hunk():
     dialogue = opened()
     say(dialogue, "file 1")
     say(dialogue, "read the lines")
+    say(dialogue, "line 12")        # the first line of the hunk
     assert "Line 2 of 4, unchanged, line 13:" in say(dialogue, "next").spoken
     assert "Line 3 of 4, removed, old line 14:" in say(dialogue, "next line").spoken
     assert "Line 4 of 4, added, new line 14:" in say(dialogue, "next").spoken
@@ -245,8 +248,44 @@ def test_spell_that_after_reading_the_lines_spells_the_change_not_the_context():
     turn = say(dialogue, "spell that")
     assert turn.spoken.startswith("Line 3 of 4, removed, spelled: 4 leading spaces, r, e, t, u, r, n"), turn.spoken
     assert "equals, equals" in turn.spoken
-    # "next" still walks the hunk from its first line.
-    assert say(dialogue, "next").spoken.startswith("Line 2 of 4")
+    # One cursor: "next" moves on from the line just spelled.
+    assert say(dialogue, "next").spoken.startswith("Line 4 of 4")
+
+
+def test_spell_that_where_am_i_next_and_previous_agree_on_one_line():
+    """Round 8 review, reproduced on the pasted patch: after "read the lines",
+    "spell that" answered line 3 and "where am i" then answered line 1. For a
+    listener who cannot see the diff, the position is the product, so every
+    command that names a line must name the same one."""
+    dialogue = opened(with_pr=False)
+    read = say(dialogue, "read the lines")
+    assert "Cursor on line 3 of 4" in read.spoken and read.line["index"] == 2
+    spelled = say(dialogue, "spell that")
+    assert spelled.spoken.startswith("Line 3 of 4, removed, spelled:"), spelled.spoken
+    where = say(dialogue, "where am i")
+    assert "Line 3 of 4, removed, old line 14." in where.spoken, where.spoken
+    assert "Line 1 of 4" not in where.spoken
+    assert say(dialogue, "next").spoken.startswith("Line 4 of 4, added")
+    assert "Line 4 of 4, added, new line 14." in say(dialogue, "where am i").spoken
+    assert say(dialogue, "spell that").spoken.startswith("Line 4 of 4, added, spelled:")
+    assert say(dialogue, "previous").spoken.startswith("Line 3 of 4, removed")
+    assert say(dialogue, "spell that").spoken.startswith("Line 3 of 4, removed, spelled:")
+    assert "Line 3 of 4, removed, old line 14." in say(dialogue, "where am i").spoken
+
+
+def test_a_hunk_longer_than_one_read_keeps_the_cursor_where_the_voice_stopped():
+    body = "".join(f"+line_{n} = {n}\n" for n in range(1, 26))
+    patch = (
+        "diff --git a/src/long.py b/src/long.py\n--- a/src/long.py\n+++ b/src/long.py\n"
+        "@@ -0,0 +1,25 @@\n" + body
+    )
+    dialogue = ReviewDialogue(session_id="long")
+    dialogue.load(report_for(patch))
+    read = say(dialogue, "read the lines")
+    assert "5 more. Cursor on line 20 of 25; say next to continue from line 21." in read.spoken
+    assert "Line 20 of 25" in say(dialogue, "where am i").spoken
+    assert say(dialogue, "spell that").spoken.startswith("Line 20 of 25")
+    assert say(dialogue, "next").spoken.startswith("Line 21 of 25")
 
 
 def test_spell_out_distinguishes_capitals_and_names_unicode():
@@ -295,6 +334,7 @@ def test_a_correction_undoes_the_misheard_command_before_applying_the_meant_one(
     dialogue = opened()
     say(dialogue, "file 1")
     say(dialogue, "read the lines")
+    say(dialogue, "line 12")        # line 1 of the hunk
     say(dialogue, "next")           # line 2
     say(dialogue, "next")           # line 3, misheard
     turn = say(dialogue, "no, I said previous")

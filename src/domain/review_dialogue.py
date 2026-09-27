@@ -171,12 +171,10 @@ class ReviewDialogue:
     pull_request: PullRequestSnapshot | None = None
     file_index: int = 0
     hunk_index: int = 0
+    #: The one cursor. "Spell that", "where am I", "next", "previous" and the
+    #: line shown on screen all read this field and nothing else, so they can
+    #: never disagree about which line the listener is on.
     line_index: int = 0
-    #: The line "spell that" means when it is not the cursor line. After
-    #: "read the lines" the cursor stays on the first line so "next" walks
-    #: the hunk from the top, but the listener's "that" is the change they
-    #: just heard, not the unchanged context above it. None means the cursor.
-    spell_index: int | None = None
     speech_rate: float = 1.0
     pending_body: str | None = None
     last_turn: DialogueTurn | None = None
@@ -254,7 +252,6 @@ class ReviewDialogue:
         for key, value in self._undo.items():
             setattr(self, key, value)
         self._undo = None
-        self.spell_index = None
         return True
 
     # -- loading -------------------------------------------------------------
@@ -388,8 +385,12 @@ class ReviewDialogue:
         parts = [f"In {where}, {plural(len(self.sections), 'file')} changed."]
         if self.state in (DialogueState.FILE, DialogueState.LINES) and self.section:
             parts.append(f"Focused on file {self.file_index + 1}, {self.section.file_path}.")
-        if self.state is DialogueState.LINES and self.hunk:
-            parts.append(f"At line {self.line_index + 1} of {len(self.hunk.lines)} in hunk {self.hunk_index + 1}.")
+        if self.state is DialogueState.LINES and self.hunk and self.hunk.lines:
+            # The same words "next" and "spell that" use for this line, so a
+            # listener hears one position, said one way.
+            index = min(self.line_index, len(self.hunk.lines) - 1)
+            at = spoken_line(self.hunk.lines[index], index, len(self.hunk.lines)).split(":", 1)[0]
+            parts.append(f"In hunk {self.hunk_index + 1} of {len(self.section.hunks)}. {at}.")
         if self.state is DialogueState.CONFIRM_REVIEW:
             parts.append("A request changes review is waiting for confirmation.")
         if self.last_outcome:
@@ -581,10 +582,7 @@ class ReviewDialogue:
                               f"{section.file_path} carries no hunk with line numbers to read.", error=True)
         self.state = DialogueState.LINES
         hunk = self.hunk
-        self.line_index = 0
         total = len(hunk.lines)
-        changed = [i for i, line in enumerate(hunk.lines[:LINES_PER_READ]) if line.kind != "context"]
-        self.spell_index = changed[0] if changed else None
         spoken_lines = [spoken_line(line, i, total) for i, line in enumerate(hunk.lines[:LINES_PER_READ])]
         head = (
             f"Hunk {self.hunk_index + 1} of {len(section.hunks)} in {section.file_path}"
@@ -593,10 +591,24 @@ class ReviewDialogue:
             f"new lines {hunk.new_start} to {_last_new_line(hunk)}, "
             f"{plural(total, 'line')}. "
         )
-        tail = ""
+        # After the read the cursor lands where the listener's "that" points,
+        # and the turn says so. A whole hunk: the first changed line, because
+        # that is the change they just heard, not the context above it. A cut
+        # hunk: the last line read, so "next" continues where the voice stopped.
         if total > LINES_PER_READ:
-            tail = f" {total - LINES_PER_READ} more; say next to continue from line {LINES_PER_READ + 1}."
             self.line_index = LINES_PER_READ - 1
+            tail = (
+                f" {total - LINES_PER_READ} more. Cursor on line {LINES_PER_READ} of {total}; "
+                f"say next to continue from line {LINES_PER_READ + 1}."
+            )
+        else:
+            changed = [i for i, line in enumerate(hunk.lines) if line.kind != "context"]
+            self.line_index = changed[0] if changed else 0
+            what = "the first change" if changed else "no line in this hunk changed"
+            tail = (
+                f" Cursor on line {self.line_index + 1} of {total}, {what}. "
+                "Say spell that, next or previous."
+            )
         spoken = head + " ".join(f"{s}." for s in spoken_lines) + tail
         return self._turn(command, understood, spoken, earcon=earcon_for_section(section),
                           line=self._line_dict())
@@ -627,7 +639,6 @@ class ReviewDialogue:
                           f"Line {wanted} is not inside any hunk of {section.file_path}.", error=True)
 
     def _speak_line(self, command: Command, understood: str) -> DialogueTurn:
-        self.spell_index = None
         hunk = self.hunk
         line = hunk.lines[self.line_index]
         return self._turn(command, understood, spoken_line(line, self.line_index, len(hunk.lines)),
@@ -637,9 +648,7 @@ class ReviewDialogue:
         if self.state is not DialogueState.LINES or self.hunk is None:
             return self._turn(command, command.words, "No line is selected. Say read the lines first.", error=True)
         hunk = self.hunk
-        index = self.line_index
-        if self.spell_index is not None and 0 <= self.spell_index < len(hunk.lines):
-            index = self.spell_index
+        index = min(self.line_index, len(hunk.lines) - 1)
         line = hunk.lines[index]
         kind = {"add": "added", "remove": "removed", "context": "unchanged"}[line.kind]
         return self._turn(command, command.words,

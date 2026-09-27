@@ -665,9 +665,9 @@ as words (`line one hundred and twelve`), and every command has the same effect 
 | `open the pull request`, `open <url>`, `open the patch` | Live GitHub read of the head SHA and diff, or the pasted patch | `OVERVIEW` |
 | `summary`, `file by file`, `findings` | The digest, every file with its counts, or the security findings | `OVERVIEW` |
 | `what changed in auth.py`, `file 2`, `next`, `previous` | Focus a file by name or number and hear its category, finding and first hunk | `FILE` |
-| `read the lines` | The exact numbered source lines of the current hunk, 20 per breath, `next` to continue | `LINES` |
+| `read the lines` | The exact numbered source lines of the current hunk, 20 per breath. The cursor then sits on the first changed line (on line 20 of a longer hunk, where `next` continues) and the answer says which | `LINES` |
 | `next line`, `previous line`, `line 14`, `next hunk` | Move within the hunk, or jump to a line number on the new side of the file | `LINES` |
-| `spell that` | Every symbol of the line just heard named, so `!=` is heard as `bang, equals`; right after `read the lines` that is the first changed line, and the answer says which line and which side | `LINES` |
+| `spell that` | Every symbol of the cursor line named, so `!=` is heard as `bang, equals`; the answer says which line and which side. There is one cursor: `spell that`, `where am I`, `next` and `previous` always name the same line | `LINES` |
 | `repeat`, `slower`, `faster`, `stop`, `where am I`, `help`, `undo` | Say it again, change the rate by 0.15 within 0.5 to 1.6, silence, orientation, the command list, one step back | unchanged |
 | `no, I said <command>`, `I meant <command>`, `correction: <command>` | Undo the last navigation and apply the one meant | as the command |
 | `request changes: <comment>` | Stage a `REQUEST_CHANGES` review bound to the head commit; a grant is issued | `CONFIRM_REVIEW` |

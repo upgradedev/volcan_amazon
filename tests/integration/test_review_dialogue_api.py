@@ -78,6 +78,12 @@ def test_the_blind_developer_journey_over_rest(fake_github):
     assert 'Line 3 of 4, removed, old line 14:     return user.role == "admin".' in lines["spoken"]
     assert 'Line 4 of 4, added, new line 14:     return user.role != "admin".' in lines["spoken"]
 
+    assert "Cursor on line 3 of 4, the first change." in lines["spoken"]
+    # The session is saved and loaded between turns; the cursor must survive it.
+    assert "Line 3 of 4, removed, spelled:" in turn(session, "spell that")["spoken"]
+    assert "Line 3 of 4, removed, old line 14." in turn(session, "where am i")["spoken"]
+
+    turn(session, "line 12")
     turn(session, "next")
     misheard = turn(session, "next")
     assert "Line 3 of 4" in misheard["spoken"]
