@@ -20,8 +20,10 @@ replayed by three kinds of client:
   not follow the lifecycle rule, but the page documents no headers, so it is
   as plausible for the real client as the other two.
 * never: never sends the header, as a client that only knows 2025-03-26
-  would. Volcan refuses every request after initialize from such a client, and
-  the replay prints that refusal rather than hiding it.
+  would. Volcan serves it as the transport specification (2025-11-25,
+  "Protocol Version Header") directs: under the revision negotiated for its
+  session, or as 2025-03-26 when there is no session to consult. Until
+  2026-09-27 Volcan refused this shape after initialize.
 
 Each shape is replayed ``--runs`` times and the tool-call round trip is
 reported as the median with the range, because one sample of a warm local
@@ -203,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print("  tool call refused, so there is no answer and no latency to compare")
                 worst = 1
-    print("\nA refusal above is a real incompatibility risk, not a test artefact: see docs/EVIDENCE.md, Road to Alexa+.")
+    print("\nA refusal above would be a real incompatibility risk, not a test artefact: see docs/EVIDENCE.md, Road to Alexa+.")
     return worst
 
 

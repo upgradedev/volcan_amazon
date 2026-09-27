@@ -28,23 +28,24 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 PROTOCOL_VERSION = "2025-11-25"
-#: The revisions this server honours. 2025-03-26 was listed here until
-#: 2026-09-27 and is not honoured: that revision has no MCP-Protocol-Version
-#: header, which this server requires after initialize, and it requires a
-#: server to accept JSON-RPC batches, which this server refuses. A client that
-#: asks for it is answered with PROTOCOL_VERSION, as the lifecycle rule directs
-#: for a revision the server does not support.
+#: The revisions this server honours. 2025-03-26 is not negotiated: it
+#: requires a server to accept JSON-RPC batches, which this server refuses. A
+#: client that asks for it is answered with PROTOCOL_VERSION, as the lifecycle
+#: rule directs for a revision the server does not support.
 SUPPORTED_PROTOCOL_VERSIONS = (PROTOCOL_VERSION, "2025-06-18")
-#: The MCP-Protocol-Version header values accepted after initialize. This is
-#: the negotiable revisions plus 2025-03-26, which is accepted here and never
-#: negotiated: initialize still answers PROTOCOL_VERSION, the server still
-#: speaks it, and a JSON-RPC batch is still refused with -32600. It is kept
-#: because Amazon documents its Alexa+ MCP client asking for 2025-03-26 and
-#: documents none of its headers, and a client that declares the revision it
-#: asked for was served by this server until 2026-09-27. Removing it with the
-#: negotiation change on that day refused such a client, which is recorded in
-#: docs/EVIDENCE.md, Road to Alexa+. tools/list, tools/call and ping have the
-#: same shape in 2025-03-26 as in the negotiated revisions.
+#: The revision the transport specification (2025-11-25, Streamable HTTP,
+#: "Protocol Version Header") tells a server to assume when a request after
+#: initialize carries no MCP-Protocol-Version header and the server has no
+#: other way to identify the version, such as the revision negotiated for the
+#: session. Stateless deployments have no session to consult, so they use it.
+ASSUMED_VERSION_WITHOUT_HEADER = "2025-03-26"
+#: The revisions accepted after initialize, whether declared in the header or
+#: resolved without one. This is the negotiable revisions plus 2025-03-26,
+#: which is accepted here and never negotiated: initialize still answers
+#: PROTOCOL_VERSION, the server still speaks it, and a JSON-RPC batch is still
+#: refused with -32600. Amazon documents its Alexa+ MCP client asking for
+#: 2025-03-26 and documents none of its headers; tools/list, tools/call and
+#: ping have the same shape in 2025-03-26 as in the negotiated revisions.
 ACCEPTED_VERSION_HEADERS = SUPPORTED_PROTOCOL_VERSIONS + ("2025-03-26",)
 
 SERVER_NAME = "volcan-accessible-forge"
@@ -151,25 +152,27 @@ class SessionRegistry:
     """Tracks the session identifiers this server actually issued.
 
     A session id the server never minted is not accepted, which is what lets
-    the transport answer HTTP 404 for an unknown or terminated session.
+    the transport answer HTTP 404 for an unknown or terminated session. Each id
+    keeps the revision negotiated at initialize, which is how the transport
+    identifies the version of a request that omits MCP-Protocol-Version.
     """
 
     def __init__(self) -> None:
-        self._sessions: set[str] = set()
+        self._sessions: dict[str, str] = {}
 
-    def create(self) -> str:
+    def create(self, negotiated_version: str = PROTOCOL_VERSION) -> str:
         session_id = secrets.token_urlsafe(32)
-        self._sessions.add(session_id)
+        self._sessions[session_id] = negotiated_version
         return session_id
 
     def exists(self, session_id: str) -> bool:
         return session_id in self._sessions
 
+    def negotiated_version(self, session_id: str) -> str | None:
+        return self._sessions.get(session_id)
+
     def terminate(self, session_id: str) -> bool:
-        if session_id in self._sessions:
-            self._sessions.discard(session_id)
-            return True
-        return False
+        return self._sessions.pop(session_id, None) is not None
 
     @property
     def count(self) -> int:

@@ -5,7 +5,8 @@ These run the full client handshake through FastAPI's TestClient:
     initialize -> notifications/initialized -> tools/list -> tools/call
 
 and then assert the failure modes that separate a real protocol server from a
-JSON endpoint wearing the name: unknown sessions, missing protocol version,
+JSON endpoint wearing the name: unknown sessions, the protocol version header (resolved when missing,
+refused with HTTP 400 when unsupported),
 each JSON-RPC error code, notification semantics, tool errors that stay inside
 the result, and the Allow header on an unsupported HTTP method.
 """
@@ -295,49 +296,93 @@ def test_unknown_session_id_is_rejected_with_http_404():
     assert response.json()["error"] == "unknown_session"
 
 
-def test_missing_protocol_version_after_initialize_is_a_jsonrpc_error():
+# Changed on 2026-09-27. Until then the tests below asserted that a request
+# after initialize without MCP-Protocol-Version was refused with -32600 on POST
+# and HTTP 400 on GET and DELETE, which was stricter than the specification.
+# The transport specification, revision 2025-11-25, "Protocol Version Header",
+# says a server that receives no such header uses the revision it can identify,
+# for example the one negotiated during initialization, and otherwise SHOULD
+# assume 2025-03-26. It also says an invalid or unsupported header MUST be
+# answered with 400 Bad Request, which POST did not do: it answered HTTP 200.
+# Both are now pinned here, and a missing header is never refused on its own.
+
+def _initialize_session_at(revision):
+    response = client.post("/mcp", json={
+        "jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"protocolVersion": revision, "capabilities": {}},
+    })
+    return response.json()["result"]["protocolVersion"], response.headers["mcp-session-id"]
+
+
+def test_missing_protocol_version_with_a_session_uses_the_negotiated_revision():
     session_id, _ = initialize()
     response = client.post(
         "/mcp", headers={"Mcp-Session-Id": session_id},
         json={"jsonrpc": "2.0", "id": 6, "method": "tools/list"},
     )
     assert response.status_code == 200
-    error = response.json()["error"]
-    assert error["code"] == INVALID_REQUEST
-    assert "MCP-Protocol-Version" in error["message"]
+    body = response.json()
+    assert "error" not in body, body
+    assert len(body["result"]["tools"]) > 0, "a served request must return the real catalog"
 
 
-def test_a_valid_session_never_excuses_a_missing_protocol_version():
-    """The failure mode this pins is worse than an error: a plausible answer.
-
-    If holding a session let a request skip the version check, a client that
-    forgot one header would receive HTTP 200 with an empty ``tools`` array and
-    conclude the server publishes nothing, which on stage is indistinguishable
-    from a broken product. Both requests below omit only the version header;
-    one carries a live session and the other carries none, and the two answers
-    have to be the same refusal.
-    """
-    session_id, _ = initialize()
-    with_session = client.post(
+def test_a_session_negotiated_at_2025_06_18_is_served_without_the_header():
+    negotiated, session_id = _initialize_session_at("2025-06-18")
+    assert negotiated == "2025-06-18"
+    response = client.post(
         "/mcp", headers={"Mcp-Session-Id": session_id},
-        json={"jsonrpc": "2.0", "id": 61, "method": "tools/list"},
+        json={"jsonrpc": "2.0", "id": 9, "method": "ping"},
     )
-    without_session = client.post(
-        "/mcp", json={"jsonrpc": "2.0", "id": 62, "method": "tools/list"},
-    )
+    assert response.status_code == 200
+    assert response.json()["result"] == {}
 
-    for response in (with_session, without_session):
-        body = response.json()
-        assert "result" not in body, (
-            "a request missing the version header must not receive a result at all, "
-            f"received {body.get('result')!r}"
-        )
-        assert body["error"]["code"] == INVALID_REQUEST
-        assert "Missing MCP-Protocol-Version header" in body["error"]["message"]
 
-    assert with_session.json()["error"] == without_session.json()["error"], (
-        "the presence of a session must not change the refusal"
+def test_missing_protocol_version_without_a_session_is_served_as_2025_03_26():
+    """No header and no session: the specification's SHOULD assume 2025-03-26,
+    which this server accepts. A batch is still refused, because this server
+    never implemented the 2025-03-26 batching it would otherwise imply."""
+    listed = client.post("/mcp", json={"jsonrpc": "2.0", "id": 62, "method": "tools/list"})
+    assert listed.status_code == 200
+    assert len(listed.json()["result"]["tools"]) > 0
+    batch = client.post("/mcp", json=[{"jsonrpc": "2.0", "id": 63, "method": "ping"}])
+    assert batch.json()["error"]["code"] == INVALID_REQUEST
+    assert "2025-11-25" in batch.json()["error"]["message"]
+
+
+def test_a_stateless_deployment_serves_a_request_without_the_header(monkeypatch):
+    """Stateless mode issues no session id, so there is no negotiated revision
+    to look up and the specification's 2025-03-26 default applies."""
+    monkeypatch.setenv("VOLCAN_MCP_SESSION_MODE", "stateless")
+    initialized = client.post("/mcp", json={
+        "jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"protocolVersion": "2025-03-26", "capabilities": {}},
+    })
+    assert "mcp-session-id" not in initialized.headers
+    called = client.post("/mcp", json={
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {"name": "play_earcon", "arguments": {"earcon_type": "TEST_PASSED"}},
+    })
+    assert called.status_code == 200
+    content = called.json()["result"]["content"]
+    assert any(block.get("type") == "audio" for block in content)
+
+
+def test_an_unknown_session_without_the_header_is_still_404_not_the_fallback():
+    """The session check runs first: a missing header must not rescue a session
+    this server never issued or already terminated."""
+    response = client.post(
+        "/mcp", headers={"Mcp-Session-Id": "a-session-this-server-never-issued"},
+        json={"jsonrpc": "2.0", "id": 64, "method": "tools/list"},
     )
+    assert response.status_code == 404
+    assert response.json()["error"] == "unknown_session"
+    session_id, _ = initialize()
+    assert client.delete("/mcp", headers=headers_for(session_id)).status_code == 204
+    after = client.post(
+        "/mcp", headers={"Mcp-Session-Id": session_id},
+        json={"jsonrpc": "2.0", "id": 65, "method": "ping"},
+    )
+    assert after.status_code == 404
 
 
 @pytest.mark.parametrize("method", [
@@ -347,71 +392,64 @@ def test_a_valid_session_never_excuses_a_missing_protocol_version():
     "resources/list",
     "definitely/not/a/method",
 ])
-def test_the_version_rule_runs_before_dispatch_for_every_post_initialize_method(method):
-    """One rule, every method, session or no session.
-
-    The dangerous failure is not the error; it is the plausible answer. A
-    ``tools/call`` that skipped the header check would run the tool, a
-    ``ping`` would pong, and an unknown method would be refused as -32601,
-    which would tell a client the header was fine and the method was not.
-    Every one of these has to be refused as -32600 for the missing header,
-    before anything else is consulted, and holding a valid session changes
-    nothing.
-    """
+def test_without_the_header_every_method_gets_its_own_real_answer(method):
+    """A missing header is resolved, not refused, so each method is dispatched
+    and answered as it would be with the header: a result for the implemented
+    methods and -32601 for the rest. The answer is the same with and without a
+    session, because both resolve to a revision this server accepts."""
     session_id, _ = initialize()
     params = {"name": "play_earcon", "arguments": {"earcon_type": "TEST_PASSED"}} if method == "tools/call" else {}
     message = {"jsonrpc": "2.0", "id": 77, "method": method, "params": params}
+    with_header = client.post("/mcp", headers=headers_for(session_id), json=message).json()
     with_session = client.post("/mcp", headers={"Mcp-Session-Id": session_id}, json=message)
     without_session = client.post("/mcp", json=message)
     for response in (with_session, without_session):
         assert response.status_code == 200
         body = response.json()
-        assert "result" not in body, f"{method} without the header produced a result: {body!r}"
-        assert body["error"]["code"] == INVALID_REQUEST, f"{method} was refused with {body['error']}"
-        assert body["error"]["code"] != METHOD_NOT_FOUND
-        assert "Missing MCP-Protocol-Version header" in body["error"]["message"]
-        assert body["id"] == 77, "the refusal must answer the request that was made"
-    assert with_session.json()["error"] == without_session.json()["error"]
+        assert body["id"] == 77
+        assert ("result" in body) == ("result" in with_header)
+        if "error" in body:
+            assert body["error"]["code"] == METHOD_NOT_FOUND
+            assert body["error"] == with_header["error"]
 
 
-def test_the_sse_stream_also_requires_the_protocol_version_header():
-    """GET is a request after initialize too, and docs/EVIDENCE.md says every one."""
+def test_the_sse_stream_opens_without_the_protocol_version_header():
     session_id, _ = initialize()
-    refused = client.get("/mcp", headers={"Mcp-Session-Id": session_id})
-    assert refused.status_code == 400
-    assert refused.json()["error"] == "bad_protocol_version"
-    assert "Missing MCP-Protocol-Version header" in refused.json()["detail"]
-
-    accepted = client.get("/mcp", headers=headers_for(session_id))
-    assert accepted.status_code == 200
+    served = client.get("/mcp", headers={"Mcp-Session-Id": session_id})
+    assert served.status_code == 200
+    assert "text/event-stream" in served.headers["content-type"]
 
 
-def test_session_termination_also_requires_the_protocol_version_header():
+def test_session_termination_works_without_the_protocol_version_header():
     session_id, _ = initialize()
-    refused = client.delete("/mcp", headers={"Mcp-Session-Id": session_id})
-    assert refused.status_code == 400
-    assert refused.json()["error"] == "bad_protocol_version"
-
-    # The refusal must not have terminated the session as a side effect.
-    assert client.delete("/mcp", headers=headers_for(session_id)).status_code == 204
+    assert client.delete("/mcp", headers={"Mcp-Session-Id": session_id}).status_code == 204
+    assert client.delete("/mcp", headers=headers_for(session_id)).status_code == 404
 
 
-def test_an_unsupported_version_is_refused_on_every_verb():
+def test_an_unsupported_version_is_refused_with_http_400_on_every_verb():
+    """The specification: an invalid or unsupported MCP-Protocol-Version MUST
+    be answered with 400 Bad Request. POST keeps the JSON-RPC envelope in the
+    body so the refusal still names the request id."""
     session_id, _ = initialize()
     stale = {"Mcp-Session-Id": session_id, "MCP-Protocol-Version": "1999-01-01"}
     assert client.get("/mcp", headers=stale).status_code == 400
     assert client.delete("/mcp", headers=stale).status_code == 400
     posted = client.post("/mcp", headers=stale, json={"jsonrpc": "2.0", "id": 8, "method": "ping"})
+    assert posted.status_code == 400
     assert posted.json()["error"]["code"] == INVALID_REQUEST
+    assert posted.json()["id"] == 8
+    # The refused DELETE must not have terminated the session.
+    assert client.delete("/mcp", headers=headers_for(session_id)).status_code == 204
 
 
-def test_unsupported_protocol_version_is_refused():
-    session_id, _ = initialize()
+def test_unsupported_protocol_version_is_refused_even_without_a_session():
     response = client.post(
         "/mcp",
-        headers={"Mcp-Session-Id": session_id, "MCP-Protocol-Version": "1999-01-01"},
+        headers={"MCP-Protocol-Version": "1999-01-01"},
         json={"jsonrpc": "2.0", "id": 7, "method": "tools/list"},
     )
+    assert response.status_code == 400
+    assert "result" not in response.json()
     assert response.json()["error"]["code"] == INVALID_REQUEST
 
 
@@ -659,6 +697,7 @@ def test_any_other_version_header_is_still_refused_after_initialize(header):
         "/mcp", headers={"Mcp-Session-Id": session_id, "MCP-Protocol-Version": header},
         json={"jsonrpc": "2.0", "id": 2, "method": "ping"},
     )
+    assert refused.status_code == 400
     error = refused.json()["error"]
     assert error["code"] == INVALID_REQUEST
     assert error["data"]["supported"] == ["2025-11-25", "2025-06-18"]

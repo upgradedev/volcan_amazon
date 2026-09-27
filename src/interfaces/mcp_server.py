@@ -38,6 +38,7 @@ from src.infrastructure.observability_harness import PrivateObservabilityHarness
 from src.interfaces.composition import allowed_origins, mcp_session_mode, sessions
 from src.interfaces.mcp_protocol import (
     ACCEPTED_VERSION_HEADERS,
+    ASSUMED_VERSION_WITHOUT_HEADER,
     INVALID_REQUEST,
     PARSE_ERROR,
     PROTOCOL_VERSION,
@@ -157,25 +158,40 @@ def _session_refusal(request: Request) -> JSONResponse | None:
     )
 
 
-#: Why a header is refused, and the machine-readable code that goes with it.
-#: The two verbs that carry no JSON-RPC envelope reuse these strings, so the
-#: refusal a client reads is the same sentence whichever method it sent.
-_VERSION_MISSING = (
-    "Missing MCP-Protocol-Version header; it is required on every request after initialize."
-)
+def effective_protocol_version(request: Request) -> str:
+    """The revision a request after initialize is served under.
+
+    The transport specification, revision 2025-11-25 ("Protocol Version
+    Header"), gives the order: the ``MCP-Protocol-Version`` header when the
+    client sends one; otherwise the revision negotiated during initialization,
+    when the server can identify it; otherwise ``2025-03-26``. This server
+    identifies the negotiated revision through the ``Mcp-Session-Id`` it
+    issued. A stateless deployment issues no session id, so a request without
+    the header is served as 2025-03-26 there.
+
+    A header that is present but empty is a declared value, not an absent one,
+    and is validated like any other declared value.
+    """
+    declared = request.headers.get("mcp-protocol-version")
+    if declared is not None:
+        return declared
+    session_id = request.headers.get("mcp-session-id")
+    if session_id is not None:
+        negotiated = sessions.negotiated_version(session_id)
+        if negotiated is not None:
+            return negotiated
+    return ASSUMED_VERSION_WITHOUT_HEADER
 
 
 def _protocol_version_problem(request: Request) -> tuple[str, dict[str, Any]] | None:
     """(message, data) when the declared protocol version is unusable.
 
     This is the whole rule, in one place, so no transport verb can quietly opt
-    out of it. It is deliberately stricter than the transport specification,
-    which permits a server that receives no ``MCP-Protocol-Version`` header to
-    assume the older ``2025-03-26`` revision. Assuming it would let a client and
-    this server disagree about the revision they are speaking while both believe
-    the handshake succeeded, which is a failure that surfaces later and
-    somewhere else. Volcan refuses instead and names the header, and docs/EVIDENCE.md
-    states that it is required on every request after initialize.
+    out of it. A missing header is resolved by ``effective_protocol_version``
+    as the specification directs and is never refused on its own. A header
+    that names a revision outside ``ACCEPTED_VERSION_HEADERS`` is refused, and
+    the callers answer that with HTTP 400 Bad Request, which the specification
+    requires for an invalid or unsupported ``MCP-Protocol-Version``.
 
     A header that names ``2025-03-26`` explicitly is accepted, although that
     revision is never negotiated (see ``ACCEPTED_VERSION_HEADERS``): the client
@@ -183,25 +199,22 @@ def _protocol_version_problem(request: Request) -> tuple[str, dict[str, Any]] | 
     the same, and the one 2025-03-26 feature this server lacks, batching, is
     refused with an error that names the revision this server speaks.
     """
-    declared = request.headers.get("mcp-protocol-version")
-    if declared is None:
-        return _VERSION_MISSING, {"expected": PROTOCOL_VERSION}
-    if declared not in ACCEPTED_VERSION_HEADERS:
+    version = effective_protocol_version(request)
+    if version not in ACCEPTED_VERSION_HEADERS:
         return (
-            f"Unsupported MCP-Protocol-Version '{declared}'.",
+            f"Unsupported MCP-Protocol-Version '{version}'.",
             {"supported": list(SUPPORTED_PROTOCOL_VERSIONS), "accepted_header": list(ACCEPTED_VERSION_HEADERS)},
         )
     return None
 
 
 def _protocol_version_refusal(request: Request, method: str, request_id: Any) -> JSONResponse | None:
-    """The POST form of the rule: a JSON-RPC error against the request id.
+    """The POST form of the rule: HTTP 400 carrying a JSON-RPC error.
 
-    The check runs on the method alone. It does not consult the session, so a
-    request that carries a valid ``Mcp-Session-Id`` and omits the version header
-    is refused exactly like one that carries neither: a conforming client that
-    forgets one header has to see an error, never a successful-looking result
-    with an empty tool list.
+    The status is the one the transport specification requires for an invalid
+    or unsupported version header; the body keeps the JSON-RPC envelope so a
+    client can match the refusal to the request id it sent. ``initialize`` is
+    exempt because the version is negotiated by it.
     """
     if method == "initialize":
         return None
@@ -209,7 +222,7 @@ def _protocol_version_refusal(request: Request, method: str, request_id: Any) ->
     if problem is None:
         return None
     message, data = problem
-    return _rpc_error(request_id, INVALID_REQUEST, message, data)
+    return _rpc_error(request_id, INVALID_REQUEST, message, data, status=400)
 
 
 def _transport_version_refusal(request: Request) -> JSONResponse | None:
@@ -283,7 +296,7 @@ async def mcp_post(request: Request) -> Response:
 
     headers = {"MCP-Protocol-Version": outcome.negotiated_version}
     if outcome.is_initialize and mcp_session_mode() == "stateful":
-        headers["Mcp-Session-Id"] = sessions.create()
+        headers["Mcp-Session-Id"] = sessions.create(outcome.negotiated_version)
 
     if isinstance(method, str) and method == "tools/call":
         _emit_tool_metric(message, elapsed_ms)

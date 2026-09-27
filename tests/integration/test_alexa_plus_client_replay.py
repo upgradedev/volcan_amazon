@@ -5,11 +5,10 @@ developer account. Alexa+ has never called this server. The bodies come from
 Amazon's "Alexa+ MCP Client and App Lifecycle" page (see
 ``tests/fixtures/alexa_plus_envelopes.py`` for the URL and date). That page
 shows bodies without headers, so three header cases are pinned here: with the
-``MCP-Protocol-Version`` header of the negotiated revision, or of the revision
-the client asked for, the documented session works end to end, and without it
-Volcan refuses every request after initialize. The last outcome is
-an open integration risk recorded in docs/EVIDENCE.md, not a behaviour this
-test endorses.
+``MCP-Protocol-Version`` header of the negotiated revision, with the revision
+the client asked for, and with no header at all. All three complete the
+documented session end to end. The third was refused after initialize until
+2026-09-27; it is now served as the transport specification directs.
 """
 import json
 import os
@@ -57,14 +56,28 @@ def test_a_client_that_declares_the_revision_it_asked_for_completes_the_session(
 
 
 @pytest.mark.parametrize("version", envelopes.DOCUMENTED_VERSIONS)
-def test_a_client_that_never_sends_the_version_header_is_refused_after_initialize(version):
-    """Recorded, not endorsed: a client that only knows 2025-03-26 never sends it."""
+def test_a_client_that_never_sends_the_version_header_completes_the_session(version):
+    """Changed on 2026-09-27 with the behaviour. Until then this test pinned a
+    refusal of every request after initialize. The transport specification
+    says a server without the header uses the revision it can identify, here
+    the one negotiated for the session, and otherwise assumes 2025-03-26."""
     run = replay(_post, version, client="never")
     assert not run["version_header_sent"]
-    assert run["steps"][0]["ok"]
-    for step in run["steps"][1:]:
-        assert not step["ok"]
-        assert "Missing MCP-Protocol-Version header" in step["summary"]
+    assert [step["ok"] for step in run["steps"]] == [True, True, True, True]
+    listed = run["steps"][2]["body"]["result"]["tools"]
+    assert "digest_semantic_diff" in {tool["name"] for tool in listed}
+    assert run["finding_in_spoken_text"], run["steps"][3]["summary"]
+
+
+@pytest.mark.parametrize("version", envelopes.DOCUMENTED_VERSIONS)
+def test_a_headerless_client_is_served_by_a_stateless_deployment(version, monkeypatch):
+    """The public Lambda runs stateless and issues no session id, so the
+    specification's 2025-03-26 default is what serves this client there."""
+    monkeypatch.setenv("VOLCAN_MCP_SESSION_MODE", "stateless")
+    run = replay(_post, version, client="never")
+    assert "mcp-session-id" not in run["steps"][0]["headers"]
+    assert [step["ok"] for step in run["steps"]] == [True, True, True, True]
+    assert run["finding_in_spoken_text"], run["steps"][3]["summary"]
 
 
 def test_the_documented_initialize_is_copied_from_amazon_unchanged():

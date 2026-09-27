@@ -175,22 +175,37 @@ def main(url: str, expect_mode: str | None = None) -> int:
     _, _, body = call(url, {"jsonrpc": "1.0", "id": 6, "method": "ping"}, session_headers)
     report.check(body.get("error", {}).get("code") == -32600, "wrong jsonrpc version returns -32600")
 
+    # The transport specification (2025-11-25, "Protocol Version Header"): with
+    # no MCP-Protocol-Version header the server uses the revision it can
+    # identify, such as the one negotiated for the session, and otherwise
+    # assumes 2025-03-26; an invalid or unsupported header MUST get HTTP 400.
     no_version_headers = {"Mcp-Session-Id": session_id} if session_id else {}
-    _, _, body = call(url, {"jsonrpc": "2.0", "id": 7, "method": "tools/list"},
-                      no_version_headers)
-    report.check(body.get("error", {}).get("code") == -32600,
-                 "missing MCP-Protocol-Version header returns a JSON-RPC error")
-    # The dangerous shape of that failure is not an error, it is a plausible
-    # answer: a result member holding an empty tool list, which reads on stage
-    # as a server that publishes nothing.
-    report.check("result" not in (body if isinstance(body, dict) else {}),
-                 "and returns no result member alongside it")
+    status, _, body = call(url, {"jsonrpc": "2.0", "id": 7, "method": "tools/list"},
+                           no_version_headers)
+    listed = body.get("result", {}).get("tools", []) if isinstance(body, dict) else []
+    report.check(status == 200 and len(listed) == len(tools) and len(tools) > 0,
+                 "tools/list without the version header is served, not refused",
+                 f"HTTP {status}, {len(listed)} tools")
 
     status, _, _ = call(url, None, no_version_headers, method="GET")
-    report.check(status == 400, "GET /mcp without the version header is refused", f"got {status}")
+    report.check(status == 200, "GET /mcp without the version header is served", f"got {status}")
 
-    status, _, _ = call(url, None, no_version_headers, method="DELETE")
-    report.check(status == 400, "DELETE /mcp without the version header is refused", f"got {status}")
+    bad_version_headers = dict(no_version_headers, **{"MCP-Protocol-Version": "1999-01-01"})
+    status, _, body = call(url, {"jsonrpc": "2.0", "id": 9, "method": "tools/list"},
+                           bad_version_headers)
+    report.check(
+        status == 400 and isinstance(body, dict) and body.get("error", {}).get("code") == -32600
+        and "result" not in body,
+        "POST with an unsupported version header returns HTTP 400 and a JSON-RPC error",
+        f"got {status}",
+    )
+
+    status, _, _ = call(url, None, bad_version_headers, method="GET")
+    report.check(status == 400, "GET /mcp with an unsupported version header returns 400", f"got {status}")
+
+    status, _, _ = call(url, None, bad_version_headers, method="DELETE")
+    report.check(status == 400, "DELETE /mcp with an unsupported version header returns 400",
+                 f"got {status}")
 
     status, _, _ = call(url, {"jsonrpc": "2.0", "id": 8, "method": "tools/list"},
                         {"Mcp-Session-Id": "never-issued", "MCP-Protocol-Version": PROTOCOL_VERSION})
