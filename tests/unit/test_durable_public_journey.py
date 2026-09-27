@@ -105,7 +105,7 @@ def test_the_page_journey_works_anonymously_and_its_audit_trail_lists_it(durable
     [record] = body["records"]
     assert record["action"] == "act_12345"
     assert record["command"] == PAGE_COMMAND
-    assert record["state"] == "EXECUTED"
+    assert record["state"] == "RELEASED_NOT_RUN"
     assert record["approved_by"] == "companion-operator"
     assert record["outcome"].startswith("Dry run only, nothing was executed.")
     assert grant not in audit.text
@@ -233,7 +233,7 @@ def test_parallel_public_releases_all_finalize_into_one_intact_chain():
         assert world.audit.verify_integrity(PUBLIC_DEMO_AUDIT_SCOPE).intact
         for ticket in tickets:
             action = world.state.get_action("governed", ticket.action.action_id)
-            assert action.state is ActionState.EXECUTED
+            assert action.state is ActionState.RELEASED_NOT_RUN
 
 
 def test_an_anonymous_voice_turn_answers_in_durable_mode(durable):
@@ -247,7 +247,7 @@ def test_an_anonymous_voice_turn_answers_in_durable_mode(durable):
         "approval_grant": staged.json()["approval_grant"],
     }})
     assert approved.status_code == 200, approved.text
-    assert approved.json()["status"] == "PLANNED"
+    assert approved.json()["status"] == "RELEASED_NOT_RUN"
     assert durable.state.load_voice("voice-anon", ANONYMOUS_VOICE_OWNER, "octo/demo") is not None
     # A voice session's record stays in its private chain.
     assert client.get("/api/audit_log").json()["records"] == []

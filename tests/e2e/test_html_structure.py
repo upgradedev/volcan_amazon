@@ -673,22 +673,22 @@ def test_empty_states_render_a_reason_instead_of_nothing():
 
 
 def test_the_audit_row_never_reads_as_a_command_that_ran():
-    """The server's terminal state string is EXECUTED and nothing executes.
+    """A released plan is stored as RELEASED_NOT_RUN and nothing executes.
 
-    The page must not print that word on its own beside a command, because the
-    product's whole claim is that it plans and refuses. It renders a plain
-    label and keeps the server's raw value beside it, so the honest reading and
-    the unedited server value are both on screen.
+    Round 4 read "released to you, nothing run (server status name: PLANNED;
+    the audit log names the same outcome EXECUTED)" as a label contradicting
+    itself. The server now stores the plain outcome, and the page prints one
+    label per row with no enum beside it. EXECUTED is only ever labelled from
+    the record's own outcome text: a real GitHub submission, or a plan sealed
+    before RELEASED_NOT_RUN existed.
     """
     html = read_html()
-    # Reworded after a review read "plan released, not run [server state
-    # EXECUTED]" under a heading that said "never executed" and called it a
-    # contradiction: the plain label leads, and the raw value follows as the
-    # server's state name, set as code.
-    assert 'EXECUTED: "released to you, nothing run"' in html, "no plain-language label for the terminal state"
-    assert '" (server state name: "' in html and 'el("code", null, record.state)' in html, (
-        "the server's own raw state is no longer shown"
+    assert 'RELEASED_NOT_RUN: "released to you, nothing run"' in html, "no plain-language label for the terminal state"
+    assert "server state name" not in html and "server status name" not in html, (
+        "a raw enum is printed beside the plain label again"
     )
+    assert 'auditLabel(record.state, record.outcome)' in html
+    assert 'if (/^SUBMITTED /.test(said)) { return "submitted to GitHub"; }' in html
     assert 'record.state + "   " + record.action' not in html, "the bare state is printed with no label"
     assert "never executed" not in html.split('id="gov-heading"', 1)[1].split("</h2>", 1)[0]
 
@@ -854,13 +854,13 @@ def test_the_header_write_mode_follows_the_server_and_defaults_to_dry_run():
 
 
 def test_the_confirm_row_and_the_audit_row_share_one_plain_label():
-    """The confirm response says PLANNED and the audit record says EXECUTED for
-    one outcome. A scorer read the two raw words side by side as a contradiction.
-    Both rows now lead with the same plain label and keep their raw word."""
+    """The confirm response's status and the sealed record's state are now the
+    same word, RELEASED_NOT_RUN, so both rows go through one label function and
+    neither prints a raw server word."""
     script = script_body()
-    assert "PLANNED: AUDIT_LABELS.EXECUTED" in script
+    assert '["Outcome", auditLabel(confirmed.data.status)]' in script
     assert '["Server status", confirmed.data.status]' not in script
-    assert '"Outcome", confirmLabel(confirmed.data.status)' in script
+    assert "the audit log names the same outcome" not in script
 
 
 def test_on_a_phone_the_conversation_comes_before_the_keyboard_card():

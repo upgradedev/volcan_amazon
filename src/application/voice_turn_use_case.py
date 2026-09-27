@@ -14,7 +14,7 @@ from src.application.review_authorization import (
     current_review_principal,
 )
 from src.application.sonify_event_use_case import SonifyEventUseCase
-from src.domain.governed_action import Principal
+from src.domain.governed_action import ActionState, Principal
 from src.domain.sonification import EarconType, earcon_for_report
 from src.domain.voice_session import VoiceSessionContext
 
@@ -251,7 +251,7 @@ class VoiceTurnUseCase:
             "spoken_text": spoken,
             "output": outcome.output,
             "earcon_type": cue.earcon_type.value,
-            "status": "PLANNED",
+            "status": ActionState.RELEASED_NOT_RUN.value,
         }
 
     def _reject(

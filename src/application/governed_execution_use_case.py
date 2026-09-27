@@ -200,7 +200,10 @@ class GovernedExecutionUseCase:
                 namespace, action, ActionState.APPROVED, f"FAILED: {ex}"
             )
             raise
-        action.state = ActionState.EXECUTED
+        # The only executor is the allowlisted planner, and
+        # tests/unit/test_no_execution_in_source_tree.py keeps it that way, so
+        # the stored outcome is the plain one: approved, and nothing ran.
+        action.state = ActionState.RELEASED_NOT_RUN
         action.execution_result = result
         self._finalize_action(namespace, action, ActionState.APPROVED, result)
         return ReleaseOutcome(

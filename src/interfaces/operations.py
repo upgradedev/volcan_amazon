@@ -19,7 +19,7 @@ from src.application.public_audit import (
     public_record_view,
 )
 from src.application.review_authorization import current_review_principal
-from src.domain.governed_action import AuditLogRecord, Principal
+from src.domain.governed_action import ActionState, AuditLogRecord, Principal
 from src.domain.semantic_diff import category_words, line_counts
 from src.domain.sonification import EarconType, earcon_for_report, earcon_for_section
 from src.domain.spoken_form import speakable
@@ -147,7 +147,7 @@ async def op_confirm_action(req: ConfirmActionRequest) -> dict[str, Any]:
     cue, wav_bytes = sonify_use_case.execute(earcon)
     return {
         "approved": outcome.approved,
-        "status": "PLANNED" if outcome.approved else "REFUSED",
+        "status": ActionState.RELEASED_NOT_RUN.value if outcome.approved else "REFUSED",
         "output": outcome.output,
         "refusal_code": outcome.refusal_code,
         "refusal_detail": outcome.refusal_detail,

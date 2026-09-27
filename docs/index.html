@@ -738,7 +738,9 @@
     .kv > div { display: flex; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
     .kv > div:last-child { border-bottom: 0; }
     .kv dt { color: var(--ink-soft); min-width: 120px; }
-    .kv dd { margin: 0; font-family: var(--mono); word-break: break-all; }
+    /* Words wrap between words; only a token longer than the line (a hash,
+       a grant) breaks inside itself. */
+    .kv dd { margin: 0; font-family: var(--mono); min-width: 0; overflow-wrap: anywhere; }
 
     /* --- evidence ------------------------------------------------------- */
 
@@ -797,7 +799,7 @@
     }
     ol.audit li {
       background: var(--sunk); border-radius: var(--r-s); padding: 8px 12px;
-      font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-soft); word-break: break-all;
+      font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-soft); overflow-wrap: anywhere;
     }
 
     .prose { max-width: var(--measure); }
@@ -2961,38 +2963,31 @@
       return dl;
     }
 
-    /* The server's terminal state for a released plan is the string EXECUTED.
-       That is the domain's state machine, not a claim that a command ran. On a
-       page whose headline is that Volcan never runs anything, the bare word
-       would read as a contradiction, so every row carries the plain-language
-       label and the server's own raw value side by side. Nothing is hidden and
-       nothing is renamed on the way through. */
+    /* One outcome, one plain label. The server stores a released plan as
+       RELEASED_NOT_RUN and the confirm response carries the same word as its
+       status, so the page prints the label alone, never an enum beside it.
+       EXECUTED now means a review really sent to GitHub, and the record's own
+       outcome text ("SUBMITTED review ...") says so. A record sealed before
+       RELEASED_NOT_RUN existed carries EXECUTED for a plan, and its outcome
+       text ("Dry run only, nothing was executed.") is what the label follows. */
     var AUDIT_LABELS = {
       PENDING_APPROVAL: "staged, awaiting a human",
       APPROVED: "grant accepted",
       REJECTED: "rejected",
-      EXECUTED: "released to you, nothing run",
+      RELEASED_NOT_RUN: "released to you, nothing run",
       FAILED: "planning failed",
-      EXPIRED: "lease expired"
-    };
-
-    function auditLabel(state) {
-      return AUDIT_LABELS[state] || String(state).toLowerCase();
-    }
-
-    /* The confirm response and the audit record name the same outcome with
-       two different raw words: the response's status is PLANNED (the planner
-       returned a plan) and the sealed record's state is EXECUTED (the state
-       machine's terminal step). Both rows get one plain label, the same one,
-       and each keeps its raw server word beside it, so the two can be matched
-       without anything being renamed. */
-    var CONFIRM_LABELS = {
-      PLANNED: AUDIT_LABELS.EXECUTED,
+      EXPIRED: "lease expired",
       REFUSED: "refused"
     };
 
-    function confirmLabel(status) {
-      return CONFIRM_LABELS[status] || String(status).toLowerCase();
+    function auditLabel(state, outcome) {
+      if (state === "EXECUTED") {
+        var said = String(outcome || "");
+        if (/^SUBMITTED /.test(said)) { return "submitted to GitHub"; }
+        if (/nothing was executed/.test(said)) { return AUDIT_LABELS.RELEASED_NOT_RUN; }
+        return "executed";
+      }
+      return AUDIT_LABELS[state] || String(state).toLowerCase().replace(/_/g, " ");
     }
 
     async function refreshAudit() {
@@ -3017,10 +3012,9 @@
           return;
         }
         data.records.slice().reverse().forEach(function (record) {
-          var row = el("li", null, auditLabel(record.state) + " (server state name: ");
-          row.appendChild(el("code", null, record.state));
-          row.appendChild(document.createTextNode(")   " + record.action + "   " + record.command
-            + "   hash " + String(record.payload_hash).slice(0, 12)));
+          var row = el("li", null, auditLabel(record.state, record.outcome) + "   "
+            + record.action + "   " + record.command
+            + "   hash " + String(record.payload_hash).slice(0, 12));
           list.appendChild(row);
         });
       } catch (error) {
@@ -3084,8 +3078,7 @@
         var pane = clear($("govPane"));
         pane.appendChild(govRows([
           ["Verdict", approved ? "accepted" : "refused"],
-          ["Outcome", confirmLabel(confirmed.data.status) + " (server status name: "
-            + confirmed.data.status + (approved ? "; the audit log names the same outcome EXECUTED)" : ")")],
+          ["Outcome", auditLabel(confirmed.data.status)],
           ["Refusal code", confirmed.data.refusal_code || "none"],
           ["Round trip", confirmed.elapsedMs.toFixed(1) + " ms"]
         ]));

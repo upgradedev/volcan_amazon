@@ -210,7 +210,7 @@ def test_governed_action_can_be_confirmed_after_cold_start_but_never_twice():
     ))
     assert replay.refusal_code == "NOT_PENDING"
     assert replay_executor.calls == []
-    assert third.get_action("cold-action").state is ActionState.EXECUTED
+    assert third.get_action("cold-action").state is ActionState.RELEASED_NOT_RUN
 
 
 def test_voice_session_action_and_owner_binding_survive_cold_start():
@@ -232,7 +232,7 @@ def test_voice_session_action_and_owner_binding_survive_cold_start():
         "voice-session", "developer", "octo/demo", "approve_action",
         {"approval_grant": staged["approval_grant"], "approver_id": "reviewer"},
     )
-    assert result["status"] == "PLANNED"
+    assert result["status"] == "RELEASED_NOT_RUN"
     assert execution.calls == ["pytest tests/unit"]
 
     wrong_owner = voice_use_case(table, RecordingExecutor())
@@ -598,7 +598,7 @@ def test_lost_finalize_response_is_recognized_idempotently():
     ))
     assert result.approved is True
     assert executor.calls == ["pytest"]
-    assert state(table).get_action("governed", "finalize-response").state is ActionState.EXECUTED
+    assert state(table).get_action("governed", "finalize-response").state is ActionState.RELEASED_NOT_RUN
     records = audit(table).list_records([PUBLIC_DEMO_AUDIT_SCOPE])
     assert len(records) == 1
 

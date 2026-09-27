@@ -368,6 +368,12 @@ sequenceDiagram
     Volcan-->>Dev: earcon plus "nothing was executed, the approved plan is ..."
 ```
 
+A released plan is stored with the state `RELEASED_NOT_RUN`, and the confirm response carries
+the same word as its `status`, so the response and the audit record name one outcome with one
+word; the page prints it as "released to you, nothing run". `EXECUTED` is kept for a review
+that was really submitted to GitHub, and for plans sealed before this state existed, whose
+`outcome` text still reads "Dry run only, nothing was executed."
+
 A grant is refused when its signature is altered, when it was minted for a different action,
 when the command changed after it was issued, when the lease elapsed, and when it has already
 been used once. Each of those refusals has its own test in

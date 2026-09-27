@@ -85,7 +85,7 @@ def test_full_accessible_developer_journey():
     })
     assert confirm.status_code == 200
     res_confirm = confirm.json()
-    assert res_confirm["status"] == "PLANNED"
+    assert res_confirm["status"] == "RELEASED_NOT_RUN"
     assert res_confirm["earcon_type"] == "ACTION_COMMITTED"
     assert "nothing was executed" in res_confirm["output"]
     assert "pytest tests/unit" in res_confirm["output"]

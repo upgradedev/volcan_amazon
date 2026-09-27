@@ -77,7 +77,7 @@ def test_an_anonymous_judge_gets_the_whole_journey_from_a_durable_server():
 
         audit = get("/api/audit_log").json()
         assert [row["command"] for row in audit["records"]] == ["git diff HEAD"]
-        assert audit["records"][0]["state"] == "EXECUTED"
+        assert audit["records"][0]["state"] == "RELEASED_NOT_RUN"
 
         turn = {"session_id": "e2e-voice", "user_id": "judge", "repository": "octo/demo"}
         staged = post("/api/voice_turn", {**turn, "intent": "stage_action", "params": {
@@ -87,7 +87,7 @@ def test_an_anonymous_judge_gets_the_whole_journey_from_a_durable_server():
         approved = post("/api/voice_turn", {**turn, "intent": "approve_action", "params": {
             "approval_grant": staged.json()["approval_grant"],
         }})
-        assert approved.json()["status"] == "PLANNED", approved.text
+        assert approved.json()["status"] == "RELEASED_NOT_RUN", approved.text
 
         review = post("/api/review/turn", {
             "session_id": "e2e-review", "user_id": "judge", "transcript": "open",

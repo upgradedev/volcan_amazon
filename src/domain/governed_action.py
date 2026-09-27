@@ -18,6 +18,12 @@ class ActionState(str, Enum):
     PENDING_APPROVAL = "PENDING_APPROVAL"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
+    #: A governed command a human approved, handed back as a plan by the
+    #: dry-run planner. Nothing ran, and the stored word says so.
+    RELEASED_NOT_RUN = "RELEASED_NOT_RUN"
+    #: Something left this process: a review that was really submitted to
+    #: GitHub. Records sealed before RELEASED_NOT_RUN existed also carry it
+    #: for a released plan, so it stays decodable.
     EXECUTED = "EXECUTED"
     FAILED = "FAILED"
     EXPIRED = "EXPIRED"
