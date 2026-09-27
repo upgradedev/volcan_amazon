@@ -588,3 +588,26 @@ def test_a_refused_grant_travels_as_content_not_as_an_error():
     detail = json.loads(result["content"][-1]["text"])
     assert detail["approved"] is False
     assert detail["refusal_code"] in {"BAD_SIGNATURE", "MALFORMED"}
+
+
+@pytest.mark.parametrize("requested", ["2025-03-26", "2025-06-18", "2025-11-25"])
+def test_a_supported_requested_revision_is_answered_with_that_same_revision(requested):
+    """The lifecycle rule: support the requested revision, answer with it.
+
+    Amazon documents its Alexa+ MCP client initializing with 2025-03-26. Until
+    2026-09-27 this server answered 2025-11-25 to every request.
+    """
+    response = client.post("/mcp", json={
+        "jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"protocolVersion": requested, "capabilities": {}},
+    })
+    assert response.json()["result"]["protocolVersion"] == requested
+    assert response.headers["mcp-protocol-version"] == requested
+
+
+def test_an_unsupported_requested_revision_is_answered_with_the_latest():
+    response = client.post("/mcp", json={
+        "jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"protocolVersion": "2024-11-05", "capabilities": {}},
+    })
+    assert response.json()["result"]["protocolVersion"] == PROTOCOL_VERSION

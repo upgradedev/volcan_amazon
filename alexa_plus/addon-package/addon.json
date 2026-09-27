@@ -1,0 +1,60 @@
+{
+  "manifestVersion": "1.0",
+  "storeListing": {
+    "distributionCountries": ["US"],
+    "locales": {
+      "en-US": {
+        "default": "DEFAULT",
+        "name": {
+          "value": "Volcan"
+        },
+        "shortDescription": "Hear the riskiest change in a code patch first. Built for blind and low-vision developers.",
+        "fullDescription": "Volcan reviews a code patch or a public GitHub pull request by ear. It says the security finding first in one sentence, for example that an authorization comparison was inverted, then reads the exact changed lines on request with their line numbers. A request-changes review is staged as a dry run and needs a single-use approval from a person before anything is sent. Volcan is built for blind and low-vision software developers reviewing code that an AI agent wrote.",
+        "examplePhrases": [
+          "Open pull request 6710 in psf requests and tell me the riskiest change",
+          "What changed in the auth file",
+          "Read me the changed lines",
+          "Request changes because the admin check is inverted"
+        ],
+        "privacyAndCompliance": {
+          "privacyPolicyUrl": "https://owner-to-fill.invalid/privacy",
+          "termsOfUseUrl": "https://owner-to-fill.invalid/terms"
+        },
+        "mediaAssets": {
+          "icons": {
+            "light": [
+              {"size": "72x72", "uri": "https://owner-to-fill.invalid/icon-72x72.png"},
+              {"size": "64x64", "uri": "https://owner-to-fill.invalid/icon-64x64.png"},
+              {"size": "88x88", "uri": "https://owner-to-fill.invalid/icon-88x88.png"},
+              {"size": "126x126", "uri": "https://owner-to-fill.invalid/icon-126x126.png"},
+              {"size": "180x180", "uri": "https://owner-to-fill.invalid/icon-180x180.png"},
+              {"size": "241x241", "uri": "https://owner-to-fill.invalid/icon-241x241.png"}
+            ],
+            "dark": []
+          },
+          "carouselImages": [
+            {
+              "uri": "https://owner-to-fill.invalid/carousel-1.png",
+              "altText": "A two-line patch that turns an admin check from equals to not equals, and the spoken finding: an authorization comparison was inverted",
+              "size": "600x900"
+            }
+          ],
+          "bannerImages": []
+        }
+      }
+    }
+  },
+  "integrations": [
+    {
+      "type": "MCP",
+      "config": {
+        "endpoints": {
+          "default": {
+            "type": "HTTPS",
+            "uri": "https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/mcp"
+          }
+        }
+      }
+    }
+  ]
+}

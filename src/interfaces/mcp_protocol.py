@@ -263,7 +263,13 @@ class McpDispatcher:
         requested = params.get("protocolVersion")
         if requested is not None and not isinstance(requested, str):
             raise JsonRpcError(INVALID_PARAMS, "'protocolVersion' must be a string.")
-        negotiated = PROTOCOL_VERSION
+        # The lifecycle rule: a server that supports the requested revision
+        # answers with that same revision, and only otherwise names its own.
+        # Volcan used to answer 2025-11-25 to everyone, so a client that asked
+        # for 2025-03-26, as Amazon documents its Alexa+ MCP client doing, was
+        # told a revision it had not asked for while this server accepted the
+        # older one in its version header all along.
+        negotiated = requested if requested in SUPPORTED_PROTOCOL_VERSIONS else PROTOCOL_VERSION
 
         result: dict[str, Any] = {
             "protocolVersion": negotiated,
