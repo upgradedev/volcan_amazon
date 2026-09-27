@@ -80,3 +80,11 @@ def test_published_detection_numbers_match_the_benchmark_script():
     assert measured["recall_pct"] == 81.8
     assert measured["false_positive_pct"] == 0.0
     assert set(measured["missed_fixture_ids"]) == KNOWN_MISSES
+
+
+def test_the_python_files_only_figure_is_printed_and_pinned():
+    """36 of the 40 patches are Python files; pos-06, pos-22, neg-04 and neg-12 are not."""
+    python_only = measure_security_detection()["python_files_only"]
+    assert (python_only["should_flag"], python_only["detected"]) == (20, 17)
+    assert (python_only["should_not_flag"], python_only["over_flagged"]) == (16, 0)
+    assert python_only["recall_pct"] == 85.0

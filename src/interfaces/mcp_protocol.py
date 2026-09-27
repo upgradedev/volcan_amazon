@@ -28,7 +28,13 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 PROTOCOL_VERSION = "2025-11-25"
-SUPPORTED_PROTOCOL_VERSIONS = (PROTOCOL_VERSION, "2025-06-18", "2025-03-26")
+#: The revisions this server honours. 2025-03-26 was listed here until
+#: 2026-09-27 and is not honoured: that revision has no MCP-Protocol-Version
+#: header, which this server requires after initialize, and it requires a
+#: server to accept JSON-RPC batches, which this server refuses. A client that
+#: asks for it is answered with PROTOCOL_VERSION, as the lifecycle rule directs
+#: for a revision the server does not support.
+SUPPORTED_PROTOCOL_VERSIONS = (PROTOCOL_VERSION, "2025-06-18")
 
 SERVER_NAME = "volcan-accessible-forge"
 SERVER_VERSION = "0.1.0"
@@ -264,11 +270,10 @@ class McpDispatcher:
         if requested is not None and not isinstance(requested, str):
             raise JsonRpcError(INVALID_PARAMS, "'protocolVersion' must be a string.")
         # The lifecycle rule: a server that supports the requested revision
-        # answers with that same revision, and only otherwise names its own.
-        # Volcan used to answer 2025-11-25 to everyone, so a client that asked
-        # for 2025-03-26, as Amazon documents its Alexa+ MCP client doing, was
-        # told a revision it had not asked for while this server accepted the
-        # older one in its version header all along.
+        # answers with that same revision, and otherwise names another one it
+        # supports. A client asking for 2025-03-26, as Amazon documents its
+        # Alexa+ MCP client doing, is answered 2025-11-25; a client that also
+        # speaks 2025-11-25 then sends that revision's header and is served.
         negotiated = requested if requested in SUPPORTED_PROTOCOL_VERSIONS else PROTOCOL_VERSION
 
         result: dict[str, Any] = {

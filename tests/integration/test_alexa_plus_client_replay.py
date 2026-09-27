@@ -31,9 +31,12 @@ def _post(payload, headers):
 
 
 @pytest.mark.parametrize("version", envelopes.DOCUMENTED_VERSIONS)
-def test_the_documented_session_with_the_version_header_names_the_finding(version):
-    run = replay(_post, version, send_version_header=True)
-    assert run["negotiated"] == version
+def test_a_spec_following_client_completes_the_documented_session_and_hears_the_finding(version):
+    """Whichever documented revision it asks for, it is answered 2025-11-25,
+    adopts it, sends that revision's header, and the digest names the finding."""
+    run = replay(_post, version, client="spec")
+    assert run["negotiated"] == "2025-11-25"
+    assert run["version_header_sent"]
     assert [step["ok"] for step in run["steps"]] == [True, True, True, True]
     listed = run["steps"][2]["body"]["result"]["tools"]
     assert "digest_semantic_diff" in {tool["name"] for tool in listed}
@@ -41,9 +44,10 @@ def test_the_documented_session_with_the_version_header_names_the_finding(versio
 
 
 @pytest.mark.parametrize("version", envelopes.DOCUMENTED_VERSIONS)
-def test_without_the_version_header_every_request_after_initialize_is_refused(version):
-    """Recorded, not endorsed: a 2025-03-26 client never sends this header."""
-    run = replay(_post, version, send_version_header=False)
+def test_a_client_that_never_sends_the_version_header_is_refused_after_initialize(version):
+    """Recorded, not endorsed: a client that only knows 2025-03-26 never sends it."""
+    run = replay(_post, version, client="never")
+    assert not run["version_header_sent"]
     assert run["steps"][0]["ok"]
     for step in run["steps"][1:]:
         assert not step["ok"]

@@ -590,12 +590,12 @@ def test_a_refused_grant_travels_as_content_not_as_an_error():
     assert detail["refusal_code"] in {"BAD_SIGNATURE", "MALFORMED"}
 
 
-@pytest.mark.parametrize("requested", ["2025-03-26", "2025-06-18", "2025-11-25"])
+@pytest.mark.parametrize("requested", ["2025-06-18", "2025-11-25"])
 def test_a_supported_requested_revision_is_answered_with_that_same_revision(requested):
     """The lifecycle rule: support the requested revision, answer with it.
 
-    Amazon documents its Alexa+ MCP client initializing with 2025-03-26. Until
-    2026-09-27 this server answered 2025-11-25 to every request.
+    Until 2026-09-27 this server answered 2025-11-25 to every request, even to a
+    client that asked for 2025-06-18, which it supports.
     """
     response = client.post("/mcp", json={
         "jsonrpc": "2.0", "id": 1, "method": "initialize",
@@ -611,3 +611,22 @@ def test_an_unsupported_requested_revision_is_answered_with_the_latest():
         "params": {"protocolVersion": "2024-11-05", "capabilities": {}},
     })
     assert response.json()["result"]["protocolVersion"] == PROTOCOL_VERSION
+
+
+def test_2025_03_26_is_not_offered_because_this_server_does_not_honour_it():
+    """That revision has no version header and requires batch support.
+
+    Amazon documents its Alexa+ MCP client asking for 2025-03-26. The server
+    answers with its own revision, and a client on it then sends the header.
+    """
+    response = client.post("/mcp", json={
+        "jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"protocolVersion": "2025-03-26", "capabilities": {}},
+    })
+    assert response.json()["result"]["protocolVersion"] == PROTOCOL_VERSION
+    session_id = response.headers["mcp-session-id"]
+    refused = client.post(
+        "/mcp", headers={"Mcp-Session-Id": session_id, "MCP-Protocol-Version": "2025-03-26"},
+        json={"jsonrpc": "2.0", "id": 2, "method": "ping"},
+    )
+    assert refused.json()["error"]["code"] == INVALID_REQUEST

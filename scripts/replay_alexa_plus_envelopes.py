@@ -7,12 +7,16 @@ request bodies Amazon documents for its Alexa+ MCP client
 Volcan MCP endpoint and prints what came back and how long each round trip
 took, beside the documented requirement of a round trip under 500 ms.
 
-The documentation shows bodies, not headers, so each protocol revision is
-replayed twice: once with no ``MCP-Protocol-Version`` header after initialize,
-and once with it set to the negotiated revision. A client on revision
-2025-03-26 has no reason to send that header, because the header arrived in a
-later revision, and Volcan refuses a request without it. The replay prints
-that refusal rather than hiding it.
+The documentation shows bodies, not headers, so each requested revision is
+replayed by two kinds of client:
+
+* spec: adopts the revision the server answers with, and sends the
+  ``MCP-Protocol-Version`` header when that revision defines one (2025-06-18
+  and later; 2025-03-26 had no such header). This is a client that speaks
+  2025-11-25 as well, which Amazon's overview implies by naming 2025-11-25.
+* never: never sends the header, as a client that only knows 2025-03-26
+  would. Volcan refuses every request after initialize from such a client, and
+  the replay prints that refusal rather than hiding it.
 
 Run command:
     python -m src.interfaces.mcp_server --port 8743      # terminal 1
@@ -84,8 +88,19 @@ def _summary(body: object) -> tuple[bool, str]:
     return True, "accepted"
 
 
-def replay(post: Post, protocol_version: str, send_version_header: bool) -> dict:
-    """One documented session: initialize, initialized, tools/list, tools/call."""
+#: Revisions that define the MCP-Protocol-Version header.
+REVISIONS_WITH_VERSION_HEADER = ("2025-06-18", "2025-11-25")
+
+CLIENTS = ("spec", "never")
+
+
+def replay(post: Post, protocol_version: str, client: str) -> dict:
+    """One documented session: initialize, initialized, tools/list, tools/call.
+
+    ``client`` is "spec" or "never", as the module docstring describes.
+    """
+    if client not in CLIENTS:
+        raise ValueError(f"client must be one of {CLIENTS}")
     steps: list[dict] = []
     headers: dict[str, str] = {}
 
@@ -104,7 +119,7 @@ def replay(post: Post, protocol_version: str, send_version_header: bool) -> dict
     if session:
         headers["Mcp-Session-Id"] = session
     negotiated = ((first["body"] or {}).get("result") or {}).get("protocolVersion") if isinstance(first["body"], dict) else None
-    if send_version_header and negotiated:
+    if client == "spec" and negotiated in REVISIONS_WITH_VERSION_HEADER:
         headers["MCP-Protocol-Version"] = negotiated
     step("notifications/initialized", envelopes.initialized_notification())
     step("tools/list", envelopes.tools_list())
@@ -115,7 +130,8 @@ def replay(post: Post, protocol_version: str, send_version_header: bool) -> dict
         text = next((b.get("text", "") for b in content if b.get("type") == "text"), "")
     return {
         "protocol_version": protocol_version,
-        "version_header_sent": send_version_header,
+        "client": client,
+        "version_header_sent": "MCP-Protocol-Version" in headers,
         "negotiated": negotiated,
         "steps": steps,
         # The first text block is the spoken digest; the finding leads it.
@@ -135,13 +151,15 @@ def main(argv: list[str] | None = None) -> int:
     print("not certified or deployed; needs the owner's Amazon developer account. Alexa+ did not send these.")
     print(f"Source: {envelopes.SOURCE_URL} (fetched {envelopes.FETCHED_ON}). Target: {args.url}")
     for _ in range(args.warmups):
-        replay(post, "2025-11-25", True)
+        replay(post, "2025-11-25", "spec")
     worst = 0
     for version in envelopes.DOCUMENTED_VERSIONS:
-        for with_header in (False, True):
-            run = replay(post, version, with_header)
-            label = "with MCP-Protocol-Version" if with_header else "headers as documented (none)"
-            print(f"\n[{version}, {label}]")
+        for client in CLIENTS:
+            run = replay(post, version, client)
+            label = ("spec-following client" if client == "spec"
+                     else "client that never sends MCP-Protocol-Version")
+            print(f"\n[asks for {version}, {label}; answered {run['negotiated']}; "
+                  f"header sent: {'yes' if run['version_header_sent'] else 'no'}]")
             for record in run["steps"]:
                 mark = "ok  " if record["ok"] else "FAIL"
                 print(f"  {mark} {record['step']}: HTTP {record['status']}, {record['round_trip_ms']} ms; {record['summary']}")
