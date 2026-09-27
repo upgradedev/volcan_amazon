@@ -161,9 +161,10 @@ shown), `submitted` (only when the server runs with `VOLCAN_GITHUB_WRITE=1` and 
 `GITHUB_TOKEN`), or `refused` with the reason, `STALE_HEAD` when the pull request moved after
 you reviewed it. Section [The review journey](#the-review-journey) has the whole grammar.
 
-Requires Python 3.11 or newer. The repository is private until the submission window opens,
-so `git clone` works for an account with access and otherwise starts from the submitted
-archive.
+Requires Python 3.11 or newer. The repository is private, so `git clone` needs access. The
+[hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) rule for a private repository: "Add the Amazon and
+Devpost reviewers as collaborators before the submission deadline". That is an owner step. The
+MIT licence stays in [LICENSE](../LICENSE).
 
 ---
 
@@ -181,12 +182,15 @@ content blocks carrying the synthesized earcons.
 and prints a pass or fail line for each of its 22 conformance checks.
 
 **The road to Alexa+ is an add-on package, built and tested locally, not certified or
-deployed; it needs the owner's Amazon developer account.** Amazon's route for a service like
+deployed, because the add-on tools are partner-only.** Amazon's route for a service like
 this is an MCP add-on, in which Alexa+ is the MCP client of this same server. The add-on
 manifest is in the repository and a replay of Amazon's documented client requests runs against
 the server, but no add-on has been deployed and Alexa+ has never called Volcan: no skill, no
-Alexa+ connection, no Echo run. The hackathon FAQ says participants cannot get access to the
-MCP Toolkit, so an account is not enough: deployment waits on Amazon granting that access.
+Alexa+ connection, no Echo run. The [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) says the add-on tools,
+the MCP Toolkit among them, are "available to select partners only", and "You do not need
+these tools for your submission: build a self-hosted MCP server (or Agent Skill) per the
+Official Rules, and demo it via your own web-based simulator or front end." Volcan is that
+shape: this server and the companion page. Deploying the add-on waits on Amazon granting access.
 [Road to Alexa+](#road-to-alexa) has the sources, what was built, what the replay found and
 what only the owner can do. The page says so in a band below
 its first screen and draws the add-on as a dashed box in its Evidence tab. Until 2026-09-27
@@ -1285,9 +1289,11 @@ simulator in isolation mode, and record which headers the real client sends.
 * **No Alexa skill, and an Alexa+ add-on that has never run.** No skill package is submitted,
   no certification has been sought, and nothing has been tested on an Echo device. The Alexa+
   claim is the MCP server, an MCP add-on package built and tested locally, not certified or
-  deployed, which needs the owner's Amazon developer account (see [Road to Alexa+](#road-to-alexa)),
+  deployed, because the add-on tools are partner-only (see [Road to Alexa+](#road-to-alexa)),
   and a web companion that simulates the voice experience and says so on screen, in the
-  header paragraph with id `notASkill`, which a test now holds in place.
+  header paragraph with id `notASkill`, which a test now holds in place. That server and
+  companion are the submission shape the [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) asks for, and for
+  this track it says "no physical device needed".
 * **No live GitHub review has been sent from this repository.** The write path in
   [`src/infrastructure/github_review_adapter.py`](../src/infrastructure/github_review_adapter.py)
   is real code, shape-tested against `httpx.MockTransport` for the accepted review, the stale

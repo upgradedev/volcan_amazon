@@ -17,7 +17,8 @@ that is a dry run by default and needs a single-use approval grant from a human.
 **Amazon technology.** A hand-written Model Context Protocol server (revision 2025-11-25),
 the interface an Alexa+ MCP add-on would call. The add-on package for it is in
 [`alexa_plus/`](alexa_plus/addon-package/addon.json), built and tested locally, not certified
-or deployed; needs the owner's Amazon developer account. With AWS credentials and the `bedrock` extra,
+or deployed: the [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) says Amazon's Alexa+ add-on tools are
+"available to select partners only". With AWS credentials and the `bedrock` extra,
 Volcan sends the digest request to Claude on Amazon Bedrock; otherwise, or when the call fails,
 a local deterministic engine answers and the response says why. No Bedrock answer has been
 recorded yet. The public endpoint is an AWS Lambda in eu-west-1, and [`infra/`](infra/) declares
@@ -26,17 +27,21 @@ a Lambda with a function URL and a DynamoDB table in Terraform.
 **Honest status.** *Real:* the MCP server, the spoken digest, the earcon, the Braille, the live
 GitHub read, the grants and the hash-chained audit log. *Simulated:* the voice loop is the
 browser's own speech recognition and synthesis, labelled on the page as not an Alexa skill.
-*Missing:* any Alexa+ connection or Echo test (the add-on package has never been deployed or
-called by Alexa+), a published demo video (a render of a local
+*Submission shape:* a self-hosted MCP server demoed through its own web front end, which is
+what the [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) asks for: "build a self-hosted MCP server (or Agent
+Skill) per the Official Rules, and demo it via your own web-based simulator or front end."
+*Not possible for participants:* deploying the add-on package, because the add-on tools are
+partner-only (FAQ), so Alexa+ has never called Volcan. *Not tested:* an Echo device; the FAQ
+says "no physical device needed". *Missing:* a published demo video (a render of a local
 run exists, pending upload), a live GitHub write, a recorded Bedrock answer, and a public build
-that shows this version.
+that shows this version (for this track the FAQ says "hosting isn't required").
 
 | | |
 |---|---|
 | **Live endpoint** | [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health) serves revision `2d0b8f8`, which is **behind this branch** (43 commits behind `6d2e227`, checked 2026-09-27). It shows an older page, its spoken summary (`voice_summary`) does not name the inverted check although its `critical_findings` field does, and its Bedrock call is refused as not authorized, so the local engine answers. [Details](docs/EVIDENCE.md#the-public-deployment). |
 | **Run it** | [Run it locally](#run-it-locally), no cloud account needed |
 | **Evidence** | [docs/EVIDENCE.md](docs/EVIDENCE.md): every claim with the command that prints it |
-| **Source** | Private until the submission window opens; until then, start from the submitted archive |
+| **Source** | A private repository. The [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) rule for one: "Add the Amazon and Devpost reviewers as collaborators before the submission deadline", which gives them clone access. That is an owner step. The MIT licence is in [LICENSE](LICENSE) |
 
 ## Table of Contents
 
@@ -157,7 +162,7 @@ its URL and type `open`; the full command list is in
 | Digest by Claude on Amazon Bedrock | Real code with a stated fallback. A provider failure returns a fixed public category; raw account, role and request identifiers never enter the anonymous response. No Bedrock answer has been recorded: locally the SDK was absent, and the public build's call is refused as not authorized | `python -m pytest tests/unit/test_bedrock_synthesis_path.py -v` |
 | Voice loop | Simulated: the browser's speech, not an Alexa skill, and no test drives a microphone | [Evidence](docs/EVIDENCE.md#what-is-true-and-what-is-simulated) |
 | Shared durable state | In the code and the Terraform, not deployed; a local run keeps state in memory | The `durable_state` field of `GET /health` says which |
-| Alexa+ MCP add-on package | Built and tested locally, not certified or deployed; needs the owner's Amazon developer account. The hackathon FAQ says participants cannot get MCP Toolkit access. A replay of Amazon's documented Alexa+ client requests, against a local build of this commit and not the registered endpoint (which runs an older build), gets the finding back from a client that follows the protocol's version rules or declares the revision it asked for, and is refused for a client that never sends the version header. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
+| Alexa+ MCP add-on package | Built and tested locally, not certified or deployed: the hackathon FAQ says the add-on tools are "available to select partners only", so participants cannot deploy it. A replay of Amazon's documented Alexa+ client requests, against a local build of this commit and not the registered endpoint (which runs an older build), gets the finding back from a client that follows the protocol's version rules or declares the revision it asked for, and is refused for a client that never sends the version header. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
 | Demo video | Rendered locally from a run of `de30b11`, pending upload; no public link yet | [video/README.md](video/README.md) |
 | Test suite | 631 passing, 92.11% statement coverage, 2026-09-27 | `python -m pytest tests/ -q --cov=src` |
 
@@ -175,21 +180,24 @@ accessible. No buyer has been interviewed, and there is no price and no market s
 because none has been measured. The reasoning and the first ten organisations to ask are in
 [the evidence](docs/EVIDENCE.md#who-would-buy-this-and-out-of-which-budget).
 
-**Road to Alexa+: an add-on package, built and tested locally, not certified or deployed;
-needs the owner's Amazon developer account.** Amazon's route for a service outside its fixed
+**Road to Alexa+: an add-on package, built and tested locally, not certified or deployed,
+because the add-on tools are partner-only.** Amazon's route for a service outside its fixed
 categories is an MCP add-on: Alexa+ would be the MCP client of this same server, and would
 write the spoken reply from what the tools return. [`alexa_plus/addon-package/addon.json`](alexa_plus/addon-package/addon.json)
 is that manifest, checked against Amazon's documented schema; the privacy page, terms page,
-icons and carousel image are placeholders for the owner to host. The hackathon FAQ says the
-MCP Toolkit is for select partners only and that participants cannot get access, so an account
-is not enough: deploying it waits on Amazon granting that access. Replaying Amazon's
+icons and carousel image are placeholders for the owner to host. The
+[hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) says the add-on tools, the MCP Toolkit among them, are
+"available to select partners only", and "You do not need these tools for your submission".
+Volcan is the shape it asks for instead, a self-hosted MCP server with its own web front end.
+Deploying the add-on waits on Amazon granting access. Replaying Amazon's
 documented client requests, against a local build of this commit rather than the registered
 endpoint, found that the server listed protocol revision 2025-03-26, which Amazon's example
 client asks for, without honouring it. It no longer offers that revision, and still serves a
 client that declares it in its header; the first version of that fix refused one. One risk
 stays open: a client that never sends the `MCP-Protocol-Version` header is refused after
 initialize.
-There is no Alexa skill, no certification and no test on an Echo device.
+There is no Alexa skill, no certification and no test on an Echo device; for this track the
+FAQ says "no physical device needed".
 
 ## The full evidence
 

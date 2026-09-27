@@ -700,13 +700,15 @@ def test_the_page_loads_nothing_from_the_network():
     html = read_html()
     # Anything the page loads: a src anywhere, or an href on a stylesheet,
     # preload or icon <link>. A plain <a href> is a navigation the reader
-    # chooses, not a load; the page cites its one legal source that way.
+    # chooses, not a load; the page cites its one legal source and the
+    # hackathon FAQ that way.
     # first_screen_runner.py offline aborts and counts every outside request.
     external = re.findall(r'src="(https?://[^"]+)"', html)
     external += re.findall(r'<link[^>]*href="(https?://[^"]+)"', html)
     assert external == [], f"external asset references: {external}"
     anchors = re.findall(r'<a [^>]*href="(https?://[^"]+)"', html)
-    assert all(url.startswith("https://eur-lex.europa.eu/") for url in anchors), anchors
+    cited = ("https://eur-lex.europa.eu/", "https://amazonappdev2026.devpost.com/details/faqs")
+    assert all(url.startswith(cited) for url in anchors), anchors
     assert "cdn." not in html and "googleapis" not in html
 
 
@@ -821,20 +823,24 @@ def test_the_buyer_and_the_alexa_path_are_labelled_as_what_they_are():
     buyer is a hypothesis with nobody interviewed, and the Alexa+ add-on package
     is built and tested locally, not certified or deployed, and has never been
     called by Alexa+. Until 2026-09-27 the band said "not built", which was true
-    then. The one date quoted is Article 31(2) of the Directive, linked beside it."""
+    then. Later that day "needs the owner's Amazon developer account" gave way to
+    the hackathon FAQ's reason it cannot be deployed: the add-on tools are
+    "available to select partners only". The one date quoted is Article 31(2) of
+    the Directive, linked beside it."""
     html = read_html()
     who = html.split('id="who"', 1)[1].split("</section>", 1)[0]
     assert "hypothesis" in who and "No buyer has been" in who and "no price" in who
-    label = " ".join("""built
-              and tested locally, not certified or deployed; needs the owner's Amazon
-              developer account""".split())
+    label = "built and tested locally, not certified or deployed"
     assert label in " ".join(who.split())
+    assert '"available to select partners only"' in " ".join(who.split())
+    assert "amazonappdev2026.devpost.com/details/faqs" in who
     assert "Alexa+ has never called" in " ".join(who.split())
     assert "no Alexa skill" in who and "no test on an Echo device" in who
     assert "28 June 2025" in who and "eur-lex.europa.eu" in who and "Article 31" in who
     assert html.index('id="who"') > html.index('id="runReview"'), "the band sits below the first screen"
     strip = html.split('class="path-strip"', 1)[1].split("</figure>", 1)[0]
     assert "path-box planned" in strip and "not certified or deployed" in strip
+    assert "partner-only (hackathon FAQ)" in strip
     assert "never run against Alexa+" in strip
 
 

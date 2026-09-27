@@ -279,8 +279,10 @@ E4 report red until footage exists.
 **Deployed.** On 2026-09-23 the public endpoint served `GET /health`, the current companion,
 the REST digest and MCP initialize/tool calls. Health exposes the immutable source revision.
 A governed action remained a dry-run and its bounded EMF records were read back from
-CloudWatch. An Alexa+ add-on deployment, Alexa skill certification, Echo testing and a live
-GitHub write remain absent.
+CloudWatch. A live GitHub write remains absent. An Alexa+ add-on deployment is absent because
+the add-on tools are partner-only ([hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs)). No Alexa skill has been
+certified and nothing has run on an Echo device; for this track the FAQ says "no physical
+device needed".
 
 ---
 
@@ -321,9 +323,11 @@ does and does not compound, is in `docs/EVIDENCE.md`.
 ## Track and mini challenge
 
 * **Track: Alexa+.** Claimed as a real MCP server that an Alexa+ MCP add-on would call, plus an
-  explicitly simulated voice web experience. The add-on package in `alexa_plus/` is built and
-  tested locally, not certified or deployed; needs the owner's Amazon developer account, and
-  the hackathon FAQ says participants cannot get MCP Toolkit access. A replay of Amazon's
+  explicitly simulated voice web experience. That is the shape the
+  [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) asks for: "build a self-hosted MCP server (or
+  Agent Skill) per the Official Rules, and demo it via your own web-based simulator or front
+  end." The add-on package in `alexa_plus/` is built and tested locally, not certified or
+  deployed, because the FAQ says the add-on tools are "available to select partners only". A replay of Amazon's
   documented Alexa+ client requests, against a local build and not the registered endpoint,
   gets the finding back from a client that follows the protocol's version rules or declares
   the revision it asked for, and is refused for one that never sends the version header. Alexa+ has never called Volcan. The claim is the protocol work, not a
@@ -338,7 +342,7 @@ does and does not compound, is in `docs/EVIDENCE.md`.
 
 1. **Deploy the Alexa+ add-on, if Amazon grants MCP Toolkit access**, which the hackathon FAQ
    says participants cannot get at present, so the voice experience stops being a simulation.
-   The package in `alexa_plus/` passes Amazon's documented schema locally; the gap is that
+   The package in `alexa_plus/` passes Amazon's documented schema locally; what remains is that
    access, the owner's hosted privacy page and images, a redeploy of the current commit, the
    header question the replay raised, and a test in Amazon's simulator and on an Echo device.
 2. **Send one live review** with `VOLCAN_GITHUB_WRITE=1` and a fine-grained token against a
