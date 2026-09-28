@@ -185,15 +185,18 @@ public endpoint runs an older build, as the table below says.
 
 **User.** A blind or low-vision developer reviewing code an AI agent wrote.
 
-**Buyer, a hypothesis.** The accessibility compliance owner at an organisation that must meet
-the European Accessibility Act, [Directive (EU) 2019/882](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32019L0882),
-which applies from 28 June 2025, or that sells to US federal agencies, which Section 508
-requires to make the technology they develop, procure, maintain or use accessible. The budget
-line would be accessibility remediation or workplace adjustments. The weak point, stated: that
-budget pays to make the product accessible, and Volcan makes the work of building it
-accessible. No buyer has been interviewed, and there is no price and no market size here,
-because none has been measured. The reasoning and the first ten organisations to ask are in
-[the evidence](docs/EVIDENCE.md#who-would-buy-this-and-out-of-which-budget).
+No buyer has been interviewed or contacted. The population is measured; the price is a guess
+nobody has been asked to pay. Every quote and link is in
+[the evidence](docs/EVIDENCE.md#who-would-buy-this-and-out-of-which-budget), fetched 2026-09-28.
+
+| | |
+|---|---|
+| **Population, measured** | 17,933 US software developers report a vision difficulty (90% margin +/- 2,686), 0.775% of 2.31 million: US Census Bureau, ACS 2024 microdata, reproduced by `python scripts/size_blind_developer_population.py`. The question counts anyone "blind or having serious difficulty seeing, even when wearing glasses", so it is an upper bound on screen-reader users |
+| **Price, untested hypothesis** | $24 per developer seat per month, billed annually: [CodeRabbit](https://www.coderabbit.ai/pricing)'s published annual list price for pull request review. The agent being reviewed, [Copilot Business](https://docs.github.com/en/copilot/get-started/plans), lists $19 a seat. If every one of the 17,933 bought, about $5.2 million a year in the US: small, so the sale is to the team |
+| **Wedge** | An engineering team that has switched on a coding agent and employs a blind developer who is asked to review its pull requests |
+| **Why now** | GitHub's coding agent became generally available on [25 September 2025](https://github.blog/changelog/2025-09-25-copilot-coding-agent-is-now-generally-available/): "Once Copilot is done, it will request a review from you". The European Accessibility Act, [Directive (EU) 2019/882](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32019L0882), applies from 28 June 2025 to consumer products and services, not to developer tools |
+| **Who pays** | The employer, which EU law obliges to provide "reasonable accommodation" ([Directive 2000/78/EC](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32000L0078), Article 5); US federal agencies owe disabled employees comparable access under [Section 508](https://www.section508.gov/manage/laws-and-policies/) |
+| **Riskiest assumption** | That blind developers find reviewing agent pull requests by screen reader painful enough to switch. Cheapest test: five timed sessions, own screen reader then Volcan; pass only if three of five are faster and would use it again |
 
 **Road to Alexa+: an add-on package, built and tested locally, not certified or deployed,
 because the add-on tools are partner-only.** Amazon's route for a service outside its fixed
@@ -224,7 +227,7 @@ FAQ says "no physical device needed".
 and the four preset answers, what is true and what is simulated, the architecture, the MCP
 surface and its version-header rule, the companion page's rules, the review journey's grammar,
 the whole Braille table, the measured numbers, the public deployment as checked, the known
-limitations, and the buyer hypothesis. `python ci/readiness.py` prints every readiness gate,
+limitations, and the buyer case: the measured population, the price hypothesis and the tests. `python ci/readiness.py` prints every readiness gate,
 including the ones still red and why.
 
 ## License

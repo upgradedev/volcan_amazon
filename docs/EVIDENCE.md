@@ -1451,75 +1451,196 @@ simulator in isolation mode, and record which headers the real client sends.
 
 ## Who would buy this, and out of which budget
 
-**This section is a commercial hypothesis, not a finding.** It names a buyer and the basis for
-asking them to pay. It contains no market size, no price, no revenue projection and no
-conversion rate, because none of those have been measured and an invented one would be worth
-less than the empty space.
+**This section separates what was measured from what is guessed.** The population figures are
+measured by public statistics offices, and each one is quoted below with its link. The price is
+a hypothesis nobody has been asked to pay. No buyer has been interviewed, no one has been
+contacted, and there is no revenue projection and no conversion rate. Every source was fetched
+and read on 2026-09-28; a source that could not be fetched was dropped with its figure.
 
-**The user is not the buyer, and this section is about the buyer.** The user is the blind or
-low-vision engineer who reviews agent-written patches by ear. That person almost never
-holds a budget. The person who does is the **enterprise accessibility compliance owner**: the
-accessibility programme manager, the director of accessibility engineering, or wherever a
-given organisation has parked responsibility for conformance and for workplace adjustments.
-They already sign off remediation work, already answer procurement questionnaires, and already
-own the line that pays for what disabled employees need in order to work. They are who a first
-conversation is with; the engineer is who has to want the tool afterwards, and a no from the
-engineer ends it regardless of the budget.
+### In one table
 
-**The organisation.** One that is already obliged to meet accessibility requirements and
-already employs, or wants to employ, blind and low-vision engineers. Two obligations
-create that population and are the cited basis:
+| | |
+|---|---|
+| **Users, measured** | **17,933** US civilian employed software developers report a vision difficulty (90% margin of error +/- 2,686), **0.775%** of 2,314,223 developers. US Census Bureau, American Community Survey 2024 1-year microdata; `python scripts/size_blind_developer_population.py` reproduces it. The Census question counts anyone "blind or having serious difficulty seeing, even when wearing glasses", so this is an upper bound on screen-reader users, not a count of blind developers |
+| **Price, an untested hypothesis** | **$24 per developer seat per month, billed annually ($288 a year)**, the published annual list price of CodeRabbit Essentials, a per-developer pull request review tool. Nobody has been asked to pay it |
+| **Ceiling, arithmetic on the hypothesis** | 17,933 seats x $288 = **$5.16 million a year** in the US if every one of them bought, $4.39 to $5.94 million across the margin of error. Small, and said plainly: a seat sold to one engineer at a time does not make a large business, which is why the wedge below is a team |
+| **Wedge** | An engineering team that has switched on a coding agent and employs a blind or low-vision developer who is asked to review what it writes |
+| **Why now** | GitHub made its coding agent generally available on 25 September 2025, and when done it "will request a review from you". The European Accessibility Act applies from 28 June 2025 |
+| **Who pays** | The employer, which EU law already obliges to provide reasonable accommodation (Directive 2000/78/EC, Article 5), and US federal agencies, which must give disabled employees comparable access to their technology (Section 508) |
+| **Riskiest assumption** | That these developers find reviewing agent pull requests by screen reader painful enough to change tools. Cheapest test: five timed sessions, below |
 
-* **[Directive (EU) 2019/882](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32019L0882), the European Accessibility Act**, which applies from 28 June 2025
-  to products and services placed on the EU market, computer hardware and operating systems,
-  e-commerce and several other categories. Its technical requirements are met in practice
-  through the harmonised European standard **EN 301 549**, which is also what
-  **Directive (EU) 2016/2102** puts into public sector procurement.
-* **Section 508 of the US Rehabilitation Act**, which requires information and communication
-  technology developed, procured, maintained or used by US federal agencies to be accessible.
-  The Revised 508 Standards adopt WCAG 2.0 Level AA, and US federal procurement routinely asks
-  a supplier for an Accessibility Conformance Report before signing.
+### The population, and how it was counted
 
-Those two make accessibility a condition of selling and of being sold to. Volcan is not an
-audit tool and does not help anyone pass an audit. It is aimed one step behind that: the
-engineers who do the work.
+**The user is the blind or low-vision developer.** The Census Bureau publishes employed people
+with a vision difficulty and software developers as two separate tables, and neither crosses
+them, so the cross-tab was computed from the Census Bureau's own person-level microdata.
 
-**The budget line.** Not a new one, and specifically the one the compliance owner already
-signs: **accessibility remediation and conformance spend**, the money set aside to close
-findings against ADA / WCAG 2.1 AA, Section 508 and EN 301 549, and the assistive technology
-and workplace adjustment provision that sits beside it for disabled employees. Two adjacent
-lines could also carry it: third-party audit and Accessibility Conformance Report authoring
-engagements, and per-seat developer tooling. The hypothesis is the first, because that is the
-line with a named owner, an annual figure and an existing obligation behind it, while per-seat
-developer tooling is bought by an engineering manager who has no obligation to satisfy.
+* **US developers with a vision difficulty: 17,933 (90% MOE +/- 2,686), 0.775% of developers
+  (standard error 0.071 points).** Computed on 2026-09-28 from the American Community Survey
+  2024 1-year Public Use Microdata Sample,
+  [csv_pus.zip](https://www2.census.gov/programs-surveys/acs/data/pums/2024/1-Year/csv_pus.zip):
+  3,422,888 person records, 21,808 of them civilian employed software developers, 171 of those
+  with a vision difficulty. The command is `python scripts/size_blind_developer_population.py`;
+  it streams the file and keeps nothing on disk. As a check, its weighted developer total,
+  2,314,223, falls inside the published table's margin (next bullet).
+  * The codes, from the
+    [2024 PUMS data dictionary](https://www2.census.gov/programs-surveys/acs/tech_docs/pums/data_dict/PUMS_Data_Dictionary_2024.txt):
+    occupation `1021` is ".CMM-Software Developers"; `DEYE` is "Vision difficulty", with `1`
+    ".Yes"; `ESR` `1` and `2` are ".Civilian employed, at work" and ".Civilian employed, with a
+    job but not at work".
+  * The margin, from the Census Bureau's
+    [2024 PUMS accuracy statement](https://www2.census.gov/programs-surveys/acs/tech_docs/pums/accuracy/2024AccuracyPUMS.pdf):
+    "The ACS uses a 90% confidence level margin of error. To convert from the standard error to
+    the margin of error, multiply the standard error by 1.645." The standard error uses the 80
+    replicate weights by the successive difference replicate method that statement recommends.
+  * What the question asks, from the Census Bureau's
+    [ACS disability page](https://www.census.gov/topics/health/disability/guidance/data-collection-acs.html):
+    vision difficulty means "blind or having serious difficulty seeing, even when wearing
+    glasses". That includes people who read a screen with magnification, so 17,933 is an upper
+    bound on screen-reader users. How many use a screen reader is not measured here.
+  * The records are few, 171, and the margin above is the honest width.
+* **The published tables it was checked against, ACS 2024 1-year, United States**, read through
+  the Census Bureau's table API
+  ([B24114](https://data.census.gov/api/access/data/table?id=ACSDT1Y2024.B24114&g=010XX00US),
+  [B18120](https://data.census.gov/api/access/data/table?id=ACSDT1Y2024.B18120&g=010XX00US)),
+  with labels from [api.census.gov](https://api.census.gov/data/2024/acs/acs1/groups/B18120.json):
+  * `B24114_068E`, "Estimate!!Total:!!Software developers", civilian employed population 16
+    years and over: **2,293,639** (margin +/- 30,857).
+  * `B18120_006E`, "Estimate!!Total:!!In the labor force:!!Employed:!!With a disability:!!With a
+    vision difficulty", civilian noninstitutionalized population 18 to 64 years: **2,340,078**
+    of 153,674,928 employed (`B18120_003E`), 1.52%.
+  * Developers report a vision difficulty at about half the rate of all employed adults, 0.775%
+    against 1.52%. The two universes differ (16 and over, 18 to 64), so the comparison is
+    approximate. Why the rate is lower is not known here.
+* **The European Union, universe only.** Eurostat,
+  [ICT specialists in employment](https://ec.europa.eu/eurostat/statistics-explained/index.php?title=ICT_specialists_in_employment)
+  (data extracted in April 2026): "In 2025, more than 10 million persons were employed as ICT
+  specialists across the European Union (EU)." ICT specialists are a wider group than
+  developers, and no EU share with a vision difficulty was found, so no EU user count is given.
+  Applying the US share to it would be an assumption, not a measurement.
+* **Two figures that are not the market, and why they are left out.**
+  * The World Health Organization's
+    [fact sheet on blindness and vision impairment](https://www.who.int/news-room/fact-sheets/detail/blindness-and-visual-impairment)
+    (10 February 2026): "Globally, at least 2.2 billion people have a near or distance vision
+    impairment." The same sheet says "The main condition causing near vision impairment is
+    presbyopia (826 million)", which reading glasses correct. It describes the need, not
+    developers.
+  * Amazon's [Alexa+ announcement](https://www.aboutamazon.com/news/devices/new-alexa-generative-artificial-intelligence),
+    originally published February 26, 2025: "There are over 600 million Alexa devices out there
+    today, which customers already use to play music, watch videos, and manage their smart
+    homes." That is the reach of the channel Volcan is built for, not a count of buyers.
 
-**Where that hypothesis is weakest, stated rather than smoothed over.** Remediation budgets pay
-to fix the accessibility of *the product being shipped*. Volcan makes the *work of building it*
-accessible to a disabled engineer, and it produces no Accessibility Conformance Report, closes
-no audit finding, and would not appear in a VPAT. Selling into a conformance budget therefore
-requires the buyer to accept that employing and retaining blind engineers is part of the same
-programme as conforming. Many accessibility owners hold exactly that view and some do not, and
-which is more common is not known here. If that argument fails, the fallback is the
-workplace adjustment line, which is smaller and per-employee.
+### The buyer, and the obligation behind the budget
 
-**The willingness-to-pay basis.** These organisations already pay for close comparables, and
-each of these vendors publishes its own pricing publicly, which is where the comparison should
-be argued from rather than from anything asserted here:
+**The user is not the buyer.** The engineer rarely holds a budget. The employer does, and two
+laws already oblige employers to pay for what a disabled employee needs to do the job:
 
-* **Freedom Scientific's published pricing for the JAWS screen reader**, the paid product this
-  population already licenses alongside the free NVDA.
-* **Refreshable Braille display pricing published by HumanWare and by Freedom Scientific**,
-  which these employers already buy as capital equipment for the same engineers.
-* **Deque's published pricing for axe DevTools**, the closest thing to a per-seat accessibility
-  tool bought for developers rather than for auditors.
+* **Directive 2000/78/EC, Article 5, "Reasonable accommodation for disabled persons"**
+  ([EUR-Lex](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32000L0078)):
+  "This means that employers shall take appropriate measures, where needed in a particular case,
+  to enable a person with a disability to have access to, participate in, or advance in
+  employment, or to undergo training, unless such measures would impose a disproportionate
+  burden on the employer." Member States had to transpose it by 2 December 2003 (Article 18). It
+  is an old obligation, so it explains the budget line, not the timing.
+* **Section 508 of the Rehabilitation Act, for US federal agencies.**
+  [section508.gov](https://www.section508.gov/manage/laws-and-policies/): "In 1998, Congress
+  amended the Rehabilitation Act of 1973 to require federal agencies to make their electronic
+  and information technology (EIT) accessible to people with disabilities." The statute,
+  [29 U.S.C. 794d(a)(1)(A)(i)](https://www.law.cornell.edu/uscode/text/29/794d) (Cornell LII's
+  copy of the US Code), requires that technology to allow "individuals with disabilities who are
+  Federal employees to have access to and use of information and data that is comparable to the
+  access to and use of the information and data by Federal employees who are not individuals
+  with disabilities".
 
-**No figure from any of those pages is restated here, and none has been used to derive
-anything.** What such an organisation actually pays, and what fraction of it a tool like this
-could ask for, is not known here, and finding out is the first purpose of the conversations
-below. There is no price, no market size, no revenue projection and no conversion rate in this
-section for the same reason.
+**What the European Accessibility Act does and does not do here.** Directive (EU) 2019/882
+([EUR-Lex](https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32019L0882)) covers
+products and "the following services provided to consumers after 28 June 2025" (Article 2(2)),
+and Article 31(2) says of the national measures: "They shall apply those measures from 28 June
+2025." It does not oblige anyone to make a developer tool accessible. Its effect here is
+indirect: consumer products now need accessibility engineering, which gives accessibility a
+budget owner inside the organisations that build them. Earlier versions of this section named
+the Act as the buyer's obligation, which overstated it.
 
-**The first ten to approach. None of these has been contacted.** Nothing below is a pipeline,
+**The first budget holder to ask** is whoever signs workplace adjustments, often an
+accessibility programme manager or a director of accessibility engineering. They already own
+the line that pays for what disabled employees need, and they are who a first conversation is
+with; the engineer is who has to want the tool afterwards, and a no from the engineer ends it.
+
+### The price hypothesis, and what it is anchored on
+
+**$24 per developer seat per month, billed annually. An untested hypothesis, not a finding.**
+The reasoning: the seat is bought for one engineer, so it is priced against per-developer tools
+the same employer already pays for, and the nearest of those is a tool that reviews pull
+requests. The comparables below were fetched on 2026-09-28:
+
+* **CodeRabbit, an AI pull request review tool** ([pricing](https://www.coderabbit.ai/pricing)):
+  "Essentials retains the current Pro price of $30 per developer per month, or $24 per developer
+  per month when billed annually." The hypothesis is that annual list price.
+* **GitHub Copilot Business, the coding agent whose pull requests get reviewed**
+  ([GitHub Docs, plans](https://docs.github.com/en/copilot/get-started/plans)): "Copilot Business
+  $19 USD per granted seat per month". An employer paying $19 for the agent is asked to pay $24
+  for one engineer to review its output by ear. Whether that feels right is what test 2 asks.
+* **NVDA, the screen reader** ([NV Access](https://www.nvaccess.org/about-nvda/)): "We are the
+  creators of NVDA, a free, open source, globally accessible screen reader for the blind and
+  vision impaired." A core tool of this population costs nothing, which argues against pricing
+  high.
+* **Deque axe DevTools**, an accessibility tool bought for developers
+  ([pricing](https://www.deque.com/axe/devtools/pricing/)): no bundle price is published; "You
+  can purchase Axe DevTools for Web (Bundle) by talking to one of our sales reps."
+* **Dropped:** Freedom Scientific's JAWS store answered HTTP 403 to every fetch this session, so
+  no JAWS price is used. HumanWare's Braille display prices were not fetched.
+
+**What $24 implies**, arithmetic on the hypothesis: $288 a seat a year; across all 17,933 US
+developers with a vision difficulty, $5.16 million a year, or $4.39 to $5.94 million across the
+margin of error. That is a ceiling, since every one of them would have to buy. It is small, and
+it is the argument for selling to the team rather than the seat.
+
+### The wedge, and why now
+
+**The first narrow customer:** an engineering team that has switched on a coding agent and
+employs at least one blind or low-vision developer who is asked to review its pull requests.
+The pain is new because the review request is new:
+
+* [GitHub changelog, September 25, 2025](https://github.blog/changelog/2025-09-25-copilot-coding-agent-is-now-generally-available/):
+  "Copilot coding agent, our asynchronous, autonomous developer agent, is now generally
+  available for all paid Copilot subscribers." And: "Once Copilot is done, it will request a
+  review from you, and you can ask Copilot to make changes by leaving comments on the pull
+  request."
+* [GitHub changelog, May 19, 2025](https://github.blog/changelog/2025-05-19-github-copilot-coding-agent-in-public-preview/),
+  the public preview: "Once Copilot is done, it'll tag you for review."
+
+A sighted reviewer skims that diff; a screen reader reads it one line at a time, which is the
+problem stated under [The problem](#the-problem). How often these developers are asked to review
+agent pull requests is not measured, and it is the first thing the tests below ask.
+
+### The three riskiest assumptions, and the cheapest test for each
+
+Each threshold is written down before the test, so a result cannot be argued into a pass.
+
+1. **Blind developers find reviewing agent pull requests by screen reader painful enough to
+   change tools.** Test: five moderated sessions, each reviewing the same two agent-written pull
+   requests, one with an inverted authorization check, first with the participant's own screen
+   reader and then with Volcan. Record the minutes to find the flaw and ask whether they would
+   use Volcan on their next review. **Pass:** at least three of five find it faster with Volcan
+   and say yes. **Fail:** stop adding features and find out what they do instead. Cost: about
+   five hours of the owner's time.
+2. **The employer pays, from the accommodation line, at about $24 a seat.** Test: one short
+   email to each of the ten organisations below, asking which budget line pays for a blind
+   engineer's development tools, who signs it, and whether $24 a seat a month from that line
+   would need a procurement cycle. **Pass:** at least three of ten name a line, and at least two
+   say $24 would not need one. **Fail:** the buyer or the price is wrong; reprice against
+   developer tooling bought by engineering managers. Cost: an afternoon, and the reply rate is
+   itself data.
+3. **The spoken security sentence is right often enough to trust.** The measured recall comes
+   from corpora the author wrote ([Measured numbers](#measured-numbers)). Test: run Volcan on 50
+   public pull requests opened by coding agents, labelled by a second person who has not seen
+   Volcan's output. **Pass:** recall of at least 70% on the risky ones, with a false positive
+   rate of at most 20%. **Fail:** the product is not ready to sell to anyone, whatever the
+   price. Cost: a day of labelling.
+
+### The first ten to approach
+
+**None of these has been contacted.** Nothing below is a pipeline,
 a lead, a warm introduction or a conversation in progress; it is a target list written from the
 outside, and it may well be wrong about who cares. Three accessibility consultancies who both
 employ this population and sell to it, four engineering organisations with a named internal
@@ -1539,8 +1660,8 @@ disability organisations who can say whether the premise is wrong:
 
 The first question to all ten is not whether they would buy it. It is whether a blind engineer
 on their staff reviews agent-written patches today, and what that costs them in hours. The
-second is which budget line they would reach for, because the paragraph above is a guess and
-they are the only people who can correct it.
+second is which budget line they would reach for, and whether $24 a seat would need a
+procurement cycle, because both are guesses and they are the only people who can correct them.
 
 **On whether this compounds, which it does not yet.** Volcan has real distribution and no loop.
 The MCP surface is genuine and any MCP client can mount it today, which is a way in, not a

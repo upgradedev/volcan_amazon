@@ -289,28 +289,35 @@ device needed".
 
 ## Who would buy this, and out of which budget
 
-**A commercial hypothesis, not a finding.** No market size, no price, no revenue projection
-and no conversion rate appears here, because none has been measured.
+**Measured population, guessed price.** No buyer has been interviewed or contacted, and there
+is no revenue projection or conversion rate. Every figure below comes from a source fetched and
+read on 2026-09-28; the quotes and links are in `docs/EVIDENCE.md`.
 
-**The user is not the buyer.** The user is the blind or low-vision engineer who reviews
-agent-written patches by ear. The budget holder is the **enterprise accessibility compliance
-owner**: the accessibility programme manager or director of accessibility engineering who
-already signs off remediation work, answers procurement questionnaires and owns the line that
-pays for what disabled employees need in order to work.
+**The user.** The blind or low-vision engineer who reviews agent-written patches by ear. The
+US Census Bureau's American Community Survey 2024 microdata puts US civilian employed software
+developers with a vision difficulty at 17,933 (90% margin +/- 2,686), 0.775% of 2.31 million;
+`python scripts/size_blind_developer_population.py` reproduces it. The question counts anyone
+"blind or having serious difficulty seeing, even when wearing glasses", so it is an upper bound
+on screen-reader users. Eurostat counts more than 10 million ICT specialists in the EU in 2025;
+no EU share with a vision difficulty was found, so no EU user count is given.
 
-**The budget line already exists.** Accessibility remediation and conformance spend, the money
-set aside against ADA / WCAG 2.1 AA, Section 508 and EN 301 549, together with the assistive
-technology and workplace adjustment provision beside it. **Where that is weakest:** remediation
-budgets pay to fix the accessibility of the product being shipped, and Volcan makes the work of
-building it accessible instead. It produces no Accessibility Conformance Report and closes no
-audit finding, so the sale needs the buyer to treat employing blind engineers as part of the
-same programme as conforming. The fallback is the workplace adjustment line, which is smaller.
+**The buyer.** The employer, out of the line that pays for what a disabled employee needs to
+work: Directive 2000/78/EC, Article 5, obliges employers to provide reasonable accommodation, and
+Section 508 obliges US federal agencies to give disabled employees comparable access to their
+technology. The European Accessibility Act, applied from 28 June 2025, covers consumer products
+and services and does not oblige anyone to make a developer tool accessible; an earlier version
+of this section overstated it.
 
-**The willingness-to-pay basis** is what these organisations already pay for the closest
-comparables, each of which the vendor publishes publicly: Freedom Scientific's pricing for the
-JAWS screen reader, refreshable Braille display pricing from HumanWare and Freedom Scientific,
-and Deque's pricing for axe DevTools. No figure from any of those pages is restated here and
-none has been used to derive anything.
+**Price, an untested hypothesis:** $24 per developer seat per month billed annually, CodeRabbit's
+published annual list price for pull request review; GitHub Copilot Business, the agent being
+reviewed, lists $19 a seat. If all 17,933 bought, about $5.2 million a year in the US, which is
+small, so the wedge is a team: one that has switched on a coding agent, generally available
+from GitHub on 25 September 2025 and built to "request a review from you", and employs a blind
+developer who is asked to give that review.
+
+**The riskiest assumption** is that reviewing agent pull requests by screen reader hurts enough
+to switch. The cheapest test is five timed sessions, own screen reader then Volcan, passing only
+if three of five are faster and would use it again.
 
 **The first ten to approach have not been contacted.** Deque Systems, Level Access, TPGi,
 Microsoft accessibility engineering, Google central accessibility, GitHub accessibility, the

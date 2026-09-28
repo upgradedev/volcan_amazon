@@ -826,10 +826,16 @@ def test_the_buyer_and_the_alexa_path_are_labelled_as_what_they_are():
     then. Later that day "needs the owner's Amazon developer account" gave way to
     the hackathon FAQ's reason it cannot be deployed: the add-on tools are
     "available to select partners only". The one date quoted is Article 31(2) of
-    the Directive, linked beside it."""
+    the Directive, linked beside it. On 2026-09-28 "no price is set" gave way to a
+    price labelled untested and a user count labelled an upper bound, both traced
+    in docs/EVIDENCE.md: the card must keep saying the price is untested and that
+    nobody has been interviewed."""
     html = read_html()
     who = html.split('id="who"', 1)[1].split("</section>", 1)[0]
-    assert "hypothesis" in who and "No buyer has been" in who and "no price" in who
+    card = " ".join(who.split())
+    assert "hypothesis" in who and "No buyer has been" in who
+    assert "Price, untested: $24 a seat a month" in card
+    assert "an upper bound" in card and "Census ACS 2024" in card
     label = "built and tested locally, not certified or deployed"
     assert label in " ".join(who.split())
     assert '"available to select partners only"' in " ".join(who.split())
