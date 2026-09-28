@@ -279,3 +279,34 @@ def _review_body(transcript: str, lowered_body: str | None) -> str:
     match = GRAMMAR_REQUEST_CHANGES.match(original)
     body = match.group("body") if match else (lowered_body or "")
     return body.strip().strip("'\"")
+
+
+# --- which file a name points at --------------------------------------------
+
+def _squash(name: str) -> str:
+    """A name as a recogniser may split it: "read me" and "README" are one name."""
+    return "".join(ch for ch in name.lower() if ch.isalnum())
+
+
+def match_file_paths(wanted: str, file_paths: list[str]) -> list[int]:
+    """The indexes of the paths a spoken or typed file name points at, most exact rule first."""
+    wanted = wanted.lower()
+    paths = [path.lower() for path in file_paths]
+    rules = (
+        lambda i: paths[i] == wanted,
+        lambda i: paths[i].endswith("/" + wanted),
+        lambda i: wanted in paths[i],
+    )
+    squashed = _squash(wanted)
+    base = [path.rsplit("/", 1)[-1] for path in paths]
+    if squashed:
+        rules += (
+            lambda i: _squash(base[i]) == squashed,
+            lambda i: _squash(base[i].rsplit(".", 1)[0]) == squashed,
+            lambda i: squashed in _squash(paths[i]),
+        )
+    for rule in rules:
+        matches = [i for i in range(len(paths)) if rule(i)]
+        if matches:
+            return matches
+    return []

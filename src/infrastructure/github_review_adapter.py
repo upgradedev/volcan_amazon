@@ -41,11 +41,8 @@ from src.application.review_authorization import (
     ReviewAuthorizationError,
     require_review_principal,
 )
-from src.domain.review_dialogue import (
-    PullRequestReadError,
-    PullRequestSnapshot,
-    read_failure_words,
-)
+from src.domain.pull_request_read import PullRequestReadError, read_failure_words
+from src.domain.review_dialogue import PullRequestSnapshot
 
 GITHUB_API = "https://api.github.com"
 API_VERSION = "2022-11-28"

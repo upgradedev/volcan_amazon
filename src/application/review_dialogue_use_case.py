@@ -45,6 +45,7 @@ from src.application.review_authorization import (
 from src.application.sonify_event_use_case import SonifyEventUseCase
 from src.domain.approval_grant import ApprovalGrantIssuer
 from src.domain.governed_action import ActionState, GovernedAction, Principal
+from src.domain.pull_request_read import read_failure_words
 from src.domain.review_dialogue import (
     Command,
     DialogueState,
@@ -52,7 +53,6 @@ from src.domain.review_dialogue import (
     PullRequestSnapshot,
     ReviewDialogue,
     parse_command,
-    read_failure_words,
 )
 from src.domain.sonification import EarconType
 from src.domain.spoken_form import speakable
