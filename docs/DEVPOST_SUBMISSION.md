@@ -311,9 +311,10 @@ of this section overstated it.
 **Price, an untested hypothesis:** $24 per developer seat per month billed annually, CodeRabbit's
 published annual list price for pull request review; GitHub Copilot Business, the agent being
 reviewed, lists $19 a seat. If all 17,933 bought, about $5.2 million a year in the US, which is
-small, so the wedge is a team: one that has switched on a coding agent, generally available
-from GitHub on 25 September 2025 and built to "request a review from you", and employs a blind
-developer who is asked to give that review.
+small; growing past it needs an org-wide price or users beyond blind developers, and neither is
+priced or tested. The wedge, who signs first, is a team that has switched on a coding agent,
+generally available from GitHub on 25 September 2025 and built to "request a review from you",
+and employs a blind developer who is asked to give that review.
 
 **The riskiest assumption** is that reviewing agent pull requests by screen reader hurts enough
 to switch. The cheapest test is five timed sessions, own screen reader then Volcan, passing only

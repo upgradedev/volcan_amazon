@@ -1463,7 +1463,7 @@ and read on 2026-09-28; a source that could not be fetched was dropped with its 
 |---|---|
 | **Users, measured** | **17,933** US civilian employed software developers report a vision difficulty (90% margin of error +/- 2,686), **0.775%** of 2,314,223 developers. US Census Bureau, American Community Survey 2024 1-year microdata; `python scripts/size_blind_developer_population.py` reproduces it. The Census question counts anyone "blind or having serious difficulty seeing, even when wearing glasses", so this is an upper bound on screen-reader users, not a count of blind developers |
 | **Price, an untested hypothesis** | **$24 per developer seat per month, billed annually ($288 a year)**, the published annual list price of CodeRabbit Essentials, a per-developer pull request review tool. Nobody has been asked to pay it |
-| **Ceiling, arithmetic on the hypothesis** | 17,933 seats x $288 = **$5.16 million a year** in the US if every one of them bought, $4.39 to $5.94 million across the margin of error. Small, and said plainly: a seat sold to one engineer at a time does not make a large business, which is why the wedge below is a team |
+| **Ceiling, arithmetic on the hypothesis** | 17,933 seats x $288 = **$5.16 million a year** in the US if every one of them bought, $4.39 to $5.94 million across the margin of error. Small, and said plainly: a seat sold to one engineer at a time does not make a large business. Growing past it needs an org-wide price or users beyond blind developers, and neither is priced or tested here |
 | **Wedge** | An engineering team that has switched on a coding agent and employs a blind or low-vision developer who is asked to review what it writes |
 | **Why now** | GitHub made its coding agent generally available on 25 September 2025, and when done it "will request a review from you". The European Accessibility Act applies from 28 June 2025 |
 | **Who pays** | The employer, which EU law already obliges to provide reasonable accommodation (Directive 2000/78/EC, Article 5), and US federal agencies, which must give disabled employees comparable access to their technology (Section 508) |
@@ -1577,8 +1577,8 @@ requests. The comparables below were fetched on 2026-09-28:
   "Essentials retains the current Pro price of $30 per developer per month, or $24 per developer
   per month when billed annually." The hypothesis is that annual list price.
 * **GitHub Copilot Business, the coding agent whose pull requests get reviewed**
-  ([GitHub Docs, plans](https://docs.github.com/en/copilot/get-started/plans)): "Copilot Business
-  $19 USD per granted seat per month". An employer paying $19 for the agent is asked to pay $24
+  ([GitHub Docs, plans](https://docs.github.com/en/copilot/get-started/plans)): the plans table
+  reads "Copilot Business $19 USD per granted seat per month". An employer paying $19 for the agent is asked to pay $24
   for one engineer to review its output by ear. Whether that feels right is what test 2 asks.
 * **NVDA, the screen reader** ([NV Access](https://www.nvaccess.org/about-nvda/)): "We are the
   creators of NVDA, a free, open source, globally accessible screen reader for the blind and
@@ -1592,8 +1592,11 @@ requests. The comparables below were fetched on 2026-09-28:
 
 **What $24 implies**, arithmetic on the hypothesis: $288 a seat a year; across all 17,933 US
 developers with a vision difficulty, $5.16 million a year, or $4.39 to $5.94 million across the
-margin of error. That is a ceiling, since every one of them would have to buy. It is small, and
-it is the argument for selling to the team rather than the seat.
+margin of error. That is a ceiling, since every one of them would have to buy. It is small. The
+team in the wedge below is who signs, not a way to multiply seats: a team with one blind
+developer still buys one seat. Growing past this ceiling needs an org-wide price or users
+beyond blind developers, such as sighted reviewers who would rather listen, and neither is
+priced or tested here.
 
 ### The wedge, and why now
 
