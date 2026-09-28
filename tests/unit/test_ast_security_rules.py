@@ -176,6 +176,38 @@ def test_a_concatenated_query_that_only_moved_is_refused():
     assert _rule_ids([line], [line]) == []
 
 
+# --- Classic family: TLS certificate checks turned off ----------------------
+
+def test_the_review_s_verify_false_is_found_and_names_the_call():
+    """The second patch the 2026-09-28 review heard as clean."""
+    assert _spoken(["    return requests.get(u, timeout=5, verify=False)"],
+                   ["    return requests.get(u, timeout=5)"]) == (
+        "TLS certificate checks were turned off: requests.get(u, timeout=5, verify=False)")
+
+
+def test_each_way_of_turning_certificate_checks_off_is_found():
+    for line in ("    client = httpx.Client(base_url=URL, verify=False)",
+                 "    self.session.verify = False",
+                 "    ctx.check_hostname = False",
+                 "    ctx.verify_mode = ssl.CERT_NONE",
+                 "    ssl._create_default_https_context = ssl._create_unverified_context"):
+        assert _rule_ids([line], []) == ["tls_verification_disabled"], line
+
+
+def test_verify_false_outside_an_http_client_is_refused():
+    assert _rule_ids(["    form.save(verify=False)"], []) == []
+
+
+def test_certificate_checks_left_on_are_refused():
+    assert _rule_ids(["    requests.get(u, verify=True)"], []) == []
+    assert _rule_ids(["    requests.get(u, verify=bundle_path)"], []) == []
+
+
+def test_a_verify_false_line_that_only_moved_is_refused():
+    line = "    requests.get(u, verify=False)"
+    assert _rule_ids([line], [line]) == []
+
+
 # --- The harness ------------------------------------------------------------
 
 def test_a_line_that_is_not_python_produces_no_finding():

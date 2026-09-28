@@ -184,7 +184,8 @@ covered. We deleted all of it. The page now shows a real result or an honest emp
 * **Governance that refuses its own author.** An agent principal presenting a valid grant for
   its own proposal is refused with `AGENT_MAY_NOT_APPROVE`, and each refusal path has its own
   test.
-* **81.8% detection recall over n=40 hand-labelled patches**, twenty-two that must raise a
+* **86.4% detection recall over n=40 hand-labelled patches** (81.8% until the 2026-09-28 TLS rule
+  closed one known miss), twenty-two that must raise a
   security flag and eighteen that must not, with 0% false positives, against a baseline of 0%
   because a screen reader reading raw patch text surfaces no security categorisation at all.
   Printed by `python scripts/benchmark_suite.py`, recomputed by
@@ -196,7 +197,8 @@ covered. We deleted all of it. The page now shows a real result or an honest emp
   handled. Four positives were then added *because* nothing here detects them, and
   `docs/EVIDENCE.md` names all four: a deleted authorization guard block, a removed permission
   decorator, `verify=False` added to an outbound call, and an IAM policy widened in JSON.
-  Recall fell to 81.8% and became worth reading. The four are pinned by fixture id, so a new
+  Recall fell to 81.8% and became worth reading; one of the four, `verify=False`, was closed on
+  2026-09-28 by the TLS rule, a miss known before that rule was written. The four are pinned by fixture id, so a new
   miss fails the build and closing one means deleting its id from the list.
 * **JavaScript and TypeScript, on a held-out half.** Rules for the same three structural
   findings were added on 2026-09-27, tuned on a training half of 64 self-authored, synthetic

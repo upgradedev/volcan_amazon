@@ -877,7 +877,7 @@ estimate unless it says ESTIMATE.
 
 | Metric | Baseline | Volcan | Command that prints it |
 |---|---|---|---|
-| Security-flag detection, Python corpus | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **81.8% recall over n=40 labelled patches**, 22 that must flag and 18 that must not, with 0% false positives. Unchanged on 2026-09-27 by the JavaScript and TypeScript rules. Of the 40, 36 are Python files: 85.0% recall (17/20) and 0.0% false positives (0/16) over those, printed on the "Python files only" line | `python scripts/benchmark_suite.py` |
+| Security-flag detection, Python corpus | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **86.4% recall over n=40 labelled patches (19/22)**, 22 that must flag and 18 that must not, with 0% false positives. It was 81.8% (18/22) until 2026-09-28, when the TLS rule written for the classic-family held-out set also closed `pos-21`, a miss known before that rule was written. Of the 40, 36 are Python files: 90.0% recall (18/20, 85.0% before) and 0.0% false positives (0/16) over those, printed on the "Python files only" line | `python scripts/benchmark_suite.py` |
 | Security-flag detection, JavaScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 25.0% recall (2/8), 0.0% false positives (0/8), the parser before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **50.0% recall (4/8), 0.0% false positives (0/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
 | Security-flag detection, TypeScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 37.5% recall (3/8), 25.0% false positives (2/8), before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **75.0% recall (6/8), 25.0% false positives (2/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
 | Security-flag detection, JavaScript and TypeScript, eight probes written after the rules to find where they break (4 must flag, 4 must not; self-authored, synthetic; not part of the corpus or either half) | not applicable | **0 of 4 detected; all 4 that must not flag are flagged, each by a structural rule**, 2026-09-27 | `python scripts/benchmark_js_ts_detection.py --probes` |
@@ -913,14 +913,15 @@ and a signature-verification call deleted. Six negatives were written to tempt t
 positives forced into existence, among them the same CORS line narrowed rather than widened,
 and a removed `verify_email_format` call that a cruder rule would flag.
 
-And four positives are in the corpus precisely because nothing here detects them. They are why
-recall is 81.8% and not a round hundred:
+And four positives were put in the corpus precisely because nothing here detected them. One,
+`pos-21`, was closed on 2026-09-28 by the TLS rule written for the classic-family held-out set; the
+other three are why recall is 86.4% and not a round hundred:
 
 | Missed | What it is | Why it is missed |
 |---|---|---|
 | `pos-19` | an authorization guard block deleted | no rule reads deleted blocks, only deleted calls |
 | `pos-20` | a permission decorator removed | a bare decorator line is not parseable Python on its own |
-| `pos-21` | `verify=False` added to an outbound call | no rule inspects argument values |
+| `pos-21` | `verify=False` added to an outbound call | closed 2026-09-28 by the TLS rule; it was a known miss before that rule was written, so it does not count as held out |
 | `pos-22` | an IAM policy widened in JSON | no rule reads JSON; the structural rules read Python, JavaScript and TypeScript |
 
 [`tests/unit/test_security_detection_corpus.py`](../tests/unit/test_security_detection_corpus.py)

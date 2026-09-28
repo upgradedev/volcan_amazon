@@ -19,11 +19,14 @@ invisible to keyword matching and each is a real outage or breach:
 
 A second group names classic families that the keyword pass either misses or
 can only gesture at. An independent review on 2026-09-28 found the engine
-silent on string-built SQL, and these rules were written after a held-out set
-for them was committed (``tests/fixtures/diff_corpus_classic.py``):
+silent on string-built SQL and on ``verify=False``, and these rules were written
+after a held-out set for them was committed (``tests/fixtures/diff_corpus_classic.py``):
 
 * ``sql_built_from_strings``     a SQL statement built by concatenation, an
   f-string, ``%`` or ``str.format`` from a value that is not a constant
+* ``tls_verification_disabled``  certificate or hostname checking switched off
+  for an outbound connection (``verify=False`` on an HTTP client, ``CERT_NONE``,
+  ``check_hostname = False``, an unverified SSL context)
 
 Each rule returns a sentence a screen reader can speak, because the finding is
 the first thing a blind reviewer hears and "detected auth_token" tells them
@@ -440,6 +443,99 @@ def _find_sql_built_from_strings(
     return findings
 
 
+# --- Classic family: TLS certificate checks turned off ----------------------
+
+#: A callee or receiver that makes an outbound HTTPS request. ``verify=False``
+#: on anything else (a form, a model) is not a certificate check.
+_HTTP_CLIENT = re.compile(r"(^|\.)(requests|httpx|aiohttp|urllib3)(\.|$)|session|client|http", re.IGNORECASE)
+
+#: The request methods of those clients, for a call whose receiver is a
+#: variable with no telling name (``api.get(url, verify=False)``).
+_HTTP_VERBS = {"get", "post", "put", "patch", "delete", "head", "options", "request", "stream", "send"}
+
+#: Keyword arguments that switch certificate checking off when set to False.
+_TLS_SWITCHES = {"verify", "ssl", "verify_ssl"}
+
+
+def _dotted(node: ast.AST) -> str:
+    try:
+        return ast.unparse(node)
+    except Exception:  # noqa: BLE001 - an unparseable node names nothing
+        return ""
+
+
+def _is_false(node: ast.AST) -> bool:
+    return isinstance(node, ast.Constant) and node.value is False
+
+
+def _names_cert_none(node: ast.AST) -> bool:
+    """``ssl.CERT_NONE``, ``CERT_NONE`` or the string ``"CERT_NONE"``."""
+    for child in ast.walk(node):
+        if isinstance(child, ast.Attribute) and child.attr == "CERT_NONE":
+            return True
+        if isinstance(child, ast.Name) and child.id == "CERT_NONE":
+            return True
+        if isinstance(child, ast.Constant) and child.value == "CERT_NONE":
+            return True
+    return False
+
+
+def _tls_turned_off(node: ast.AST) -> str | None:
+    """The source of ``node`` when it turns certificate checking off."""
+    if isinstance(node, ast.Call):
+        callee = _dotted(node.func)
+        last = callee.rsplit(".", 1)[-1]
+        if last == "_create_unverified_context":
+            return ast.unparse(node)
+        for keyword in node.keywords:
+            if keyword.arg in _TLS_SWITCHES and _is_false(keyword.value):
+                if _HTTP_CLIENT.search(callee) or last in _HTTP_VERBS:
+                    return ast.unparse(node)
+            if keyword.arg in ("cert_reqs", "verify_mode") and _names_cert_none(keyword.value):
+                return ast.unparse(node)
+    elif isinstance(node, ast.Assign):
+        value = node.value
+        for target in node.targets:
+            name = _dotted(target)
+            if name.endswith(".verify") and _is_false(value) and _HTTP_CLIENT.search(name[: -len(".verify")]):
+                return ast.unparse(node)
+            if name.endswith("check_hostname") and _is_false(value):
+                return ast.unparse(node)
+            if name.endswith("verify_mode") and _names_cert_none(value):
+                return ast.unparse(node)
+            if _dotted(value).endswith("_create_unverified_context"):
+                return ast.unparse(node)
+    return None
+
+
+def _find_tls_verification_disabled(
+    added: list[tuple[str, ast.AST]], removed: list[tuple[str, ast.AST]]
+) -> list[AstFinding]:
+    """Certificate or hostname checking switched off for an outbound connection.
+
+    Read as a keyword argument set to False on an HTTP client call
+    (``verify=False``), a session or client whose ``verify`` is set to False,
+    ``check_hostname = False``, ``CERT_NONE`` as a verification mode, and
+    ``ssl._create_unverified_context``. A line that also appears on the removed
+    side moved rather than changed and produces no finding.
+    """
+    def collect(parsed):
+        found = []
+        for _, tree in parsed:
+            for node in ast.walk(tree):
+                source = _tls_turned_off(node)
+                if source is not None and source not in found:
+                    found.append(source)
+        return found
+
+    before = set(collect(removed))
+    return [
+        AstFinding("tls_verification_disabled", f"TLS certificate checks were turned off: {source}")
+        for source in collect(added)
+        if source not in before
+    ]
+
+
 def evaluate(added_lines: list[str], removed_lines: list[str]) -> list[AstFinding]:
     """Run every structural rule over one file's added and removed lines."""
     added = _parsed_lines(added_lines)
@@ -449,4 +545,5 @@ def evaluate(added_lines: list[str], removed_lines: list[str]) -> list[AstFindin
         + _find_permissive_cors(added)
         + _find_removed_security_calls(added, removed)
         + _find_sql_built_from_strings(added, removed)
+        + _find_tls_verification_disabled(added, removed)
     )

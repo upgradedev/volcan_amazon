@@ -1075,6 +1075,8 @@
                       title="Loads the patch Volcan answers with: the call verify_signature(payload, request.headers['X-Signature']) was removed and nothing replaced it">Signature check deleted</button>
               <button type="button" id="preset5" aria-pressed="false"
                       title="Loads the patch Volcan answers with: a SQL SELECT is built by string concatenation from req.order_id, not bound as a parameter">SQL built from input</button>
+              <button type="button" id="preset6" aria-pressed="false"
+                      title="Loads the patch Volcan answers with: TLS certificate checks were turned off: requests.get(url, timeout=5, verify=False)">TLS checks turned off</button>
               <button type="button" id="preset4" aria-pressed="false"
                       title="Control. Loads a benign patch that changes no security behaviour, so the right answer is no finding at all and the rising DIFF_READY cue rather than the falling one">Clean change, no finding</button>
             </div>
@@ -3669,7 +3671,16 @@
         + "     # one row per order id\n"
         + "-    cursor.execute(\"SELECT * FROM orders WHERE id = %s\", (req.order_id,))\n"
         + "+    cursor.execute(\"SELECT * FROM orders WHERE id = \" + req.order_id)\n"
-        + "     return cursor.fetchone()\n"
+        + "     return cursor.fetchone()\n",
+      6: "diff --git a/src/billing/rates.py b/src/billing/rates.py\n"
+        + "index 2b7e0c4..9f1a6d3 100644\n"
+        + "--- a/src/billing/rates.py\n"
+        + "+++ b/src/billing/rates.py\n"
+        + "@@ -9,4 +9,4 @@ def fetch_rates(url):\n"
+        + "     # the exchange rates for today\n"
+        + "-    resp = requests.get(url, timeout=5)\n"
+        + "+    resp = requests.get(url, timeout=5, verify=False)\n"
+        + "     return resp.json()\n"
     };
 
     function loadPreset(id) {
@@ -3699,6 +3710,7 @@
     $("preset3").addEventListener("click", function () { loadPreset(3); });
     $("preset4").addEventListener("click", function () { loadPreset(4); });
     $("preset5").addEventListener("click", function () { loadPreset(5); });
+    $("preset6").addEventListener("click", function () { loadPreset(6); });
     $("fidelityCode").addEventListener("click", function () { setBrailleFidelity("code"); });
     $("fidelityLiterary").addEventListener("click", function () { setBrailleFidelity("literary"); });
 

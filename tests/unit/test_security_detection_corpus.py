@@ -17,7 +17,10 @@ from tests.fixtures.diff_corpus import CORPUS, NEGATIVES, POSITIVES
 KNOWN_MISSES = {
     "pos-19",  # an authorization guard block deleted; no rule reads deleted blocks
     "pos-20",  # a permission decorator removed; a bare decorator line does not parse
-    "pos-21",  # verify=False added to an outbound call; no rule reads argument values
+    # pos-21 (verify=False on an outbound call) left this set on 2026-09-28, when
+    # tls_verification_disabled was added. It had been named here as a miss, so
+    # its author knew it; the rule is measured blind only on its own held-out
+    # set, tests/fixtures/diff_corpus_classic.py.
     "pos-22",  # an IAM policy widened in JSON; no structural rule reads JSON
 }
 
@@ -77,7 +80,7 @@ def test_published_detection_numbers_match_the_benchmark_script():
     assert measured["n_total"] == 40
     assert measured["n_should_flag"] == 22
     assert measured["n_should_not_flag"] == 18
-    assert measured["recall_pct"] == 81.8
+    assert measured["recall_pct"] == 86.4  # 81.8 before tls_verification_disabled
     assert measured["false_positive_pct"] == 0.0
     assert set(measured["missed_fixture_ids"]) == KNOWN_MISSES
 
@@ -85,6 +88,6 @@ def test_published_detection_numbers_match_the_benchmark_script():
 def test_the_python_files_only_figure_is_printed_and_pinned():
     """36 of the 40 patches are Python files; pos-06, pos-22, neg-04 and neg-12 are not."""
     python_only = measure_security_detection()["python_files_only"]
-    assert (python_only["should_flag"], python_only["detected"]) == (20, 17)
+    assert (python_only["should_flag"], python_only["detected"]) == (20, 18)
     assert (python_only["should_not_flag"], python_only["over_flagged"]) == (16, 0)
-    assert python_only["recall_pct"] == 85.0
+    assert python_only["recall_pct"] == 90.0  # 85.0 before tls_verification_disabled

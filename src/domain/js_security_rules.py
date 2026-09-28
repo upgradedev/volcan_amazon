@@ -21,6 +21,8 @@ silent on:
 
 * ``sql_built_from_strings``     a SQL statement built by ``+`` or by an
   untagged template literal from a value that is not a constant
+* ``tls_verification_disabled``  ``rejectUnauthorized`` or ``strictSSL`` set to
+  false, or ``NODE_TLS_REJECT_UNAUTHORIZED`` set to 0
 
 These are token rules, not a full parse. Each changed line is split into
 JavaScript tokens (strings, template literals, numbers, names, operators and
@@ -497,6 +499,56 @@ def _find_sql_built_from_strings(added: list[str], removed: list[str]) -> list[A
     return findings
 
 
+# --- Classic family: TLS certificate checks turned off ----------------------
+
+#: Options that switch certificate checking off when set to ``false``.
+_TLS_OPTIONS = {"rejectUnauthorized", "strictSSL"}
+
+#: The Node.js variable that switches certificate checking off process-wide
+#: when set to ``0``.
+_NODE_TLS_SWITCH = "NODE_TLS_REJECT_UNAUTHORIZED"
+
+
+def _find_tls_verification_disabled(added: list[str], removed: list[str]) -> list[AstFinding]:
+    """Certificate checking switched off for outbound connections.
+
+    Read as ``rejectUnauthorized`` or ``strictSSL`` set to ``false`` (an object
+    key or an assignment) and ``NODE_TLS_REJECT_UNAUTHORIZED`` set to ``0``
+    (assigned, or given as an environment key). A comparison such as
+    ``=== '0'`` reads the variable and is not a finding.
+    """
+    def collect(lines: list[str]) -> list[str]:
+        found: list[str] = []
+        for line in lines:
+            tokens = tokenize(line)
+            for index, (kind, text) in enumerate(tokens):
+                key = _string_value(text) if kind == "str" else text
+                if kind not in ("name", "str"):
+                    continue
+                position = index + 1
+                if position < len(tokens) and tokens[position][1] == "]":
+                    position += 1
+                if position + 1 >= len(tokens) or tokens[position][1] not in (":", "="):
+                    continue
+                value = tokens[position + 1]
+                if key in _TLS_OPTIONS and value[1] == "false":
+                    source = f"{key}{' = ' if tokens[position][1] == '=' else ': '}false"
+                elif key == _NODE_TLS_SWITCH and _string_value(value[1]) == "0":
+                    source = f"{key}{' = ' if tokens[position][1] == '=' else ': '}{_render([value])}"
+                else:
+                    continue
+                if source not in found:
+                    found.append(source)
+        return found
+
+    before = set(collect(removed))
+    return [
+        AstFinding("tls_verification_disabled", f"TLS certificate checks were turned off: {source}")
+        for source in collect(added)
+        if source not in before
+    ]
+
+
 def evaluate(added_lines: list[str], removed_lines: list[str]) -> list[AstFinding]:
     """Run every JavaScript and TypeScript rule over one file's changed lines."""
     return (
@@ -504,4 +556,5 @@ def evaluate(added_lines: list[str], removed_lines: list[str]) -> list[AstFindin
         + _find_permissive_cors(added_lines)
         + _find_removed_security_calls(added_lines, removed_lines)
         + _find_sql_built_from_strings(added_lines, removed_lines)
+        + _find_tls_verification_disabled(added_lines, removed_lines)
     )

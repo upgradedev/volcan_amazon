@@ -40,6 +40,7 @@ EXPECTED_RULE = {
     3: "security_call_removed",
     4: None,
     5: "sql_built_from_strings",
+    6: "tls_verification_disabled",
 }
 
 

@@ -58,7 +58,7 @@ def test_out_writes_the_run_elsewhere_and_the_tracked_artifact_stays_put(fast_be
     assert _sha256(ARTIFACT) == before
     written = json.loads(target.read_text(encoding="utf-8"))
     assert written["ast_diff_engine"]["iterations"] == 10
-    assert written["security_detection"]["recall_pct"] == 81.8
+    assert written["security_detection"]["recall_pct"] == 86.4
 
 
 def test_the_recall_gate_reads_the_committed_artifact_and_does_not_touch_it():

@@ -139,6 +139,25 @@ def test_a_concatenated_query_that_only_moved_is_refused():
     assert _ids([line], [line]) == []
 
 
+# --- Classic family: TLS certificate checks turned off ----------------------
+
+def test_an_agent_that_accepts_any_certificate_is_found():
+    assert _spoken(["  const a = new https.Agent({ rejectUnauthorized: false });"]) == (
+        "TLS certificate checks were turned off: rejectUnauthorized: false")
+    assert _ids(["  opts.rejectUnauthorized = false;"]) == ["tls_verification_disabled"]
+    assert _ids(["  request({ uri, strictSSL: false });"]) == ["tls_verification_disabled"]
+
+
+def test_the_process_wide_switch_is_found_when_set_and_refused_when_read():
+    assert _ids(['process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";']) == ["tls_verification_disabled"]
+    assert _ids(["  env: { NODE_TLS_REJECT_UNAUTHORIZED: 0 },"]) == ["tls_verification_disabled"]
+    assert _ids(['  if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0") warn();']) == []
+
+
+def test_certificate_checks_left_on_are_refused():
+    assert _ids(["  const a = new https.Agent({ rejectUnauthorized: true });"]) == []
+
+
 # --- dispatch -------------------------------------------------------------------
 
 def _patch(path, body):
