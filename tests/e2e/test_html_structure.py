@@ -104,21 +104,22 @@ def test_core_controls_are_present():
 
 
 def test_diff_presets_are_well_formed_patches():
-    """Four presets, one per syntax-tree rule plus a control.
+    """One preset per syntax-tree rule, plus a control.
 
     What each one *produces* is asserted in
     ``tests/e2e/test_shipped_presets_reach_their_rule.py``, which runs them
-    through the production parser. This only checks the page still carries four
-    well-formed patches and four wired chips to load them with.
+    through the production parser. This only checks the page still carries the
+    well-formed patches and the wired chips to load them with.
     """
     html = read_html()
-    assert html.count("diff --git") >= 4
-    for number in (1, 2, 3, 4):
+    assert html.count("diff --git") >= 5
+    for number in (1, 2, 3, 4, 5):
         assert f'id="preset{number}"' in html, f"preset chip {number} is missing"
     assert "user.role" in html, "the inverted authorization patch is gone"
     assert "allow_origins" in html, "the widened cross-origin patch is gone"
     assert "verify_signature" in html, "the removed verification call patch is gone"
     assert "data.strip()" in html, "the benign control patch is gone"
+    assert "SELECT * FROM orders WHERE id = " in html, "the string-built SQL patch is gone"
 
 
 def test_lease_countdown_contract():

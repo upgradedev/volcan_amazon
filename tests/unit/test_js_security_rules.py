@@ -112,6 +112,33 @@ def test_a_function_declaration_removed_is_not_a_removed_call():
     assert _ids([], ["function verifySignature(body, sig) {"]) == []
 
 
+# --- Classic family: a SQL statement built from a value ---------------------
+
+def test_a_concatenated_query_is_found_and_names_the_value():
+    assert _spoken(['  return db.query("SELECT * FROM t WHERE id = " + req.params.id);']) == (
+        "a SQL SELECT is built by string concatenation from req.params.id, not bound as a parameter")
+
+
+def test_an_untagged_template_literal_query_is_found():
+    assert _ids(["  return db.query(`UPDATE t SET n = ${n}`);"]) == ["sql_built_from_strings"]
+    assert _ids(["  x = `DELETE FROM carts WHERE id = ` + cart.id;"]) == ["sql_built_from_strings"]
+
+
+def test_a_tagged_template_is_refused_because_the_tag_binds_the_values():
+    assert _ids(["  return sql`SELECT name FROM pets WHERE owner = ${ownerId}`;"]) == []
+
+
+def test_constant_pieces_and_plain_text_are_refused():
+    assert _ids(['  const q = "SELECT a, b " + "FROM c";']) == []
+    assert _ids(['  const q = "SELECT * FROM " + TABLE_NAME;']) == []
+    assert _ids(["  const s = `hello ${name}`;"]) == []
+
+
+def test_a_concatenated_query_that_only_moved_is_refused():
+    line = '  return db.query("SELECT * FROM t WHERE id = " + req.params.id);'
+    assert _ids([line], [line]) == []
+
+
 # --- dispatch -------------------------------------------------------------------
 
 def _patch(path, body):

@@ -1056,10 +1056,9 @@
         <div class="patch-editor" id="patchEditor" hidden>
           <label for="diffInput">Patch to review</label>
           <textarea id="diffInput" spellcheck="false" aria-describedby="diffHelp"></textarea>
-          <p class="hint" id="diffHelp">Paste any <code>git diff</code> output, or pick one of the four patches below.
-            The first three are the change classes a keyword matcher cannot see, one for each
-            syntax-tree rule Volcan ships; the fourth is the control, where the right answer is
-            no finding at all. Each label names the sentence the server will speak back, and
+          <p class="hint" id="diffHelp">Paste any <code>git diff</code> output, or pick one of the patches below.
+            Each reaches one rule Volcan ships, except the last, the control, where the right
+            answer is no finding at all. Each label names the sentence the server will speak back, and
             <code>tests/e2e/test_shipped_presets_reach_their_rule.py</code> fails the build if a
             preset stops producing it.</p>
         </div>
@@ -1074,6 +1073,8 @@
                       title="Loads the patch Volcan answers with: a cross-origin policy was widened to accept any origin: allow_origins = ['*']">CORS opened to any origin</button>
               <button type="button" id="preset3" aria-pressed="false"
                       title="Loads the patch Volcan answers with: the call verify_signature(payload, request.headers['X-Signature']) was removed and nothing replaced it">Signature check deleted</button>
+              <button type="button" id="preset5" aria-pressed="false"
+                      title="Loads the patch Volcan answers with: a SQL SELECT is built by string concatenation from req.order_id, not bound as a parameter">SQL built from input</button>
               <button type="button" id="preset4" aria-pressed="false"
                       title="Control. Loads a benign patch that changes no security behaviour, so the right answer is no finding at all and the rising DIFF_READY cue rather than the falling one">Clean change, no finding</button>
             </div>
@@ -3619,7 +3620,7 @@
     /* One patch per shipped syntax-tree rule, plus a control.
        These are the product's own buttons, so the first press has to reach the
        thing that separates Volcan from a keyword matcher rather than the
-       weakest answer it can give. Presets 1 to 3 each trigger exactly one rule
+       weakest answer it can give. Every preset but 4 triggers exactly one rule
        from src/domain/ast_security_rules.py; preset 4 triggers none on purpose,
        so the refusal path is visible too. The chip labels above quote the
        sentence each of these produces, and a test compares the two. */
@@ -3659,14 +3660,24 @@
         + "-    return data.strip()\n"
         + "+    if not data:\n"
         + "+        return \"\"\n"
-        + "+    return data.strip()\n"
+        + "+    return data.strip()\n",
+      5: "diff --git a/src/orders/lookup.py b/src/orders/lookup.py\n"
+        + "index 8d2e4b1..c3f9a07 100644\n"
+        + "--- a/src/orders/lookup.py\n"
+        + "+++ b/src/orders/lookup.py\n"
+        + "@@ -6,4 +6,4 @@ def find_order(cursor, req):\n"
+        + "     # one row per order id\n"
+        + "-    cursor.execute(\"SELECT * FROM orders WHERE id = %s\", (req.order_id,))\n"
+        + "+    cursor.execute(\"SELECT * FROM orders WHERE id = \" + req.order_id)\n"
+        + "     return cursor.fetchone()\n"
     };
 
     function loadPreset(id) {
       $("diffInput").value = PRESETS[id];
-      for (var n = 1; n <= 4; n++) {
+      Object.keys(PRESETS).forEach(function (key) {
+        var n = Number(key);
         $("preset" + n).setAttribute("aria-pressed", String(n === id));
-      }
+      });
       renderPatchView();
       schedulePreview();
     }
@@ -3687,6 +3698,7 @@
     $("preset2").addEventListener("click", function () { loadPreset(2); });
     $("preset3").addEventListener("click", function () { loadPreset(3); });
     $("preset4").addEventListener("click", function () { loadPreset(4); });
+    $("preset5").addEventListener("click", function () { loadPreset(5); });
     $("fidelityCode").addEventListener("click", function () { setBrailleFidelity("code"); });
     $("fidelityLiterary").addEventListener("click", function () { setBrailleFidelity("literary"); });
 

@@ -15,6 +15,13 @@ of spoken sentence:
 * ``security_call_removed``      a verification call deleted and not called
   again anywhere in the file's added lines
 
+and, written after the held-out set in ``tests/fixtures/diff_corpus_classic.py``
+was committed, the classic families an independent review found the engine
+silent on:
+
+* ``sql_built_from_strings``     a SQL statement built by ``+`` or by an
+  untagged template literal from a value that is not a constant
+
 These are token rules, not a full parse. Each changed line is split into
 JavaScript tokens (strings, template literals, numbers, names, operators and
 punctuation), and the rules read patterns in that token stream. No parser
@@ -38,10 +45,12 @@ import re
 
 from src.domain.ast_security_rules import (
     AUTHORIZATION_TERMS,
+    SQL_STATEMENT,
     AstFinding,
     _ORIGIN_TARGETS,
     _WILDCARD_ORIGINS,
     _is_security_call,
+    values_words,
 )
 
 #: File extensions these rules own. Every other file keeps the Python rules.
@@ -375,10 +384,124 @@ def _find_removed_security_calls(added: list[str], removed: list[str]) -> list[A
     return findings
 
 
+# --- Classic families: values built into a statement -----------------------
+
+#: Names that can sit right before a template literal without tagging it.
+_UNTAGGED_BEFORE = {"return", "await", "yield", "typeof", "case", "throw", "new", "in", "of", "else", "do",
+                    "void", "delete", "instanceof"}
+
+_INTERPOLATION = re.compile(r"\$\{([^}]*)\}")
+
+
+def _constant_operand(operand: list[tuple[str, str]]) -> bool:
+    """A literal, or a name written as a constant (``TABLE_NAME``, ``cfg.TABLE``)."""
+    if all(kind in ("str", "num") for kind, _ in operand):
+        return not any(kind == "str" and "${" in text for kind, text in operand)
+    names = [text for kind, text in operand if kind == "name"]
+    return bool(names) and len(operand) in (1, 3) and names[-1].isupper() and not any(
+        text in ("(", "[") for _, text in operand
+    )
+
+
+def _is_tagged(tokens: list[tuple[str, str]], index: int) -> bool:
+    """Whether the template literal at ``index`` is a tagged template.
+
+    A tag hands the literal's parts to a function, which is how drivers such as
+    ``sql`` tags bind each interpolated value as a parameter; the string is
+    never assembled by the program itself.
+    """
+    if index == 0:
+        return False
+    kind, text = tokens[index - 1]
+    return kind == "name" and text not in _UNTAGGED_BEFORE
+
+
+def built_strings(line: str) -> list[tuple[str, str, list[str], str]]:
+    """(text, how, values, source) for each string built from a non-constant.
+
+    Two shapes are read on one line: a template literal with ``${...}`` that
+    is not tagged, and a ``+`` chain holding at least one string literal. The
+    text has each spliced value replaced by a placeholder so its shape can be
+    read, and values named as constants (``TABLE_NAME``) do not count.
+    """
+    tokens = tokenize(line)
+    found: list[tuple[str, str, list[str], str]] = []
+    consumed: set[int] = set()
+    for index, (kind, text) in enumerate(tokens):
+        if index in consumed:
+            continue
+        if kind == "str" and text.startswith("`") and "${" in text and not _is_tagged(tokens, index):
+            if index + 1 < len(tokens) and tokens[index + 1][1] == "+":
+                pass  # read below as the head of a concatenation
+            elif index > 0 and tokens[index - 1][1] == "+":
+                continue
+            else:
+                body = _string_value(text)
+                values = [v.strip() for v in _INTERPOLATION.findall(body)
+                          if v.strip() and not v.strip().isupper()]
+                if values:
+                    found.append((_INTERPOLATION.sub("value", body), "a template literal",
+                                  list(dict.fromkeys(values)), text))
+                continue
+        # The head of a ``+`` chain: an operand not itself preceded by ``+``.
+        if index > 0 and tokens[index - 1][1] == "+":
+            continue
+        if kind not in ("str", "name", "num"):
+            continue
+        head = _operand_right(tokens, index - 1) if index > 0 else _operand_right([("op", "(")] + tokens, 0)
+        if not head:
+            continue
+        pieces = [head]
+        position = index + len(head)
+        while position < len(tokens) and tokens[position][1] == "+":
+            operand = _operand_right(tokens, position)
+            if not operand:
+                break
+            pieces.append(operand)
+            position += 1 + len(operand)
+        if len(pieces) < 2 or not any(len(p) == 1 and p[0][0] == "str" for p in pieces):
+            continue
+        consumed.update(range(index, position))
+        parts, values = [], []
+        for piece in pieces:
+            if len(piece) == 1 and piece[0][0] == "str":
+                body = _string_value(piece[0][1])
+                parts.append(_INTERPOLATION.sub("value", body))
+                values.extend(v.strip() for v in _INTERPOLATION.findall(body) if v.strip() and not v.strip().isupper())
+            else:
+                parts.append("value")
+                if not _constant_operand(piece):
+                    values.append(_render(piece))
+        if values:
+            found.append(("".join(parts), "string concatenation", list(dict.fromkeys(values)),
+                          _render(tokens[index:position])))
+    return found
+
+
+def _find_sql_built_from_strings(added: list[str], removed: list[str]) -> list[AstFinding]:
+    """A SQL statement assembled from a value rather than bound to a parameter."""
+    before = {source for line in removed for *_, source in built_strings(line)}
+    findings: list[AstFinding] = []
+    seen: set[str] = set()
+    for line in added:
+        for text, how, values, source in built_strings(line):
+            statement = SQL_STATEMENT.match(text)
+            if not statement or source in before or source in seen:
+                continue
+            seen.add(source)
+            verb = statement.group(0).split()[0].upper()
+            findings.append(AstFinding(
+                "sql_built_from_strings",
+                f"a SQL {verb} is built by {how} from {values_words(values)}, not bound as a parameter",
+            ))
+    return findings
+
+
 def evaluate(added_lines: list[str], removed_lines: list[str]) -> list[AstFinding]:
     """Run every JavaScript and TypeScript rule over one file's changed lines."""
     return (
         _find_inverted_authorization(added_lines, removed_lines)
         + _find_permissive_cors(added_lines)
         + _find_removed_security_calls(added_lines, removed_lines)
+        + _find_sql_built_from_strings(added_lines, removed_lines)
     )

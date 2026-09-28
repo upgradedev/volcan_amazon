@@ -5,6 +5,14 @@ self-authored, synthetic corpus in ``tests/fixtures/diff_corpus_js_ts.py``.
 The held-out misses below were measured once, after the rules were frozen on
 the training half, and are recorded rather than fixed: fixing them would tune
 the rules on the held-out half and make its figure meaningless.
+
+One exception, stated. On 2026-09-28 a string-built SQL rule was added for a
+separate reason (an independent review heard a concatenated query as clean),
+and it detects ``js-pos-16``, a held-out case this file already named as a
+miss for exactly that reason. The rule is measured on its own held-out set
+(``tests/fixtures/diff_corpus_classic.py``), but its author had seen
+``js-pos-16`` here, so the held-out JavaScript rise from 50.0% to 62.5% is not
+a blind measurement for that case.
 """
 from scripts.benchmark_js_ts_detection import measure_splits
 from tests.fixtures.diff_corpus_js_ts import CASES, SPLIT_SEED, split
@@ -16,8 +24,9 @@ KNOWN_MISSES = {
     },
     "heldout": {
         # accessLevel is not an authorization word; !includes is a negation,
-        # not a flipped operator; cookie flags and SQL interpolation have no rule
-        "javascript": {"js-pos-12", "js-pos-13", "js-pos-15", "js-pos-16"},
+        # not a flipped operator; cookie flags have no rule. js-pos-16 (SQL
+        # interpolation) left this set on 2026-09-28: see the module docstring
+        "javascript": {"js-pos-12", "js-pos-13", "js-pos-15"},
         # a middleware no longer mounted is not a removed call; assertCanEdit
         # names no security object
         "typescript": {"ts-pos-08", "ts-pos-15"},
@@ -57,7 +66,7 @@ def test_published_figures():
     measured = measure_splits()
     assert measured["train"]["javascript"]["recall_pct"] == 87.5
     assert measured["train"]["typescript"]["recall_pct"] == 75.0
-    assert measured["heldout"]["javascript"]["recall_pct"] == 50.0
+    assert measured["heldout"]["javascript"]["recall_pct"] == 62.5  # 50.0 before the SQL rule
     assert measured["heldout"]["javascript"]["false_positive_pct"] == 0.0
     assert measured["heldout"]["typescript"]["recall_pct"] == 75.0
     assert measured["heldout"]["typescript"]["false_positive_pct"] == 25.0
