@@ -514,3 +514,9 @@ def test_previous_from_the_overview_says_how_to_reach_a_file():
 def test_next_on_the_one_file_demo_pull_request_opens_that_file():
     turn = say(hello_world(), "next")
     assert turn.error is False and turn.spoken.startswith("File 1 of 1: README.")
+
+
+def test_the_demo_pull_requests_readme_is_called_documentation_not_business_logic():
+    turn = say(hello_world(), "what changed in README")
+    assert "Category documentation, significance low." in turn.spoken
+    assert "business logic" not in turn.spoken

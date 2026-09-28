@@ -381,7 +381,7 @@ class UnifiedDiffParser:
             if "test" in file_path.lower():
                 category = ChangeCategory.TEST_ONLY
                 significance = ChangeSignificance.LOW
-            elif file_path.endswith((".md", ".txt", ".rst")):
+            elif _is_documentation(file_path):
                 category = ChangeCategory.DOCUMENTATION
                 significance = ChangeSignificance.LOW
             elif security_flags:
@@ -414,3 +414,17 @@ class UnifiedDiffParser:
             )
 
         return sections
+
+
+#: Files that are prose by name, whatever their extension or lack of one. A
+#: README is the most common file in a first pull request, and calling it
+#: "business logic" out loud is a wrong statement about the change.
+_DOCUMENTATION_NAMES = {"readme", "changelog", "changes", "license", "licence", "copying",
+                        "notice", "authors", "contributors", "contributing", "history"}
+
+
+def _is_documentation(file_path: str) -> bool:
+    lowered = file_path.lower()
+    if lowered.endswith((".md", ".txt", ".rst", ".adoc")):
+        return True
+    return lowered.rsplit("/", 1)[-1] in _DOCUMENTATION_NAMES
