@@ -300,7 +300,7 @@ class ReviewDialogue:
         if name == "resume":
             return self._turn(command, "resume", "", needs="resume", remember=False)
         if name == "help":
-            return self._turn(command, "help", HELP_TEXT, remember=False)
+            return self._turn(command, "help", self._help(), remember=False)
         if name == "repeat":
             if self.last_turn is None:
                 return self._turn(command, "repeat", "Nothing has been said yet.", error=True, remember=False)
@@ -377,6 +377,29 @@ class ReviewDialogue:
         return self._turn(command, command.words, "That command is not implemented.", error=True)
 
     # -- transitions ---------------------------------------------------------
+
+    def _help(self) -> str:
+        """The command list, with examples that work on the change that is open.
+
+        With nothing open, the examples are generic. With a change open, the
+        file example names a file in it and the line example a line in the
+        file in focus, so saying either example back works here.
+        """
+        sections = self.sections
+        if not sections:
+            return HELP_TEXT
+        section = self.section if self.section is not None else sections[0]
+        name = section.file_path.rsplit("/", 1)[-1].replace(".", " dot ")
+        text = HELP_TEXT.replace("What changed in auth dot py.", f"What changed in {name}.")
+        line_no = next(
+            (line.new_no if line.new_no is not None else line.old_no
+             for hunk in section.hunks for line in hunk.lines
+             if line.kind != "context" and (line.new_no or line.old_no)),
+            None,
+        )
+        if line_no is None:
+            return text.replace(" line fifteen.", " line and a number.")
+        return text.replace(" line fifteen.", f" line {line_no}.")
 
     def _where(self) -> str:
         if self.report is None:
@@ -489,11 +512,13 @@ class ReviewDialogue:
     def _focus_file(self, command: Command) -> DialogueTurn:
         wanted = command.slots["file"].lower()
         sections = self.sections
-        matches = [i for i, s in enumerate(sections) if s.file_path.lower() == wanted]
-        if not matches:
-            matches = [i for i, s in enumerate(sections) if s.file_path.lower().endswith("/" + wanted)]
-        if not matches:
-            matches = [i for i, s in enumerate(sections) if wanted in s.file_path.lower()]
+        matches = _match_files(wanted, sections)
+        if not matches and wanted.endswith(" file"):
+            # "the readme file": the last word named the kind of thing, not
+            # the file, unless it was part of the name ("docker file"), which
+            # the first pass already tried.
+            wanted = wanted[: -len(" file")].strip()
+            matches = _match_files(wanted, sections)
         if not matches:
             names = ", ".join(s.file_path for s in sections) or "none"
             return self._turn(command, command.words,
@@ -541,6 +566,16 @@ class ReviewDialogue:
         unit = command.slots.get("unit")
         if unit is None:
             unit = "line" if self.state is DialogueState.LINES else "file"
+        if unit == "file" and self.state is DialogueState.OVERVIEW:
+            # From the overview or the file list, no file is in focus yet, so
+            # "next" is the first file, not the one after it.
+            if not self.sections:
+                return self._turn(command, command.words, "This change touches no files.", error=True)
+            if delta < 0:
+                return self._turn(command, command.words,
+                                  "No file is open yet. Say next for file 1.", error=True)
+            self.file_index = 0
+            return self._speak_file(command, command.words)
         if unit == "file":
             target = self.file_index + delta
             if target < 0 or target >= len(self.sections):
@@ -709,6 +744,39 @@ class ReviewDialogue:
         else:
             self.state = DialogueState.OVERVIEW
         return self._turn(command, "confirm", spoken, earcon=earcon, error=refused)
+
+
+def _squash(name: str) -> str:
+    """A name as a recogniser may split it: "read me" and "README" are one name."""
+    return "".join(ch for ch in name.lower() if ch.isalnum())
+
+
+def _match_files(wanted: str, sections: list[DiffSectionDigest]) -> list[int]:
+    """The files a spoken or typed name points at, most exact rule first."""
+    paths = [s.file_path.lower() for s in sections]
+    rules = (
+        lambda path: path == wanted,
+        lambda path: path.endswith("/" + wanted),
+        lambda path: wanted in path,
+    )
+    for rule in rules:
+        matches = [i for i, path in enumerate(paths) if rule(path)]
+        if matches:
+            return matches
+    squashed = _squash(wanted)
+    if not squashed:
+        return []
+    base = [path.rsplit("/", 1)[-1] for path in paths]
+    rules = (
+        lambda i: _squash(base[i]) == squashed,
+        lambda i: _squash(base[i].rsplit(".", 1)[0]) == squashed,
+        lambda i: squashed in _squash(paths[i]),
+    )
+    for rule in rules:
+        matches = [i for i in range(len(paths)) if rule(i)]
+        if matches:
+            return matches
+    return []
 
 
 def _last_new_line(hunk: DiffHunk) -> int:

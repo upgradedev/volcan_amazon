@@ -3267,7 +3267,7 @@
       var tag = $("dialogueState");
       tag.setAttribute("data-state", pair[0]);
       tag.textContent = label;
-      suggestNext(data.state);
+      suggestNext(data.state, focus);
     }
 
     /* After every answer, the commands that fit the state the server reported
@@ -3282,8 +3282,28 @@
       SUBMITTED: ["Next: summary, or open another pull request.", ["cmdSummary"]],
       REFUSED: ["Next: where am I, or open the pull request again.", ["cmdWhere"]]
     };
-    function suggestNext(state) {
-      var step = NEXT_STEPS[state] || ["Or say one of these", []];
+    /* A step is only offered where it can work: on the last file "next" has
+       nowhere to go, and at either end of a hunk "next" or "previous" would
+       only answer that it is the edge. The focus the server returned decides. */
+    function stepFor(state, focus) {
+      var f = focus || {};
+      if (state === "FILE" && f.file_index !== null && f.file_index !== undefined &&
+          f.file_index + 1 >= f.total_files) {
+        return f.total_files > 1
+          ? ["Next: read the lines, or previous for the file before.", ["cmdReadLines", "cmdPrevious"]]
+          : ["Next: read the lines, or findings.", ["cmdReadLines", "cmdFindings"]];
+      }
+      if (state === "LINES" && f.line_index !== null && f.line_index !== undefined && f.total_lines) {
+        var words = ["spell that"], ids = ["cmdSpell"];
+        if (f.line_index + 1 < f.total_lines) { words.push("next"); ids.push("cmdNext"); }
+        if (f.line_index > 0) { words.push("previous"); ids.push("cmdPrevious"); }
+        ids.push("cmdWhere");
+        return ["Next: " + words.join(", ") + ", or where am I.", ids];
+      }
+      return NEXT_STEPS[state] || ["Or say one of these", []];
+    }
+    function suggestNext(state, focus) {
+      var step = stepFor(state, focus);
       $("chipsLabel").textContent = step[0];
       var marked = document.querySelectorAll("button.suggested");
       for (var i = 0; i < marked.length; i++) { marked[i].classList.remove("suggested"); }

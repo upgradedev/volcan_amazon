@@ -105,6 +105,33 @@ def test_an_unreadable_pull_request_is_an_error_turn_with_the_reason_not_a_crash
     assert turn["earcon"]["type"] == "TEST_FAILED"
 
 
+def test_the_demo_pull_request_in_its_recorded_shape_answers_every_command_it_offers():
+    """octocat/Hello-World #1 through the real adapter, served offline from the recording."""
+    from tests.fixtures import hello_world_pr1 as recorded
+
+    token = current_review_principal.set(
+        ReviewPrincipal("blind-developer", frozenset({"octocat/hello-world"}))
+    )
+    try:
+        fake = FakeGitHub(head=recorded.HEAD, diff=recorded.DIFF, pull_path=recorded.PULL_PATH,
+                          meta=recorded.META)
+        use_case, _, _ = build(fake)
+        first = say(use_case, "open", pr_url=recorded.URL)
+        assert first["readback"] == "Understood: open the pull request."
+        assert first["spoken"].startswith(
+            "Opened octocat/Hello-World pull request 1, Edited README via GitHub, by unoju, "
+            "head commit 7044a8a."
+        )
+        assert first["spoken"].endswith("Say summary, file by file, or what changed in a file name.")
+        for transcript in ("summary", "next", "file by file", "what changed in README",
+                           "what changed in the README", "file 1", "read the lines", "spell that", "next", "previous",
+                           "findings", "where am I", "help"):
+            turn = say(use_case, transcript)
+            assert turn["error"] is False, f"{transcript!r} answered {turn['spoken']!r}"
+    finally:
+        current_review_principal.reset(token)
+
+
 def test_opening_with_neither_a_url_nor_a_patch_asks_for_one():
     use_case, _, _ = build(FakeGitHub())
     turn = say(use_case, "open the pull request")

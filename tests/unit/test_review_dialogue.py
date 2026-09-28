@@ -92,6 +92,22 @@ def say(dialogue: ReviewDialogue, transcript: str):
     ("stop", "stop", {}),
     ("where am I", "where", {}),
     ("make me a sandwich", "unknown", {}),
+    # Extensionless names, as a pull request carries them and a recogniser hears them.
+    ("what changed in README", "focus_file", {"file": "readme"}),
+    ("What changed in the README?", "focus_file", {"file": "readme"}),
+    ("what changed in read me", "focus_file", {"file": "read me"}),
+    ("what changed in the readme file", "focus_file", {"file": "readme file"}),
+    ("what's different in Dockerfile", "focus_file", {"file": "dockerfile"}),
+    ("file README", "focus_file", {"file": "readme"}),
+    ("what changed in file two", "focus_index", {"n": "2"}),
+    # ...and none of them swallows a command that already meant something else.
+    ("file by file", "files", {}),
+    ("file last", "focus_index", {"n": "last"}),
+    ("open the patch", "open", {}),
+    ("open pr", "open", {}),
+    ("show me the code", "read_lines", {}),
+    ("what changed", "summary", {}),
+    ("what changed in the file", "unknown", {}),
 ])
 def test_transcripts_parse_to_commands(transcript, name, slots):
     command = parse_command(transcript)
@@ -420,3 +436,81 @@ def test_confirm_and_cancel_outside_a_pending_review_are_refused():
     dialogue = opened()
     assert say(dialogue, "confirm").error is True
     assert say(dialogue, "cancel").error is True
+
+
+# --- the demo pull request, octocat/Hello-World #1, in its recorded shape ---------------
+
+def hello_world() -> ReviewDialogue:
+    from tests.fixtures import hello_world_pr1 as recorded
+    snapshot = PullRequestSnapshot(
+        owner="octocat", repo="Hello-World", number=1, url=recorded.URL,
+        title=recorded.META["title"], state=recorded.META["state"], head_sha=recorded.HEAD,
+        head_ref="patch-1", base_ref="master", author="unoju", diff=recorded.DIFF,
+    )
+    dialogue = ReviewDialogue(session_id="hello")
+    dialogue.load(report_for(recorded.DIFF), snapshot)
+    return dialogue
+
+
+@pytest.mark.parametrize("name", ["README", "the README", "readme", "read me", "the readme file"])
+def test_what_changed_in_a_file_name_works_for_readme_on_the_demo_pull_request(name):
+    """The overview offers "what changed in a file name"; README has no extension."""
+    dialogue = hello_world()
+    assert "what changed in a file name" in dialogue.last_turn.spoken
+    turn = say(dialogue, f"what changed in {name}")
+    assert turn.error is False, turn.spoken
+    assert turn.state is DialogueState.FILE
+    assert turn.spoken.startswith("File 1 of 1: README.")
+
+
+def test_every_command_the_demo_pull_request_offers_works_on_it():
+    """Each "Say ..." the product speaks on Hello-World #1, said back to it, answers without an error."""
+    dialogue = hello_world()
+    offered = [
+        # The overview: "Say summary, file by file, or what changed in a file name."
+        "summary", "file by file", "what changed in README",
+        # The file list: "Say file and a number, or what changed in a file name."
+        "file 1",
+        # The file: "Say read the lines."
+        "read the lines",
+        # The lines: "Say spell that, next or previous."
+        "spell that", "next", "previous",
+        # The chips the page outlines, and the help's own examples.
+        "findings", "where am I", "repeat", "help",
+    ]
+    for transcript in offered:
+        turn = say(dialogue, transcript)
+        assert turn.error is False, f"{transcript!r} answered {turn.spoken!r}"
+
+
+def test_help_names_a_file_and_a_line_of_the_open_change_and_both_work():
+    dialogue = hello_world()
+    text = say(dialogue, "help").spoken
+    assert "What changed in README." in text and "auth dot py" not in text
+    assert " line 1." in text and "line fifteen" not in text
+    assert say(dialogue, "what changed in README").error is False
+    assert say(dialogue, "line 1").error is False
+
+
+def test_help_with_nothing_open_keeps_the_generic_examples():
+    dialogue = ReviewDialogue(session_id="empty")
+    assert "What changed in auth dot py." in say(dialogue, "help").spoken
+
+
+def test_next_from_the_overview_is_the_first_file_not_the_second():
+    dialogue = opened()
+    turn = say(dialogue, "next")
+    assert turn.error is False and turn.spoken.startswith("File 1 of 2: src/auth/permissions.py.")
+    assert say(dialogue, "next").spoken.startswith("File 2 of 2: src/utils/parser.py.")
+    say(dialogue, "file by file")
+    assert say(dialogue, "next").spoken.startswith("File 1 of 2:"), "the list is an overview too"
+
+
+def test_previous_from_the_overview_says_how_to_reach_a_file():
+    turn = say(opened(), "previous")
+    assert turn.error is True and turn.spoken == "No file is open yet. Say next for file 1."
+
+
+def test_next_on_the_one_file_demo_pull_request_opens_that_file():
+    turn = say(hello_world(), "next")
+    assert turn.error is False and turn.spoken.startswith("File 1 of 1: README.")
