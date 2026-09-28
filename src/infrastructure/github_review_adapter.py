@@ -41,7 +41,11 @@ from src.application.review_authorization import (
     ReviewAuthorizationError,
     require_review_principal,
 )
-from src.domain.review_dialogue import PullRequestSnapshot
+from src.domain.review_dialogue import (
+    PullRequestReadError,
+    PullRequestSnapshot,
+    read_failure_words,
+)
 
 GITHUB_API = "https://api.github.com"
 API_VERSION = "2022-11-28"
@@ -66,12 +70,12 @@ CAPABILITY_DRY_RUN_NO_TOKEN = "dry_run_no_token"
 CAPABILITY_LIVE_NO_TOKEN = "live_write_requested_but_no_token"
 
 
-class GitHubReadError(Exception):
-    """A pull request could not be read. ``status`` is GitHub's HTTP status."""
+class GitHubReadError(PullRequestReadError):
+    """A pull request could not be read. ``status`` is GitHub's HTTP status.
 
-    def __init__(self, message: str, status: int | None = None):
-        super().__init__(message)
-        self.status = status
+    The message carries the technical cause for logs and tests; a listener
+    hears ``read_failure_words`` instead.
+    """
 
 
 @dataclass(frozen=True)
@@ -221,7 +225,7 @@ class GitHubReviewAdapter:
                 raise GitHubReadError(
                     f"GitHub answered HTTP {meta.status_code} for {owner}/{repo}#{number}: "
                     f"{_message_of(meta)}",
-                    status=meta.status_code,
+                    status=meta.status_code, rate_limited=_rate_limited(meta),
                 )
             body = meta.json()
             diff = self._get(client, path, "application/vnd.github.v3.diff")
@@ -229,7 +233,7 @@ class GitHubReviewAdapter:
                 raise GitHubReadError(
                     f"GitHub answered HTTP {diff.status_code} for the diff of "
                     f"{owner}/{repo}#{number}: {_message_of(diff)}",
-                    status=diff.status_code,
+                    status=diff.status_code, rate_limited=_rate_limited(diff),
                 )
         return PullRequestSnapshot(
             owner=owner,
@@ -253,7 +257,7 @@ class GitHubReviewAdapter:
             raise GitHubReadError(
                 f"GitHub answered HTTP {meta.status_code} re-reading {owner}/{repo}#{number}: "
                 f"{_message_of(meta)}",
-                status=meta.status_code,
+                status=meta.status_code, rate_limited=_rate_limited(meta),
             )
         return meta.json()["head"]["sha"]
 
@@ -306,7 +310,10 @@ class GitHubReviewAdapter:
         except GitHubReadError as exc:
             return ReviewSubmission(
                 submitted=False, dry_run=False, refusal_code=REFUSAL_UNREACHABLE,
-                detail=f"The head commit could not be re-read before submitting: {exc}",
+                detail=(
+                    "The head commit could not be re-read before submitting, so nothing was sent. "
+                    + read_failure_words(exc, snapshot.url, retry="open the pull request again")
+                ),
                 expected_head_sha=expected_head_sha, live_head_sha=None, request=request_record,
             )
 
@@ -391,6 +398,15 @@ class GitHubReviewAdapter:
                 "commit_id": review.get("commit_id"),
             },
         )
+
+
+def _rate_limited(response: httpx.Response) -> bool:
+    """True only when GitHub itself says the rate limit is the cause."""
+    if response.status_code not in (403, 429):
+        return False
+    if response.headers.get("x-ratelimit-remaining") == "0":
+        return True
+    return "rate limit" in _message_of(response).lower()
 
 
 def _message_of(response: httpx.Response) -> str:

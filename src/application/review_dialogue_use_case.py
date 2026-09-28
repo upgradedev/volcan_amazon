@@ -23,6 +23,7 @@ before anything is sent.
 import asyncio
 import base64
 import hashlib
+import logging
 import time
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -51,9 +52,12 @@ from src.domain.review_dialogue import (
     PullRequestSnapshot,
     ReviewDialogue,
     parse_command,
+    read_failure_words,
 )
 from src.domain.sonification import EarconType
 from src.domain.spoken_form import speakable
+
+_log = logging.getLogger(__name__)
 
 ACTION_TYPE = "GITHUB_REQUEST_CHANGES"
 STAGING_PRINCIPAL = "volcan-review-dialogue"
@@ -238,9 +242,11 @@ class ReviewDialogueUseCase:
         try:
             live = await asyncio.to_thread(self._github.fetch_pull_request, pr.url)
         except Exception as exc:  # noqa: BLE001 - the reason is the answer
+            _log.warning("refreshing %s failed: %r", pr.url, exc)
             return dialogue._turn(
                 command, "resume",
-                f"The pull request could not be refreshed. {type(exc).__name__}: {exc}",
+                "The pull request could not be refreshed. "
+                + read_failure_words(exc, pr.url, retry="say resume again"),
                 error=True, earcon=EarconType.TEST_FAILED, remember=False,
             )
         if live.head_sha == pr.head_sha:
@@ -264,9 +270,13 @@ class ReviewDialogueUseCase:
             except ReviewAuthorizationError:
                 raise
             except Exception as exc:  # noqa: BLE001 - the reason is the answer
+                # The listener hears what failed and what to do, and the
+                # readback names the pull request, since a link was given. The
+                # exception, class name included, goes to the server log only.
+                _log.warning("opening %s failed: %r", url, exc)
                 return dialogue._turn(
-                    command, command.words,
-                    f"The pull request could not be opened. {type(exc).__name__}: {exc}",
+                    command, "open the pull request",
+                    "The pull request could not be opened. " + read_failure_words(exc, url),
                     error=True, earcon=EarconType.TEST_FAILED,
                 )
             report = await self._digest.execute(snapshot.diff)
