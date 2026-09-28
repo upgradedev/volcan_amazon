@@ -16,9 +16,10 @@ served the page, and a refused handshake prints the server's own reason.
 
 skip: the skip link moves focus into main, not back to the document body.
 
-voice: one voice per answer in the review dialogue, and "My screen reader
-speaks the answers" hands every answer to the status line with the page's own
-voice silent, on the stage and in the dialogue alike.
+voice: one voice per answer in the review dialogue, plus a short handover in
+the status line that never repeats the answer; and "My screen reader speaks
+the answers" hands every answer to the status line with the page's own voice
+silent, on the stage and in the dialogue alike.
 
 stale: a patch changed after a press never sits beside the previous patch's
 answer. The stage returns to the new patch's silent answer, and the old
@@ -251,10 +252,17 @@ def voice(base_url: str) -> None:
         expect(page.locator("#dialogueLog")).to_contain_text("an authorization comparison was inverted",
                                                              timeout=20_000)
         page.wait_for_timeout(2000)
+        expect(page.locator("#reviewStatus")).to_have_text("Answered. Speaking it now.",
+                                                            timeout=20_000)
         page_voice = page.evaluate("window.__probe")
         print(json.dumps({"page_voice": page_voice}, indent=1))
         assert page_voice["speak"] >= 1, "the page's voice did not speak the turn"
-        assert page_voice["live"] == [], f"a live region read the turn as well: {page_voice['live']}"
+        regions = sorted({entry.split(":", 1)[0] for entry in page_voice["live"]})
+        assert regions == ["reviewStatus"], (
+            f"the turn must hand over to the status line only: {regions}")
+        handover = page.locator("#reviewStatus").inner_text()
+        assert "authorization comparison" not in handover, (
+            "the handover must not repeat the spoken answer")
 
         # The listener's screen reader: nothing is spoken by the page, and the
         # whole turn is in the one status line.

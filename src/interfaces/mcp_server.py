@@ -99,7 +99,7 @@ tool_registry = build_tool_registry()
 dispatcher = McpDispatcher(
     tool_registry,
     instructions=(
-        "Volcan turns code review into sound and touch for blind and mobility-impaired "
+        "Volcan turns code review into sound and touch for blind and low-vision "
         "developers. Call digest_semantic_diff first; it returns spoken text and an audio "
         "earcon. Commands are planned, never executed."
     ),
