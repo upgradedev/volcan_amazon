@@ -19,7 +19,7 @@ needed; [step by step](#run-it-locally).
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-681%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-684%20passing-brightgreen.svg)](tests/)
 
 **What it does.** Paste a patch or open a GitHub pull request. Volcan says the risky change
 first in one sentence, plays a cue whose pitch falls on a security finding and rises on a clean
@@ -110,7 +110,7 @@ python -m pip install -e ".[dev,bedrock]"
 python -m pytest tests/ -q
 ```
 
-On 2026-09-28 this printed `681 passed, 1 warning`. The `bedrock` extra installs
+On 2026-09-28 this printed `684 passed, 1 warning`. The `bedrock` extra installs
 `anthropic[bedrock]`. With AWS credentials as well, a Bedrock call is ready to attempt.
 Credentials and an importable SDK do not prove a model answered: the receipt is the digest
 response's `synthesis_mode: bedrock`. Without them the local engine answers, and the page says
@@ -178,8 +178,8 @@ public endpoint runs an older build, as the table below says.
 | Voice loop | Simulated: the browser's speech, not an Alexa skill, and no test drives a microphone | [Evidence](docs/EVIDENCE.md#what-is-true-and-what-is-simulated) |
 | Shared durable state | In the code and the Terraform, not deployed; a local run keeps state in memory | The `durable_state` field of `GET /health` says which |
 | Alexa+ MCP add-on package | Built and tested locally, not certified or deployed: the hackathon FAQ says the add-on tools are "available to select partners only", so participants cannot deploy it. A replay of Amazon's documented Alexa+ client requests, against a local build of this commit and not the registered endpoint (which runs an older build), gets the finding back from all three client shapes: one that follows the protocol's version rules, one that declares the revision it asked for, and one that never sends the version header. The page's Evidence tab, Server and MCP, runs the same three clients from the browser on a press. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
-| Demo video | Rendered locally: 164.52 s at 1920x1080 (ffprobe) from a local run of `7a3de49`, whose `src/` and `docs/` it shows. The review-dialogue fixes after it are not on camera: README and other extensionless file names, next from the overview, help examples taken from the open change, plain words when a pull request cannot be opened, and README spoken as documentation. Pending upload by the owner; no public link yet | [video/README.md](video/README.md) |
-| Test suite | 681 passing, 92.47% statement coverage, 2026-09-28 | `python -m pytest tests/ -q --cov=src` |
+| Demo video | Rendered locally: 164.52 s at 1920x1080 (ffprobe) from a local run of `7a3de49`, whose `src/` and `docs/` it shows. The review-dialogue fixes after it are not on camera, including README and other extensionless file names, next from the overview, help examples taken from the open change, next steps outlined only where they work, plain words when a pull request cannot be opened, and README spoken as documentation. Pending upload by the owner; no public link yet | [video/README.md](video/README.md) |
+| Test suite | 684 passing, 92.62% statement coverage, 2026-09-28 | `python -m pytest tests/ -q --cov=src` |
 
 ## Who it is for and who pays
 

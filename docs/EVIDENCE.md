@@ -134,7 +134,7 @@ code operator named (`user.role not equals 'admin'`), while the screen and the B
 the literal `!=`.
 
 **Time to first result, measured on the development machine on 2026-09-26.** Step 1 printed
-`681 passed, 1 warning` on 2026-09-28 (the count is the claim; the duration varies run to run;
+`684 passed, 1 warning` on 2026-09-28 (the count is the claim; the duration varies run to run;
 646 earlier that day, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 on 2026-09-27 before the single review cursor and the local revision in /health; that
 day, before the version-header fix and the replay panel, it was 631, before the JavaScript and TypeScript rules and the Alexa+ package, it was 577, and before the audit fixes 623). The server in step 2 answered its first `GET /health` with HTTP 200 **1.7 seconds**
 after launch on 2026-09-26 (three runs that day read 1.7, 1.7 and 1.8 s), printed by [`scripts/measure_cold_start.py`](../scripts/measure_cold_start.py),
@@ -888,7 +888,7 @@ estimate unless it says ESTIMATE.
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **23 of 23 conformance checks pass**, stateful on port 8841 and stateless (`VOLCAN_MCP_SESSION_MODE=stateless`, `--expect-mode stateless`) on port 8842, 2026-09-27 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 681 passing; 92.47% statement coverage (4341 statements, 327 missed), including a real Chromium judge journey and Lambda bridge, 2026-09-28 (646 and 92.43% earlier that day, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 684 passing; 92.62% statement coverage (4361 statements, 322 missed), including a real Chromium judge journey and Lambda bridge, 2026-09-28 (646 and 92.43% earlier that day, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.7 s on 2026-09-26 (three runs: 1.7, 1.7, 1.8 s) | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 31.3 ms on the first press, then 38.9, 30.5 and 28.7 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credentials | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -1411,9 +1411,9 @@ simulator in isolation mode, and record which headers the real client sends.
 * **No video has been published.** A 164.52 second render at 1920x1080 (ffprobe) of a local run of
   `7a3de49` exists outside the repository, pending upload by the owner; it supersedes the
   174.32 second render of `1dc939f` and the earlier one of `de30b11`. The review-dialogue fixes
-  after `7a3de49` (extensionless file names, next from the overview, help examples from the
-  open change, plain words for a pull request that cannot be opened, README as documentation)
-  are not on camera. [`video/README.md`](../video/README.md) says how it was made.
+  after `7a3de49` are not on camera, including extensionless file names, next from the
+  overview, help examples from the open change, next steps outlined only where they work,
+  plain words for a pull request that cannot be opened, and README as documentation. [`video/README.md`](../video/README.md) says how it was made.
   `video/` holds no footage, so gates E2 and E4 stay red.
 * **Durability is deployment-dependent and bounded.** A local run without
   `VOLCAN_STATE_TABLE` keeps dialogue, actions, spent nonces and audit records in process
