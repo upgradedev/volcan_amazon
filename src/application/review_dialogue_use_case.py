@@ -274,9 +274,14 @@ class ReviewDialogueUseCase:
                 # readback names the pull request, since a link was given. The
                 # exception, class name included, goes to the server log only.
                 _log.warning("opening %s failed: %r", url, exc)
+                # What was open before stays open, and the listener is told so.
+                still = ""
+                if dialogue.report is not None:
+                    opened = dialogue.pull_request.label if dialogue.pull_request else "the pasted patch"
+                    still = f" Still open: {opened}."
                 return dialogue._turn(
                     command, "open the pull request",
-                    "The pull request could not be opened. " + read_failure_words(exc, url),
+                    "The pull request could not be opened. " + read_failure_words(exc, url) + still,
                     error=True, earcon=EarconType.TEST_FAILED,
                 )
             report = await self._digest.execute(snapshot.diff)

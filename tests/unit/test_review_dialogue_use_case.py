@@ -123,6 +123,15 @@ def test_an_unreadable_pull_request_is_an_error_turn_with_the_reason_not_a_crash
     )
 
 
+def test_a_failed_open_says_the_pull_request_already_open_is_still_open():
+    use_case, _, _, _, _ = opened()
+    turn = say(use_case, "open", pr_url="https://github.com/octo/demo/pull/8")
+    assert turn["error"] is True and turn["state"] == "OVERVIEW"
+    assert turn["readback"] == "Understood: open the pull request."
+    assert turn["spoken"].endswith("Still open: octo/demo pull request 7.")
+    assert turn["focus"]["pull_request"] == "octo/demo pull request 7"
+
+
 def test_a_link_that_is_not_a_pull_request_says_what_a_link_looks_like():
     use_case, _, _ = build(FakeGitHub())
     turn = say(use_case, "open", pr_url="https://github.com/octo/demo/issues/8")
