@@ -223,6 +223,7 @@ class GitHubReviewAdapter:
                     f"GitHub answered HTTP {meta.status_code} for {owner}/{repo}#{number}: "
                     f"{_message_of(meta)}",
                     status=meta.status_code, rate_limited=_rate_limited(meta),
+                    host_message=_plain_message(meta),
                 )
             body = meta.json()
             diff = self._get(client, path, "application/vnd.github.v3.diff")
@@ -231,6 +232,7 @@ class GitHubReviewAdapter:
                     f"GitHub answered HTTP {diff.status_code} for the diff of "
                     f"{owner}/{repo}#{number}: {_message_of(diff)}",
                     status=diff.status_code, rate_limited=_rate_limited(diff),
+                    host_message=_plain_message(diff),
                 )
         return PullRequestSnapshot(
             owner=owner,
@@ -255,6 +257,7 @@ class GitHubReviewAdapter:
                 f"GitHub answered HTTP {meta.status_code} re-reading {owner}/{repo}#{number}: "
                 f"{_message_of(meta)}",
                 status=meta.status_code, rate_limited=_rate_limited(meta),
+                host_message=_plain_message(meta),
             )
         return meta.json()["head"]["sha"]
 
@@ -404,6 +407,16 @@ def _rate_limited(response: httpx.Response) -> bool:
     if response.headers.get("x-ratelimit-remaining") == "0":
         return True
     return "rate limit" in _message_of(response).lower()
+
+
+def _plain_message(response: httpx.Response) -> str:
+    """GitHub's own ``message`` sentence, or nothing: never a page of HTML or JSON."""
+    try:
+        body = response.json()
+    except ValueError:
+        return ""
+    message = body.get("message") if isinstance(body, dict) else None
+    return str(message)[:200] if isinstance(message, str) else ""
 
 
 def _message_of(response: httpx.Response) -> str:

@@ -246,7 +246,7 @@ class ReviewDialogueUseCase:
             return dialogue._turn(
                 command, "resume",
                 "The pull request could not be refreshed. "
-                + read_failure_words(exc, pr.url, retry="say resume again"),
+                + read_failure_words(exc, pr.url, retry="say resume again", label=pr.label),
                 error=True, earcon=EarconType.TEST_FAILED, remember=False,
             )
         if live.head_sha == pr.head_sha:
@@ -281,7 +281,8 @@ class ReviewDialogueUseCase:
                     still = f" Still open: {opened}."
                 return dialogue._turn(
                     command, "open the pull request",
-                    "The pull request could not be opened. " + read_failure_words(exc, url) + still,
+                    "The pull request could not be opened. "
+                    + read_failure_words(exc, url, label=self._label(url)) + still,
                     error=True, earcon=EarconType.TEST_FAILED,
                 )
             report = await self._digest.execute(snapshot.diff)
@@ -295,6 +296,14 @@ class ReviewDialogueUseCase:
             command, command.words,
             "Give me a pull request URL, or paste a patch, then say open.", error=True,
         )
+
+    def _label(self, url: str) -> str | None:
+        """The pull request as the dialogue names it, or None for a link that is not one."""
+        try:
+            owner, repo, number = self._github.parse_pull_request_url(url)
+        except ValueError:
+            return None
+        return f"{owner}/{repo} pull request {number}"
 
     # -- stage -----------------------------------------------------------------
 

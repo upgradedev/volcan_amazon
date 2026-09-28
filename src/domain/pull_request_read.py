@@ -21,10 +21,12 @@ class PullRequestReadError(Exception):
     BAD_ANSWER = "bad_answer"
 
     def __init__(self, message: str, status: int | None = None, reason: str | None = None,
-                 rate_limited: bool = False):
+                 rate_limited: bool = False, host_message: str = ""):
         super().__init__(message)
         self.status = status
         self.rate_limited = rate_limited
+        #: The host's own one-line explanation, when it gave one in plain words.
+        self.host_message = host_message
         if reason is None:
             if status is None:
                 reason = self.UNREACHABLE
@@ -37,16 +39,20 @@ class PullRequestReadError(Exception):
         self.reason = reason
 
 
-def read_failure_words(exc: BaseException, url: str, *, retry: str = "open it again") -> str:
+def read_failure_words(exc: BaseException, url: str, *, retry: str = "open it again",
+                       label: str | None = None) -> str:
     """Why a pull request could not be read, and what to do, in plain words.
 
     ``retry`` names the command that tries again: "open it again" after an
-    open, "say resume again" after a refresh.
+    open, "say resume again" after a refresh. ``label`` is the pull request
+    as the rest of the dialogue names it ("octocat/Hello-World pull request
+    1"); without one, the link is said instead.
     """
     if isinstance(exc, PullRequestReadError):
         if exc.reason == PullRequestReadError.NOT_FOUND:
+            named = label or f"pull request at {url}"
             return (
-                f"GitHub found no pull request at {url}. Check the owner, the repository and "
+                f"GitHub found no {named}. Check the owner, the repository and "
                 f"the number in the link, then {retry}. A private repository also needs a "
                 "GITHUB_TOKEN on the server."
             )
@@ -63,7 +69,12 @@ def read_failure_words(exc: BaseException, url: str, *, retry: str = "open it ag
             )
         if exc.reason == PullRequestReadError.UNREACHABLE:
             return f"GitHub could not be reached from this server. Check its network connection, then {retry}."
-        return f"GitHub answered with an error and no pull request. Wait a minute, then {retry}."
+        if exc.status is not None and exc.status >= 500:
+            return f"GitHub had a server error and sent no pull request. Wait a minute, then {retry}."
+        if exc.host_message:
+            said = exc.host_message.strip().rstrip(".")
+            return f"GitHub did not send the pull request, and said: {said}. Check the link, then {retry}."
+        return f"GitHub did not send the pull request and gave no reason. Check the link, then {retry}."
     if isinstance(exc, ValueError):
         return (
             f"{url} is not a link to a GitHub pull request. A pull request link looks like "

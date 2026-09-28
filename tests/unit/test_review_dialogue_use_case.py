@@ -108,7 +108,7 @@ def _plain(turn: dict) -> None:
 def test_an_unreadable_pull_request_is_an_error_turn_with_the_reason_not_a_crash():
     """A pull request that does not exist: what failed and what to do, in plain words.
 
-    Until round 11 this turn read back "open the patch" and spoke the adapter's
+    Before this fix the turn read back "open the patch" and spoke the adapter's
     exception, "GitHubReadError: GitHub answered HTTP 404 ...". The listener
     gave a link, so the readback names the pull request, and the answer says
     what to check.
@@ -117,9 +117,8 @@ def test_an_unreadable_pull_request_is_an_error_turn_with_the_reason_not_a_crash
     turn = say(use_case, "open", pr_url="https://github.com/octo/demo/pull/8")
     _plain(turn)
     assert turn["spoken"].startswith(
-        "The pull request could not be opened. GitHub found no pull request at "
-        "https://github.com/octo/demo/pull/8. Check the owner, the repository and the number "
-        "in the link, then open it again."
+        "The pull request could not be opened. GitHub found no octo/demo pull request 8. "
+        "Check the owner, the repository and the number in the link, then open it again."
     )
 
 
@@ -177,13 +176,43 @@ def test_a_refused_read_names_the_rate_limit_only_when_github_says_so(headers, s
     assert said in turn["spoken"] and not_said not in turn["spoken"]
 
 
+@pytest.mark.parametrize(("status", "body", "said", "not_said"), [
+    (502, {"message": "Server Error"}, "GitHub had a server error and sent no pull request. Wait a minute",
+     "Server Error"),
+    (406, {"message": "Sorry, the diff exceeded the maximum number of lines (20000)"},
+     "GitHub did not send the pull request, and said: Sorry, the diff exceeded the maximum number "
+     "of lines (20000). Check the link", "Wait a minute"),
+    (422, "<html>nope</html>", "GitHub did not send the pull request and gave no reason.", "html"),
+])
+def test_other_answers_wait_only_on_a_server_error_and_relay_githubs_own_sentence(status, body, said, not_said):
+    def answer(request):
+        if "diff" in request.headers.get("accept", ""):
+            if isinstance(body, dict):
+                return httpx.Response(status, json=body)
+            return httpx.Response(status, text=body)
+        return FakeGitHub()(request)
+
+    bedrock = BedrockSynthesisAdapter(client_factory=lambda _region: None)
+    bedrock.credentials_present = lambda: False  # type: ignore[method-assign]
+    github = GitHubReviewAdapter(token=None, write_enabled=False, transport=httpx.MockTransport(answer))
+    use_case = ReviewDialogueUseCase(
+        DigestDiffUseCase(bedrock), github, ApprovalGrantIssuer(b"0123456789abcdef0123456789abcdef"),
+        InMemoryAuditRepository(), SonifyEventUseCase(),
+    )
+    turn = say(use_case, "open", pr_url=PR_URL)
+    _plain(turn)
+    assert said in turn["spoken"] and not_said not in turn["spoken"], turn["spoken"]
+
+
 def test_a_failed_refresh_on_resume_is_plain_words_too():
     fake = FakeGitHub()
     use_case, _, _, fake, _ = opened(fake)
     fake.pull_path = "/repos/octo/demo/pulls/gone"
     turn = say(use_case, "resume")
     assert turn["error"] is True
-    assert turn["spoken"].startswith("The pull request could not be refreshed. GitHub found no pull request")
+    assert turn["spoken"].startswith(
+        "The pull request could not be refreshed. GitHub found no octo/demo pull request 7."
+    )
     assert "then say resume again" in turn["spoken"]
     assert "Error" not in turn["spoken"]
 
