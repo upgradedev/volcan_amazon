@@ -3,12 +3,22 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 
-from src.domain import ast_security_rules
+from src.domain import ast_security_rules, js_security_rules
 
 
 def plural(count: int, noun: str, suffix: str = "s") -> str:
     """Speech-safe count. A listener hears every one of these words."""
     return f"{count} {noun}" if count == 1 else f"{count} {noun}{suffix}"
+
+
+def category_words(category: "ChangeCategory") -> str:
+    """A category as words a listener hears: "business logic", not BUSINESS_LOGIC."""
+    return category.value.replace("_", " ").lower()
+
+
+def line_counts(added: int, removed: int) -> str:
+    """Counts as a sentence fragment: "3 lines added, 1 removed", never "(+3, -1)"."""
+    return f"{plural(added, 'line')} added, {removed} removed"
 
 
 class ChangeCategory(str, Enum):
@@ -110,21 +120,40 @@ class SemanticDiffReport:
         """
         if level == 0:
             headline = self.executive_spoken_summary.rstrip().rstrip(".")
-            base = (
-                f"{headline}. Modified {plural(self.total_files_changed, 'file')} with "
+            counts = (
+                f"Modified {plural(self.total_files_changed, 'file')} with "
                 f"{plural(self.total_insertions, 'addition')} and "
                 f"{plural(self.total_deletions, 'deletion')}."
             )
-            if self.critical_findings:
-                count = len(self.critical_findings)
-                verb = "requires" if count == 1 else "require"
-                base += f" Note: {plural(count, 'critical finding')} {verb} your verification."
-            return base
+            if not self.critical_findings:
+                return f"{headline}. {counts}"
+            # The finding is the first thing a listener hears, then the counts,
+            # and nothing else. The local engine's headline ("Security-sensitive
+            # changes in <file>") and a closing "Note: 1 critical finding
+            # requires your verification" only restated the finding, twice, in
+            # a product whose listener cannot skim past a repeat. A model's
+            # headline is its own words and stays, after the finding.
+            lead = self.critical_findings[0].strip()
+            if not lead.endswith("."):
+                lead += "."
+            parts = [lead]
+            if self.synthesis_mode == "bedrock" and headline:
+                parts.append(f"{headline}.")
+            more = len(self.critical_findings) - 1
+            if more:
+                parts.append(f"{plural(more, 'more security finding')}.")
+            parts.append(counts)
+            return " ".join(parts)
 
         if level == 1:
             lines = [self.to_voice_summary(level=0)]
             for idx, sec in enumerate(self.sections, start=1):
-                sec_desc = f"Section {idx}: {sec.file_path}, category {sec.category.value}. {sec.summary_spoken} (+{sec.added_count}, -{sec.removed_count})."
+                # The parser's own summary_spoken says "Changed N lines in
+                # <file>, <category>", which this line already says in full.
+                sec_desc = (
+                    f"Section {idx}: {sec.file_path}, {category_words(sec.category)}, "
+                    f"{line_counts(sec.added_count, sec.removed_count)}."
+                )
                 lines.append(sec_desc)
             return " ".join(lines)
 
@@ -135,6 +164,39 @@ class SemanticDiffReport:
             for cf in self.critical_findings:
                 lines.append(f"Security Alert: {cf}")
         return " ".join(lines)
+
+
+#: A definition keyword followed by its name, in a hunk header or a changed line.
+_DEFINITION = re.compile(r"\b(?:def|class|function|func|fn)\s+([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def touched_names(section: "DiffSectionDigest") -> list[str]:
+    """The functions and classes a file's change sits in or defines, in order.
+
+    Two sources, both already parsed: the hunk header, which git fills with the
+    nearest definition above the hunk (usually, not always, the enclosing one),
+    and any definition line the patch adds or removes. A caller says the change
+    "touches" these names, never that it changed them.
+    """
+    names: list[str] = []
+    for hunk in section.hunks:
+        found = _DEFINITION.search(hunk.header)
+        candidates = [found.group(1)] if found else []
+        for line in hunk.removed_lines + hunk.added_lines:
+            defined = _DEFINITION.search(line.strip()[:200])
+            if defined and line.strip().startswith(("def ", "async def ", "class ")):
+                candidates.append(defined.group(1))
+        for name in candidates:
+            if name not in names:
+                names.append(name)
+    return names
+
+
+def join_words(items: list[str]) -> str:
+    """"a", "a and b", "a, b and c": the way a sentence lists things."""
+    if len(items) <= 1:
+        return "".join(items)
+    return f"{', '.join(items[:-1])} and {items[-1]}"
 
 
 class UnifiedDiffParser:
@@ -301,7 +363,15 @@ class UnifiedDiffParser:
                         f"text matching the {flag_name} keyword set appears in this change"
                     )
 
-            for finding in ast_security_rules.evaluate(added_lines, removed_lines):
+            # JavaScript and TypeScript lines are read by the token rules;
+            # every other file keeps the Python syntax-tree rules, so the
+            # Python figure is unchanged by the JavaScript work.
+            rules = (
+                js_security_rules
+                if file_path.lower().endswith(js_security_rules.JS_TS_EXTENSIONS)
+                else ast_security_rules
+            )
+            for finding in rules.evaluate(added_lines, removed_lines):
                 # Structural findings lead: they say what happened, so a
                 # listener hears the deletion before the vocabulary match.
                 security_flags.insert(0, finding.rule_id)
@@ -311,7 +381,7 @@ class UnifiedDiffParser:
             if "test" in file_path.lower():
                 category = ChangeCategory.TEST_ONLY
                 significance = ChangeSignificance.LOW
-            elif file_path.endswith((".md", ".txt", ".rst")):
+            elif _is_documentation(file_path):
                 category = ChangeCategory.DOCUMENTATION
                 significance = ChangeSignificance.LOW
             elif security_flags:
@@ -344,3 +414,17 @@ class UnifiedDiffParser:
             )
 
         return sections
+
+
+#: Files that are prose by name, whatever their extension or lack of one. A
+#: README is the most common file in a first pull request, and calling it
+#: "business logic" out loud is a wrong statement about the change.
+_DOCUMENTATION_NAMES = {"readme", "changelog", "changes", "license", "licence", "copying",
+                        "notice", "authors", "contributors", "contributing", "history"}
+
+
+def _is_documentation(file_path: str) -> bool:
+    lowered = file_path.lower()
+    if lowered.endswith((".md", ".txt", ".rst", ".adoc")):
+        return True
+    return lowered.rsplit("/", 1)[-1] in _DOCUMENTATION_NAMES

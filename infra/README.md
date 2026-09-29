@@ -65,7 +65,11 @@ bytes, or any direct `VOLCAN_APPROVAL_SECRET` value in durable mode. Local runs 
 a multi-worker durability test. Public health reports configured/reachable status without the
 table name, secret ARN or account identifier.
 
-Durable voice turns are fail-closed behind the same `VOLCAN_REVIEWERS` Bearer roster used by
-live review. The authenticated identity and its repository allowlist select the session and
-action namespace; JSON `user_id` does not. Supplying that roster securely remains an owner
-deployment responsibility and is not embedded in this Terraform state.
+The `VOLCAN_REVIEWERS` Bearer roster is optional in durable mode. Without it the anonymous
+demo still answers: governed actions from the public surface land in one public demo chain that
+`/api/audit_log` shows to anyone with caller-written text withheld, and voice turns run under
+the fixed anonymous owner `public:anonymous`. With it, a credential binds a voice session to
+that reviewer, and the audit read adds that reviewer's own review chains; the authenticated
+identity and its repository allowlist select the session and action namespace, and JSON
+`user_id` does not. Live GitHub writes always require it. Supplying that roster securely
+remains an owner deployment responsibility and is not embedded in this Terraform state.

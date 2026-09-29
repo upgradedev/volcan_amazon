@@ -63,14 +63,44 @@ review_dialogue_use_case = ReviewDialogueUseCase(
     state_store=state_store,
 )
 
-DEFAULT_ALLOWED_ORIGINS = ("http://127.0.0.1:8000", "http://localhost:8000")
+#: The loopback port ``python -m src.interfaces.mcp_server`` binds when nothing
+#: else is configured. ``VOLCAN_PORT`` (or ``--port``) changes the bind port and
+#: the default Origin allowlist together, so the page the server itself serves
+#: can always run the MCP handshake against it.
+DEFAULT_PORT = 8000
+
+
+def local_port() -> int:
+    raw = os.getenv("VOLCAN_PORT", str(DEFAULT_PORT)).strip()
+    try:
+        port = int(raw)
+    except ValueError:
+        raise RuntimeError(f"VOLCAN_PORT must be a port number, not {raw!r}.") from None
+    if not 0 < port < 65536:
+        raise RuntimeError(f"VOLCAN_PORT must be between 1 and 65535, not {port}.")
+    return port
+
+
+def default_allowed_origins() -> tuple[str, str]:
+    """The two loopback spellings of the origin this process serves.
+
+    This is still an explicit allowlist: it names loopback on the configured
+    port and nothing else. Trusting the request's Host header instead would
+    reopen the DNS-rebinding case the Origin check exists to stop.
+    """
+    port = local_port()
+    return (f"http://127.0.0.1:{port}", f"http://localhost:{port}")
+
+
+#: The allowlist for the default port, kept for callers that import it.
+DEFAULT_ALLOWED_ORIGINS = (f"http://127.0.0.1:{DEFAULT_PORT}", f"http://localhost:{DEFAULT_PORT}")
 
 
 def allowed_origins() -> set[str]:
     configured = os.getenv("VOLCAN_ALLOWED_ORIGINS")
     if configured:
         return {origin.strip() for origin in configured.split(",") if origin.strip()}
-    return set(DEFAULT_ALLOWED_ORIGINS)
+    return set(default_allowed_origins())
 
 
 def mcp_session_mode() -> str:

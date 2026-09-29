@@ -160,6 +160,16 @@ def _digits_for_spoken_numbers(match: re.Match) -> str:
     return f"{match.group('noun')} {number}{trailing}"
 
 _FILE = r"(?P<file>(?!https?://)[\w./-]*\.\w+)"
+#: A file name with no extension, as a pull request names README, Dockerfile,
+#: Makefile or LICENSE. It is one token, and never a number or "last", which
+#: are file positions.
+_BARE_FILE = r"(?P<file>(?!https?://)(?!\d+$)(?!last$)[\w./-]+)"
+#: A file name after "what changed in", where nothing else can follow, so it
+#: may be several words as a recogniser hears them: "the readme", "read me",
+#: "docker file". A leading "the" is dropped; the dialogue decides whether a
+#: trailing "file" is part of the name ("docker file") or not ("readme file").
+_SPOKEN_FILE = r"(?P<file>(?!https?://)(?!(?:the\s+)?file$)[\w./-]+(?:\s+[\w./-]+)*)"
+_WHAT_CHANGED_IN = r"(?:what changed in|what is different in|what's different in)"
 
 #: Order matters: a correction wraps another command, a bare "no" is a cancel,
 #: and "open auth.py" is a file focus while "open the pull request" is an open.
@@ -176,7 +186,14 @@ GRAMMAR: list[tuple[str, re.Pattern]] = [
         r"focus on|focus|inspect|explain|drill into)(?:\s+(?:the\s+)?file)?\s+" + _FILE + r"$"
     )),
     ("focus_file", re.compile(r"^file\s+" + _FILE + r"$")),
-    ("focus_index", re.compile(r"^(?:file|section|drill into file)\s+(?P<n>\d+|last)$")),
+    ("focus_index", re.compile(
+        r"^(?:file|section|drill into file|" + _WHAT_CHANGED_IN + r"(?:\s+the)?\s+file)\s+(?P<n>\d+|last)$"
+    )),
+    # Extensionless names come after the positions, so "file 2" stays file 2.
+    ("focus_file", re.compile(
+        r"^" + _WHAT_CHANGED_IN + r"\s+(?:the\s+)?(?:file\s+)?" + _SPOKEN_FILE + r"$"
+    )),
+    ("focus_file", re.compile(r"^file\s+" + _BARE_FILE + r"$")),
     ("open", re.compile(
         r"^(?:open|load|review|start)(?:\s+(?:the|this|that|a|my))?(?:\s+(?:pull request|pr|patch|diff|change))?"
         r"(?:\s+(?:at|from))?(?:\s+(?P<url>https?://\S+))?$"
@@ -262,3 +279,34 @@ def _review_body(transcript: str, lowered_body: str | None) -> str:
     match = GRAMMAR_REQUEST_CHANGES.match(original)
     body = match.group("body") if match else (lowered_body or "")
     return body.strip().strip("'\"")
+
+
+# --- which file a name points at --------------------------------------------
+
+def _squash(name: str) -> str:
+    """A name as a recogniser may split it: "read me" and "README" are one name."""
+    return "".join(ch for ch in name.lower() if ch.isalnum())
+
+
+def match_file_paths(wanted: str, file_paths: list[str]) -> list[int]:
+    """The indexes of the paths a spoken or typed file name points at, most exact rule first."""
+    wanted = wanted.lower()
+    paths = [path.lower() for path in file_paths]
+    rules = (
+        lambda i: paths[i] == wanted,
+        lambda i: paths[i].endswith("/" + wanted),
+        lambda i: wanted in paths[i],
+    )
+    squashed = _squash(wanted)
+    base = [path.rsplit("/", 1)[-1] for path in paths]
+    if squashed:
+        rules += (
+            lambda i: _squash(base[i]) == squashed,
+            lambda i: _squash(base[i].rsplit(".", 1)[0]) == squashed,
+            lambda i: squashed in _squash(paths[i]),
+        )
+    for rule in rules:
+        matches = [i for i in range(len(paths)) if rule(i)]
+        if matches:
+            return matches
+    return []

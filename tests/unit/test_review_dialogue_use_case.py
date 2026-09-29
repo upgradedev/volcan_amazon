@@ -96,13 +96,152 @@ def test_a_url_in_the_transcript_wins_over_the_field():
     assert turn["pull_request"]["number"] == 7
 
 
+def _plain(turn: dict) -> None:
+    """A failed open reads back the pull request and names no exception."""
+    assert turn["error"] is True and turn["state"] == "IDLE"
+    assert turn["readback"] == "Understood: open the pull request."
+    assert turn["earcon"]["type"] == "TEST_FAILED"
+    for raw in ("Error", "Exception", "HTTP ", "Traceback"):
+        assert raw not in turn["spoken"], turn["spoken"]
+
+
 def test_an_unreadable_pull_request_is_an_error_turn_with_the_reason_not_a_crash():
+    """A pull request that does not exist: what failed and what to do, in plain words.
+
+    Before this fix the turn read back "open the patch" and spoke the adapter's
+    exception, "GitHubReadError: GitHub answered HTTP 404 ...". The listener
+    gave a link, so the readback names the pull request, and the answer says
+    what to check.
+    """
     use_case, _, _ = build(FakeGitHub())
     turn = say(use_case, "open", pr_url="https://github.com/octo/demo/pull/8")
-    assert turn["error"] is True and turn["state"] == "IDLE"
-    assert "could not be opened" in turn["spoken"] and "GitHubReadError" in turn["spoken"]
-    assert "HTTP 404" in turn["spoken"]
-    assert turn["earcon"]["type"] == "TEST_FAILED"
+    _plain(turn)
+    assert turn["spoken"].startswith(
+        "The pull request could not be opened. GitHub found no octo/demo pull request 8. "
+        "Check the owner, the repository and the number in the link, then open it again."
+    )
+
+
+def test_a_failed_open_says_the_pull_request_already_open_is_still_open():
+    use_case, _, _, _, _ = opened()
+    turn = say(use_case, "open", pr_url="https://github.com/octo/demo/pull/8")
+    assert turn["error"] is True and turn["state"] == "OVERVIEW"
+    assert turn["readback"] == "Understood: open the pull request."
+    assert turn["spoken"].endswith("Still open: octo/demo pull request 7.")
+    assert turn["focus"]["pull_request"] == "octo/demo pull request 7"
+
+
+def test_a_link_that_is_not_a_pull_request_says_what_a_link_looks_like():
+    use_case, _, _ = build(FakeGitHub())
+    turn = say(use_case, "open", pr_url="https://github.com/octo/demo/issues/8")
+    _plain(turn)
+    assert "https://github.com/octo/demo/issues/8 is not a link to a GitHub pull request" in turn["spoken"]
+    assert "https://github.com/owner/repository/pull/1" in turn["spoken"]
+
+
+def test_an_unreachable_github_is_said_as_unreachable_without_the_exception():
+    def unreachable(_request):
+        raise httpx.ConnectError("no route to host")
+
+    bedrock = BedrockSynthesisAdapter(client_factory=lambda _region: None)
+    bedrock.credentials_present = lambda: False  # type: ignore[method-assign]
+    github = GitHubReviewAdapter(token=None, write_enabled=False, transport=httpx.MockTransport(unreachable))
+    use_case = ReviewDialogueUseCase(
+        DigestDiffUseCase(bedrock), github, ApprovalGrantIssuer(b"0123456789abcdef0123456789abcdef"),
+        InMemoryAuditRepository(), SonifyEventUseCase(),
+    )
+    turn = say(use_case, "open", pr_url=PR_URL)
+    _plain(turn)
+    assert "GitHub could not be reached from this server. Check its network connection" in turn["spoken"]
+    assert "ConnectError" not in turn["spoken"] and "no route" not in turn["spoken"]
+
+
+@pytest.mark.parametrize(("headers", "said", "not_said"), [
+    ({"x-ratelimit-remaining": "0"}, "used up its hourly reads without a token", "may be private"),
+    ({}, "may be private", "hourly"),
+])
+def test_a_refused_read_names_the_rate_limit_only_when_github_says_so(headers, said, not_said):
+    def refuse(_request):
+        return httpx.Response(403, headers=headers, json={"message": "Forbidden"})
+
+    bedrock = BedrockSynthesisAdapter(client_factory=lambda _region: None)
+    bedrock.credentials_present = lambda: False  # type: ignore[method-assign]
+    github = GitHubReviewAdapter(token=None, write_enabled=False, transport=httpx.MockTransport(refuse))
+    use_case = ReviewDialogueUseCase(
+        DigestDiffUseCase(bedrock), github, ApprovalGrantIssuer(b"0123456789abcdef0123456789abcdef"),
+        InMemoryAuditRepository(), SonifyEventUseCase(),
+    )
+    turn = say(use_case, "open", pr_url=PR_URL)
+    _plain(turn)
+    assert said in turn["spoken"] and not_said not in turn["spoken"]
+
+
+@pytest.mark.parametrize(("status", "body", "said", "not_said"), [
+    (502, {"message": "Server Error"}, "GitHub had a server error and sent no pull request. Wait a minute",
+     "Server Error"),
+    (406, {"message": "Sorry, the diff exceeded the maximum number of lines (20000)"},
+     "GitHub did not send the pull request, and said: Sorry, the diff exceeded the maximum number "
+     "of lines (20000). Check the link", "Wait a minute"),
+    (422, "<html>nope</html>", "GitHub did not send the pull request and gave no reason.", "html"),
+])
+def test_other_answers_wait_only_on_a_server_error_and_relay_githubs_own_sentence(status, body, said, not_said):
+    def answer(request):
+        if "diff" in request.headers.get("accept", ""):
+            if isinstance(body, dict):
+                return httpx.Response(status, json=body)
+            return httpx.Response(status, text=body)
+        return FakeGitHub()(request)
+
+    bedrock = BedrockSynthesisAdapter(client_factory=lambda _region: None)
+    bedrock.credentials_present = lambda: False  # type: ignore[method-assign]
+    github = GitHubReviewAdapter(token=None, write_enabled=False, transport=httpx.MockTransport(answer))
+    use_case = ReviewDialogueUseCase(
+        DigestDiffUseCase(bedrock), github, ApprovalGrantIssuer(b"0123456789abcdef0123456789abcdef"),
+        InMemoryAuditRepository(), SonifyEventUseCase(),
+    )
+    turn = say(use_case, "open", pr_url=PR_URL)
+    _plain(turn)
+    assert said in turn["spoken"] and not_said not in turn["spoken"], turn["spoken"]
+
+
+def test_a_failed_refresh_on_resume_is_plain_words_too():
+    fake = FakeGitHub()
+    use_case, _, _, fake, _ = opened(fake)
+    fake.pull_path = "/repos/octo/demo/pulls/gone"
+    turn = say(use_case, "resume")
+    assert turn["error"] is True
+    assert turn["spoken"].startswith(
+        "The pull request could not be refreshed. GitHub found no octo/demo pull request 7."
+    )
+    assert "then say resume again" in turn["spoken"]
+    assert "Error" not in turn["spoken"]
+
+
+def test_the_demo_pull_request_in_its_recorded_shape_answers_every_command_it_offers():
+    """octocat/Hello-World #1 through the real adapter, served offline from the recording."""
+    from tests.fixtures import hello_world_pr1 as recorded
+
+    token = current_review_principal.set(
+        ReviewPrincipal("blind-developer", frozenset({"octocat/hello-world"}))
+    )
+    try:
+        fake = FakeGitHub(head=recorded.HEAD, diff=recorded.DIFF, pull_path=recorded.PULL_PATH,
+                          meta=recorded.META)
+        use_case, _, _ = build(fake)
+        first = say(use_case, "open", pr_url=recorded.URL)
+        assert first["readback"] == "Understood: open the pull request."
+        assert first["spoken"].startswith(
+            "Opened octocat/Hello-World pull request 1, Edited README via GitHub, by unoju, "
+            "head commit 7044a8a."
+        )
+        assert first["spoken"].endswith("Say summary, file by file, or what changed in a file name.")
+        for transcript in ("summary", "next", "file by file", "what changed in README",
+                           "what changed in the README", "file 1", "read the lines", "spell that", "next", "previous",
+                           "findings", "where am I", "help"):
+            turn = say(use_case, transcript)
+            assert turn["error"] is False, f"{transcript!r} answered {turn['spoken']!r}"
+    finally:
+        current_review_principal.reset(token)
 
 
 def test_opening_with_neither_a_url_nor_a_patch_asks_for_one():

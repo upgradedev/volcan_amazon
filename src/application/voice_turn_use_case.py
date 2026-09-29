@@ -8,12 +8,13 @@ from src.application.durable_state import (
     voice_action_namespace,
 )
 from src.application.governed_execution_use_case import GovernedExecutionUseCase
+from src.application.public_audit import ANONYMOUS_VOICE_OWNER
 from src.application.review_authorization import (
     ReviewAuthorizationError,
-    require_review_principal,
+    current_review_principal,
 )
 from src.application.sonify_event_use_case import SonifyEventUseCase
-from src.domain.governed_action import Principal
+from src.domain.governed_action import ActionState, Principal
 from src.domain.sonification import EarconType, earcon_for_report
 from src.domain.voice_session import VoiceSessionContext
 
@@ -41,18 +42,28 @@ class VoiceTurnUseCase:
         self, session_id: str, user_id: str, repo: str, intent: str, params: dict[str, Any]
     ) -> dict[str, Any]:
         revision = 0
+        approver_id = params.get("approver_id", user_id)
         if self._state_store is not None:
-            principal = require_review_principal()
-            repository = repo.strip().lower()
-            if repository not in principal.repositories:
-                raise ReviewAuthorizationError(
-                    "REPOSITORY_NOT_ALLOWED",
-                    403,
-                    "This reviewer may not access that repository.",
-                )
-            # A JSON user_id is display input, never durable ownership. The
-            # request-scoped Bearer principal owns the session and its actions.
-            user_id = principal.identity
+            principal = current_review_principal.get()
+            if principal is None:
+                # No roster credential: the same simulated flow a local run
+                # offers, planned and never run, owned by one fixed anonymous
+                # owner that no roster identity can equal (the roster refuses
+                # ":"). Sessions and action namespaces are keyed by owner, so
+                # an anonymous caller can never reach a reviewer's session.
+                user_id = ANONYMOUS_VOICE_OWNER
+            else:
+                repository = repo.strip().lower()
+                if repository not in principal.repositories:
+                    raise ReviewAuthorizationError(
+                        "REPOSITORY_NOT_ALLOWED",
+                        403,
+                        "This reviewer may not access that repository.",
+                    )
+                # A JSON user_id is display input, never durable ownership. The
+                # request-scoped Bearer principal owns the session and its actions.
+                user_id = principal.identity
+                approver_id = principal.identity
         if self._state_store is None:
             session = self.get_or_create_session(session_id, user_id, repo)
         else:
@@ -76,7 +87,7 @@ class VoiceTurnUseCase:
         elif intent == "stage_action":
             result, new_action = self._stage(session, repo, action_namespace, params)
         elif intent == "approve_action":
-            result = await self._approve(session, user_id, action_namespace, params)
+            result = await self._approve(session, approver_id, action_namespace, params)
         elif intent == "reject_action":
             result = self._reject(session, action_namespace, params)
         else:
@@ -194,7 +205,7 @@ class VoiceTurnUseCase:
     async def _approve(
         self,
         session: VoiceSessionContext,
-        user_id: str,
+        approver_id: str,
         action_namespace: str,
         params: dict[str, Any],
     ) -> dict[str, Any]:
@@ -216,11 +227,7 @@ class VoiceTurnUseCase:
         outcome = await self._governed.confirm_and_execute(
             action_id,
             params.get("approval_grant", ""),
-            approver=Principal.human(
-                user_id
-                if self._state_store is not None
-                else params.get("approver_id", user_id)
-            ),
+            approver=Principal.human(approver_id),
             action_namespace=action_namespace,
         )
         if outcome.refused:
@@ -244,7 +251,7 @@ class VoiceTurnUseCase:
             "spoken_text": spoken,
             "output": outcome.output,
             "earcon_type": cue.earcon_type.value,
-            "status": "PLANNED",
+            "status": ActionState.RELEASED_NOT_RUN.value,
         }
 
     def _reject(

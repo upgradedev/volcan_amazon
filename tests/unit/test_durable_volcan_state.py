@@ -3,13 +3,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-import threading
 from concurrent.futures import ThreadPoolExecutor
-from types import SimpleNamespace
 
 import httpx
 import pytest
-from boto3.dynamodb.types import TypeDeserializer
 from fastapi.testclient import TestClient
 
 from src.application.digest_diff_use_case import DigestDiffUseCase
@@ -23,6 +20,7 @@ from src.application.durable_state import (
     voice_action_namespace,
 )
 from src.application.governed_execution_use_case import GovernedExecutionUseCase
+from src.application.public_audit import ANONYMOUS_VOICE_OWNER, PUBLIC_DEMO_AUDIT_SCOPE
 from src.application.review_authorization import (
     ReviewAuthorizationError,
     ReviewPrincipal,
@@ -39,143 +37,10 @@ from src.infrastructure.dynamodb_audit_repository import DynamoAuditRepository
 from src.infrastructure.dynamodb_state import DynamoStateStore
 from src.infrastructure.github_review_adapter import GitHubReviewAdapter
 from src.infrastructure.secret_provider import SecretConfigurationError, load_approval_secret
+from tests.fixtures.fake_dynamodb import FakeTable
 from tests.fixtures.fake_github import PR_URL, FakeGitHub
 
 SECRET = b"durable-volcan-test-secret-00000001"
-
-
-class ConditionalFailure(Exception):
-    response = {"Error": {"Code": "ConditionalCheckFailedException"}}
-
-
-class TransactionFailure(Exception):
-    response = {
-        "Error": {"Code": "TransactionCanceledException"},
-        "CancellationReasons": [{"Code": "ConditionalCheckFailed"}],
-    }
-
-
-class FakeTransactionClient:
-    def __init__(self, table: "FakeTable") -> None:
-        self.table = table
-        self.deserializer = TypeDeserializer()
-
-    def _plain(self, values):
-        return {key: self.deserializer.deserialize(value) for key, value in values.items()}
-
-    def transact_write_items(self, TransactItems):
-        puts = [item["Put"] for item in TransactItems]
-        decoded = [self._plain(item["Item"]) for item in puts]
-        with self.table.lock:
-            kinds = {str(item.get("kind", "")) for item in decoded}
-            is_stage = bool(
-                {"review_session", "voice_session"} & kinds
-                and "governed_action" in kinds
-            )
-            is_finalize = "audit_finalization" in kinds
-            if is_stage and self.table.fail_stage_once:
-                self.table.fail_stage_once = False
-                raise RuntimeError("stage transaction unavailable")
-            if is_finalize and self.table.fail_finalize_once:
-                self.table.fail_finalize_once = False
-                raise RuntimeError("finalize transaction unavailable")
-            for operation, item in zip(puts, decoded, strict=True):
-                current = self.table.items.get((item["pk"], item["sk"]))
-                condition = operation.get("ConditionExpression")
-                if condition == "attribute_not_exists(pk)" and current is not None:
-                    raise TransactionFailure()
-                if condition == "#revision = :expected AND #owner = :owner":
-                    values = self._plain(operation["ExpressionAttributeValues"])
-                    if (
-                        current is None
-                        or current.get("revision") != values[":expected"]
-                        or current.get("owner") != values[":owner"]
-                    ):
-                        raise TransactionFailure()
-                if condition == "#state = :expected AND payload_hash = :payload_hash":
-                    values = self._plain(operation["ExpressionAttributeValues"])
-                    if (
-                        current is None
-                        or current.get("state") != values[":expected"]
-                        or current.get("payload_hash") != values[":payload_hash"]
-                    ):
-                        raise TransactionFailure()
-                if condition and condition.startswith("#head ="):
-                    values = self._plain(operation["ExpressionAttributeValues"])
-                    if (
-                        current is None
-                        or current.get("entry_hash") != values[":expected"]
-                        or current.get("sequence") != values[":previous"]
-                    ):
-                        raise TransactionFailure()
-            for item in decoded:
-                self.table.items[(item["pk"], item["sk"])] = dict(item)
-            if is_stage and self.table.commit_then_fail_stage_once:
-                self.table.commit_then_fail_stage_once = False
-                raise RuntimeError("stage response lost")
-            if is_finalize and self.table.commit_then_fail_finalize_once:
-                self.table.commit_then_fail_finalize_once = False
-                raise RuntimeError("finalize response lost")
-
-
-class FakeTable:
-    def __init__(self) -> None:
-        self.items: dict[tuple[str, str], dict] = {}
-        self.lock = threading.RLock()
-        self.fail_stage_once = False
-        self.commit_then_fail_stage_once = False
-        self.fail_finalize_once = False
-        self.commit_then_fail_finalize_once = False
-        self.meta = SimpleNamespace(client=FakeTransactionClient(self))
-
-    @staticmethod
-    def _key(value):
-        return value["pk"], value["sk"]
-
-    def put_item(
-        self,
-        Item,
-        ConditionExpression=None,
-        ExpressionAttributeNames=None,
-        ExpressionAttributeValues=None,
-    ):
-        with self.lock:
-            current = self.items.get(self._key(Item))
-            if ConditionExpression == "attribute_not_exists(pk)" and current is not None:
-                raise ConditionalFailure()
-            if ConditionExpression == "#revision = :expected AND #owner = :owner":
-                values = ExpressionAttributeValues
-                if (
-                    current is None
-                    or current.get("revision") != values[":expected"]
-                    or current.get("owner") != values[":owner"]
-                ):
-                    raise ConditionalFailure()
-            if ConditionExpression == "#state = :expected AND payload_hash = :payload_hash":
-                values = ExpressionAttributeValues
-                if (
-                    current is None
-                    or current.get("state") != values[":expected"]
-                    or current.get("payload_hash") != values[":payload_hash"]
-                ):
-                    raise ConditionalFailure()
-            self.items[self._key(Item)] = dict(Item)
-        return {}
-
-    def get_item(self, Key, **_kwargs):
-        with self.lock:
-            item = self.items.get(self._key(Key))
-            return {"Item": dict(item)} if item else {}
-
-    def query(self, ExpressionAttributeValues, **_kwargs):
-        pk = ExpressionAttributeValues[":pk"]
-        prefix = ExpressionAttributeValues[":prefix"]
-        with self.lock:
-            rows = [
-                dict(item) for (item_pk, sk), item in self.items.items()
-                if item_pk == pk and sk.startswith(prefix)
-            ]
-        return {"Items": sorted(rows, key=lambda item: item["sk"])}
 
 
 class RecordingExecutor:
@@ -345,7 +210,7 @@ def test_governed_action_can_be_confirmed_after_cold_start_but_never_twice():
     ))
     assert replay.refusal_code == "NOT_PENDING"
     assert replay_executor.calls == []
-    assert third.get_action("cold-action").state is ActionState.EXECUTED
+    assert third.get_action("cold-action").state is ActionState.RELEASED_NOT_RUN
 
 
 def test_voice_session_action_and_owner_binding_survive_cold_start():
@@ -367,7 +232,7 @@ def test_voice_session_action_and_owner_binding_survive_cold_start():
         "voice-session", "developer", "octo/demo", "approve_action",
         {"approval_grant": staged["approval_grant"], "approver_id": "reviewer"},
     )
-    assert result["status"] == "PLANNED"
+    assert result["status"] == "RELEASED_NOT_RUN"
     assert execution.calls == ["pytest tests/unit"]
 
     wrong_owner = voice_use_case(table, RecordingExecutor())
@@ -393,14 +258,20 @@ def test_durable_voice_uses_server_principal_not_caller_user_id():
         "summary_spoken": "Run tests",
     }
 
-    with pytest.raises(ReviewAuthorizationError, match="Bearer credential"):
-        asyncio.run(use_case.handle_turn(
-            "principal-session",
-            "caller-claim",
-            "octo/demo",
-            "stage_action",
-            params,
-        ))
+    # Without a credential the turn runs, but as the fixed anonymous owner:
+    # the JSON user_id owns nothing, and the session it opens is not alice's.
+    anonymous = asyncio.run(use_case.handle_turn(
+        "principal-session",
+        "alice",
+        "octo/demo",
+        "stage_action",
+        params,
+    ))
+    assert anonymous["approval_grant"].startswith("v1.")
+    assert state(table).load_voice(
+        "principal-session", ANONYMOUS_VOICE_OWNER, "octo/demo"
+    ) is not None
+    assert state(table).load_voice("principal-session", "alice", "octo/demo") is None
 
     staged = voice_say(
         use_case,
@@ -429,6 +300,18 @@ def test_durable_voice_uses_server_principal_not_caller_user_id():
             {"action_id": "principal-bound"},
             repositories=frozenset({"other/private"}),
         )
+
+    # The anonymous caller rejects "principal-bound" in the same session id and
+    # reaches only its own staged action, never alice's.
+    rejected = asyncio.run(use_case.handle_turn(
+        "principal-session", "alice", "octo/demo", "reject_action",
+        {"action_id": "principal-bound"},
+    ))
+    assert rejected["status"] == "REJECTED"
+    assert state(table).get_action(
+        voice_action_namespace(ANONYMOUS_VOICE_OWNER, "octo/demo", "principal-session"),
+        "principal-bound",
+    ).state is ActionState.REJECTED
 
     victim = state(table).get_action(
         voice_action_namespace("alice", "octo/demo", "principal-session"),
@@ -690,7 +573,7 @@ def test_finalize_failure_never_persists_terminal_action_without_audit():
 
     persisted = state(table).get_action("governed", "finalize-gap")
     assert persisted.state is ActionState.APPROVED
-    assert audit(table).list_records(["governed:finalize-gap"]) == []
+    assert audit(table).list_records([PUBLIC_DEMO_AUDIT_SCOPE]) == []
     replay = asyncio.run(use_case.confirm_and_execute(
         ticket.action.action_id, ticket.grant, Principal.human("reviewer"),
     ))
@@ -715,8 +598,8 @@ def test_lost_finalize_response_is_recognized_idempotently():
     ))
     assert result.approved is True
     assert executor.calls == ["pytest"]
-    assert state(table).get_action("governed", "finalize-response").state is ActionState.EXECUTED
-    records = audit(table).list_records(["governed:finalize-response"])
+    assert state(table).get_action("governed", "finalize-response").state is ActionState.RELEASED_NOT_RUN
+    records = audit(table).list_records([PUBLIC_DEMO_AUDIT_SCOPE])
     assert len(records) == 1
 
 
@@ -780,7 +663,7 @@ def test_secret_failures_are_bounded_and_never_echo_secret(monkeypatch):
     assert leaked not in str(caught.value)
 
 
-def test_durable_audit_route_is_authenticated_and_repository_scoped(monkeypatch):
+def test_durable_audit_route_is_public_for_anyone_and_repository_scoped_for_reviewers(monkeypatch):
     from src.interfaces import operations
     from src.interfaces.mcp_server import app
 
@@ -805,14 +688,21 @@ def test_durable_audit_route_is_authenticated_and_repository_scoped(monkeypatch)
     }))
     client = TestClient(app)
 
+    # Anonymous callers get the public demo chain, never a reviewer's records.
     anonymous = client.get("/api/audit_log")
-    assert anonymous.status_code == 401
+    assert anonymous.status_code == 200
+    assert anonymous.json()["view"] == "public"
+    assert anonymous.json()["records"] == []
+    forged = client.get("/api/audit_log", headers={"Authorization": f"Bearer {'c' * 40}"})
+    assert forged.json()["view"] == "public"
+    assert forged.json()["records"] == []
     alice_view = client.get(
         "/api/audit_log", headers={"Authorization": f"Bearer {'a' * 40}"},
     ).json()
     bob_view = client.get(
         "/api/audit_log", headers={"Authorization": f"Bearer {'b' * 40}"},
     ).json()
+    assert alice_view["view"] == "public_and_reviewer"
     assert [record["action"] for record in alice_view["records"]] == ["act-101"]
     assert [record["action"] for record in bob_view["records"]] == ["act-102"]
     assert all("alice" not in pk and "octo" not in pk for pk, _sk in table.items)

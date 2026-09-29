@@ -22,7 +22,11 @@ Three things it promises:
 from dataclasses import dataclass, field
 from enum import Enum
 
-from src.domain.review_grammar import Command, parse_command  # noqa: F401 - re-exported
+from src.domain.review_grammar import (  # noqa: F401 - re-exported
+    Command,
+    match_file_paths,
+    parse_command,
+)
 from src.domain.semantic_diff import (
     DiffHunk,
     DiffLine,
@@ -171,6 +175,9 @@ class ReviewDialogue:
     pull_request: PullRequestSnapshot | None = None
     file_index: int = 0
     hunk_index: int = 0
+    #: The one cursor. "Spell that", "where am I", "next", "previous" and the
+    #: line shown on screen all read this field and nothing else, so they can
+    #: never disagree about which line the listener is on.
     line_index: int = 0
     speech_rate: float = 1.0
     pending_body: str | None = None
@@ -297,7 +304,7 @@ class ReviewDialogue:
         if name == "resume":
             return self._turn(command, "resume", "", needs="resume", remember=False)
         if name == "help":
-            return self._turn(command, "help", HELP_TEXT, remember=False)
+            return self._turn(command, "help", self._help(), remember=False)
         if name == "repeat":
             if self.last_turn is None:
                 return self._turn(command, "repeat", "Nothing has been said yet.", error=True, remember=False)
@@ -375,6 +382,29 @@ class ReviewDialogue:
 
     # -- transitions ---------------------------------------------------------
 
+    def _help(self) -> str:
+        """The command list, with examples that work on the change that is open.
+
+        With nothing open, the examples are generic. With a change open, the
+        file example names a file in it and the line example a line in the
+        file in focus, so saying either example back works here.
+        """
+        sections = self.sections
+        if not sections:
+            return HELP_TEXT
+        section = self.section if self.section is not None else sections[0]
+        name = section.file_path.rsplit("/", 1)[-1].replace(".", " dot ")
+        text = HELP_TEXT.replace("What changed in auth dot py.", f"What changed in {name}.")
+        line_no = next(
+            (line.new_no if line.new_no is not None else line.old_no
+             for hunk in section.hunks for line in hunk.lines
+             if line.kind != "context" and (line.new_no or line.old_no)),
+            None,
+        )
+        if line_no is None:
+            return text.replace(" line fifteen.", " line and a number.")
+        return text.replace(" line fifteen.", f" line {line_no}.")
+
     def _where(self) -> str:
         if self.report is None:
             return "Nothing is open."
@@ -382,8 +412,12 @@ class ReviewDialogue:
         parts = [f"In {where}, {plural(len(self.sections), 'file')} changed."]
         if self.state in (DialogueState.FILE, DialogueState.LINES) and self.section:
             parts.append(f"Focused on file {self.file_index + 1}, {self.section.file_path}.")
-        if self.state is DialogueState.LINES and self.hunk:
-            parts.append(f"At line {self.line_index + 1} of {len(self.hunk.lines)} in hunk {self.hunk_index + 1}.")
+        if self.state is DialogueState.LINES and self.hunk and self.hunk.lines:
+            # The same words "next" and "spell that" use for this line, so a
+            # listener hears one position, said one way.
+            index = min(self.line_index, len(self.hunk.lines) - 1)
+            at = spoken_line(self.hunk.lines[index], index, len(self.hunk.lines)).split(":", 1)[0]
+            parts.append(f"In hunk {self.hunk_index + 1} of {len(self.section.hunks)}. {at}.")
         if self.state is DialogueState.CONFIRM_REVIEW:
             parts.append("A request changes review is waiting for confirmation.")
         if self.last_outcome:
@@ -482,11 +516,13 @@ class ReviewDialogue:
     def _focus_file(self, command: Command) -> DialogueTurn:
         wanted = command.slots["file"].lower()
         sections = self.sections
-        matches = [i for i, s in enumerate(sections) if s.file_path.lower() == wanted]
-        if not matches:
-            matches = [i for i, s in enumerate(sections) if s.file_path.lower().endswith("/" + wanted)]
-        if not matches:
-            matches = [i for i, s in enumerate(sections) if wanted in s.file_path.lower()]
+        matches = match_file_paths(wanted, [s.file_path for s in sections])
+        if not matches and wanted.endswith(" file"):
+            # "the readme file": the last word named the kind of thing, not
+            # the file, unless it was part of the name ("docker file"), which
+            # the first pass already tried.
+            wanted = wanted[: -len(" file")].strip()
+            matches = match_file_paths(wanted, [s.file_path for s in sections])
         if not matches:
             names = ", ".join(s.file_path for s in sections) or "none"
             return self._turn(command, command.words,
@@ -534,6 +570,16 @@ class ReviewDialogue:
         unit = command.slots.get("unit")
         if unit is None:
             unit = "line" if self.state is DialogueState.LINES else "file"
+        if unit == "file" and self.state is DialogueState.OVERVIEW:
+            # From the overview or the file list, no file is in focus yet, so
+            # "next" is the first file, not the one after it.
+            if not self.sections:
+                return self._turn(command, command.words, "This change touches no files.", error=True)
+            if delta < 0:
+                return self._turn(command, command.words,
+                                  "No file is open yet. Say next for file 1.", error=True)
+            self.file_index = 0
+            return self._speak_file(command, command.words)
         if unit == "file":
             target = self.file_index + delta
             if target < 0 or target >= len(self.sections):
@@ -575,7 +621,6 @@ class ReviewDialogue:
                               f"{section.file_path} carries no hunk with line numbers to read.", error=True)
         self.state = DialogueState.LINES
         hunk = self.hunk
-        self.line_index = 0
         total = len(hunk.lines)
         spoken_lines = [spoken_line(line, i, total) for i, line in enumerate(hunk.lines[:LINES_PER_READ])]
         head = (
@@ -585,10 +630,24 @@ class ReviewDialogue:
             f"new lines {hunk.new_start} to {_last_new_line(hunk)}, "
             f"{plural(total, 'line')}. "
         )
-        tail = ""
+        # After the read the cursor lands where the listener's "that" points,
+        # and the turn says so. A whole hunk: the first changed line, because
+        # that is the change they just heard, not the context above it. A cut
+        # hunk: the last line read, so "next" continues where the voice stopped.
         if total > LINES_PER_READ:
-            tail = f" {total - LINES_PER_READ} more; say next to continue from line {LINES_PER_READ + 1}."
             self.line_index = LINES_PER_READ - 1
+            tail = (
+                f" {total - LINES_PER_READ} more. Cursor on line {LINES_PER_READ} of {total}; "
+                f"say next to continue from line {LINES_PER_READ + 1}."
+            )
+        else:
+            changed = [i for i, line in enumerate(hunk.lines) if line.kind != "context"]
+            self.line_index = changed[0] if changed else 0
+            what = "the first change" if changed else "no line in this hunk changed"
+            tail = (
+                f" Cursor on line {self.line_index + 1} of {total}, {what}. "
+                "Say spell that, next or previous."
+            )
         spoken = head + " ".join(f"{s}." for s in spoken_lines) + tail
         return self._turn(command, understood, spoken, earcon=earcon_for_section(section),
                           line=self._line_dict())
@@ -627,8 +686,12 @@ class ReviewDialogue:
     def _spell(self, command: Command) -> DialogueTurn:
         if self.state is not DialogueState.LINES or self.hunk is None:
             return self._turn(command, command.words, "No line is selected. Say read the lines first.", error=True)
-        line = self.hunk.lines[self.line_index]
-        return self._turn(command, command.words, f"Line {self.line_index + 1}, spelled: {spell_out(line.text)}.",
+        hunk = self.hunk
+        index = min(self.line_index, len(hunk.lines) - 1)
+        line = hunk.lines[index]
+        kind = {"add": "added", "remove": "removed", "context": "unchanged"}[line.kind]
+        return self._turn(command, command.words,
+                          f"Line {index + 1} of {len(hunk.lines)}, {kind}, spelled: {spell_out(line.text)}.",
                           line=self._line_dict())
 
     def _line_dict(self) -> dict | None:

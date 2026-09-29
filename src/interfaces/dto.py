@@ -5,7 +5,7 @@ The REST routes validate against them and the MCP tool catalog generates its
 ``inputSchema`` from them, so the published schema and the code that parses the
 arguments can never disagree.
 """
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -15,6 +15,21 @@ from src.domain.sonification import EarconType
 class DigestRequest(BaseModel):
     raw_diff: str = Field(..., description="Unified git patch content")
     level: int = Field(0, description="Digest detail level (0 executive, 1 file-by-file, 2 drill-down)")
+
+
+class CompanionDigestRequest(DigestRequest):
+    """The REST digest request, with one field the MCP tool does not publish.
+
+    The companion page draws the default patch's real answer when it loads,
+    before anyone has asked for anything. A page view must never start a billed
+    model call, so that request names the local engine. Every request the
+    person makes leaves ``engine`` at ``auto``.
+    """
+
+    engine: Literal["auto", "local"] = Field(
+        "auto",
+        description="auto attempts Amazon Bedrock when it is available; local never calls a model",
+    )
 
 
 class DrillDownRequest(BaseModel):

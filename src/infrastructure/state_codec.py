@@ -152,6 +152,8 @@ def review_dialogue_from_dict(value: dict[str, Any]) -> ReviewDialogue:
         file_index=int(value.get("file_index", 0)),
         hunk_index=int(value.get("hunk_index", 0)),
         line_index=int(value.get("line_index", 0)),
+        # A state saved before the single cursor may carry "spell_index"; it
+        # is ignored, and line_index alone says where the listener is.
         speech_rate=float(value.get("speech_rate", 1.0)),
         pending_body=value.get("pending_body"),
         last_turn=turn_from_dict(value.get("last_turn")),

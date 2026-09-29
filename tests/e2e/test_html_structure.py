@@ -104,21 +104,23 @@ def test_core_controls_are_present():
 
 
 def test_diff_presets_are_well_formed_patches():
-    """Four presets, one per syntax-tree rule plus a control.
+    """One preset per syntax-tree rule, plus a control.
 
     What each one *produces* is asserted in
     ``tests/e2e/test_shipped_presets_reach_their_rule.py``, which runs them
-    through the production parser. This only checks the page still carries four
-    well-formed patches and four wired chips to load them with.
+    through the production parser. This only checks the page still carries the
+    well-formed patches and the wired chips to load them with.
     """
     html = read_html()
-    assert html.count("diff --git") >= 4
-    for number in (1, 2, 3, 4):
+    assert html.count("diff --git") >= 6
+    for number in (1, 2, 3, 4, 5, 6):
         assert f'id="preset{number}"' in html, f"preset chip {number} is missing"
     assert "user.role" in html, "the inverted authorization patch is gone"
     assert "allow_origins" in html, "the widened cross-origin patch is gone"
     assert "verify_signature" in html, "the removed verification call patch is gone"
     assert "data.strip()" in html, "the benign control patch is gone"
+    assert "SELECT * FROM orders WHERE id = " in html, "the string-built SQL patch is gone"
+    assert "verify=False" in html, "the TLS checks turned off patch is gone"
 
 
 def test_lease_countdown_contract():
@@ -181,24 +183,32 @@ def test_the_synthesis_engine_is_read_from_the_response():
 def test_the_first_screen_says_a_model_can_answer_and_who_reports_it():
     """A judge must not have to scroll to learn the product has an AI path.
 
-    The header is read before any button is pressed. If it never mentions
-    Amazon Bedrock, a reviewer whose install lacked the SDK concludes the AI is
-    absent rather than uninstalled. The sentence also has to point at the meter,
-    so the page keeps promising a report rather than a result.
+    Until 2026-09-26 this sentence sat in the header as "Bedrock attempt through
+    anthropic[bedrock]" and "Synthesis engine names who answered". A design
+    review called the package name in the header jargon, and the header's
+    words were needed for the finding the preview now leads with. The same
+    facts moved into the engine disclosure beside the answer drawn on load:
+    one press from the first screen, never scrolled to, and still naming the
+    package and the meter. They must not hide in a title attribute.
     """
     html = read_html()
-    header = html.split("<main", 1)[0]
-    assert "Bedrock" in header, (
+    first_screen = html.split('id="patchEditor"', 1)[0]
+    why = first_screen.split('id="previewEngineWhy"', 1)[1].split("</div>", 1)[0]
+    assert "Amazon Bedrock" in why, (
         "the first screen must state that a Bedrock model can synthesize the digest"
     )
-    assert "anthropic[bedrock]" in header, (
+    assert "anthropic[bedrock]" in why, (
         "the first screen must name the package that enables the model path"
     )
-    assert "Synthesis engine" in header, (
+    assert "Synthesis engine" in why and "meter" in why, (
         "the first screen must point at the meter that reports which engine answered"
     )
-    assert "will be answered by Amazon Bedrock" not in header, (
-        "the header may say a model can answer, never that one did"
+    assert 'aria-controls="previewEngineWhy"' in first_screen, (
+        "the disclosure must be opened by a button on the first screen"
+    )
+    assert "title=" not in why
+    assert "will be answered by Amazon Bedrock" not in first_screen, (
+        "the page may say a model can answer, never that one did"
     )
 
 
@@ -224,8 +234,11 @@ def test_the_earcon_empty_state_names_both_cues():
     """
     html = read_html()
     caption = html.split('id="earconCaption"', 1)[1].split("</p>", 1)[0]
-    assert "DIFF_READY" in caption and "SECURITY_FINDING" in caption
-    assert "rising" in caption and "falling" in caption
+    # Plain words since 2026-09-26: a design review flagged the raw enum names
+    # SECURITY_FINDING and DIFF_READY on the first screen. The server's type
+    # name still reaches the caption after a press, from the response.
+    assert "finding" in caption and "clean" in caption
+    assert "Rising cue" in caption and "Falling cue" in caption
 
 
 def test_an_unanswered_model_call_prints_its_reason_beside_the_engine():
@@ -370,12 +383,25 @@ def test_the_readback_precedes_the_answer_and_both_are_spoken_at_the_returned_ra
 
 
 def test_every_dialogue_state_change_is_announced_through_a_live_region():
+    """One live region for the dialogue, and one voice per turn.
+
+    The log and the review pane used to be live regions too, and the page's
+    voice then spoke the same turn, so a screen reader user heard each answer
+    two or three times over itself. The log is now a visible history, the
+    status line carries a turn only when the page's voice does not, and the
+    listener chooses which voice that is."""
     html = read_html()
     script = script_body()
     assert re.search(r'id="reviewStatus"[^>]*role="status"[^>]*aria-live="polite"', html)
-    assert re.search(r'id="dialogueLog"[^>]*aria-live="polite"', html)
-    assert re.search(r'id="reviewPane"[^>]*role="status"[^>]*aria-live="polite"', html)
+    for quiet in ("dialogueLog", "reviewPane", "govPane"):
+        tag = re.search(r'<[^>]*id="%s"[^>]*>' % quiet, html).group(0)
+        assert "aria-live" not in tag and "role=" not in tag, tag
     assert 'announce("reviewStatus"' in script
+    voice = function_body("voiceTurn")
+    assert "if (!speakTurn(data))" in voice and 'announce("reviewStatus"' in voice
+    assert "readerSpeaks()" in function_body("speakTurn")
+    assert 'id="voiceMode"' in html and 'aria-pressed="false"' in html
+    assert "localStorage" in function_body("loadVoiceMode") and "catch" in function_body("loadVoiceMode")
     assert "setDialogueState(data)" in function_body("sendTranscript")
     for state in ("IDLE", "OVERVIEW", "FILE", "LINES", "CONFIRM_REVIEW", "SUBMITTED", "RECORDED", "REFUSED"):
         assert f"{state}:" in script, f"the page has no label for dialogue state {state}"
@@ -400,7 +426,10 @@ def test_the_keyboard_map_covers_the_dialogue():
     for key in ("4", "5", "6"):
         assert f"<kbd>Alt</kbd>+<kbd>{key}</kbd>" in html, f"Alt+{key} is not documented"
     assert '"4": "commandInput"' in script and '"6": "prUrl"' in script
-    assert 'event.key === "5") { event.preventDefault(); toggleListening();' in script
+    assert 'key === "5") { event.preventDefault(); toggleListening();' in script
+    # Matched on the physical key: Option+1 on a Mac reports event.key "¡".
+    assert "event.code" in script and "Digit" in script
+    assert "Option" in html, "the Mac name of the Alt key must be documented"
     assert "stop listening" in html.lower(), "Escape must be documented as stopping the microphone too"
 
 
@@ -449,7 +478,10 @@ def test_every_rendering_panel_is_labelled_by_a_heading():
 
 def test_the_page_declares_meaningful_roles():
     html = read_html()
-    for role in ('role="status"', 'role="alert"', 'role="group"', 'role="region"', 'role="img"'):
+    # role="alert" left this list on 2026-09-26: it sat on the security
+    # finding, which is now the first sentence of the answer and is spoken
+    # once; an assertive alert read it again over the speech engine.
+    for role in ('role="status"', 'role="group"', 'role="region"', 'role="img"'):
         assert role in html, f"missing role: {role}"
 
 
@@ -550,7 +582,24 @@ def test_keyboard_shortcuts_are_wired_in_script():
 def test_results_are_announced_through_live_regions():
     html = read_html()
     assert html.count('aria-live="polite"') >= 3
-    assert 'role="alert"' in html, "security findings must be announced assertively"
+    assert re.search(r'id="runStatus"[^>]*role="status"[^>]*aria-live="polite"', html)
+
+
+def test_a_hero_result_reaches_a_listener_through_one_channel():
+    """One press used to write to four live regions at once (spokenPane,
+    earconCaption, securityAlert with role=alert, and runStatus repeating the
+    summary), then the speech engine read the same summary over the screen
+    reader. The hero keeps exactly one live region, and the status
+    line hands over to the speech engine instead of reading the answer too.
+    The browser test in first_screen_runner.py counts the mutations."""
+    html = read_html()
+    script = script_body()
+    for quiet in ("spokenPane", "earconCaption", "securityAlert"):
+        tag = re.search(r'<[^>]*id="%s"[^>]*>' % quiet, html).group(0)
+        assert "aria-live" not in tag and "role=" not in tag, tag
+    assert 'role="alert"' not in html
+    assert "Speaking it now." in script
+    assert 'announce("runStatus", "Cue: "' not in script
 
 
 def test_every_audio_cue_carries_a_text_alternative():
@@ -558,9 +607,9 @@ def test_every_audio_cue_carries_a_text_alternative():
     html = read_html()
     script = script_body()
     assert 'id="earconCaption"' in html
-    assert re.search(r'id="earconCaption"[^>]*aria-live="polite"', html), (
-        "the cue description must be announced when it changes"
-    )
+    # The caption is no longer a live region (see the one-channel test
+    # above): the cue is heard, and its written description stays on screen.
+    assert not re.search(r'id="earconCaption"[^>]*aria-live', html)
     assert "spoken_fallback" in script, "the description must come from the server, not the page"
     assert "Written description:" in script
     assert 'setAttribute("aria-label"' in script, "the waveform image needs a described label"
@@ -626,17 +675,24 @@ def test_empty_states_render_a_reason_instead_of_nothing():
 
 
 def test_the_audit_row_never_reads_as_a_command_that_ran():
-    """The server's terminal state string is EXECUTED and nothing executes.
+    """A released plan is stored as RELEASED_NOT_RUN and nothing executes.
 
-    The page must not print that word on its own beside a command, because the
-    product's whole claim is that it plans and refuses. It renders a plain
-    label and keeps the server's raw value beside it, so the honest reading and
-    the unedited server value are both on screen.
+    Round 4 read "released to you, nothing run (server status name: PLANNED;
+    the audit log names the same outcome EXECUTED)" as a label contradicting
+    itself. The server now stores the plain outcome, and the page prints one
+    label per row with no enum beside it. EXECUTED is only ever labelled from
+    the record's own outcome text: a real GitHub submission, or a plan sealed
+    before RELEASED_NOT_RUN existed.
     """
     html = read_html()
-    assert 'EXECUTED: "plan released, not run"' in html, "no plain-language label for the terminal state"
-    assert '[server state " + record.state + "]' in html, "the server's own raw state is no longer shown"
+    assert 'RELEASED_NOT_RUN: "released to you, nothing run"' in html, "no plain-language label for the terminal state"
+    assert "server state name" not in html and "server status name" not in html, (
+        "a raw enum is printed beside the plain label again"
+    )
+    assert 'auditLabel(record.state, record.outcome)' in html
+    assert 'if (/^SUBMITTED /.test(said)) { return "submitted to GitHub"; }' in html
     assert 'record.state + "   " + record.action' not in html, "the bare state is printed with no label"
+    assert "never executed" not in html.split('id="gov-heading"', 1)[1].split("</h2>", 1)[0]
 
 
 # --- self-containment -------------------------------------------------------
@@ -644,9 +700,60 @@ def test_the_audit_row_never_reads_as_a_command_that_ran():
 def test_the_page_loads_nothing_from_the_network():
     """A locked-down or offline machine must still get the whole page."""
     html = read_html()
-    external = re.findall(r'(?:src|href)="(https?://[^"]+)"', html)
+    # Anything the page loads: a src anywhere, or an href on a stylesheet,
+    # preload or icon <link>. A plain <a href> is a navigation the reader
+    # chooses, not a load; the page cites its one legal source and the
+    # hackathon FAQ that way.
+    # first_screen_runner.py offline aborts and counts every outside request.
+    external = re.findall(r'src="(https?://[^"]+)"', html)
+    external += re.findall(r'<link[^>]*href="(https?://[^"]+)"', html)
     assert external == [], f"external asset references: {external}"
+    anchors = re.findall(r'<a [^>]*href="(https?://[^"]+)"', html)
+    cited = ("https://eur-lex.europa.eu/", "https://amazonappdev2026.devpost.com/details/faqs")
+    assert all(url.startswith(cited) for url in anchors), anchors
     assert "cdn." not in html and "googleapis" not in html
+
+
+FONT_DIR = os.path.join(os.path.dirname(__file__), "../../docs/fonts")
+
+
+def test_the_typefaces_are_the_committed_files_inlined_with_their_licences():
+    """The typefaces ship inside the page, byte for byte the files in docs/fonts.
+
+    Every url() in the page is a data: URI, each one decodes to a committed
+    woff2 file, every face keeps font-display: swap, both font stacks still end
+    in a local generic family, and each family's SIL Open Font License sits
+    beside its files.
+    """
+    import base64
+
+    html = read_html()
+    urls = re.findall(r"url\(\s*['\"]?([^'\")]+)", html)
+    assert urls and all(url.startswith("data:") for url in urls), (
+        f"every url() must be inline: {[u[:60] for u in urls if not u.startswith('data:')]}"
+    )
+    faces = re.findall(r"@font-face\s*\{(.*?)\}", html, flags=re.S)
+    assert len(faces) == 3, f"expected three latin faces, found {len(faces)}"
+    committed = {
+        name: open(os.path.join(FONT_DIR, name), "rb").read()
+        for name in os.listdir(FONT_DIR) if name.endswith(".woff2")
+    }
+    inlined = []
+    for face in faces:
+        assert "font-display: swap" in face
+        payload = re.search(r"data:font/woff2;base64,([A-Za-z0-9+/=]+)", face)
+        assert payload, "each face must be a woff2 data: URI"
+        inlined.append(base64.b64decode(payload.group(1)))
+    assert sorted(inlined) == sorted(committed.values()), (
+        "the inlined faces must be exactly the committed files; run python scripts/embed_fonts.py"
+    )
+    for licence in ("OFL-AtkinsonHyperlegible.txt", "OFL-JetBrainsMono.txt"):
+        text = open(os.path.join(FONT_DIR, licence), encoding="utf-8").read()
+        assert "SIL Open Font License" in text
+    for stack in re.findall(r"--(?:sans|mono):\s*([^;]+);", html):
+        assert re.search(r"(?:sans-serif|monospace)\s*$", stack.strip()), (
+            f"a font stack must end in a local generic family: {stack}"
+        )
 
 
 # --- structural validity ----------------------------------------------------
@@ -710,3 +817,133 @@ def test_no_element_is_left_open_and_nesting_never_crosses():
             stack.pop()
     assert errors == [], "crossed nesting in docs/index.html: " + "; ".join(errors)
     assert stack == [], f"elements left open at end of docs/index.html: {stack}"
+
+
+def test_the_buyer_and_the_alexa_path_are_labelled_as_what_they_are():
+    """The investor and executive lenses asked who pays and how this reaches
+    Alexa+. Both answers are on the page, and both carry their status: the
+    buyer is a hypothesis with nobody interviewed, and the Alexa+ add-on package
+    is built and tested locally, not certified or deployed, and has never been
+    called by Alexa+. Until 2026-09-27 the band said "not built", which was true
+    then. Later that day "needs the owner's Amazon developer account" gave way to
+    the hackathon FAQ's reason it cannot be deployed: the add-on tools are
+    "available to select partners only". The one date quoted is Article 31(2) of
+    the Directive, linked beside it. On 2026-09-28 "no price is set" gave way to a
+    price labelled untested and a user count labelled an upper bound, both traced
+    in docs/EVIDENCE.md: the card must keep saying the price is untested and that
+    nobody has been interviewed."""
+    html = read_html()
+    who = html.split('id="who"', 1)[1].split("</section>", 1)[0]
+    card = " ".join(who.split())
+    assert "hypothesis" in who and "No buyer has been" in who
+    assert "Price, untested: $24 a seat a month" in card
+    assert "an upper bound" in card and "Census ACS 2024" in card
+    label = "built and tested locally, not certified or deployed"
+    assert label in " ".join(who.split())
+    assert '"available to select partners only"' in " ".join(who.split())
+    assert "amazonappdev2026.devpost.com/details/faqs" in who
+    assert "Alexa+ has never called" in " ".join(who.split())
+    assert "no Alexa skill" in who and "no test on an Echo device" in who
+    assert "28 June 2025" in who and "eur-lex.europa.eu" in who and "Article 31" in who
+    assert html.index('id="who"') > html.index('id="runReview"'), "the band sits below the first screen"
+    strip = html.split('class="path-strip"', 1)[1].split("</figure>", 1)[0]
+    assert "path-box planned" in strip and "not certified or deployed" in strip
+    assert "partner-only (hackathon FAQ)" in strip
+    assert "never run against Alexa+" in strip
+
+
+def test_durability_is_stated_from_health_and_never_typed():
+    """A scorer found the page saying state was process-local while the README
+    described a shared DynamoDB mode. Both were true of different servers, so
+    the page no longer types either: it states what this server's /health
+    reports in durable_state, and says so when an older build reports nothing."""
+    html = read_html()
+    script = script_body()
+    assert "remain process-local and are not durable" not in html, "a durability claim is typed into the page"
+    assert 'id="stateDurability"' in html
+    assert "renderDurability(health.durable_state)" in script
+    body = script.split("function renderDurability", 1)[1].split("\n    }\n", 1)[0]
+    assert "does not report" in body, "an older server without durable_state must be stated as silent"
+    assert '"process_memory"' in body and "durable.reachable === false" in body
+
+
+def test_the_header_write_mode_follows_the_server_and_defaults_to_dry_run():
+    html = read_html()
+    header = html.split("<main", 1)[0]
+    assert '<span id="writeMode">dry-run.</span>' in header, "the default with no server is dry-run"
+    body = script_body().split("function renderWriteMode", 1)[1].split("\n    }\n", 1)[0]
+    assert '"live_write_enabled"' in body and '"dry-run"' in body
+
+
+def test_the_confirm_row_and_the_audit_row_share_one_plain_label():
+    """The confirm response's status and the sealed record's state are now the
+    same word, RELEASED_NOT_RUN, so both rows go through one label function and
+    neither prints a raw server word."""
+    script = script_body()
+    assert '["Outcome", auditLabel(confirmed.data.status)]' in script
+    assert '["Server status", confirmed.data.status]' not in script
+    assert "the audit log names the same outcome" not in script
+
+
+def test_on_a_phone_the_conversation_comes_before_the_keyboard_card():
+    """The keyboard card follows the conversation in the source, so focus order
+    and the one-column order agree, and wide screens place it with grid areas."""
+    html = read_html()
+    grid = html.split('<div class="review-grid">', 1)[1].split("</section>", 1)[0]
+    assert grid.index('class="convo"') < grid.index("Hands on the keyboard")
+    assert grid.index("1</span> Open a pull request") < grid.index('class="convo"')
+    assert 'grid-template-areas: "rail" "convo" "keys"' in html
+
+
+def test_a_turn_in_flight_marks_the_conversation_busy_and_refuses_a_second_command():
+    """Round 4 pressed Open on a GitHub read of 4 to 12 s, sent another command
+    meanwhile and got "Nothing is open yet" with the log out of order. A turn in
+    flight now marks the conversation busy, names what it is doing, and a
+    second command is refused out loud instead of racing the first."""
+    html = read_html()
+    script = script_body()
+    assert 'id="reviewConvo" aria-busy="false"' in html
+    assert "if (Review.inFlight) {" in script and '"Not sent: " + text' in script
+    assert '"Reading the pull request"' in script
+    assert '$("reviewConvo").setAttribute("aria-busy", "true")' in script
+    assert 'open.setAttribute("aria-disabled", "true")' in script
+
+
+def test_enter_in_the_pull_request_url_box_opens_it():
+    script = script_body()
+    handler = script.split('$("prUrl").addEventListener("keydown"', 1)[1].split("});", 1)[0]
+    assert 'event.key === "Enter"' in handler and 'sendTranscript("open"' in handler
+
+
+def test_the_finding_box_stacks_and_does_not_repeat_the_spoken_sentence():
+    """Round 4 saw the tag and the finding side by side on a phone, the
+    finding squeezed into a column about 120px wide and repeating the speech
+    word for word. The box now stacks, and a single finding the speech
+    already opens with is pointed to rather than printed again."""
+    html = read_html()
+    css = html.split(".finding {", 1)[1].split("}", 1)[0]
+    assert "flex-direction: column" in css
+    body = function_body("renderFindings")
+    assert "The sentence above names it." in body
+    assert "renderFindings(digest.data.critical_findings, digest.data.voice_summary)" in script_body()
+
+
+def test_the_alexa_replay_panel_runs_on_press_against_this_origin_and_prints_only_responses():
+    """Added 2026-09-27 with the version-header fix: the Evidence tab replays
+    Amazon's documented Alexa+ bodies as three clients, one of which never
+    sends MCP-Protocol-Version. It must run only when pressed, only against
+    this origin, send no version header for that client, and print figures
+    read from the responses and the browser's own clock."""
+    html = read_html()
+    panel = html.split('id="alexaReplay"', 1)[1].split("</section>", 1)[0]
+    assert 'id="runReplay"' in panel and 'role="status"' in panel
+    assert "Alexa+ did not send them" in panel
+    script = script_body()
+    assert '$("runReplay").addEventListener("click", runAlexaReplay);' in script
+    assert script.count("runAlexaReplay") == 2, "bound to the button and called nowhere else"
+    shape = script.split("async function replayShape", 1)[1].split("\n    }\n", 1)[0]
+    assert 'State.apiBase + "/mcp"' in script.split("async function replayPost", 1)[1].split("\n    }\n", 1)[0]
+    assert 'shape === "own"' in shape and 'shape === "spec"' in shape
+    assert 'shape === "never"' not in shape, "the header-less client is the one no branch adds a header for"
+    assert "performance.now()" in script.split("async function replayPost", 1)[1].split("\n    }\n", 1)[0]
+    assert 'protocolVersion: "2025-03-26"' in shape, "the documented initialize asks for 2025-03-26"

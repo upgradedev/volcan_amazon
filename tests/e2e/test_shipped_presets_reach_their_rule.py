@@ -39,6 +39,8 @@ EXPECTED_RULE = {
     2: "permissive_cors_origin",
     3: "security_call_removed",
     4: None,
+    5: "sql_built_from_strings",
+    6: "tls_verification_disabled",
 }
 
 

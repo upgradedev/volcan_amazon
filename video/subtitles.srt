@@ -1,19 +1,23 @@
 1
-00:00:00,000 --> 00:00:20,000
-An autonomous coding agent just wrote this patch. A sighted reviewer scans it in seconds. A screen reader reads it one plus sign, one minus sign and one hunk header at a time, so the single line that flips an authorization check sounds exactly like everything around it.
+00:00:03,000 --> 00:00:35,131
+This is Volcan. A screen reader reads a patch one plus sign at a time. Volcan turns it into sound, speech and Braille, with one key press. Listen.
 
 2
-00:00:20,000 --> 00:00:58,000
-This is Volcan, running on this machine. One button. It posts that patch to the Volcan API and gets back three things a person can use. The earcon plays first, so the verdict arrives before the sentence. This patch touches security, so the cue falls; a benign one rises. Then the spoken digest, which names the security-sensitive file ahead of the line detail instead of in line order. Then the same patch as six-dot Unicode Braille cells for a refreshable display. The engine label and the round trip are read off the response, measured in this browser.
+00:00:35,131 --> 00:00:57,840
+The earcon came first, so the verdict arrived before the sentence. This patch touches security, so the cue falls; a clean patch gets a rising cue. The sentence opens with the finding itself. The engine meter reads local heuristic, because this run has no cloud credentials, and the round trip was measured in this browser.
 
 3
-00:00:58,000 --> 00:01:32,000
-The track question is whether the protocol is real. Volcan's Model Context Protocol server is written by hand to revision 2025-11-25 over Streamable HTTP, with no SDK. This button performs a real initialize and a real tools list call against the MCP endpoint, then prints the negotiated version, the session identifier taken from the response header, and the JSON Schema of all twelve tools. The conformance script runs the same handshake from a terminal.
+00:00:57,840 --> 00:01:22,489
+Now a real pull request, read from GitHub without a token. Alt and 6 jumps to the address box, and Enter opens it. The page outlines the next steps; ask for the findings. Listen.
 
 4
-00:01:32,000 --> 00:02:08,000
-A high-consequence command is staged behind a single-use grant, bound by HMAC SHA-256 to the command's own payload hash and to a lease. The agent that proposed the action cannot release it. A human presents the grant, and the planner answers: allowlisted, would run git diff HEAD, executed is false. Nothing ran. That holds for the whole product. No file under src imports subprocess or any process spawn, and a test walks every module's syntax tree on each run to keep it that way.
+00:01:22,490 --> 00:01:58,993
+Request changes stages the review, bound to the head commit Volcan read, under a single-use grant, and outlines Confirm. Nothing leaves until you say it. Confirm, and listen.
 
 5
-00:02:08,000 --> 00:02:45,000
-Everything shown here is checkable in one command. 421 automated tests. Twenty-one of twenty-one protocol conformance checks. And a readiness script that is allowed to fail, and does: no browser driver runs in continuous integration, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.
+00:01:58,993 --> 00:02:16,640
+Under the page is Volcan's Model Context Protocol server, written by hand to revision 2025-11-25. This button runs a real handshake: the negotiated version, a session identifier, and all twelve tools with their schemas.
+
+6
+00:02:16,640 --> 00:02:40,000
+On this commit, 646 tests pass, and 23 of 23 protocol conformance checks. This button replays Amazon's documented Alexa+ requests as three clients; all three are served. Alexa+ itself has never called Volcan. Volcan: code review by ear and by touch.

@@ -40,6 +40,10 @@ class MockBedrockSynthesis:
             category_breakdown={},
             critical_findings=[],
             sections=sections,
+            # This mock stands in for a model answer, so it says so: the level 0
+            # summary keeps a model's own headline after the finding, and drops
+            # only the local engine's headline, which restated the finding.
+            synthesis_mode="bedrock",
         )
 
 
@@ -87,3 +91,32 @@ def test_multi_level_spoken_summaries():
         summary_l2 = report.to_voice_summary(level=2)
         assert "Critical Findings:" in summary_l2 or "Security Alert" in summary_l2
     asyncio.run(_test())
+
+
+def test_touched_names_come_from_hunk_headers_and_changed_definitions():
+    from src.domain.semantic_diff import UnifiedDiffParser, join_words, touched_names
+
+    patch = (
+        "diff --git a/src/a.py b/src/a.py\n--- a/src/a.py\n+++ b/src/a.py\n"
+        "@@ -10,3 +10,6 @@ class Adapter(BaseAdapter):\n"
+        "     x = 1\n"
+        "+    def get_connection(self, url):\n"
+        "+        return url\n"
+        "+\n"
+        "@@ -40,2 +43,2 @@ def send(self, request):\n"
+        "-    return 1\n"
+        "+    return 2\n"
+    )
+    section = UnifiedDiffParser.parse_patch(patch)[0]
+    assert touched_names(section) == ["Adapter", "get_connection", "send"]
+    assert join_words(["a"]) == "a"
+    assert join_words(["a", "b", "c"]) == "a, b and c"
+
+
+def test_a_clean_patch_with_no_definition_in_sight_names_the_file():
+    from src.domain.semantic_diff import UnifiedDiffParser
+    from src.infrastructure.bedrock_adapter import BedrockSynthesisAdapter
+
+    patch = "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-a\n+b\n"
+    headline = BedrockSynthesisAdapter._heuristic_headline(UnifiedDiffParser.parse_patch(patch))
+    assert headline == "The change touches README.md; no security rule matched"

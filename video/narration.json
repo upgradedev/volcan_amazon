@@ -1,47 +1,90 @@
 {
   "project": "volcan_amazon",
   "title": "Volcan: hear your code review instead of scrubbing a diff",
-  "target_duration_seconds": 165.0,
+  "target_duration_seconds": 164.5,
   "max_allowed_seconds": 180.0,
   "narration_audio": {
     "generated": false,
-    "note": "No narration audio exists. No text-to-speech service has been called from this repository. This file is the script a human or a service would read, and video/SHOT_LIST.md is the matching capture plan."
+    "note": "Filled in from the measured run. See video/README.md."
+  },
+  "tts": {
+    "provider": "elevenlabs",
+    "elevenLabs": {
+      "voiceId": "21m00Tcm4TlvDq8ikWAM",
+      "modelId": "eleven_multilingual_v2",
+      "outputFormat": "mp3_44100_128"
+    }
+  },
+  "cards": {
+    "title_seconds": 3.0,
+    "outro_seconds": 4.5,
+    "title_lines": [
+      "Volcan",
+      "Hear your code review instead of scrubbing a diff.",
+      "A local run of commit {sha7}. Simulated Alexa+ front end. GitHub dry run."
+    ],
+    "outro_lines": [
+      "Volcan",
+      "Local run of commit {sha7}. Not the public deployment. Not an Alexa skill.",
+      "GitHub review: a dry run, recorded and not sent. Engine: local heuristic.",
+      "Narration: synthetic ElevenLabs voice.",
+      "Product voice: the page's own sentences, rendered with the Windows system voice."
+    ]
   },
   "beats": [
     {
-      "beat_id": "beat_01_hook",
-      "timestamp_start": 0.0,
-      "timestamp_end": 20.0,
-      "narration_text": "An autonomous coding agent just wrote this patch. A sighted reviewer scans it in seconds. A screen reader reads it one plus sign, one minus sign and one hunk header at a time, so the single line that flips an authorization check sounds exactly like everything around it.",
-      "visual_action": "Screen recording of a screen reader reading the raw unified diff in the textarea of the companion page at http://127.0.0.1:8000/, with the reader's own speech as the only audio."
+      "beat_id": "beat_01_press",
+      "narration_text": "This is Volcan. A screen reader reads a patch one plus sign at a time. Volcan turns it into sound, speech and Braille, with one key press. Listen.",
+      "speech_text": "This is Volcan. A screen reader reads a patch one plus sign at a time. Volcan turns it into sound, speech and Braille, with one key press. Listen.",
+      "product_sound_seconds": 19.5,
+      "product_sound_basis": "Measured on 2026-09-28 against a local server on port 8871 with no cloud credentials: 18.13 s from the Enter press to the browser's speech end event in a rehearsal (earcon playing at 0.20 s, speech start 1.39 s, speech 16.74 s) and 18.15 s in a full rehearsal take. The passing 2026-09-27 take on a loaded machine measured 18.95 s. 19.5 s leaves 0.55 s over the slowest, and keeps the silence after the product's sentence short. video/capture-local.py fails the take if speech has not ended inside this window.",
+      "visual_action": "The companion page at first paint: the heading Hear your code review instead of scrubbing a diff, For blind and low-vision developers, the Inverted admin check patch, the silent preview (grey waveform, Falling contour, the finding sentence, Server's first sentence, not played yet) and the label Live MCP server, simulated Alexa+ front end. Not an Alexa skill. GitHub: dry-run. On the third sentence Alt and 1 puts the focus ring on Hear this code review; Enter after the narrator stops. The narrator is silent while the page plays the earcon WAV the server returned and the browser speaks the server's sentence, finding first. After the earcon ends the page scrolls so the earcon, the sentence, the security finding and the Braille share the frame while the words light.",
+      "timestamp_start": 3.0,
+      "timestamp_end": 35.131
     },
     {
-      "beat_id": "beat_02_one_button",
-      "timestamp_start": 20.0,
-      "timestamp_end": 58.0,
-      "narration_text": "This is Volcan, running on this machine. One button. It posts that patch to the Volcan API and gets back three things a person can use. The earcon plays first, so the verdict arrives before the sentence. This patch touches security, so the cue falls; a benign one rises. Then the spoken digest, which names the security-sensitive file ahead of the line detail instead of in line order. Then the same patch as six-dot Unicode Braille cells for a refreshable display. The engine label and the round trip are read off the response, measured in this browser.",
-      "visual_action": "Click the primary button Hear this code review on the companion page. Hold on the earcon audio while it plays, then on the spoken digest, the security finding, the Braille cells, and the three meters filling with the engine name, the measured round trip and the change size."
+      "beat_id": "beat_02_what_you_heard",
+      "timestamp_start": 35.131,
+      "timestamp_end": 57.84,
+      "narration_text": "The earcon came first, so the verdict arrived before the sentence. This patch touches security, so the cue falls; a clean patch gets a rising cue. The sentence opens with the finding itself. The engine meter reads local heuristic, because this run has no cloud credentials, and the round trip was measured in this browser.",
+      "speech_text": "The earcon came first, so the verdict arrived before the sentence. This patch touches security, so the cue falls; a clean patch gets a rising cue. The sentence opens with the finding itself. The engine meter reads local heuristic, because this run has no cloud credentials, and the round trip was measured in this browser.",
+      "visual_action": "The stage as the press left it, scrolled so the earcon, the spoken sentence, the security finding box and the first Braille cells share the frame: the waveform in its heard colour, the Falling contour, the earcon caption naming SECURITY_FINDING and 0.60 seconds of 16-bit PCM at 22050 Hz. On the last sentence the information button beside Synthesis engine opens the server's reason: no AWS credentials were resolved by the boto3 credential chain."
     },
     {
-      "beat_id": "beat_03_mcp_handshake",
-      "timestamp_start": 58.0,
-      "timestamp_end": 92.0,
-      "narration_text": "The track question is whether the protocol is real. Volcan's Model Context Protocol server is written by hand to revision 2025-11-25 over Streamable HTTP, with no SDK. This button performs a real initialize and a real tools list call against the MCP endpoint, then prints the negotiated version, the session identifier taken from the response header, and the JSON Schema of all twelve tools. The conformance script runs the same handshake from a terminal.",
-      "visual_action": "Click Run a real MCP handshake, hold on the four facts and one expanded tool schema, then cut to a terminal running python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp and its pass lines."
+      "beat_id": "beat_03_open_pull_request",
+      "narration_text": "Now a real pull request, read from GitHub without a token. Alt and 6 jumps to the address box, and Enter opens it. The page outlines the next steps; ask for the findings. Listen.",
+      "speech_text": "Now a real pull request, read from GitHub without a token. Alt and six jumps to the address box, and Enter opens it. The page outlines the next steps; ask for the findings. Listen.",
+      "product_sound_seconds": 9.0,
+      "product_sound_basis": "Measured on 2026-09-28 against a local server on port 8871, after opening octocat/Hello-World pull request 1: 7.47 s in a rehearsal and 7.46 s in a full rehearsal take, from the click on Findings to the browser's speech end event for its readback and answer. 9.0 s leaves 1.5 s of margin. video/capture-local.py fails the take if speech has not ended inside this window.",
+      "visual_action": "Talk through a real pull request. Alt and 6 focuses the pull request URL box, the URL of octocat/Hello-World pull request 1 is typed and Enter opens it: the dialogue answers Opened octocat/Hello-World pull request 1 ... head commit 7044a8a ... 0 security findings. The page speaks that answer too; it is not in the recording, and a label in the caption band says so for exactly that stretch. The view moves to the dialogue and the outlined next steps, File by file, Findings and Read the lines. Findings after the narrator stops: the page plays its cue and speaks Understood: findings. No security finding in this change. That product voice is in the mix and captioned as Volcan.",
+      "timestamp_start": 57.84,
+      "timestamp_end": 82.49
     },
     {
-      "beat_id": "beat_04_governance",
-      "timestamp_start": 92.0,
-      "timestamp_end": 128.0,
-      "narration_text": "A high-consequence command is staged behind a single-use grant, bound by HMAC SHA-256 to the command's own payload hash and to a lease. The agent that proposed the action cannot release it. A human presents the grant, and the planner answers: allowlisted, would run git diff HEAD, executed is false. Nothing ran. That holds for the whole product. No file under src imports subprocess or any process spawn, and a test walks every module's syntax tree on each run to keep it that way.",
-      "visual_action": "Click Stage an action, hold on the lease countdown, click Approve with the grant, hold on the line that reads Dry run only, nothing was executed, and on the audit row reading plan released, not run. Cut to a terminal running python -m pytest tests/unit/test_no_execution_in_source_tree.py -q."
+      "beat_id": "beat_04_request_changes",
+      "narration_text": "Request changes stages the review, bound to the head commit Volcan read, under a single-use grant, and outlines Confirm. Nothing leaves until you say it. Confirm, and listen.",
+      "speech_text": "Request changes stages the review, bound to the head commit Volcan read, under a single-use grant, and outlines Confirm. Nothing leaves until you say it. Confirm, and listen.",
+      "product_sound_seconds": 23.5,
+      "product_sound_basis": "Measured on 2026-09-28 against a local server on port 8871, each time after Request changes on octocat/Hello-World pull request 1: 22.1 s and 21.8 s in two rehearsals and 21.96 s in a full rehearsal take, from the click on Confirm to the browser's speech end event for its readback and answer. 23.5 s leaves 1.4 s over the slowest. video/capture-local.py fails the take if speech has not ended inside this window.",
+      "visual_action": "A comment that says it is a dry-run demo goes into the comment box and Request changes stages the review: the dialogue reads back Ready to request changes ... bound to head commit 7044a8a, and Confirm and Cancel are outlined. The page speaks that readback too; it is not in the recording, and a label says so until Confirm interrupts it. Confirm after the narrator stops: the page plays its cue and speaks Understood: confirm. Dry run. Nothing was sent to GitHub. The head commit is still 7044a8a, and the exact request Volcan would send has been recorded. A live send would be refused: no GITHUB_TOKEN is set. That product voice is in the mix and captioned as Volcan. Midway the view moves to the review pane: Outcome recorded and not sent, and the exact POST request the server recorded.",
+      "timestamp_start": 82.491,
+      "timestamp_end": 118.994
     },
     {
-      "beat_id": "beat_05_verification",
-      "timestamp_start": 128.0,
-      "timestamp_end": 165.0,
-      "narration_text": "Everything shown here is checkable in one command. 421 automated tests. Twenty-one of twenty-one protocol conformance checks. And a readiness script that is allowed to fail, and does: no browser driver runs in continuous integration, and the deployed endpoint is an older commit than this one. There is no Alexa skill in this repository and no Bedrock model was called from this machine. The page says both on screen. Volcan is for the developer who reviews code by ear and by touch.",
-      "visual_action": "Terminal running python -m pytest tests/ -q, then python ci/readiness.py scrolled to its red gates, then back to the companion page connection strip stating the resolved model path the server reported, which on the development machine reads unavailable_sdk_not_installed. Close on the page heading."
+      "beat_id": "beat_05_mcp_handshake",
+      "timestamp_start": 118.994,
+      "timestamp_end": 136.641,
+      "narration_text": "Under the page is Volcan's Model Context Protocol server, written by hand to revision 2025-11-25. This button runs a real handshake: the negotiated version, a session identifier, and all twelve tools with their schemas.",
+      "speech_text": "Under the page is Volcan's Model Context Protocol server, written by hand to revision twenty twenty-five, eleven, twenty-five. This button runs a real handshake: the negotiated version, a session identifier, and all twelve tools with their schemas.",
+      "visual_action": "In Evidence, tab Server and MCP, press Run a real MCP handshake on the second sentence and hold on the four facts (2025-11-25, volcan-accessible-forge 0.1.0, the session id from the Mcp-Session-Id header, 12 tools), then expand the first tool to show its published inputSchema."
+    },
+    {
+      "beat_id": "beat_06_verification",
+      "narration_text": "On this commit, 646 tests pass, and 23 of 23 protocol conformance checks. This button replays Amazon's documented Alexa+ requests as three clients; all three are served. Alexa+ itself has never called Volcan. Volcan: code review by ear and by touch.",
+      "speech_text": "On this commit, six hundred and forty-six tests pass, and twenty-three of twenty-three protocol conformance checks. This button replays Amazon's documented Alexa plus requests as three clients; all three are served. Alexa plus itself has never called Volcan. Volcan: code review by ear and by touch.",
+      "visual_action": "Evidence, tab Server and MCP: SERVER REACHED with the commit and the model path the server reported for this run. Press Replay the documented Alexa+ requests and hold on the three client lines and 3 of 3 clients served. Back to the connection strip and the Alexa+ box, which reads package built and tested locally, not certified or deployed, then close on the page heading and the Live MCP server, simulated Alexa+ front end label. The test and conformance counts are stated, not filmed.",
+      "timestamp_start": 136.641,
+      "timestamp_end": 160.0
     }
   ]
 }

@@ -4,7 +4,8 @@ import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from src.application.durable_state import DurableStateError, StateConflict, governed_audit_scope
+from src.application.durable_state import DurableStateError, StateConflict
+from src.application.public_audit import PUBLIC_DEMO_AUDIT_SCOPE
 from src.domain.approval_grant import ApprovalGrantIssuer, GrantRefusal
 from src.domain.governed_action import (
     ActionState,
@@ -91,10 +92,14 @@ class GovernedExecutionUseCase:
         action_namespace: str | None = None,
     ) -> StagedActionTicket:
         namespace = action_namespace or self._action_namespace
+        # The public surface carries no credential, so its actions share the
+        # public demo chain; a caller's own text is withheld when that chain is
+        # read (src/application/public_audit.py). Voice and review callers pass
+        # their private per-session scope instead.
         action = GovernedAction.create(
             action_id, action_type, command, summary_spoken, lease_sec,
             staged_by=staged_by or Principal.agent(),
-            audit_scope=audit_scope or governed_audit_scope(action_id),
+            audit_scope=audit_scope or PUBLIC_DEMO_AUDIT_SCOPE,
         )
         if self._state_store is None:
             self._actions[f"{namespace}:{action_id}"] = action
@@ -195,7 +200,10 @@ class GovernedExecutionUseCase:
                 namespace, action, ActionState.APPROVED, f"FAILED: {ex}"
             )
             raise
-        action.state = ActionState.EXECUTED
+        # The only executor is the allowlisted planner, and
+        # tests/unit/test_no_execution_in_source_tree.py keeps it that way, so
+        # the stored outcome is the plain one: approved, and nothing ran.
+        action.state = ActionState.RELEASED_NOT_RUN
         action.execution_result = result
         self._finalize_action(namespace, action, ActionState.APPROVED, result)
         return ReleaseOutcome(

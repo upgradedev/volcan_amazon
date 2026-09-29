@@ -65,10 +65,18 @@ def measure_security_detection() -> dict[str, object]:
     true_positive = 0
     false_negative_ids: list[str] = []
     false_positive_ids: list[str] = []
+    # The same counts over the patches whose file is Python, so the figure can
+    # be read per language beside the JavaScript and TypeScript benchmark.
+    python_counts = {"should_flag": 0, "detected": 0, "should_not_flag": 0, "over_flagged": 0}
 
     for case in CORPUS:
         sections = UnifiedDiffParser.parse_patch(case.raw_diff)
         flagged = any(section.security_flags for section in sections)
+        if sections and all(section.file_path.endswith(".py") for section in sections):
+            key = "should_flag" if case.expect_security_flag else "should_not_flag"
+            python_counts[key] += 1
+            if flagged:
+                python_counts["detected" if case.expect_security_flag else "over_flagged"] += 1
         if case.expect_security_flag and flagged:
             true_positive += 1
         elif case.expect_security_flag and not flagged:
@@ -88,6 +96,12 @@ def measure_security_detection() -> dict[str, object]:
         "false_positive_pct": round(100.0 * len(false_positive_ids) / negatives, 1),
         "missed_fixture_ids": false_negative_ids,
         "false_positive_fixture_ids": false_positive_ids,
+        "python_files_only": {
+            **python_counts,
+            "recall_pct": round(100.0 * python_counts["detected"] / python_counts["should_flag"], 1),
+            "false_positive_pct": round(
+                100.0 * python_counts["over_flagged"] / python_counts["should_not_flag"], 1),
+        },
     }
 
 
@@ -136,6 +150,10 @@ def main(argv: list[str] | None = None) -> dict:
         print(f"    - Missed fixtures:    {', '.join(security['missed_fixture_ids'])}")
     if security["false_positive_fixture_ids"]:
         print(f"    - Over-flagged:       {', '.join(security['false_positive_fixture_ids'])}")
+    py = security["python_files_only"]
+    print(f"    - Python files only:  recall {py['recall_pct']}% ({py['detected']}/{py['should_flag']}), "
+          f"false positives {py['false_positive_pct']}% ({py['over_flagged']}/{py['should_not_flag']})")
+    print("    - JavaScript and TypeScript: python scripts/benchmark_js_ts_detection.py")
 
     results = {
         "generated_by": "python scripts/benchmark_suite.py",

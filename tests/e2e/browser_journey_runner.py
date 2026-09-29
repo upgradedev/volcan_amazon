@@ -17,8 +17,11 @@ def main(base_url: str) -> None:
         page.locator("#runMcp").click()
         expect(page.locator("#mcpStatus")).to_contain_text("Handshake complete", timeout=15_000)
         expect(page.locator("#mcpCount")).to_have_text("12")
+        # The stage shows a silent preview on load; the live pane stays empty
+        # until the press, so "not empty" is only true once the press answered.
+        assert page.locator("#spokenPane").inner_text().strip() == ""
         page.locator("#runReview").click()
-        expect(page.locator("#spokenPane")).not_to_contain_text("Nothing spoken yet", timeout=30_000)
+        expect(page.locator("#spokenPane")).to_contain_text("src/auth/permissions.py", timeout=30_000)
         expect(page.locator("#meterChange")).to_contain_text("file")
         expect(page.locator("#earconCaption")).not_to_contain_text("Nothing played yet")
         expect(page.locator("#brailleOutput")).not_to_have_text("")

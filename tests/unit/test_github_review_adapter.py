@@ -144,6 +144,37 @@ def test_an_unreachable_github_is_a_read_error_not_a_crash():
         broken.fetch_pull_request("https://github.com/octo/demo/pull/7")
 
 
+def test_a_head_that_cannot_be_re_read_is_refused_in_plain_words():
+    """The pre-send re-read runs in a dry run too, so its refusal is spoken on the demo path."""
+    def unreachable(_request):
+        raise httpx.ConnectError("no route to host")
+
+    broken = GitHubReviewAdapter(token=None, write_enabled=False, transport=httpx.MockTransport(unreachable))
+    outcome = broken.submit_request_changes(snapshot(), "body", HEAD)
+    assert outcome.refusal_code == REFUSAL_UNREACHABLE and outcome.submitted is False
+    assert outcome.detail == (
+        "The head commit could not be re-read before submitting, so nothing was sent. "
+        "GitHub could not be reached from this server. Check its network connection, "
+        "then open the pull request again."
+    )
+    assert "ConnectError" not in outcome.spoken
+
+
+def test_a_read_error_knows_its_reason_and_whether_github_named_the_rate_limit():
+    fake = FakeGitHub()
+    with pytest.raises(GitHubReadError) as missing:
+        adapter(fake).fetch_pull_request("https://github.com/octo/demo/pull/8")
+    assert missing.value.reason == "not_found" and missing.value.rate_limited is False
+
+    def limited(_request):
+        return httpx.Response(403, json={"message": "API rate limit exceeded for 203.0.113.9."})
+
+    with pytest.raises(GitHubReadError) as refused:
+        GitHubReviewAdapter(token=None, write_enabled=False,
+                            transport=httpx.MockTransport(limited)).fetch_pull_request("https://github.com/octo/demo/pull/7")
+    assert refused.value.reason == "refused" and refused.value.rate_limited is True
+
+
 # --- the write, dry-run by default -------------------------------------------------
 
 def test_dry_run_is_the_default_and_records_the_exact_request_without_sending():

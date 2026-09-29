@@ -2,7 +2,7 @@
 
 ## Tagline
 
-Volcan lets blind and mobility-impaired software developers review autonomous coding agents
+Volcan lets blind and low-vision software developers review autonomous coding agents
 by ear and by touch instead of by reading a diff.
 
 **Track:** Alexa+. **Mini challenge:** AWS Builder. Both claims are qualified in
@@ -67,15 +67,16 @@ goes back.
    The review is bound to the head commit, re-checked live, and **dry-run by default**: the
    server records the exact request it would send and sends nothing unless it runs with
    `VOLCAN_GITHUB_WRITE=1` and a `GITHUB_TOKEN`. No live review has been sent from this
-   repository; the README carries the owner command that produces that receipt.
+   repository; `docs/EVIDENCE.md` carries the owner command that produces that receipt.
 
 Around those renderings:
 
 * **Security flags come before comprehension, and they say what changed.** Two deterministic
   passes run. A keyword pass catches authentication, cryptographic, database and
-  process-execution vocabulary. A syntax-tree pass then compares the added and removed lines
-  as parsed Python and reports what the change *did*: an authorization comparison inverted, a
-  cross-origin policy widened to any origin, a verification call deleted and not replaced.
+  process-execution vocabulary. A structural pass then compares the added and removed lines,
+  as parsed Python or, for JavaScript and TypeScript files, as tokens, and reports what the
+  change *did*: an authorization comparison inverted, a cross-origin policy widened to any
+  origin, a verification call deleted and not replaced.
   The second pass exists because `user.role == "admin"` and `user.role != "admin"` contain
   identical words, so no keyword matcher can tell them apart, and the finding is spoken ahead
   of the line detail rather than in line order.
@@ -123,10 +124,11 @@ readiness gate verifies by parsing every domain module.
   atomic session/action staging, atomic action/nonce claims and reviewer/repository-scoped
   audit chains whose terminal action and record advance in one transaction;
   durable voice ownership and action namespaces come from the authenticated server roster,
-  never the caller's `user_id`;
+  or a fixed anonymous owner when no credential is sent, never the caller's `user_id`; the
+  anonymous page's audit trail reads one public demo chain with caller-written text withheld;
   cold-start and concurrency tests use independent adapter instances rather than shared Python
   objects.
-* **The companion page.** One self-contained HTML file, served by FastAPI at `/` and `/demo`.
+* **The companion page.** One HTML file with no remote script, served by FastAPI at `/` and `/demo`; it makes no request to another origin, because its two typefaces, Atkinson Hyperlegible and JetBrains Mono, are inlined from `docs/fonts` under the SIL Open Font License.
   It holds no second implementation of the product: pressing its one primary button posts the
   patch to the running server, plays the WAV the server returned, draws the waveform from
   that WAV's own samples, prints the Braille cells the server produced, and reports the round
@@ -158,12 +160,13 @@ covered. We deleted all of it. The page now shows a real result or an honest emp
 
 * **A hand-written MCP server with no SDK.** `python scripts/mcp_conformance.py` runs a
   full client handshake against a running instance and prints a pass or fail line for each of
-  22 checks. All 22 passed in both stateful and stateless transport modes on 2026-09-23,
+  23 checks. All 23 passed in both stateful and stateless transport modes on 2026-09-27,
   including the ones that are easy to get wrong: HTTP
   404 for a session the server never minted, HTTP 202 with no body for
   `notifications/initialized`, `-32602` rather than a transport error for an unknown tool, a
-  405 whose `Allow` header names every method the endpoint really accepts, and `-32600` for a
-  missing version header on every method, session or no session.
+  405 whose `Allow` header names every method the endpoint really accepts, a request without
+  the version header served under the session's negotiated revision or as 2025-03-26 as the
+  specification directs, and HTTP 400 for an unsupported version header on every verb.
 * **A review journey that reads back before it acts, and refuses when it should.** The
   dialogue is driven by injected transcripts in `tests/unit/test_review_dialogue.py`, the
   grant and the GitHub port in `tests/unit/test_review_dialogue_use_case.py`, and the whole
@@ -181,7 +184,8 @@ covered. We deleted all of it. The page now shows a real result or an honest emp
 * **Governance that refuses its own author.** An agent principal presenting a valid grant for
   its own proposal is refused with `AGENT_MAY_NOT_APPROVE`, and each refusal path has its own
   test.
-* **81.8% detection recall over n=40 hand-labelled patches**, twenty-two that must raise a
+* **86.4% detection recall over n=40 hand-labelled patches** (81.8% until the 2026-09-28 TLS rule
+  closed one known miss), twenty-two that must raise a
   security flag and eighteen that must not, with 0% false positives, against a baseline of 0%
   because a screen reader reading raw patch text surfaces no security categorisation at all.
   Printed by `python scripts/benchmark_suite.py`, recomputed by
@@ -190,11 +194,21 @@ covered. We deleted all of it. The page now shows a real result or an honest emp
   about any real repository.
 
   The figure was 100% over n=24 while the corpus contained only patches the rules already
-  handled. Four positives were then added *because* nothing here detects them, and the
-  README names all four: a deleted authorization guard block, a removed permission
+  handled. Four positives were then added *because* nothing here detects them, and
+  `docs/EVIDENCE.md` names all four: a deleted authorization guard block, a removed permission
   decorator, `verify=False` added to an outbound call, and an IAM policy widened in JSON.
-  Recall fell to 81.8% and became worth reading. The four are pinned by fixture id, so a new
+  Recall fell to 81.8% and became worth reading; one of the four, `verify=False`, was closed on
+  2026-09-28 by the TLS rule, a miss known before that rule was written. The four are pinned by fixture id, so a new
   miss fails the build and closing one means deleting its id from the list.
+* **JavaScript and TypeScript, on a held-out half.** Rules for the same three structural
+  findings were added on 2026-09-27, tuned on a training half of 64 self-authored, synthetic
+  patches and measured on the other half (independent of the tuning, not of the author): recall 25.0% to 50.0% for JavaScript and 37.5% to
+  75.0% for TypeScript, 8 patches per language that must flag. False positives stayed at 0.0%
+  and 25.0% of 8, all from the unchanged keyword pass on this corpus. The rules read one line
+  at a time: eight probes written after them to find where that breaks gave 0 of 4 detected
+  and 4 of 4 over-flagged, all by a structural rule (`--probes`). Printed by
+  `python scripts/benchmark_js_ts_detection.py`; the split rule, the seed and every miss are in
+  `docs/EVIDENCE.md`.
 
 ---
 
@@ -215,7 +229,7 @@ those defects became build failures instead of things to remember.
 
 **Live, and checkable in one command.** The MCP server. Start it with
 `python -m src.interfaces.mcp_server` and run
-`python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` to watch 22 of 22 protocol
+`python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` to watch 23 of 23 protocol
 checks pass. The companion page performs the same `initialize` and `tools/list` handshake in
 the browser and renders the negotiated protocol version, the stateful or stateless transport
 choice and every published tool schema. The public Lambda chooses stateless transport so an
@@ -239,7 +253,7 @@ real `GET /health` on load and reports what actually answered.
 on 2026-09-08 the page opened `python/cpython#1` and printed its head commit `02a87ce`.
 Submitting the review is dry-run by default: on `confirm` the page printed `Dry run. Nothing
 was sent to GitHub.` beside the exact `POST .../reviews` body it recorded. No live review has
-been sent from this repository. The owner command that produces one is in the README.
+been sent from this repository. The owner command that produces one is in `docs/EVIDENCE.md`.
 
 **Real, labelled Amazon Bedrock path.** The adapter calls Claude on Amazon
 Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client, pinned to
@@ -254,7 +268,7 @@ that grant falls back with the bounded permission category.
 misleading: credentials resolve on this machine while the SDK is absent, so no call could be
 attempted at all. It now publishes one resolved capability computed from both facts, reading
 `unavailable_sdk_not_installed` on 2026-09-08, with the credential and SDK booleans underneath
-it as the evidence. The README carries the exact command that reproduces a per-request receipt.
+it as the evidence. `docs/EVIDENCE.md` carries the exact command that reproduces a per-request receipt.
 
 **Never executed.** No file under `src/` imports or calls `subprocess`, `os.system`, `eval`,
 `exec` or any process spawn. `tests/unit/test_no_execution_in_source_tree.py` walks every
@@ -268,49 +282,68 @@ E4 report red until footage exists.
 **Deployed.** On 2026-09-23 the public endpoint served `GET /health`, the current companion,
 the REST digest and MCP initialize/tool calls. Health exposes the immutable source revision.
 A governed action remained a dry-run and its bounded EMF records were read back from
-CloudWatch. Alexa skill certification, Echo testing and a live GitHub write remain absent.
+CloudWatch. A live GitHub write remains absent. An Alexa+ add-on deployment is absent because
+the add-on tools are partner-only ([hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs)). No Alexa skill has been
+certified and nothing has run on an Echo device; for this track the FAQ says "no physical
+device needed".
 
 ---
 
 ## Who would buy this, and out of which budget
 
-**A commercial hypothesis, not a finding.** No market size, no price, no revenue projection
-and no conversion rate appears here, because none has been measured.
+**Measured population, guessed price.** No buyer has been interviewed or contacted, and there
+is no revenue projection or conversion rate. Every figure below comes from a source fetched and
+read on 2026-09-28; the quotes and links are in `docs/EVIDENCE.md`.
 
-**The user is not the buyer.** The user is the blind or mobility-impaired engineer who reviews
-agent-written patches by ear. The budget holder is the **enterprise accessibility compliance
-owner**: the accessibility programme manager or director of accessibility engineering who
-already signs off remediation work, answers procurement questionnaires and owns the line that
-pays for what disabled employees need in order to work.
+**The user.** The blind or low-vision engineer who reviews agent-written patches by ear. The
+US Census Bureau's American Community Survey 2024 microdata puts US civilian employed software
+developers with a vision difficulty at 17,933 (90% margin +/- 2,686), 0.775% of 2.31 million;
+`python scripts/size_blind_developer_population.py` reproduces it. The question counts anyone
+"blind or having serious difficulty seeing, even when wearing glasses", so it is an upper bound
+on screen-reader users. Eurostat counts more than 10 million ICT specialists in the EU in 2025;
+no EU share with a vision difficulty was found, so no EU user count is given.
 
-**The budget line already exists.** Accessibility remediation and conformance spend, the money
-set aside against ADA / WCAG 2.1 AA, Section 508 and EN 301 549, together with the assistive
-technology and workplace adjustment provision beside it. **Where that is weakest:** remediation
-budgets pay to fix the accessibility of the product being shipped, and Volcan makes the work of
-building it accessible instead. It produces no Accessibility Conformance Report and closes no
-audit finding, so the sale needs the buyer to treat employing blind engineers as part of the
-same programme as conforming. The fallback is the workplace adjustment line, which is smaller.
+**The buyer.** The employer, out of the line that pays for what a disabled employee needs to
+work: Directive 2000/78/EC, Article 5, obliges employers to provide reasonable accommodation, and
+Section 508 obliges US federal agencies to give disabled employees comparable access to their
+technology. The European Accessibility Act, applied from 28 June 2025, covers consumer products
+and services and does not oblige anyone to make a developer tool accessible; an earlier version
+of this section overstated it.
 
-**The willingness-to-pay basis** is what these organisations already pay for the closest
-comparables, each of which the vendor publishes publicly: Freedom Scientific's pricing for the
-JAWS screen reader, refreshable Braille display pricing from HumanWare and Freedom Scientific,
-and Deque's pricing for axe DevTools. No figure from any of those pages is restated here and
-none has been used to derive anything.
+**Price, an untested hypothesis:** $24 per developer seat per month billed annually, CodeRabbit's
+published annual list price for pull request review; GitHub Copilot Business, the agent being
+reviewed, lists $19 a seat. If all 17,933 bought, about $5.2 million a year in the US, which is
+small; growing past it needs an org-wide price or users beyond blind developers, and neither is
+priced or tested. The wedge, who signs first, is a team that has switched on a coding agent,
+generally available from GitHub on 25 September 2025 and built to "request a review from you",
+and employs a blind developer who is asked to give that review.
+
+**The riskiest assumption** is that reviewing agent pull requests by screen reader hurts enough
+to switch. The cheapest test is five timed sessions, own screen reader then Volcan, passing only
+if three of five are faster and would use it again.
 
 **The first ten to approach have not been contacted.** Deque Systems, Level Access, TPGi,
 Microsoft accessibility engineering, Google central accessibility, GitHub accessibility, the
 UK Government Digital Service, European Commission DIGIT, the Royal National Institute of Blind
 People and the American Foundation for the Blind. Nothing there is a pipeline or a warm
 introduction; it is a target list written from the outside. The full section, including what
-does and does not compound, is in the README.
+does and does not compound, is in `docs/EVIDENCE.md`.
 
 ---
 
 ## Track and mini challenge
 
-* **Track: Alexa+.** Claimed as a real MCP server that an Alexa+ integration would call, plus
-  an explicitly simulated voice web experience. The claim is the protocol work, not a
-  certified skill.
+* **Track: Alexa+.** Claimed as a real MCP server that an Alexa+ MCP add-on would call, plus an
+  explicitly simulated voice web experience. That is the shape the
+  [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) asks for: "build a self-hosted MCP server (or
+  Agent Skill) per the Official Rules, and demo it via your own web-based simulator or front
+  end." The add-on package in `alexa_plus/` is built and tested locally, not certified or
+  deployed, because the FAQ says the add-on tools are "available to select partners only". A replay of Amazon's
+  documented Alexa+ client requests, against a local build and not the registered endpoint,
+  gets the finding back from all three client shapes it plays: one that follows the protocol's
+  version rules, one that declares the revision it asked for, and one that never sends the
+  version header. Alexa+ has never called Volcan. The claim is the protocol work, not a
+  certified add-on or skill.
 * **Mini challenge: AWS Builder.** Claimed as a real Amazon Bedrock adapter whose responses
   state which path produced them. The claim is the labelled integration and safe fallback,
   not a quality benchmark against other models.
@@ -319,10 +352,11 @@ does and does not compound, is in the README.
 
 ## What is next
 
-1. **Submit an Alexa skill for certification** so the voice experience stops being a
-   simulation. The `review_dialogue_turn` tool already takes a transcript and returns the
-   readback, the answer and the cue a skill handler needs, and the gap is certification and an
-   Echo device, not code.
+1. **Deploy the Alexa+ add-on, if Amazon grants MCP Toolkit access**, which the hackathon FAQ
+   says participants cannot get at present, so the voice experience stops being a simulation.
+   The package in `alexa_plus/` passes Amazon's documented schema locally; what remains is that
+   access, the owner's hosted privacy page and images, a redeploy of the current commit, the
+   header question the replay raised, and a test in Amazon's simulator and on an Echo device.
 2. **Send one live review** with `VOLCAN_GITHUB_WRITE=1` and a fine-grained token against a
    repository the owner controls, and record the receipt. The code path exists and is tested
    against a mock; the receipt does not.

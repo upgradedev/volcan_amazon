@@ -92,6 +92,22 @@ def say(dialogue: ReviewDialogue, transcript: str):
     ("stop", "stop", {}),
     ("where am I", "where", {}),
     ("make me a sandwich", "unknown", {}),
+    # Extensionless names, as a pull request carries them and a recogniser hears them.
+    ("what changed in README", "focus_file", {"file": "readme"}),
+    ("What changed in the README?", "focus_file", {"file": "readme"}),
+    ("what changed in read me", "focus_file", {"file": "read me"}),
+    ("what changed in the readme file", "focus_file", {"file": "readme file"}),
+    ("what's different in Dockerfile", "focus_file", {"file": "dockerfile"}),
+    ("file README", "focus_file", {"file": "readme"}),
+    ("what changed in file two", "focus_index", {"n": "2"}),
+    # ...and none of them swallows a command that already meant something else.
+    ("file by file", "files", {}),
+    ("file last", "focus_index", {"n": "last"}),
+    ("open the patch", "open", {}),
+    ("open pr", "open", {}),
+    ("show me the code", "read_lines", {}),
+    ("what changed", "summary", {}),
+    ("what changed in the file", "unknown", {}),
 ])
 def test_transcripts_parse_to_commands(transcript, name, slots):
     command = parse_command(transcript)
@@ -199,13 +215,16 @@ def test_read_the_lines_speaks_every_numbered_line_of_the_hunk_verbatim():
     assert "Old lines 12 to 14, new lines 12 to 14, 4 lines" in turn.spoken
     assert 'Line 3 of 4, removed, old line 14:     return user.role == "admin".' in turn.spoken
     assert 'Line 4 of 4, added, new line 14:     return user.role != "admin".' in turn.spoken
-    assert turn.line["index"] == 0 and turn.line["total"] == 4
+    # The cursor lands on the first change, and the turn says so.
+    assert turn.spoken.endswith("Cursor on line 3 of 4, the first change. Say spell that, next or previous.")
+    assert turn.line["index"] == 2 and turn.line["total"] == 4
 
 
 def test_next_line_previous_line_and_the_edges_of_a_hunk():
     dialogue = opened()
     say(dialogue, "file 1")
     say(dialogue, "read the lines")
+    say(dialogue, "line 12")        # the first line of the hunk
     assert "Line 2 of 4, unchanged, line 13:" in say(dialogue, "next").spoken
     assert "Line 3 of 4, removed, old line 14:" in say(dialogue, "next line").spoken
     assert "Line 4 of 4, added, new line 14:" in say(dialogue, "next").spoken
@@ -232,7 +251,57 @@ def test_spell_that_names_every_symbol_so_bang_equals_cannot_be_heard_as_equals(
     say(dialogue, "read the lines")
     say(dialogue, "line 14")
     turn = say(dialogue, "spell that")
-    assert turn.spoken.startswith("Line 4, spelled: 4 leading spaces, r, e, t, u, r, n, space, u, s, e, r, dot, r, o, l, e, space, bang, equals, space, double quote, a, d, m, i, n, double quote.")
+    # The spelled line says where it is and which side of the change it is on.
+    assert turn.spoken.startswith("Line 4 of 4, added, spelled: 4 leading spaces, r, e, t, u, r, n, space, u, s, e, r, dot, r, o, l, e, space, bang, equals, space, double quote, a, d, m, i, n, double quote.")
+
+
+def test_spell_that_after_reading_the_lines_spells_the_change_not_the_context():
+    """A review said "read the lines" then "spell that" and heard the unchanged
+    first line of the hunk spelled. "That" is the change just heard."""
+    dialogue = opened()
+    say(dialogue, "file 1")
+    say(dialogue, "read the lines")
+    turn = say(dialogue, "spell that")
+    assert turn.spoken.startswith("Line 3 of 4, removed, spelled: 4 leading spaces, r, e, t, u, r, n"), turn.spoken
+    assert "equals, equals" in turn.spoken
+    # One cursor: "next" moves on from the line just spelled.
+    assert say(dialogue, "next").spoken.startswith("Line 4 of 4")
+
+
+def test_spell_that_where_am_i_next_and_previous_agree_on_one_line():
+    """Round 8 review, reproduced on the pasted patch: after "read the lines",
+    "spell that" answered line 3 and "where am i" then answered line 1. For a
+    listener who cannot see the diff, the position is the product, so every
+    command that names a line must name the same one."""
+    dialogue = opened(with_pr=False)
+    read = say(dialogue, "read the lines")
+    assert "Cursor on line 3 of 4" in read.spoken and read.line["index"] == 2
+    spelled = say(dialogue, "spell that")
+    assert spelled.spoken.startswith("Line 3 of 4, removed, spelled:"), spelled.spoken
+    where = say(dialogue, "where am i")
+    assert "Line 3 of 4, removed, old line 14." in where.spoken, where.spoken
+    assert "Line 1 of 4" not in where.spoken
+    assert say(dialogue, "next").spoken.startswith("Line 4 of 4, added")
+    assert "Line 4 of 4, added, new line 14." in say(dialogue, "where am i").spoken
+    assert say(dialogue, "spell that").spoken.startswith("Line 4 of 4, added, spelled:")
+    assert say(dialogue, "previous").spoken.startswith("Line 3 of 4, removed")
+    assert say(dialogue, "spell that").spoken.startswith("Line 3 of 4, removed, spelled:")
+    assert "Line 3 of 4, removed, old line 14." in say(dialogue, "where am i").spoken
+
+
+def test_a_hunk_longer_than_one_read_keeps_the_cursor_where_the_voice_stopped():
+    body = "".join(f"+line_{n} = {n}\n" for n in range(1, 26))
+    patch = (
+        "diff --git a/src/long.py b/src/long.py\n--- a/src/long.py\n+++ b/src/long.py\n"
+        "@@ -0,0 +1,25 @@\n" + body
+    )
+    dialogue = ReviewDialogue(session_id="long")
+    dialogue.load(report_for(patch))
+    read = say(dialogue, "read the lines")
+    assert "5 more. Cursor on line 20 of 25; say next to continue from line 21." in read.spoken
+    assert "Line 20 of 25" in say(dialogue, "where am i").spoken
+    assert say(dialogue, "spell that").spoken.startswith("Line 20 of 25")
+    assert say(dialogue, "next").spoken.startswith("Line 21 of 25")
 
 
 def test_spell_out_distinguishes_capitals_and_names_unicode():
@@ -281,6 +350,7 @@ def test_a_correction_undoes_the_misheard_command_before_applying_the_meant_one(
     dialogue = opened()
     say(dialogue, "file 1")
     say(dialogue, "read the lines")
+    say(dialogue, "line 12")        # line 1 of the hunk
     say(dialogue, "next")           # line 2
     say(dialogue, "next")           # line 3, misheard
     turn = say(dialogue, "no, I said previous")
@@ -366,3 +436,87 @@ def test_confirm_and_cancel_outside_a_pending_review_are_refused():
     dialogue = opened()
     assert say(dialogue, "confirm").error is True
     assert say(dialogue, "cancel").error is True
+
+
+# --- the demo pull request, octocat/Hello-World #1, in its recorded shape ---------------
+
+def hello_world() -> ReviewDialogue:
+    from tests.fixtures import hello_world_pr1 as recorded
+    snapshot = PullRequestSnapshot(
+        owner="octocat", repo="Hello-World", number=1, url=recorded.URL,
+        title=recorded.META["title"], state=recorded.META["state"], head_sha=recorded.HEAD,
+        head_ref="patch-1", base_ref="master", author="unoju", diff=recorded.DIFF,
+    )
+    dialogue = ReviewDialogue(session_id="hello")
+    dialogue.load(report_for(recorded.DIFF), snapshot)
+    return dialogue
+
+
+@pytest.mark.parametrize("name", ["README", "the README", "readme", "read me", "the readme file"])
+def test_what_changed_in_a_file_name_works_for_readme_on_the_demo_pull_request(name):
+    """The overview offers "what changed in a file name"; README has no extension."""
+    dialogue = hello_world()
+    assert "what changed in a file name" in dialogue.last_turn.spoken
+    turn = say(dialogue, f"what changed in {name}")
+    assert turn.error is False, turn.spoken
+    assert turn.state is DialogueState.FILE
+    assert turn.spoken.startswith("File 1 of 1: README.")
+
+
+def test_every_command_the_demo_pull_request_offers_works_on_it():
+    """Each "Say ..." the product speaks on Hello-World #1, said back to it, answers without an error."""
+    dialogue = hello_world()
+    offered = [
+        # The overview: "Say summary, file by file, or what changed in a file name."
+        "summary", "file by file", "what changed in README",
+        # The file list: "Say file and a number, or what changed in a file name."
+        "file 1",
+        # The file: "Say read the lines."
+        "read the lines",
+        # The lines: "Say spell that, next or previous."
+        "spell that", "next", "previous",
+        # The chips the page outlines, and the help's own examples.
+        "findings", "where am I", "repeat", "help",
+    ]
+    for transcript in offered:
+        turn = say(dialogue, transcript)
+        assert turn.error is False, f"{transcript!r} answered {turn.spoken!r}"
+
+
+def test_help_names_a_file_and_a_line_of_the_open_change_and_both_work():
+    dialogue = hello_world()
+    text = say(dialogue, "help").spoken
+    assert "What changed in README." in text and "auth dot py" not in text
+    assert " line 1." in text and "line fifteen" not in text
+    assert say(dialogue, "what changed in README").error is False
+    assert say(dialogue, "line 1").error is False
+
+
+def test_help_with_nothing_open_keeps_the_generic_examples():
+    dialogue = ReviewDialogue(session_id="empty")
+    assert "What changed in auth dot py." in say(dialogue, "help").spoken
+
+
+def test_next_from_the_overview_is_the_first_file_not_the_second():
+    dialogue = opened()
+    turn = say(dialogue, "next")
+    assert turn.error is False and turn.spoken.startswith("File 1 of 2: src/auth/permissions.py.")
+    assert say(dialogue, "next").spoken.startswith("File 2 of 2: src/utils/parser.py.")
+    say(dialogue, "file by file")
+    assert say(dialogue, "next").spoken.startswith("File 1 of 2:"), "the list is an overview too"
+
+
+def test_previous_from_the_overview_says_how_to_reach_a_file():
+    turn = say(opened(), "previous")
+    assert turn.error is True and turn.spoken == "No file is open yet. Say next for file 1."
+
+
+def test_next_on_the_one_file_demo_pull_request_opens_that_file():
+    turn = say(hello_world(), "next")
+    assert turn.error is False and turn.spoken.startswith("File 1 of 1: README.")
+
+
+def test_the_demo_pull_requests_readme_is_called_documentation_not_business_logic():
+    turn = say(hello_world(), "what changed in README")
+    assert "Category documentation, significance low." in turn.spoken
+    assert "business logic" not in turn.spoken

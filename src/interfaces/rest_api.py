@@ -4,8 +4,8 @@ This is ordinary JSON over HTTP for the web companion and for curl. It is not
 the Model Context Protocol and is never described as MCP; the MCP surface lives
 at /mcp and speaks JSON-RPC.
 """
+import asyncio
 import base64
-import os
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Response
@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Response
 from src.application.durable_state import DurableStateError, SessionOwnerMismatch, StateConflict
 from src.application.review_authorization import ReviewAuthorizationError
 from src.domain.sonification import EarconType
+from src.infrastructure.source_revision import source_revision
 from src.interfaces.composition import (
     accessibility_use_case,
     ast_checker,
@@ -33,8 +34,8 @@ from src.interfaces.dto import (
     BeeAnnotationRequest,
     BrailleDiffRequest,
     BrailleTranslateRequest,
+    CompanionDigestRequest,
     ConfirmActionRequest,
-    DigestRequest,
     DrillDownRequest,
     FireTvSyncRequest,
     HapticRequest,
@@ -58,13 +59,20 @@ router = APIRouter()
 
 
 @router.get("/health")
-async def health_check() -> dict[str, Any]:
+async def health_check(refresh: int = 0) -> dict[str, Any]:
+    """Service health. ``?refresh=1`` looks the AWS credential chain up again
+    instead of reporting the answer cached by the Bedrock adapter."""
     durable = durable_state_capability()
+    # Off the event loop: the first credential lookup can wait on the
+    # instance-metadata probe, and the page's other requests must not.
+    model_path = await asyncio.to_thread(bedrock_adapter.model_path_capability, bool(refresh))
     return {
         "status": "degraded" if durable.get("reachable") is False else "ok",
         "service": SERVER_NAME,
         "version": SERVER_VERSION,
-        "source_revision": os.getenv("SOURCE_REVISION", "unavailable"),
+        # A deployment's SOURCE_REVISION, or on a local run the checkout's own
+        # HEAD, with the origin saying which, so a judge can see the commit.
+        **source_revision(),
         "mcp": {
             "endpoint": "/mcp",
             "protocol_version": PROTOCOL_VERSION,
@@ -80,7 +88,7 @@ async def health_check() -> dict[str, Any]:
         # answer: credentials resolve on the development machine, where the SDK
         # is absent and no call can be attempted at all. The resolved capability
         # accounts for both, and the evidence stays beside it.
-        "bedrock_model_path": bedrock_adapter.model_path_capability(),
+        "bedrock_model_path": model_path,
         # Same shape, same reason: whether a confirmed review is sent or
         # recorded is decided by two facts, and the page prints the conclusion
         # the server drew from both rather than guessing from one.
@@ -102,8 +110,8 @@ async def rest_audit_log() -> dict[str, Any]:
 
 
 @router.post("/api/digest_semantic_diff")
-async def rest_digest(req: DigestRequest) -> dict[str, Any]:
-    result = await op_digest(req)
+async def rest_digest(req: CompanionDigestRequest) -> dict[str, Any]:
+    result = await op_digest(req, engine=req.engine)
     result.pop("_wav", None)
     return result
 

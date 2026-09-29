@@ -23,6 +23,7 @@ before anything is sent.
 import asyncio
 import base64
 import hashlib
+import logging
 import time
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -44,6 +45,7 @@ from src.application.review_authorization import (
 from src.application.sonify_event_use_case import SonifyEventUseCase
 from src.domain.approval_grant import ApprovalGrantIssuer
 from src.domain.governed_action import ActionState, GovernedAction, Principal
+from src.domain.pull_request_read import read_failure_words
 from src.domain.review_dialogue import (
     Command,
     DialogueState,
@@ -53,6 +55,9 @@ from src.domain.review_dialogue import (
     parse_command,
 )
 from src.domain.sonification import EarconType
+from src.domain.spoken_form import speakable
+
+_log = logging.getLogger(__name__)
 
 ACTION_TYPE = "GITHUB_REQUEST_CHANGES"
 STAGING_PRINCIPAL = "volcan-review-dialogue"
@@ -237,9 +242,11 @@ class ReviewDialogueUseCase:
         try:
             live = await asyncio.to_thread(self._github.fetch_pull_request, pr.url)
         except Exception as exc:  # noqa: BLE001 - the reason is the answer
+            _log.warning("refreshing %s failed: %r", pr.url, exc)
             return dialogue._turn(
                 command, "resume",
-                f"The pull request could not be refreshed. {type(exc).__name__}: {exc}",
+                "The pull request could not be refreshed. "
+                + read_failure_words(exc, pr.url, retry="say resume again", label=pr.label),
                 error=True, earcon=EarconType.TEST_FAILED, remember=False,
             )
         if live.head_sha == pr.head_sha:
@@ -263,9 +270,19 @@ class ReviewDialogueUseCase:
             except ReviewAuthorizationError:
                 raise
             except Exception as exc:  # noqa: BLE001 - the reason is the answer
+                # The listener hears what failed and what to do, and the
+                # readback names the pull request, since a link was given. The
+                # exception, class name included, goes to the server log only.
+                _log.warning("opening %s failed: %r", url, exc)
+                # What was open before stays open, and the listener is told so.
+                still = ""
+                if dialogue.report is not None:
+                    opened = dialogue.pull_request.label if dialogue.pull_request else "the pasted patch"
+                    still = f" Still open: {opened}."
                 return dialogue._turn(
-                    command, command.words,
-                    f"The pull request could not be opened. {type(exc).__name__}: {exc}",
+                    command, "open the pull request",
+                    "The pull request could not be opened. "
+                    + read_failure_words(exc, url, label=self._label(url)) + still,
                     error=True, earcon=EarconType.TEST_FAILED,
                 )
             report = await self._digest.execute(snapshot.diff)
@@ -279,6 +296,14 @@ class ReviewDialogueUseCase:
             command, command.words,
             "Give me a pull request URL, or paste a patch, then say open.", error=True,
         )
+
+    def _label(self, url: str) -> str | None:
+        """The pull request as the dialogue names it, or None for a link that is not one."""
+        try:
+            owner, repo, number = self._github.parse_pull_request_url(url)
+        except ValueError:
+            return None
+        return f"{owner}/{repo} pull request {number}"
 
     # -- stage -----------------------------------------------------------------
 
@@ -542,6 +567,10 @@ class ReviewDialogueUseCase:
             "understood": turn.understood,
             "readback": turn.readback,
             "spoken": turn.spoken,
+            # What a speech engine is handed: the same words with each code
+            # operator named, so != is never heard as == or as nothing.
+            "readback_for_speech": speakable(turn.readback),
+            "spoken_for_speech": speakable(turn.spoken),
             "speech_rate": turn.speech_rate,
             "silent": turn.silent,
             "error": turn.error,

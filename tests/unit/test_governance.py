@@ -51,7 +51,7 @@ def test_staged_action_is_released_by_a_valid_grant_and_audited():
         assert outcome.approved is True
         assert outcome.output == "PLANNED: pytest tests/unit"
         assert executor.calls == ["pytest tests/unit"]
-        assert ticket.action.state == ActionState.EXECUTED
+        assert ticket.action.state == ActionState.RELEASED_NOT_RUN
 
         records = repo.list_records()
         assert len(records) == 1

@@ -9,13 +9,24 @@ matcher sees no difference and a listener is told the change is business logic.
 
 The rules here parse the added and removed lines of a patch into Python syntax
 trees and compare the trees, so a change is described by what it did rather than
-by which keyword it happened to carry. Three classes are covered, chosen because
-each is invisible to keyword matching and each is a real outage or breach:
+by which keyword it happened to carry. Three classes are covered because each is
+invisible to keyword matching and each is a real outage or breach:
 
 * ``authz_comparison_inverted``  a comparison operator flipped inside a
   predicate that decides authorization
 * ``permissive_cors_origin``     a cross-origin policy widened to any origin
 * ``security_call_removed``      a verification call deleted and not replaced
+
+A second group names classic families that the keyword pass either misses or
+can only gesture at. An independent review on 2026-09-28 found the engine
+silent on string-built SQL and on ``verify=False``, and these rules were written
+after a held-out set for them was committed (``tests/fixtures/diff_corpus_classic.py``):
+
+* ``sql_built_from_strings``     a SQL statement built by concatenation, an
+  f-string, ``%`` or ``str.format`` from a value that is not a constant
+* ``tls_verification_disabled``  certificate or hostname checking switched off
+  for an outbound connection (``verify=False`` on an HTTP client, ``CERT_NONE``,
+  ``check_hostname = False``, an unverified SSL context)
 
 Each rule returns a sentence a screen reader can speak, because the finding is
 the first thing a blind reviewer hears and "detected auth_token" tells them
@@ -269,6 +280,262 @@ def _find_removed_security_calls(
     return findings
 
 
+# --- Classic families: values built into a statement -----------------------
+
+#: The opening of a SQL statement. A ``SELECT`` needs a column list shaped like
+#: one (``*``, names, calls, separated by commas) before ``FROM``, so an English
+#: sentence that happens to start with "Select" is not read as a query.
+SQL_STATEMENT = re.compile(
+    r"^\s*(?:"
+    r"select\s+(?:distinct\s+)?"
+    r"(?:\*|[\w.\"`\[\]()*]+(?:\s+as\s+\w+)?(?:\s*,\s*[\w.\"`\[\]()*]+(?:\s+as\s+\w+)?)*)"
+    r"\s+from\b"
+    r"|insert\s+(?:or\s+\w+\s+)?into\s"
+    r"|update\s+[\w.\"`\[\]]+\s+set\s"
+    r"|delete\s+from\s"
+    r"|replace\s+into\s"
+    r"|merge\s+into\s"
+    r"|(?:drop|alter|create|truncate)\s+table\s"
+    r")",
+    re.IGNORECASE,
+)
+
+#: What stands in for a value spliced into a string while its shape is read.
+_PLACEHOLDER = "value"
+
+
+def _is_constant_like(node: ast.AST) -> bool:
+    """A literal, or a name written as a module constant (``TABLE_NAME``)."""
+    if isinstance(node, ast.Constant):
+        return True
+    if isinstance(node, ast.Name):
+        return node.id.isupper()
+    if isinstance(node, ast.Attribute):
+        return node.attr.isupper()
+    if isinstance(node, ast.JoinedStr):
+        return not any(isinstance(part, ast.FormattedValue) for part in node.values)
+    return False
+
+
+def _add_chain(node: ast.AST) -> list[ast.AST]:
+    """``a + b + c`` as ``[a, b, c]``."""
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        return _add_chain(node.left) + _add_chain(node.right)
+    return [node]
+
+
+def _joined_text(node: ast.JoinedStr) -> tuple[str, list[ast.AST]]:
+    text, spliced = [], []
+    for part in node.values:
+        if isinstance(part, ast.Constant) and isinstance(part.value, str):
+            text.append(part.value)
+        elif isinstance(part, ast.FormattedValue):
+            text.append(_PLACEHOLDER)
+            spliced.append(part.value)
+    return "".join(text), spliced
+
+
+def string_built_from_values(node: ast.AST) -> tuple[str, str, list[str]] | None:
+    """(text, how, values) when ``node`` builds a string from a non-constant.
+
+    ``text`` is the string with each spliced value replaced by a placeholder,
+    ``how`` says in words how it was built, and ``values`` names what was
+    spliced in. Four shapes are read: ``+`` with a string literal in the chain,
+    an f-string, ``%`` with a literal on the left, and ``.format`` on a
+    literal. Anything else returns None.
+    """
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        pieces = _add_chain(node)
+        if not any(isinstance(p, (ast.Constant, ast.JoinedStr)) for p in pieces):
+            return None
+        text, spliced = [], []
+        for piece in pieces:
+            if isinstance(piece, ast.Constant) and isinstance(piece.value, str):
+                text.append(piece.value)
+            elif isinstance(piece, ast.JoinedStr):
+                inner, values = _joined_text(piece)
+                text.append(inner)
+                spliced.extend(values)
+            else:
+                text.append(_PLACEHOLDER)
+                spliced.append(piece)
+        how = "string concatenation"
+    elif isinstance(node, ast.JoinedStr):
+        joined, spliced = _joined_text(node)
+        text = [joined]
+        how = "an f-string"
+    elif (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod)
+          and isinstance(node.left, ast.Constant) and isinstance(node.left.value, str)):
+        text = [node.left.value]
+        spliced = list(node.right.elts) if isinstance(node.right, ast.Tuple) else [node.right]
+        how = "% formatting"
+    elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+          and node.func.attr == "format" and isinstance(node.func.value, ast.Constant)
+          and isinstance(node.func.value.value, str)):
+        text = [node.func.value.value]
+        spliced = list(node.args) + [keyword.value for keyword in node.keywords]
+        how = "str.format"
+    else:
+        return None
+    names: list[str] = []
+    for item in spliced:
+        if _is_constant_like(item):
+            continue
+        name = ast.unparse(item)
+        if name not in names:
+            names.append(name)
+    if not names:
+        return None
+    return "".join(text), how, names
+
+
+def values_words(names: list[str]) -> str:
+    """At most three spliced values, as a sentence lists them."""
+    shown = names[:3]
+    if len(shown) == 1:
+        return shown[0]
+    return f"{', '.join(shown[:-1])} and {shown[-1]}"
+
+
+def _built_strings(parsed: list[tuple[str, ast.AST]]) -> list[tuple[ast.AST, tuple[str, str, list[str]]]]:
+    """Every outermost string-building expression in these lines."""
+    found = []
+    inside: set[int] = set()
+    for _, tree in parsed:
+        for node in ast.walk(tree):
+            if id(node) in inside:
+                continue
+            built = string_built_from_values(node)
+            if built is None:
+                continue
+            found.append((node, built))
+            for child in ast.walk(node):
+                inside.add(id(child))
+    return found
+
+
+def _find_sql_built_from_strings(
+    added: list[tuple[str, ast.AST]], removed: list[tuple[str, ast.AST]]
+) -> list[AstFinding]:
+    """A SQL statement assembled from a value rather than bound to a parameter.
+
+    The statement is recognised by its opening (``SELECT ... FROM``,
+    ``INSERT INTO``, ``UPDATE ... SET``, ``DELETE FROM`` and the table verbs),
+    read from the string with every spliced value replaced by a placeholder. A
+    value written as a module constant (``TABLE_NAME``) does not count. The
+    same expression on a removed line means the line moved, not that the query
+    is new, so it produces no finding.
+    """
+    before = {ast.unparse(node) for node, _ in _built_strings(removed)}
+    findings: list[AstFinding] = []
+    seen: set[str] = set()
+    for node, (text, how, names) in _built_strings(added):
+        statement = SQL_STATEMENT.match(text)
+        source = ast.unparse(node)
+        if not statement or source in before or source in seen:
+            continue
+        seen.add(source)
+        verb = statement.group(0).split()[0].upper()
+        findings.append(AstFinding(
+            "sql_built_from_strings",
+            f"a SQL {verb} is built by {how} from {values_words(names)}, not bound as a parameter",
+        ))
+    return findings
+
+
+# --- Classic family: TLS certificate checks turned off ----------------------
+
+#: A callee or receiver that makes an outbound HTTPS request. ``verify=False``
+#: on anything else (a form, a model) is not a certificate check.
+_HTTP_CLIENT = re.compile(r"(^|\.)(requests|httpx|aiohttp|urllib3)(\.|$)|session|client|http", re.IGNORECASE)
+
+#: The request methods of those clients, for a call whose receiver is a
+#: variable with no telling name (``api.get(url, verify=False)``).
+_HTTP_VERBS = {"get", "post", "put", "patch", "delete", "head", "options", "request", "stream", "send"}
+
+#: Keyword arguments that switch certificate checking off when set to False.
+_TLS_SWITCHES = {"verify", "ssl", "verify_ssl"}
+
+
+def _dotted(node: ast.AST) -> str:
+    try:
+        return ast.unparse(node)
+    except Exception:  # noqa: BLE001 - an unparseable node names nothing
+        return ""
+
+
+def _is_false(node: ast.AST) -> bool:
+    return isinstance(node, ast.Constant) and node.value is False
+
+
+def _names_cert_none(node: ast.AST) -> bool:
+    """``ssl.CERT_NONE``, ``CERT_NONE`` or the string ``"CERT_NONE"``."""
+    for child in ast.walk(node):
+        if isinstance(child, ast.Attribute) and child.attr == "CERT_NONE":
+            return True
+        if isinstance(child, ast.Name) and child.id == "CERT_NONE":
+            return True
+        if isinstance(child, ast.Constant) and child.value == "CERT_NONE":
+            return True
+    return False
+
+
+def _tls_turned_off(node: ast.AST) -> str | None:
+    """The source of ``node`` when it turns certificate checking off."""
+    if isinstance(node, ast.Call):
+        callee = _dotted(node.func)
+        last = callee.rsplit(".", 1)[-1]
+        if last == "_create_unverified_context":
+            return ast.unparse(node)
+        for keyword in node.keywords:
+            if keyword.arg in _TLS_SWITCHES and _is_false(keyword.value):
+                if _HTTP_CLIENT.search(callee) or last in _HTTP_VERBS:
+                    return ast.unparse(node)
+            if keyword.arg in ("cert_reqs", "verify_mode") and _names_cert_none(keyword.value):
+                return ast.unparse(node)
+    elif isinstance(node, ast.Assign):
+        value = node.value
+        for target in node.targets:
+            name = _dotted(target)
+            if name.endswith(".verify") and _is_false(value) and _HTTP_CLIENT.search(name[: -len(".verify")]):
+                return ast.unparse(node)
+            if name.endswith("check_hostname") and _is_false(value):
+                return ast.unparse(node)
+            if name.endswith("verify_mode") and _names_cert_none(value):
+                return ast.unparse(node)
+            if _dotted(value).endswith("_create_unverified_context"):
+                return ast.unparse(node)
+    return None
+
+
+def _find_tls_verification_disabled(
+    added: list[tuple[str, ast.AST]], removed: list[tuple[str, ast.AST]]
+) -> list[AstFinding]:
+    """Certificate or hostname checking switched off for an outbound connection.
+
+    Read as a keyword argument set to False on an HTTP client call
+    (``verify=False``), a session or client whose ``verify`` is set to False,
+    ``check_hostname = False``, ``CERT_NONE`` as a verification mode, and
+    ``ssl._create_unverified_context``. A line that also appears on the removed
+    side moved rather than changed and produces no finding.
+    """
+    def collect(parsed):
+        found = []
+        for _, tree in parsed:
+            for node in ast.walk(tree):
+                source = _tls_turned_off(node)
+                if source is not None and source not in found:
+                    found.append(source)
+        return found
+
+    before = set(collect(removed))
+    return [
+        AstFinding("tls_verification_disabled", f"TLS certificate checks were turned off: {source}")
+        for source in collect(added)
+        if source not in before
+    ]
+
+
 def evaluate(added_lines: list[str], removed_lines: list[str]) -> list[AstFinding]:
     """Run every structural rule over one file's added and removed lines."""
     added = _parsed_lines(added_lines)
@@ -277,4 +544,6 @@ def evaluate(added_lines: list[str], removed_lines: list[str]) -> list[AstFindin
         _find_inverted_authorization(added, removed)
         + _find_permissive_cors(added)
         + _find_removed_security_calls(added, removed)
+        + _find_sql_built_from_strings(added, removed)
+        + _find_tls_verification_disabled(added, removed)
     )

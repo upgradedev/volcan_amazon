@@ -77,7 +77,7 @@ def test_stage_then_confirm_then_audit():
     })
     assert confirm.status_code == 200
     assert confirm.json()["approved"] is True
-    assert confirm.json()["status"] == "PLANNED"
+    assert confirm.json()["status"] == "RELEASED_NOT_RUN"
 
     audit = client.get("/api/audit_log")
     assert audit.status_code == 200
