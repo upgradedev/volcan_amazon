@@ -45,7 +45,7 @@ being smoothed over.
 | Step | What it asks | Outcome | Evidence |
 |---|---|---|---|
 | 1 | Does a deployed endpoint answer, and identify its build? | FAIL | The Function URL answers but `/health` identifies `38668ad`, not HEAD `287c9db`; `deploy_teardown_receipt.json` records the older observation, and `python ci/readiness.py` reports G2 red |
-| 2 | What is owner-gated and unmet, printed apart from the score rather than folded into it? | OPEN | `python ci/readiness.py`: O1, O2 and O3 fail as owner actions, E4 fails because no shippable take exists. `video/README.md` still points at the `7a3de49` take |
+| 2 | What is owner-gated and unmet, printed apart from the score rather than folded into it? | OPEN | `python ci/readiness.py`: O1, O2 and O3 fail as owner actions, E4 fails because the take is rendered but not published. `video/README.md` points at the `09d4862` render |
 | 3 | Is the track and prize this entry is aimed at written down, with nothing else claimed? | PASS | Alexa+ track with a simulated front end in `README.md`, submission narrative in `docs/DEVPOST_SUBMISSION.md` |
 | 4 | Do the presentation surfaces say what the code says? | PASS | `python ci/readiness.py`: gate G1 passes, the README badge and pytest agree at 725 tests |
 
@@ -75,11 +75,11 @@ or by reading the file it names on that date.
 | V06-2 | UX designer | The engine meter names its detector scope, the bench legend names its three renderings, and the function context line survives narrow screens | PASS | `tests/e2e/test_html_structure.py` |
 | V06-3 | UX designer | The primary action is marked, no control is disabled without a visible reason, and empty states render guidance. Gates H1 to H3 pass | PASS | `python ci/readiness.py`, `docs/index.html` |
 | V08-1 | Recruiter | 725 tests pass, coverage is 92.74%, and the touched files are ruff-clean | PASS | `python -m pytest tests/ -q`, `python ci/readiness.py` |
-| V08-2 | Recruiter | Defect found by writing this file. The narration's verification beat speaks 646 tests, but this build collects 723, so the audit-build footage is held as a rehearsal and `video/README.md` still points at the `7a3de49` take | FAIL | `video/narration.json`, `video/README.md` |
+| V08-2 | Recruiter | Defect fixed in this change. Beat 6 speaks 725 tests, the `09d4862` take re-synthesized it for 303 ElevenLabs characters, and the sync gate passes | PASS | `video/narration.json`, `video/README.md`; the sync gate output sits beside the take in the owner's workspace |
 
-**2 of the 8 findings are failures.** Neither is new work for an agent: V01-2 needs
-the approved Bedrock grant plus a billed call, and V08-2 needs one owner narration
-re-synthesis. Both are recorded here so the score carries them instead of hiding them.
+**1 of the 8 findings is a failure.** It is not new work for an agent: V01-2 needs
+the approved Bedrock grant plus a billed call. V08-2 was fixed in this change: beat 6
+was re-synthesized and the `09d4862` take passes the sync gate. The failure is recorded here so the score carries it instead of hiding it.
 
 ## 4. What this review did not answer
 
