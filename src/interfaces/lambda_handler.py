@@ -41,16 +41,32 @@ def _scope(event: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-async def _invoke(scope: dict[str, Any], body: bytes) -> dict[str, Any]:
-    messages: list[dict[str, Any]] = []
+def _make_receive(body: bytes):
+    """One buffered Lambda body, then silence until the invocation ends.
+
+    Lambda reports no client disconnect. Answering http.disconnect after
+    the body cancels StreamingResponse bodies before they stream, because
+    Starlette races listen_for_disconnect against the stream: GET /mcp
+    arrived with headers and an empty body on the deployed dependency set.
+    A blocked receive behaves exactly like a server socket with no traffic
+    and lets every stream finish.
+    """
     sent = False
 
     async def receive() -> dict[str, Any]:
         nonlocal sent
         if sent:
+            await asyncio.Event().wait()
             return {"type": "http.disconnect"}
         sent = True
         return {"type": "http.request", "body": body, "more_body": False}
+
+    return receive
+
+
+async def _invoke(scope: dict[str, Any], body: bytes) -> dict[str, Any]:
+    messages: list[dict[str, Any]] = []
+    receive = _make_receive(body)
 
     async def send(message: dict[str, Any]) -> None:
         messages.append(message)

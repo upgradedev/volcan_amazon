@@ -1,10 +1,13 @@
 """The committed Lambda bridge and exact-revision health receipt."""
+import asyncio
 import importlib
 import json
 import re
 from pathlib import Path
 
-from src.interfaces.lambda_handler import handler
+import pytest
+
+from src.interfaces.lambda_handler import _make_receive, handler
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -85,3 +88,23 @@ def test_health_runs_through_the_lambda_bridge_and_exposes_revision(monkeypatch)
 
 def test_unknown_path_is_a_404_response():
     assert handler(event("GET", "/not-a-route"))["statusCode"] == 404
+
+
+def test_sse_stream_body_survives_the_lambda_bridge(monkeypatch):
+    monkeypatch.setenv("VOLCAN_MCP_SESSION_MODE", "stateless")
+    req = event("GET", "/mcp")
+    req["headers"] = {"MCP-Protocol-Version": "2025-11-25"}
+    response = handler(req)
+    assert response["statusCode"] == 200
+    assert response["headers"]["content-type"].startswith("text/event-stream")
+    assert response["body"].startswith(": volcan mcp stream open (stateless)")
+
+
+def test_bridge_receive_blocks_after_the_body_instead_of_a_bogus_disconnect():
+    # Whether an immediate http.disconnect cancels a stream before its first
+    # chunk is a scheduler race: it passed locally and failed on Lambda's
+    # dependency set. This pins the contract instead of the race outcome.
+    receive = _make_receive(b'{}')
+    assert asyncio.run(receive()) == {"type": "http.request", "body": b"{}", "more_body": False}
+    with pytest.raises(asyncio.TimeoutError):
+        asyncio.run(asyncio.wait_for(receive(), timeout=0.5))

@@ -1,7 +1,7 @@
 {
   "project": "volcan_amazon",
   "title": "Volcan: hear your code review instead of scrubbing a diff",
-  "target_duration_seconds": 164.5,
+  "target_duration_seconds": 163.664,
   "max_allowed_seconds": 180.0,
   "narration_audio": {
     "generated": false,
@@ -80,11 +80,11 @@
     },
     {
       "beat_id": "beat_06_verification",
-      "narration_text": "On this commit, 646 tests pass, and 23 of 23 protocol conformance checks. This button replays Amazon's documented Alexa+ requests as three clients; all three are served. Alexa+ itself has never called Volcan. Volcan: code review by ear and by touch.",
-      "speech_text": "On this commit, six hundred and forty-six tests pass, and twenty-three of twenty-three protocol conformance checks. This button replays Amazon's documented Alexa plus requests as three clients; all three are served. Alexa plus itself has never called Volcan. Volcan: code review by ear and by touch.",
+      "narration_text": "On this commit, 725 tests pass, and 23 of 23 protocol conformance checks. This button replays Amazon's documented Alexa+ requests as three clients; all three are served. Alexa+ itself has never called Volcan. Volcan: code review by ear and by touch.",
+      "speech_text": "On this commit, seven hundred and twenty-five tests pass, and twenty-three of twenty-three protocol conformance checks. This button replays Amazon's documented Alexa plus requests as three clients; all three are served. Alexa plus itself has never called Volcan. Volcan: code review by ear and by touch.",
       "visual_action": "Evidence, tab Server and MCP: SERVER REACHED with the commit and the model path the server reported for this run. Press Replay the documented Alexa+ requests and hold on the three client lines and 3 of 3 clients served. Back to the connection strip and the Alexa+ box, which reads package built and tested locally, not certified or deployed, then close on the page heading and the Live MCP server, simulated Alexa+ front end label. The test and conformance counts are stated, not filmed.",
       "timestamp_start": 136.641,
-      "timestamp_end": 160.0
+      "timestamp_end": 159.164
     }
   ]
 }

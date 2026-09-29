@@ -19,5 +19,5 @@ Request changes stages the review, bound to the head commit Volcan read, under a
 Under the page is Volcan's Model Context Protocol server, written by hand to revision 2025-11-25. This button runs a real handshake: the negotiated version, a session identifier, and all twelve tools with their schemas.
 
 6
-00:02:16,640 --> 00:02:40,000
-On this commit, 646 tests pass, and 23 of 23 protocol conformance checks. This button replays Amazon's documented Alexa+ requests as three clients; all three are served. Alexa+ itself has never called Volcan. Volcan: code review by ear and by touch.
+00:02:16,640 --> 00:02:39,163
+On this commit, 725 tests pass, and 23 of 23 protocol conformance checks. This button replays Amazon's documented Alexa+ requests as three clients; all three are served. Alexa+ itself has never called Volcan. Volcan: code review by ear and by touch.
