@@ -1,26 +1,25 @@
 # Volcan: how the demo video is made
 
-**Status: rendered locally, not published.** The current render is `volcan-demo.mp4`, 164.52
-seconds, 1920x1080 at 25 fps, recorded on 2026-09-28 (local time) from a local run of commit
-`7a3de49d0801aca5059e32a48f0df96eebd42f9e`. It lives outside the repository, at
-`reviews/videos_20260928/volcan_amazon/output/volcan-demo.mp4` in the owner's workspace, next to
+**Status: rendered locally, not published.** The current render is `volcan-demo.mp4`, 163.68
+seconds, 1920x1080 at 25 fps, recorded on 2026-09-29 (local time) from a local run of commit
+`09d48620afde0cbb7d14ed0913efe882bea21a3d`. It lives outside the repository, at
+`reviews/videos_muse_20260929/volcan_amazon/output/volcan-demo.mp4` in the owner's workspace, next to
 `video-receipt.json` and the sync gate's output in `sync-gate.txt`, and waits for the owner to
 upload it. There is no public link yet. The earlier renders stay where they were and are
-superseded: `reviews/videos_20260927/` (174.32 s, from `1dc939f`) held the first viewport for
-about 40 s before the press, burned its captions over the sentence the page shows while it
-speaks, and had no product sound in the pull-request beat. Readiness gates E2 and E4 look for
-footage inside `video/`, so they stay red.
+superseded: `reviews/videos_20260928/` (164.52 s, from `7a3de49`) stated 646 tests in beat 6,
+and the earlier `287c9db` rehearsal this folder held was overwritten by this render once the narration was corrected.
+Readiness gates E2 and E4 look for footage inside `video/`, so they stay red.
 
 | | |
 |---|---|
-| SHA-256 of the mp4 | `51f3d087d5f4ee47788903526ac5d4708891235150257a840504e11e44a9c3a5` |
-| Duration, from ffprobe | 164.520 s: 3.0 s title card, 157.0 s of beats, 4.5 s outro card |
+| SHA-256 of the mp4 | `55fdc2a5c6d1919ec2c63eb42d66b90bafa251f592d2f3d512ebee748fbd0b1c` |
+| Duration, from ffprobe | 163.680 s: 3.0 s title card, 156.164 s of beats, 4.5 s outro card |
 | Sync gate | `scripts/verify_video_sync.py`: all gates passed, 32 caption windows |
-| First press | 15.7 s into the video; the product's own earcon starts at 16.6 s |
+| First press | 15.7 s into the video; the product's own earcon starts at 16.5 s |
 | Product voice in the mix | Three turns: the press, Findings on the pull request, and Confirm. 9 caption cues marked `Volcan (product voice):` and 2 earcon cues |
 | Narration voice | ElevenLabs, voice id `21m00Tcm4TlvDq8ikWAM`, model `eleven_multilingual_v2` |
-| Characters sent to ElevenLabs for this render | 1,585 over two runs: 892 for the first cut of beats 1, 3, 4 and 6, then 693 for beats 1, 5 and 6 cut shorter to keep the total under 174 s. Beat 2 reuses the audio of the 2026-09-27 render's beat 3, unchanged. 1,369 characters are in the beats that shipped |
-| Product code on camera | `src/` and `docs/` identical to `7a3de49`, which is also the commit `/health` reports on camera |
+| Characters sent to ElevenLabs for this render | 303 for beat 6 only, re-synthesized with the corrected count. Beats 1 to 5 reuse the 2026-09-28 audio unchanged (1,070 characters). 1,373 characters are in the beats that shipped |
+| Product code on camera | `src/` and `docs/` identical to `09d4862`, which is also the commit `/health` reports on camera |
 
 ---
 
@@ -117,13 +116,13 @@ rasterisation and record blank tiles.
 
 ## 3. Known gaps in this render
 
-* No terminal is filmed. Beat 6 states 646 tests and 23 of 23 conformance checks. On
-  2026-09-28 `python -m pytest tests/ -q` printed `646 passed` on `7a3de49`, and
-  `python scripts/mcp_conformance.py http://127.0.0.1:8871/mcp` printed `23/23 checks passed`
-  against a server of `7a3de49`, which was then restarted fresh for the take.
+* No terminal is filmed. Beat 6 states 725 tests and 23 of 23 conformance checks. On
+  2026-09-29 `python -m pytest tests/ -q` printed `725 passed` on `09d4862`, and
+  `python scripts/mcp_conformance.py http://127.0.0.1:8743/mcp` printed `23/23 checks passed`
+  against a server of `09d4862`, which was then restarted fresh for the take on port 8801.
 * No screen reader is filmed. Headless capture has none; the narration states the problem.
 * The system voice renders each sentence a little faster than the browser spoke it: 15.20 s
-  against 16.82 s for the press, 15.79 s against 18.19 s for the Confirm answer. Each sentence
+  against 16.90 s for the press, 15.79 s against 18.21 s for the Confirm answer. Each sentence
   starts where the browser's did, so it ends early, and each product window closes on 2 to 4 s
   of the page without sound. The windows are sized from the browser's own end events, with 0.55 to
   1.5 s of margin over the slowest measured run, because the capture fails a take whose speech

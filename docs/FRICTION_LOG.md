@@ -307,7 +307,30 @@ can check a manifest against the documented schema and nothing more.
 
 ---
 
-## 9. What worked well
+## 9. The Lambda bridge answered http.disconnect, and Starlette cancelled the SSE stream
+
+**Context.** `src/interfaces/lambda_handler.py` translates one API Gateway v2 event into
+one ASGI request. After delivering Lambda's single buffered body, its `receive` answered
+`http.disconnect` on every further call.
+
+**Observed friction.** Starlette's `StreamingResponse` races `listen_for_disconnect`
+against the stream, so an immediate disconnect cancels the body before its first chunk.
+Locally the race usually resolved the other way and `GET /mcp` returned its SSE comment;
+on the deployed dependency set the disconnect won every time, and the endpoint answered
+200 with `Content-Type: text/event-stream` and zero bytes. `python
+scripts/mcp_conformance.py https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/mcp
+--expect-mode stateless` printed `22/23 checks passed, 1 failed` on 2026-09-29 against
+that deploy. The fix keeps `receive` blocked after the body, exactly like a server socket
+with no traffic, and `tests/unit/test_lambda_handler.py` pins the contract instead of the
+race outcome. The conformance re-run after the redeploy is recorded in the deployment
+evidence for this change.
+
+**What would remove it.** Response streaming from Lambda, so the bridge is a real server
+with a real disconnect signal instead of a buffered translation of one event.
+
+---
+
+## 10. What worked well
 
 * The Model Context Protocol is a good fit for assistive tooling. Because tools are
   described by JSON Schema, Volcan generates its whole catalog from the pydantic models
