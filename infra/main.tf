@@ -96,23 +96,29 @@ resource "aws_iam_role_policy_attachment" "volcan_attach" {
 
 # 3. AWS Lambda Function for Streamable HTTP FastMCP Server ($0.00 Idle Cost)
 resource "aws_lambda_function" "volcan_mcp_function" {
-  function_name = "volcan-mcp-euw1-${var.environment}"
-  role          = aws_iam_role.volcan_lambda_role.arn
-  runtime       = "python3.11"
-  handler       = "src.interfaces.lambda_handler.handler"
-  filename      = var.lambda_package_path
+  function_name    = "volcan-mcp-euw1-${var.environment}"
+  role             = aws_iam_role.volcan_lambda_role.arn
+  runtime          = "python3.11"
+  handler          = "src.interfaces.lambda_handler.handler"
+  filename         = var.lambda_package_path
   source_code_hash = filebase64sha256(var.lambda_package_path)
-  memory_size   = 256
-  timeout       = 30
+  memory_size      = 256
+  timeout          = 30
 
   environment {
     variables = {
-      ENVIRONMENT         = var.environment
-      VOLCAN_ENVIRONMENT  = "production-eu-west-1"
-      SOURCE_REVISION     = var.source_revision
-      VOLCAN_GITHUB_WRITE = "0"
+      ENVIRONMENT            = var.environment
+      VOLCAN_ENVIRONMENT     = "production-eu-west-1"
+      SOURCE_REVISION        = var.source_revision
+      VOLCAN_GITHUB_WRITE    = "0"
       VOLCAN_ALLOWED_ORIGINS = "https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com"
-      AWS_LWA_INVOKE_MODE = "response_stream"
+      # API Gateway may route consecutive requests to different Lambda
+      # environments. MCP 2025-11-25 makes transport sessions optional, so
+      # request-contained calls need no process-affine MCP id. Dialogue,
+      # pending approvals, nonces and audit records remain process-local; an
+      # environment without a pending approval cannot release that action.
+      VOLCAN_MCP_SESSION_MODE = "stateless"
+      AWS_LWA_INVOKE_MODE     = "response_stream"
     }
   }
 

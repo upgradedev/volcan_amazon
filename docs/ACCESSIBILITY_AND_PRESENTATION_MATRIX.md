@@ -67,7 +67,7 @@ character by character.
 
 **Beat 2, what Volcan is (0:30 to 1:00).** A Model Context Protocol server, revision
 2025-11-25 over Streamable HTTP, plus a companion that simulates the voice experience. Run
-`python scripts/mcp_conformance.py` on camera and let the 18 pass lines print.
+`python scripts/mcp_conformance.py` on camera and let the 22 pass lines print.
 
 **Beat 3, sonification and Braille (1:00 to 1:40).** Call `digest_semantic_diff` on a patch
 that changes an authentication function. The alert cue plays before the sentence. Show the

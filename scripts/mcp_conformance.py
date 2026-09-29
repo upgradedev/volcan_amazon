@@ -93,10 +93,15 @@ def main(url: str) -> int:
                  "serverInfo carries a name and version", json.dumps(result.get("serverInfo")))
 
     session_id = headers.get("Mcp-Session-Id") or headers.get("mcp-session-id")
-    report.check(bool(session_id) and len(session_id or "") >= 32,
-                 "Mcp-Session-Id header issued and is cryptographically sized",
-                 f"{len(session_id or '')} chars")
-    session_headers = {"Mcp-Session-Id": session_id or "", "MCP-Protocol-Version": PROTOCOL_VERSION}
+    stateful = bool(session_id)
+    report.check(
+        not session_id or len(session_id) >= 32,
+        "transport declares a valid stateful id or explicit stateless mode",
+        f"stateful, {len(session_id or '')} chars" if stateful else "stateless, no id issued",
+    )
+    session_headers = {"MCP-Protocol-Version": PROTOCOL_VERSION}
+    if session_id:
+        session_headers["Mcp-Session-Id"] = session_id
 
     status, _, body = call(url, {"jsonrpc": "2.0", "method": "notifications/initialized"}, session_headers)
     report.check(status == 202, "notifications/initialized returns HTTP 202 with no body", f"got {status}")
@@ -114,6 +119,21 @@ def main(url: str) -> int:
     report.check(schema_ok, "every tool carries a JSON Schema object inputSchema")
     if tools:
         print("        " + ", ".join(sorted(tool["name"] for tool in tools)))
+
+    status, stream_headers, stream_body = call(url, None, session_headers, method="GET")
+    content_type = stream_headers.get("Content-Type") or stream_headers.get("content-type") or ""
+    comment_only = (
+        isinstance(stream_body, str)
+        and stream_body.startswith(":")
+        and "event:" not in stream_body
+        and "data:" not in stream_body
+        and "notifications/message" not in stream_body
+    )
+    report.check(
+        status == 200 and "text/event-stream" in content_type and comment_only,
+        "GET /mcp returns a comment-only terminating SSE stream",
+        f"status {status}, content-type {content_type or '(absent)'}",
+    )
 
     print("\n3. Tool invocation")
     status, _, body = call(url, {
@@ -141,8 +161,9 @@ def main(url: str) -> int:
     _, _, body = call(url, {"jsonrpc": "1.0", "id": 6, "method": "ping"}, session_headers)
     report.check(body.get("error", {}).get("code") == -32600, "wrong jsonrpc version returns -32600")
 
+    no_version_headers = {"Mcp-Session-Id": session_id} if session_id else {}
     _, _, body = call(url, {"jsonrpc": "2.0", "id": 7, "method": "tools/list"},
-                      {"Mcp-Session-Id": session_id or ""})
+                      no_version_headers)
     report.check(body.get("error", {}).get("code") == -32600,
                  "missing MCP-Protocol-Version header returns a JSON-RPC error")
     # The dangerous shape of that failure is not an error, it is a plausible
@@ -151,10 +172,10 @@ def main(url: str) -> int:
     report.check("result" not in (body if isinstance(body, dict) else {}),
                  "and returns no result member alongside it")
 
-    status, _, _ = call(url, None, {"Mcp-Session-Id": session_id or ""}, method="GET")
+    status, _, _ = call(url, None, no_version_headers, method="GET")
     report.check(status == 400, "GET /mcp without the version header is refused", f"got {status}")
 
-    status, _, _ = call(url, None, {"Mcp-Session-Id": session_id or ""}, method="DELETE")
+    status, _, _ = call(url, None, no_version_headers, method="DELETE")
     report.check(status == 400, "DELETE /mcp without the version header is refused", f"got {status}")
 
     status, _, _ = call(url, {"jsonrpc": "2.0", "id": 8, "method": "tools/list"},
@@ -168,7 +189,12 @@ def main(url: str) -> int:
 
     print("\n5. Session termination")
     status, _, _ = call(url, None, session_headers, method="DELETE")
-    report.check(status == 204, "DELETE terminates the session", f"got {status}")
+    expected_delete = 204 if stateful else 405
+    report.check(
+        status == expected_delete,
+        "DELETE terminates a stateful session or is unavailable in stateless mode",
+        f"got {status}; mode {'stateful' if stateful else 'stateless'}",
+    )
 
     print("\n" + "=" * 64)
     passed = report.total - report.failures
