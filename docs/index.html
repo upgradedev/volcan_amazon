@@ -860,7 +860,7 @@
       h1 { font-size: 2.05rem; max-width: none; }
       .intro { padding: 8px 0 18px; }
       .hero { padding: 14px 14px 16px; border-radius: var(--r-m); }
-      .patch-view .fn { display: none; }
+      .patch-view .fn { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--t-xs); }
       .cta { font-size: var(--t-md); min-height: 64px; padding: 12px 16px; gap: 10px; }
       .edit-btn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
       .rendering { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 16px 0; }
@@ -983,6 +983,7 @@
               </svg>
               Hear this code review
             </button>
+            <p class="caption outputs-legend" id="outputsLegend">One press plays three renderings: earcon, speech, Braille.</p>
             <div class="progress" id="runProgress" hidden><span></span></div>
             <p class="visually-hidden" id="runStatus" role="status" aria-live="polite"></p>
             <dl class="meters" id="meters" hidden>
@@ -1001,6 +1002,10 @@
               <div>
                 <dt>Change size</dt>
                 <dd id="meterChange">not run yet</dd>
+              </div>
+              <div>
+                <dt>Security cue scope</dt>
+                <dd id="meterDetector">named rules; a clean cue means no rule matched</dd>
               </div>
             </dl>
           </div>
@@ -3349,13 +3354,41 @@
        blocks autoplay still speaks. */
     /* One voice per turn. The page's voice speaks the readback and the answer;
        when the listener's screen reader is the voice, or no engine can speak,
-       the status line carries them instead. The conversation log is a visible
-       history, not a live region, so it never reads a turn a second time. */
+       the status line carries them instead. When the page's voice does speak,
+       the status line still moves to a handover, never the answer again, so it
+       never reads a stale turn. The conversation log is a visible history, not
+       a live region, so it never reads a turn a second time. */
+    function reviewVerdict(outcome) {
+      if (outcome.submitted) {
+        return "submitted to GitHub, review id " + (outcome.response && outcome.response.id);
+      }
+      if (outcome.dry_run) {
+        return "recorded and not sent: a dry run, because the server runs without VOLCAN_GITHUB_WRITE=1";
+      }
+      return "refused, " + outcome.refusal_code;
+    }
+
+    /* The status line after a turn the page's voice speaks. A state change
+       (staged, recorded, submitted, refused) is the news, so it is named; a
+       plain answer is only marked arrived. */
+    function turnHandover(data) {
+      if (data.review_outcome) {
+        var verdict = reviewVerdict(data.review_outcome);
+        return verdict.charAt(0).toUpperCase() + verdict.slice(1) + ".";
+      }
+      if (data.pending_review) {
+        return "Staged: REQUEST_CHANGES bound to " + data.pending_review.head_sha + ".";
+      }
+      return "Answered. Speaking it now.";
+    }
+
     function voiceTurn(data) {
       if (data.silent) { return; }
       if (!speakTurn(data)) {
         announce("reviewStatus", (data.readback_for_speech || data.readback) + " "
           + (data.spoken_for_speech || data.spoken || ""));
+      } else {
+        announce("reviewStatus", turnHandover(data));
       }
     }
 
@@ -3414,12 +3447,9 @@
       }
       var outcome = data.review_outcome;
       if (outcome) {
-        var verdict = outcome.submitted
-          ? "submitted to GitHub, review id " + (outcome.response && outcome.response.id)
-          : outcome.dry_run
-            ? "recorded and not sent: a dry run, because the server runs without VOLCAN_GITHUB_WRITE=1"
-            : "refused, " + outcome.refusal_code;
-        rows.push(["Outcome", verdict]);
+        // The verdict has one author: the status line announces these same
+        // words, so the pane and the handover cannot disagree.
+        rows.push(["Outcome", reviewVerdict(outcome)]);
         if (outcome.live_head_sha) { rows.push(["Live head re-read", outcome.live_head_sha]); }
         if (outcome.identity) { rows.push(["Authenticated as", outcome.identity]); }
       }
@@ -3464,7 +3494,8 @@
       var open = $("openReview");
       open.setAttribute("aria-disabled", "true");
       if (opening) { setBusy(open, true, fromGitHub ? "Reading the pull request" : "Opening the patch"); }
-      // Only the slow read is announced; a quick turn is heard through its answer.
+      // The slow read is announced up front; every turn's arrival lands in the
+      // status line when its answer is spoken (see voiceTurn).
       if (opening) { announce("reviewStatus", doing + "."); }
     }
 

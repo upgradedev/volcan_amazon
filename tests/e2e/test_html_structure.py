@@ -72,6 +72,25 @@ def test_the_five_second_read_is_above_the_fold():
     assert html.index("<h1") < html.index('id="runReview"'), "the sentence must precede the button"
 
 
+def test_the_function_context_line_survives_narrow_screens():
+    """The `def` line orients the patch; hiding it on phones drops the context
+    a judge needs to trust the finding. It stays visible, truncated."""
+    html = read_html()
+    assert ".patch-view .fn { display: none; }" not in html
+    assert ".patch-view .fn { display: block;" in html
+    assert "text-overflow: ellipsis" in html
+
+
+def test_the_bench_names_its_three_renderings_before_any_press():
+    """The left column must teach what one press produces, so the space under
+    the button is a legend, not a void."""
+    html = read_html()
+    assert html.index('id="runReview"') < html.index('id="outputsLegend"') < html.index('id="meters"')
+    legend = html.split('id="outputsLegend"', 1)[1].split("</p>", 1)[0]
+    for word in ("earcon", "speech", "Braille"):
+        assert word in legend, f"the legend never says '{word}'"
+
+
 def test_the_primary_action_precedes_secondary_navigation_and_proof_panels():
     """A first-time visitor should reach the product before the evidence console."""
     html = read_html()
@@ -250,6 +269,19 @@ def test_an_unanswered_model_call_prints_its_reason_beside_the_engine():
     assert "meterEngineNote" in script
 
 
+def test_the_detector_scope_is_named_beside_the_engine_meter():
+    """A clean cue is a detector verdict, not a synthesis verdict.
+
+    The engine meter names who wrote the prose. The security cue comes from a
+    separate set of named rules, so the meter block must say what a clean cue
+    means: no rule matched. A reviewer who trusts the cue first must not read
+    it as proven safe."""
+    html = read_html()
+    meters = html.split('id="meters"', 1)[1].split("</dl>", 1)[0]
+    assert 'id="meterDetector"' in meters
+    assert "no rule matched" in meters
+
+
 def test_the_health_line_does_not_promise_a_model_answer():
     """Credentials resolving says nothing about whether Bedrock replies."""
     script = script_body()
@@ -383,13 +415,15 @@ def test_the_readback_precedes_the_answer_and_both_are_spoken_at_the_returned_ra
 
 
 def test_every_dialogue_state_change_is_announced_through_a_live_region():
-    """One live region for the dialogue, and one voice per turn.
+    """One live region for the dialogue, one voice per turn, and a handover.
 
     The log and the review pane used to be live regions too, and the page's
     voice then spoke the same turn, so a screen reader user heard each answer
-    two or three times over itself. The log is now a visible history, the
-    status line carries a turn only when the page's voice does not, and the
-    listener chooses which voice that is."""
+    two or three times over itself. The log is now a visible history. When the
+    page's voice is silent the status line carries the whole turn; when the
+    page's voice speaks, the status line still moves to a short handover that
+    never repeats the answer, so it never reads a stale turn. The listener
+    chooses which voice that is."""
     html = read_html()
     script = script_body()
     assert re.search(r'id="reviewStatus"[^>]*role="status"[^>]*aria-live="polite"', html)
@@ -399,6 +433,12 @@ def test_every_dialogue_state_change_is_announced_through_a_live_region():
     assert 'announce("reviewStatus"' in script
     voice = function_body("voiceTurn")
     assert "if (!speakTurn(data))" in voice and 'announce("reviewStatus"' in voice
+    assert 'announce("reviewStatus", turnHandover(data))' in voice, (
+        "when the page's voice speaks, the status line must still move to a handover")
+    handover = function_body("turnHandover")
+    assert "data.review_outcome" in handover and "data.pending_review" in handover
+    assert "Answered. Speaking it now." in handover
+    assert "data.spoken" not in handover, "the handover must never repeat the answer"
     assert "readerSpeaks()" in function_body("speakTurn")
     assert 'id="voiceMode"' in html and 'aria-pressed="false"' in html
     assert "localStorage" in function_body("loadVoiceMode") and "catch" in function_body("loadVoiceMode")
@@ -410,9 +450,12 @@ def test_every_dialogue_state_change_is_announced_through_a_live_region():
 def test_the_review_outcome_is_the_servers_and_a_dry_run_is_never_dressed_as_a_send():
     script = script_body()
     pane = function_body("renderReviewPane")
-    assert "outcome.submitted" in pane and "outcome.dry_run" in pane and "outcome.refusal_code" in pane
-    assert "recorded and not sent" in pane
-    assert "VOLCAN_GITHUB_WRITE" in pane, "the dry-run row must name the switch that changes it"
+    assert "reviewVerdict(outcome)" in pane, (
+        "the verdict has one author, shared with the status-line handover")
+    verdict = function_body("reviewVerdict")
+    assert "outcome.submitted" in verdict and "outcome.dry_run" in verdict and "outcome.refusal_code" in verdict
+    assert "recorded and not sent" in verdict
+    assert "VOLCAN_GITHUB_WRITE" in verdict, "the dry-run row must name the switch that changes it"
     assert "github_review_path" in script, "the review path comes from GET /health"
     assert "GITHUB_TOKEN" not in script and "token_present" not in script, (
         "the page never handles or displays a token fact of its own"

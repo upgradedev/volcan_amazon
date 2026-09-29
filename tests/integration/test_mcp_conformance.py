@@ -12,6 +12,7 @@ the result, and the Allow header on an unsupported HTTP method.
 """
 import base64
 import json
+import os
 
 import pytest
 from fastapi.testclient import TestClient
@@ -66,6 +67,25 @@ def test_initialize_returns_protocol_version_capabilities_and_server_info():
     assert result["serverInfo"]["name"]
     assert result["serverInfo"]["version"]
     assert len(session_id) >= 32, "session id must be cryptographically sized"
+
+
+REPO_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
+
+
+def _read_repo_file(name: str) -> str:
+    with open(os.path.join(REPO_ROOT, name), "r", encoding="utf-8") as handle:
+        return handle.read()
+
+
+def test_initialize_instructions_name_the_same_audience_as_the_readme():
+    """G1: the initialize instructions must name the audience the page and the
+    README's first sentence name: blind and low-vision developers."""
+    _, result = initialize()
+    assert "blind and low-vision" in result["instructions"]
+    assert "mobility-impaired" not in result["instructions"]
+    readme = _read_repo_file("README.md")
+    first = next(line for line in readme.splitlines() if "Volcan lets" in line)
+    assert "blind and low-vision" in first
 
 
 def test_two_initializations_issue_different_session_ids():

@@ -134,8 +134,8 @@ code operator named (`user.role not equals 'admin'`), while the screen and the B
 the literal `!=`.
 
 **Time to first result, measured on the development machine on 2026-09-26.** Step 1 printed
-`703 passed, 1 warning` on 2026-09-28 (the count is the claim; the duration varies run to run;
-646 earlier that day, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 on 2026-09-27 before the single review cursor and the local revision in /health; that
+`723 passed, 1 warning` on 2026-09-29 (the count is the claim; the duration varies run to run;
+707 on 2026-09-28, before the persona-review gates moved into this repository; 703 earlier that day, before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 646 earlier that day, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 on 2026-09-27 before the single review cursor and the local revision in /health; that
 day, before the version-header fix and the replay panel, it was 631, before the JavaScript and TypeScript rules and the Alexa+ package, it was 577, and before the audit fixes 623). The server in step 2 answered its first `GET /health` with HTTP 200 **1.7 seconds**
 after launch on 2026-09-26 (three runs that day read 1.7, 1.7 and 1.8 s), printed by [`scripts/measure_cold_start.py`](../scripts/measure_cold_start.py),
 which launches its own server on port 8000 (stop the one from step 2 first) and refuses to time
@@ -888,7 +888,7 @@ estimate unless it says ESTIMATE.
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **23 of 23 conformance checks pass**, stateful on port 8841 and stateless (`VOLCAN_MCP_SESSION_MODE=stateless`, `--expect-mode stateless`) on port 8842, 2026-09-27 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 703 passing; 92.67% statement coverage (4611 statements, 338 missed), including a real Chromium judge journey and Lambda bridge, 2026-09-28 (684 and 92.62% earlier that day before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 723 passing; 92.67% statement coverage (4611 statements, 338 missed), including a real Chromium judge journey and Lambda bridge, 2026-09-29 (707 and 92.67% on 2026-09-28 before the persona-review gates; 703 and 92.67% earlier that day before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 684 and 92.62% before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.7 s on 2026-09-26 (three runs: 1.7, 1.7, 1.8 s) | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 31.3 ms on the first press, then 38.9, 30.5 and 28.7 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credentials | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -1057,18 +1057,17 @@ magnitude as the claim and rerun each command on your own hardware.
 | Code-fidelity Braille is one to one over 95 characters and literary names its losses | `python -m pytest tests/unit/test_braille_code_fidelity.py -v` |
 | A missing version header is resolved as the specification directs, and an unsupported one gets HTTP 400 | `python -m pytest tests/integration/test_mcp_conformance.py -k "version or header" -v` |
 
-`ci/readiness.py` is written so that it can fail, and it does. On 2026-09-26 it printed
-`42/53 passed, 0 blocking failures, 11 externally blocked`. The remaining red gates require
-the final deployment receipt, video, persona evidence or owner submission actions. Each
+`ci/readiness.py` is written so that it can fail, and it does. On 2026-09-29 it printed
+`46/53 passed, 0 blocking failures, 7 externally blocked`. The remaining red gates require
+the final deployment receipt, video, or owner submission actions. Each
 failure is printed with its reason rather than hidden.
 
-Four of those gates read the persona review
+Until 2026-09-29, four of those gates read the persona review
 out of `STATE.md`, a coordination file that lives one directory above this repository and is
-deliberately never committed. From a standalone clone or a CI runner there is no copy to read,
-so gates I1 to I4 report themselves externally blocked with that reason and the script still
-exits 0. The excuse is narrow. If
-`STATE.md` is present and does not record the review, those four gates fail as blocking and the
-script exits 1.
+deliberately never committed. From a standalone clone or a CI runner there was no copy to read,
+so gates I1 to I4 reported themselves externally blocked. They now read
+`docs/PERSONA_REVIEW.md`, which records the review inside this repository, so a clone
+reads the same evidence; a missing document fails them as blocking.
 
 To satisfy yourself that the script is capable of failing rather than decorative, change the
 test count in the README badge by one and run it again. Gate G1 turns red under
