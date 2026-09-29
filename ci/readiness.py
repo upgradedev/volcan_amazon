@@ -535,39 +535,151 @@ def check_e2() -> tuple[bool, str]:
     return True, f"{len(narration_ids)} beats aligned against {os.path.basename(media[0])}"
 
 
-def check_i_section(state_text: str) -> dict[str, tuple[bool, str]]:
-    """Persona review gates. Each reads what STATE.md actually records."""
-    if not state_text:
-        return {
-            key: (False, "STATE.md was not found from this repository")
-            for key in ("I1", "I2", "I3", "I4")
-        }
-    required_personas = ("01 Sponsor Product Owner", "06 UX Designer", "08 Recruiter")
-    return {
-        "I1": (
-            "00-RUNBOOK.md" in state_text or "Persona Review" in state_text,
-            "persona review runbook recorded in STATE.md" if "00-RUNBOOK.md" in state_text
-            or "Persona Review" in state_text else "no persona review runbook recorded",
-        ),
-        "I2": (
-            all(marker in state_text for marker in required_personas),
-            "personas 01, 06 and 08 recorded in STATE.md"
-            if all(marker in state_text for marker in required_personas)
-            else "STATE.md is missing persona "
-                 + ", ".join(m for m in required_personas if m not in state_text),
-        ),
-        "I3": (
-            "00-ROSTER.md" in state_text,
-            "persona anchors reference 00-ROSTER.md" if "00-ROSTER.md" in state_text
-            else "no persona anchor in STATE.md references 00-ROSTER.md",
-        ),
-        "I4": (
-            "Persona Review Findings" in state_text or "Verdict:" in state_text,
-            "persona findings written down in STATE.md"
-            if "Persona Review Findings" in state_text or "Verdict:" in state_text
-            else "STATE.md records no persona review findings and no verdict",
-        ),
-    }
+PERSONA_REVIEW_DOC = "docs/PERSONA_REVIEW.md"
+
+#: The three lenses the review is required to carry, by role. The internal instrument
+#: that defines them is a workspace document that is never part of a submission, so it
+#: is not named here and these gates do not string-match its filename. A gate that
+#: checks for a filename it cannot open is checking nothing.
+PERSONA_LENSES = ("Sponsor product owner", "UX designer", "Recruiter")
+
+#: Outcomes a procedure step or a finding may carry. Anything else is not a verdict.
+PERSONA_VERDICTS = ("PASS", "FAIL", "PARTIAL", "OPEN")
+
+
+def markdown_table(text: str, *required_headers: str) -> list[dict[str, str]]:
+    """Rows of the first markdown table whose header carries every required column.
+
+    Returned as dicts keyed by header cell. A document with no such table yields an
+    empty list, which is what makes the gates below able to fail.
+    """
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if not line.strip().startswith("|"):
+            continue
+        headers = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if not all(header in headers for header in required_headers):
+            continue
+        if index + 1 >= len(lines) or not re.match(r"^\|[\s:|-]+\|$", lines[index + 1].strip()):
+            continue
+        rows = []
+        for row_line in lines[index + 2:]:
+            if not row_line.strip().startswith("|"):
+                break
+            cells = [cell.strip() for cell in row_line.strip().strip("|").split("|")]
+            if len(cells) < len(headers):
+                cells += [""] * (len(headers) - len(cells))
+            rows.append(dict(zip(headers, cells)))
+        return rows
+    return []
+
+
+def cited_repository_paths(text: str) -> list[str]:
+    """Every repository-relative path cited in backticks anywhere in ``text``.
+
+    A path is a backticked word carrying both a ``/`` and a file extension, which
+    picks ``tests/unit/test_readiness_gates.py`` out of a command line and leaves
+    ``tests/`` and prose alone.
+    """
+    paths = []
+    for span in re.findall(r"`([^`]+)`", text):
+        for word in span.split():
+            word = word.strip("(),;:")
+            if "/" in word and re.search(r"\.[A-Za-z0-9]{1,5}$", word):
+                paths.append(word)
+    return sorted(set(paths))
+
+
+def evaluate_persona_review_gates(doc: str, path_exists) -> dict[str, tuple[bool, str]]:
+    """I1 to I4: was a structured review run, owned, and written down where a clone sees it.
+
+    These four gates used to read the workspace STATE.md. Each said in its own message
+    that the evidence was outside the repository, which was honest and unusable: a judge
+    with a clone and nothing else got four FAILs where this machine printed four PASSes,
+    so the published readiness score was not reproducible from the artifact submitted.
+
+    They now read ``docs/PERSONA_REVIEW.md`` and check its substance rather than the
+    presence of a phrase. Deleting a lens, attributing a finding to a lens nobody owns,
+    dropping the review date or citing a test file that is not on disk each turns one of
+    them red. ``path_exists`` is injected so a test can drive the citation branch
+    without writing files into the checkout.
+    """
+    outcomes: dict[str, tuple[bool, str]] = {}
+
+    if not doc.strip():
+        missing = f"{PERSONA_REVIEW_DOC} is missing, so no review is recorded in this repository"
+        return {gid: (False, missing) for gid in ("I1", "I2", "I3", "I4")}
+
+    # --- I1: the procedure that runs before any lens opens.
+    steps = markdown_table(doc, "Step", "What it asks", "Outcome", "Evidence")
+    bad_steps = [
+        s["Step"] for s in steps
+        if s["Outcome"] not in PERSONA_VERDICTS or not s["Evidence"]
+    ]
+    i1 = len(steps) >= 4 and not bad_steps
+    outcomes["I1"] = (i1, (
+        f"{len(steps)} procedure steps ran before any lens opened, each with an outcome and a "
+        f"citation, recorded in {PERSONA_REVIEW_DOC}" if i1
+        else f"{PERSONA_REVIEW_DOC} records {len(steps)} procedure steps"
+             + (f"; these carry no outcome or no evidence: {bad_steps}" if bad_steps else "")
+             + ("; at least four are required" if len(steps) < 4 else "")
+    ))
+
+    # --- I2: three lenses, each with a verdict and at least one finding of its own.
+    owners = markdown_table(doc, "Lens", "Owner", "What it decides", "Verdict")
+    findings = markdown_table(doc, "ID", "Lens", "Finding", "Verdict", "Evidence")
+    by_lens = {row["Lens"]: row for row in owners}
+    lenses_with_findings = {row["Lens"] for row in findings}
+    missing_lenses = [
+        lens for lens in PERSONA_LENSES
+        if lens not in by_lens
+        or by_lens[lens]["Verdict"] not in PERSONA_VERDICTS
+        or lens not in lenses_with_findings
+    ]
+    i2 = not missing_lenses
+    scored = ", ".join(
+        "{} {}".format(lens, by_lens[lens]["Verdict"]) for lens in PERSONA_LENSES
+    ) if i2 else ""
+    outcomes["I2"] = (i2, (
+        f"All three required lenses reviewed in {PERSONA_REVIEW_DOC}, each with a verdict "
+        f"and findings of its own: {scored}" if i2
+        else f"Lenses missing from {PERSONA_REVIEW_DOC}, unscored, or with no finding of "
+             f"their own: {missing_lenses}"
+    ))
+
+    # --- I3: ownership is total. A finding attributed to a lens nobody owns fails.
+    unowned = sorted(
+        lens for lens in lenses_with_findings
+        if lens not in by_lens or not by_lens[lens]["Owner"]
+    )
+    i3 = bool(owners) and all(row["Owner"] for row in owners) and not unowned
+    outcomes["I3"] = (i3, (
+        f"Every lens carrying a finding has exactly one owner across {len(owners)} rows "
+        f"of {PERSONA_REVIEW_DOC}" if i3
+        else (f"{PERSONA_REVIEW_DOC} attributes findings to a lens with no owner: {unowned}"
+              if unowned else f"{PERSONA_REVIEW_DOC} records no ownership table")
+    ))
+
+    # --- I4: findings written down, dated, and every citation resolvable on disk.
+    date = re.search(r"Review date:\s*(\d{4}-\d{2}-\d{2})", doc)
+    bad_findings = [
+        f["ID"] for f in findings
+        if not f["Finding"] or f["Verdict"] not in PERSONA_VERDICTS or not f["Evidence"]
+    ]
+    dangling = [path for path in cited_repository_paths(doc) if not path_exists(path)]
+    i4 = len(findings) >= 5 and not bad_findings and not dangling and bool(date)
+    failure_count = sum(1 for f in findings if f["Verdict"] == "FAIL")
+    outcomes["I4"] = (i4, (
+        f"{len(findings)} findings recorded in {PERSONA_REVIEW_DOC} on {date.group(1) if date else ''}, "
+        f"{failure_count} of them failures, every citation resolving to a file in this checkout"
+        if i4 else
+        f"{PERSONA_REVIEW_DOC} records {len(findings)} findings"
+        + ("" if date else "; no review date")
+        + (f"; incomplete rows: {bad_findings}" if bad_findings else "")
+        + (f"; cited paths that are not in this checkout: {dangling}" if dangling else "")
+    ))
+
+    return outcomes
 
 
 # --- audit ------------------------------------------------------------------
@@ -838,35 +950,19 @@ def audit_project() -> list[GateResult]:
             record(gate_id, title, (False, "docs/index.html not found"))
 
     # --- Section I: persona review ------------------------------------------
-    state_text = ""
-    for candidate in ("../../STATE.md", "../STATE.md", "STATE.md"):
-        path = os.path.join(REPO_ROOT, candidate)
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as handle:
-                state_text = handle.read()
-            break
-
-    persona_outcomes = check_i_section(state_text)
+    # The review lives in docs/PERSONA_REVIEW.md inside this repository, so a
+    # standalone clone reads the same evidence. A missing document fails these
+    # gates as blocking: the work is genuinely absent then, not unreachable.
+    persona_doc = read_text(PERSONA_REVIEW_DOC)
+    persona_outcomes = evaluate_persona_review_gates(
+        persona_doc, lambda path: os.path.exists(os.path.join(REPO_ROOT, path)))
     for gate_id, title in (
         ("I1", "The runbook runs first"),
         ("I2", "Three personas minimum (01, 06, 08)"),
         ("I3", "Ownership comes from the roster"),
-        ("I4", "Findings are written down in STATE.md"),
+        ("I4", f"Findings are written down in {PERSONA_REVIEW_DOC}"),
     ):
-        # STATE.md is a workspace coordination file and is deliberately never
-        # committed to this repository, so a standalone clone or a CI runner has
-        # no copy of it to read. That is an environmental blocker, not a defect,
-        # and it is excused here only when the file is genuinely absent. When
-        # STATE.md IS present and simply does not record the persona review,
-        # these gates stay blocking, because then the repository really is
-        # missing the work.
-        if not state_text:
-            DYNAMIC_EXCUSES[gate_id] = (
-                "STATE.md is a workspace file that is never committed, so it is "
-                "unreachable from a standalone clone or a CI runner"
-            )
-        outcome = persona_outcomes[gate_id]
-        record(gate_id, title, (outcome[0], outcome[1] if outcome[0] else f"not satisfied: {outcome[1]}"))
+        record(gate_id, title, persona_outcomes[gate_id])
 
     kill_criteria = [
         os.path.basename(path) for path in test_files

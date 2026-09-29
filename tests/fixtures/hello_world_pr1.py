@@ -1,7 +1,7 @@
 """octocat/Hello-World pull request 1, as GitHub served it, for offline tests.
 
 This is the pull request the demo opens. Its only file is ``README``, which
-has no extension, and its diff ends both sides with ``\ No newline at end of
+has no extension, and its diff ends both sides with ``\\ No newline at end of
 file``. Both shapes broke a spoken promise before: "what changed in README"
 was not recognised, although the overview offers "what changed in a file
 name".
@@ -31,10 +31,10 @@ META = {
 
 DIFF = (
     'diff --git a/README b/README\nindex c57eff55e..719be62e9 100644\n--- a/README\n+++ b/README\n'
-    '@@ -1 +1,6 @@\n-Hello World!\n\ No newline at end of file\n+Hello World!\n'
+    '@@ -1 +1,6 @@\n-Hello World!\n\\ No newline at end of file\n+Hello World!\n'
     '+$ mkdir ~/Hello-WorldCreates a directory for your project called "Hello-World" in your user directory\n'
     '+$ cd ~/Hello-WorldChanges the current working directory to your newly created directory\n'
     '+$ git initSets up the necessary Git files\n'
     '+Initialized empty Git repository in /Users/your_user_directory/Hello-World/.git/\n'
-    '+$ touch README\n\ No newline at end of file\n'
+    '+$ touch README\n\\ No newline at end of file\n'
 )
