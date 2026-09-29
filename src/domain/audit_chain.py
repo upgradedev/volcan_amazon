@@ -45,6 +45,7 @@ def _fingerprint(record: AuditLogRecord, previous_hash: str, sequence: int) -> s
             "timestamp": record.timestamp,
             "staged_by": record.staged_by,
             "approved_by": record.approved_by,
+            "audit_scope": record.audit_scope,
         },
         sort_keys=True,
         separators=(",", ":"),

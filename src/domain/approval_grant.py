@@ -18,9 +18,11 @@ import hashlib
 import hmac
 import json
 import secrets
+import threading
 import time
 from dataclasses import dataclass
 from enum import Enum
+from typing import Protocol
 
 GRANT_VERSION = "v1"
 
@@ -41,6 +43,8 @@ class GrantVerdict:
     accepted: bool
     refusal: GrantRefusal | None = None
     detail: str = ""
+    nonce: str | None = None
+    expires_at_epoch: float | None = None
 
     @property
     def spoken_reason(self) -> str:
@@ -57,6 +61,35 @@ class GrantVerdict:
         return reasons.get(self.refusal, "Authorization refused.")
 
 
+class NonceReplayStore(Protocol):
+    """Atomic, single-winner consumption of a grant nonce."""
+
+    def consume(self, nonce: str, expires_at_epoch: float) -> bool: ...
+
+    @property
+    def count(self) -> int: ...
+
+
+class InMemoryNonceReplayStore:
+    """Local-process implementation used by the CLI and unit tests."""
+
+    def __init__(self) -> None:
+        self._burned: set[str] = set()
+        self._lock = threading.Lock()
+
+    def consume(self, nonce: str, expires_at_epoch: float) -> bool:
+        del expires_at_epoch
+        with self._lock:
+            if nonce in self._burned:
+                return False
+            self._burned.add(nonce)
+            return True
+
+    @property
+    def count(self) -> int:
+        return len(self._burned)
+
+
 def _b64url_encode(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
@@ -69,16 +102,15 @@ def _b64url_decode(text: str) -> bytes:
 class ApprovalGrantIssuer:
     """Mints and verifies approval grants against a single signing secret.
 
-    Burned nonces are held in memory. A process restart therefore invalidates
-    outstanding grants rather than accepting them again; that direction of
-    failure is the safe one, and it is stated in the README.
+    The replay store is injected. Local tools use an in-memory set; the Lambda
+    composition injects a conditional DynamoDB store shared by every worker.
     """
 
-    def __init__(self, signing_secret: bytes):
-        if not signing_secret or len(signing_secret) < 16:
-            raise ValueError("Approval grant signing secret must be at least 16 bytes.")
+    def __init__(self, signing_secret: bytes, replay_store: NonceReplayStore | None = None):
+        if not signing_secret or len(signing_secret) < 32:
+            raise ValueError("Approval grant signing secret must be at least 32 bytes.")
         self._secret = signing_secret
-        self._burned_nonces: set[str] = set()
+        self._replay_store = replay_store or InMemoryNonceReplayStore()
 
     # -- minting -----------------------------------------------------------
 
@@ -140,13 +172,11 @@ class ApprovalGrantIssuer:
             return GrantVerdict(False, GrantRefusal.EXPIRED, "Lease elapsed before the grant was presented.")
 
         nonce = str(claims["nonce"])
-        if nonce in self._burned_nonces:
+        expiry = float(claims["exp"])
+        if burn_on_success and not self._replay_store.consume(nonce, expiry):
             return GrantVerdict(False, GrantRefusal.REPLAYED, "This grant nonce was already consumed.")
-
-        if burn_on_success:
-            self._burned_nonces.add(nonce)
-        return GrantVerdict(True)
+        return GrantVerdict(True, nonce=nonce, expires_at_epoch=expiry)
 
     @property
     def burned_count(self) -> int:
-        return len(self._burned_nonces)
+        return self._replay_store.count

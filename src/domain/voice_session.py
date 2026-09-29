@@ -12,6 +12,9 @@ class VoiceSessionContext:
     focused_file: str | None = None
     focused_section_index: int = 0
     staged_action_id: str | None = None
+    # Persisting the exact grant with the staged action makes a retried stage
+    # response idempotent after a Lambda response is lost.
+    staged_action_grant: str | None = None
     dialogue_history: list[dict[str, str]] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.utcnow)
 

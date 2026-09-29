@@ -5,7 +5,6 @@ once here, so the REST routes, the MCP tool catalog and the MCP transport all
 operate on the same instances and the wiring is readable in one place.
 """
 import os
-import secrets
 
 from src.application.accessibility_use_case import AccessibilityOrchestratorUseCase
 from src.application.braille_diff_use_case import BrailleDiffUseCase
@@ -20,10 +19,17 @@ from src.domain.ast_completeness_checker import ASTGraphCompletenessChecker
 from src.infrastructure.audit_repository import InMemoryAuditRepository
 from src.infrastructure.bedrock_adapter import BedrockSynthesisAdapter
 from src.infrastructure.dry_run_executor import DryRunExecutor
+from src.infrastructure.dynamodb_audit_repository import DynamoAuditRepository
+from src.infrastructure.dynamodb_state import DynamoStateStore
 from src.infrastructure.github_review_adapter import GitHubReviewAdapter
+from src.infrastructure.secret_provider import load_approval_secret
 from src.interfaces.mcp_protocol import SessionRegistry
 
-audit_repo = InMemoryAuditRepository()
+state_store = DynamoStateStore.from_environment()
+audit_repo = (
+    DynamoAuditRepository(state_store.table_name, table=state_store.table)
+    if state_store is not None else InMemoryAuditRepository()
+)
 bedrock_adapter = BedrockSynthesisAdapter()
 dry_run_executor = DryRunExecutor()
 ast_checker = ASTGraphCompletenessChecker()
@@ -32,12 +38,13 @@ ast_checker = ASTGraphCompletenessChecker()
 #: authorized for the repository. The adapter flag/token are reported on /health.
 github_adapter = GitHubReviewAdapter()
 
-#: Signing secret for approval grants. Set VOLCAN_APPROVAL_SECRET to keep grants
-#: valid across restarts; otherwise a fresh per-process secret is generated,
-#: which invalidates outstanding grants on restart rather than accepting them.
-_secret_env = os.getenv("VOLCAN_APPROVAL_SECRET")
+#: A durable deployment receives only a Secrets Manager ARN and resolves the
+#: value once at cold start. Local mode may use a 32-byte environment value or
+#: an ephemeral key whose restart-invalidating behavior is reported in health.
+_approval_secret = load_approval_secret(durable=state_store is not None)
 grant_issuer = ApprovalGrantIssuer(
-    _secret_env.encode("utf-8") if _secret_env and len(_secret_env) >= 16 else secrets.token_bytes(32)
+    _approval_secret.value,
+    replay_store=state_store,
 )
 
 digest_use_case = DigestDiffUseCase(bedrock_adapter)
@@ -45,10 +52,15 @@ sonify_use_case = SonifyEventUseCase()
 ecosystem_use_case = OrchestrateEcosystemCompanionUseCase()
 braille_use_case = BrailleDiffUseCase()
 accessibility_use_case = AccessibilityOrchestratorUseCase()
-governed_use_case = GovernedExecutionUseCase(dry_run_executor, audit_repo, grant_issuer)
-voice_turn_use_case = VoiceTurnUseCase(digest_use_case, governed_use_case, sonify_use_case)
+governed_use_case = GovernedExecutionUseCase(
+    dry_run_executor, audit_repo, grant_issuer, state_store=state_store,
+)
+voice_turn_use_case = VoiceTurnUseCase(
+    digest_use_case, governed_use_case, sonify_use_case, state_store=state_store,
+)
 review_dialogue_use_case = ReviewDialogueUseCase(
     digest_use_case, github_adapter, grant_issuer, audit_repo, sonify_use_case,
+    state_store=state_store,
 )
 
 DEFAULT_ALLOWED_ORIGINS = ("http://127.0.0.1:8000", "http://localhost:8000")
@@ -66,13 +78,34 @@ def mcp_session_mode() -> str:
 
     Stateful mode is useful for a single local process. The public Lambda uses
     a stateless *transport* because consecutive requests are not guaranteed to
-    hit the same execution environment. This setting does not persist dialogue,
-    pending approvals, nonces or audit records across processes.
+    hit the same execution environment. This transport setting itself does not
+    persist application state; ``VOLCAN_STATE_TABLE`` independently selects the
+    shared DynamoDB backend for dialogue, actions, nonces and audit records.
     """
     mode = os.getenv("VOLCAN_MCP_SESSION_MODE", "stateful").strip().lower()
     if mode not in {"stateful", "stateless"}:
         raise RuntimeError("VOLCAN_MCP_SESSION_MODE must be 'stateful' or 'stateless'.")
     return mode
+
+
+def durable_state_capability() -> dict[str, object]:
+    if state_store is None:
+        return {
+            "backend": "process_memory",
+            "configured": False,
+            "reachable": None,
+            "resolved_capability": "process_memory",
+            "durable_across_restart": False,
+            "shared_across_workers": False,
+            "approval_secret_persistent": _approval_secret.source == "environment",
+            "approval_secret_source": _approval_secret.source,
+        }
+    return {
+        **state_store.capability(),
+        "approval_secret_persistent": True,
+        "approval_secret_source": _approval_secret.source,
+        "audit_chain": "transactional_scoped_hash_chains",
+    }
 
 
 #: MCP session identifiers this process has issued.

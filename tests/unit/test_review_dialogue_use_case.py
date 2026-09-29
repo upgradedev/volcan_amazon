@@ -53,7 +53,7 @@ def build(fake: FakeGitHub, token: str | None = None, write: bool = False,
     github = GitHubReviewAdapter(token=token, write_enabled=write, transport=httpx.MockTransport(fake))
     audit = InMemoryAuditRepository()
     use_case = ReviewDialogueUseCase(
-        DigestDiffUseCase(bedrock), github, ApprovalGrantIssuer(b"0123456789abcdef0123"),
+        DigestDiffUseCase(bedrock), github, ApprovalGrantIssuer(b"0123456789abcdef0123456789abcdef"),
         audit, SonifyEventUseCase(), lease_sec=lease_sec,
     )
     return use_case, github, audit

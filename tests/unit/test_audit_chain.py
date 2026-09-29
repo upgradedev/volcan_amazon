@@ -105,7 +105,7 @@ def test_a_repository_used_through_governance_stays_verifiable():
     async def _run():
         repo = InMemoryAuditRepository()
         use_case = GovernedExecutionUseCase(
-            DryRunExecutor(), repo, ApprovalGrantIssuer(b"chain-test-signing-secret-01"),
+            DryRunExecutor(), repo, ApprovalGrantIssuer(b"chain-test-signing-secret-000001"),
         )
         for index in range(3):
             ticket = use_case.stage_action(

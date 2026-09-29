@@ -99,7 +99,7 @@ def audit_patch_parser(report: Report) -> None:
 
 def audit_approval_grants(report: Report) -> None:
     print("\n3. Approval grants presented to the issuer")
-    issuer = ApprovalGrantIssuer(b"security-audit-signing-secret-01")
+    issuer = ApprovalGrantIssuer(b"security-audit-signing-secret-000001")
     payload_hash = GovernedAction.compute_payload_hash("RUN_TESTS", "pytest tests/unit")
     grant = issuer.issue("act-audit", payload_hash, time.time() + 300)
 
@@ -109,7 +109,7 @@ def audit_approval_grants(report: Report) -> None:
     report.check(not verdict.accepted and verdict.refusal.value == "BAD_SIGNATURE",
                  "forged signature refused", verdict.detail)
 
-    rogue = ApprovalGrantIssuer(b"a-completely-different-secret-x").issue(
+    rogue = ApprovalGrantIssuer(b"a-completely-different-secret-xxxx").issue(
         "act-audit", payload_hash, time.time() + 300)
     verdict = issuer.verify(rogue, "act-audit", payload_hash)
     report.check(not verdict.accepted, "grant minted with another key refused", verdict.detail)

@@ -39,6 +39,39 @@ def test_terraform_matches_the_mantle_client_and_browser_transport():
     )
 
 
+def test_terraform_wires_conditional_durable_state_and_a_stable_secret():
+    text = (ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
+    assert 'resource "aws_dynamodb_table" "volcan_state"' in text
+    assert 'billing_mode = "PAY_PER_REQUEST"' in text
+    assert "point_in_time_recovery" in text and "server_side_encryption" in text
+    assert "dynamodb:TransactWriteItems" in text
+    assert "VOLCAN_STATE_TABLE" in text and "VOLCAN_APPROVAL_SECRET_ARN" in text
+    assert 'variable "volcan_approval_secret_arn"' in text
+    assert 'variable "volcan_approval_secret"' not in text
+    assert not re.search(r"\bVOLCAN_APPROVAL_SECRET\s*=", text)
+    assert '"secretsmanager:GetSecretValue"' in text
+    assert "Resource = var.volcan_approval_secret_arn" in text
+    assert 'allow_methods     = ["GET", "POST"]' in text
+
+
+def test_default_durable_plan_does_not_grant_bedrock_mantle_permission():
+    text = (ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
+    assert re.search(
+        r'variable "enable_bedrock_mantle"\s*\{[^}]*default\s*=\s*false',
+        text,
+        re.DOTALL,
+    )
+    assert re.search(
+        r'resource "aws_iam_policy" "volcan_bedrock_mantle"\s*\{\s*'
+        r'count\s*=\s*var\.enable_bedrock_mantle \? 1 : 0',
+        text,
+    )
+    core_policy = text.split(
+        'resource "aws_iam_policy" "volcan_bedrock_mantle"', 1
+    )[0].split('resource "aws_iam_policy" "volcan_serverless_policy"', 1)[1]
+    assert "bedrock-mantle:CreateInference" not in core_policy
+
+
 def test_health_runs_through_the_lambda_bridge_and_exposes_revision(monkeypatch):
     monkeypatch.setenv("SOURCE_REVISION", "abc123def456")
     response = handler(event("GET", "/health"))
@@ -46,6 +79,8 @@ def test_health_runs_through_the_lambda_bridge_and_exposes_revision(monkeypatch)
     assert response["statusCode"] == 200
     assert body["service"] == "volcan-accessible-forge"
     assert body["source_revision"] == "abc123def456"
+    assert body["durable_state"]["backend"] == "process_memory"
+    assert body["durable_state"]["durable_across_restart"] is False
 
 
 def test_unknown_path_is_a_404_response():

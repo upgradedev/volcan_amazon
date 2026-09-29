@@ -11,6 +11,8 @@ MCP turns it into an audio content block.
 import base64
 from typing import Any
 
+from src.application.durable_state import review_audit_scope
+from src.application.review_authorization import require_review_principal
 from src.domain.governed_action import Principal
 from src.domain.sonification import EarconType, earcon_for_report, earcon_for_section
 from src.interfaces.composition import (
@@ -143,7 +145,15 @@ async def op_confirm_action(req: ConfirmActionRequest) -> dict[str, Any]:
 
 
 def op_audit_log() -> dict[str, Any]:
-    records = audit_repo.list_records()
+    if getattr(audit_repo, "is_durable", False):
+        principal = require_review_principal()
+        scopes = [
+            review_audit_scope(principal.identity, repository)
+            for repository in principal.repositories
+        ]
+        records = audit_repo.list_records(scopes)
+    else:
+        records = audit_repo.list_records()
     return {
         "uri": "volcan://governance/audit_log",
         "mimeType": "application/json",
