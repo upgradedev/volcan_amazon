@@ -92,3 +92,23 @@ def test_the_probes_written_after_the_rules_break_them_as_recorded():
     assert set(rows["typescript"]["false_positive_fixture_ids"]) == set()
     assert rows["javascript"]["false_positives_from_structural_rule"] == 2
     assert rows["typescript"]["false_positives_from_structural_rule"] == 0
+
+
+def test_the_second_round_probes_measure_unseen_shapes():
+    """Eight new probes against the current rules\u2019 documented scope, labels decided
+    from meaning before the rules ran (tests/fixtures/diff_corpus_js_ts_probes_round2.py).
+    First measured 2026-10-01: 4 of 4 detected, 1 of 4 over-flagged. The one,
+    probe2-01, is the documented control-flow-equivalence limit in a new shape:
+    an if/else rewritten as a guard clause reads as a flipped comparison to
+    token rules. probe2-02 (CORS in a test fixture) stays silent by the test
+    scoping the CORS rule gained with this round.
+    """
+    from scripts.benchmark_js_ts_detection import measure
+    from tests.fixtures.diff_corpus_js_ts_probes_round2 import PROBES_ROUND2
+
+    assert len(PROBES_ROUND2) == 8
+    rows = measure(PROBES_ROUND2)
+    assert set(rows["javascript"]["missed_fixture_ids"]) == set()
+    assert set(rows["typescript"]["missed_fixture_ids"]) == set()
+    assert set(rows["javascript"]["false_positive_fixture_ids"]) == {"probe2-01"}
+    assert set(rows["typescript"]["false_positive_fixture_ids"]) == set()

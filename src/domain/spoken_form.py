@@ -10,6 +10,13 @@ catch turns on exactly that difference.
 So every sentence a speech engine is handed has its comparison and logical
 operators replaced by their names. The text on screen is not changed; this is
 a second string, returned beside it, for the synthesiser only.
+
+A model writes Markdown: ``**Spoken summary:**`` and ``*not*`` reached a
+speech engine verbatim, which reads the stars aloud or drops the word. The
+same second string therefore has lightweight markup stripped first. Only
+emphasis-shaped markup goes: a star that could be code (``a*b*c``,
+``2 * 3 * x``, ``['*']``) is left alone, and so is ``**`` without letters
+inside (``2**10``).
 """
 import re
 
@@ -30,10 +37,48 @@ _NAMES = dict(OPERATOR_NAMES)
 #: A quoted star, as in ``allow_origins = ['*']``: a voice that skips
 #: symbols would otherwise say "allow origins equals" and stop.
 _QUOTED_STAR = re.compile(r"""(['"])\*\1""")
+#: ATX heading and bullet markers at a line start. Handled per line before
+#: flattening, so a ``#`` or ``-`` mid-sentence is never touched.
+_LINE_MARKUP = re.compile(r"(?m)^[ \t]{0,3}(?:#{1,6}[ \t]+|[*\-+][ \t]+)")
+#: Inline code keeps its content and loses its ticks: no voice says a tick.
+_CODE_SPAN = re.compile(r"`([^`\n]+)`")
+#: Bold-italic ``***word(s)***`` first: three stars are never a code
+#: operator, and the bold rule below refuses stars inside its match.
+_BOLD_ITALIC = re.compile(r"(?<![\w*])\*{3}([A-Za-z][^*\n]*?)\*{3}(?![\w*])")
+#: Bold when the inner text holds a letter and the markers sit outside words,
+#: so ``2**10`` and ``a**b**c`` survive and ``**Spoken summary:**`` does not.
+_BOLD = re.compile(r"(?<![\w*])\*\*([^*\n]+?)\*\*(?![\w*])")
+#: One emphasized word outside words: ``*not*`` goes, ``a*b*c`` stays.
+_ITALIC_WORD = re.compile(r"(?<![\w*])\*([A-Za-z][A-Za-z'_-]*)\*(?![\w*])")
+#: A link reads as its text; the URL is spelling no listener asked for.
+_LINK = re.compile(r"\[([^\[\]\n]+)\]\((?:[^()\n]*)\)")
+
+
+def _unbold(match):
+    inner = match.group(1)
+    if not re.search(r"[A-Za-z]", inner):
+        return match.group(0)
+    return inner
+
+
+def strip_markdown_for_speech(text: str) -> str:
+    """``text`` with lightweight Markdown emphasis removed, code kept.
+
+    Headers, bullets, links, code ticks, ``**bold**``, ``***both***`` and single-word
+    ``*emphasis*`` are normalised to the words a voice should say. Anything
+    shaped like code is preserved: see the guards on each pattern above.
+    """
+    stripped = _LINE_MARKUP.sub("", text)
+    stripped = _CODE_SPAN.sub(r"\1", stripped)
+    stripped = _BOLD_ITALIC.sub(r"\1", stripped)
+    stripped = _BOLD.sub(_unbold, stripped)
+    stripped = _ITALIC_WORD.sub(r"\1", stripped)
+    return _LINK.sub(r"\1", stripped)
 
 
 def speakable(text: str) -> str:
     """``text`` with each code operator spoken by name, for a speech engine."""
-    named = _OPERATOR.sub(lambda match: f" {_NAMES[match.group(0)]} ", text)
+    plain = strip_markdown_for_speech(text)
+    named = _OPERATOR.sub(lambda match: f" {_NAMES[match.group(0)]} ", plain)
     named = _QUOTED_STAR.sub(r"\1star\1", named)
     return re.sub(r"[ \t]{2,}", " ", named).strip()

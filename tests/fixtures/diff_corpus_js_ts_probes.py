@@ -17,8 +17,12 @@ was written with full knowledge of the rules, to find where they break. It is
 self-authored and synthetic, it is small (four of each label), and its figure
 is reported on its own by ``python scripts/benchmark_js_ts_detection.py
 --probes``. The rules were first measured against it unchanged (0 of 4
-detected, 4 of 4 over-flagged); the 2026-09-30 rule work answers four of
-the eight and documents the other four as fail-closed limits.
+detected, 4 of 4 over-flagged); the 2026-09-30 rule work moved that to 4 of 4
+detected and 2 of 4 over-flagged. The two that still flag fail closed by
+design: probe-01 needs control-flow equivalence no token rule can do (is the
+restructured branch the same check?), and probe-03 shows no listen address,
+so "local only" is unproven from the evidence the rule sees. A second round
+of probes lives in ``diff_corpus_js_ts_probes_round2.py``.
 """
 from tests.fixtures.diff_corpus_js_ts import JS, TS, LabelledDiff
 

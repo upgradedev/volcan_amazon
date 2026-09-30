@@ -11,9 +11,18 @@ from pydantic import BaseModel, Field
 
 from src.domain.sonification import EarconType
 
+#: Largest patch the digest endpoints accept. Local parsing reads the whole
+#: patch, so findings near the end of a large patch must survive; the model
+#: excerpt is separately capped at 3000 characters. This bound stops absurd
+#: payloads, not real patches: one million characters is an order of
+#: magnitude past the largest patch in the test corpus.
+MAX_RAW_DIFF_CHARS = 1_000_000
+
 
 class DigestRequest(BaseModel):
-    raw_diff: str = Field(..., description="Unified git patch content")
+    raw_diff: str = Field(
+        ..., max_length=MAX_RAW_DIFF_CHARS, description="Unified git patch content"
+    )
     level: int = Field(0, description="Digest detail level (0 executive, 1 file-by-file, 2 drill-down)")
 
 
@@ -33,7 +42,9 @@ class CompanionDigestRequest(DigestRequest):
 
 
 class DrillDownRequest(BaseModel):
-    raw_diff: str = Field(..., description="Unified git patch content")
+    raw_diff: str = Field(
+        ..., max_length=MAX_RAW_DIFF_CHARS, description="Unified git patch content"
+    )
     section_index: int = Field(0, description="0-indexed section of the patch to inspect")
 
 

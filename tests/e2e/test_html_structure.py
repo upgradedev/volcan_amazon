@@ -990,3 +990,40 @@ def test_the_alexa_replay_panel_runs_on_press_against_this_origin_and_prints_onl
     assert 'shape === "never"' not in shape, "the header-less client is the one no branch adds a header for"
     assert "performance.now()" in script.split("async function replayPost", 1)[1].split("\n    }\n", 1)[0]
     assert 'protocolVersion: "2025-03-26"' in shape, "the documented initialize asks for 2025-03-26"
+
+
+def test_the_speech_pane_reports_what_the_model_read():
+    """The spoken summary can come from a 3000-char prefix of a longer patch.
+
+    The API carries the model's full prose and sent/total counts; the page must
+    show both beside the sentence, or the listener cannot know how much of the
+    patch the model saw. The heuristic path shows neither: null prose leaves
+    the line empty and the full-answer disclosure shut.
+    """
+    html = read_html()
+    assert 'id="modelCoverage"' in html
+    assert 'id="modelProseWrap"' in html and 'id="modelProse"' in html
+    script = script_body()
+    assert "renderModelProvenance(data);" in script.split("function renderSpoken", 1)[1].split("\n    }\n", 1)[0]
+    provenance = script.split("function renderModelProvenance", 1)[1].split("\n    }\n", 1)[0]
+    assert "data.model_prose_full" in provenance
+    assert "data.model_input_chars_sent" in provenance and "data.model_input_chars_total" in provenance
+    assert "The model read the first " in provenance and "the local rules still read the whole patch" in provenance
+    assert "model_prose_full === null" in provenance or "model_prose_full == null" in provenance
+
+
+def test_the_patch_help_names_the_model_data_flow():
+    """Before typing a patch, a developer is told what a press sends where.
+
+    The notice lives in the input\'s described-by hint, so a screen reader hears
+    it, and its character figure is the server\'s budget constant, not a second
+    number that can drift from it.
+    """
+    from src.infrastructure.bedrock_adapter import MODEL_DIFF_CHAR_BUDGET
+
+    html = read_html()
+    hint = html.split('id="diffHelp"', 1)[1].split("</p>", 1)[0]
+    assert "Amazon Bedrock" in hint
+    assert "the local rules always read the whole patch" in hint
+    assert str(MODEL_DIFF_CHAR_BUDGET) in hint
+    assert MODEL_DIFF_CHAR_BUDGET == 3000
