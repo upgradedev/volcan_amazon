@@ -134,7 +134,7 @@ code operator named (`user.role not equals 'admin'`), while the screen and the B
 the literal `!=`.
 
 **Time to first result, measured on the development machine on 2026-09-26.** Step 1 printed
-`725 passed, 1 warning` on 2026-09-29 (the count is the claim; the duration varies run to run;
+`737 passed, 1 warning` on 2026-09-30 (the count is the claim; the duration varies run to run; 725 on 2026-09-29;
 723 earlier that day, before the Lambda SSE-bridge disconnect fix; 707 on 2026-09-28, before the persona-review gates moved into this repository; 703 earlier that day, before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 646 earlier that day, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 on 2026-09-27 before the single review cursor and the local revision in /health; that
 day, before the version-header fix and the replay panel, it was 631, before the JavaScript and TypeScript rules and the Alexa+ package, it was 577, and before the audit fixes 623). The server in step 2 answered its first `GET /health` with HTTP 200 **1.7 seconds**
 after launch on 2026-09-26 (three runs that day read 1.7, 1.7 and 1.8 s), printed by [`scripts/measure_cold_start.py`](../scripts/measure_cold_start.py),
@@ -888,7 +888,7 @@ estimate unless it says ESTIMATE.
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **23 of 23 conformance checks pass**, stateful on port 8841 and stateless (`VOLCAN_MCP_SESSION_MODE=stateless`, `--expect-mode stateless`) on port 8842, 2026-09-27 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 725 passing; 92.74% statement coverage (4615 statements, 335 missed), including a real Chromium judge journey and Lambda bridge, 2026-09-29 (723 and 92.67% earlier that day before the Lambda SSE-bridge disconnect fix; 707 and 92.67% on 2026-09-28 before the persona-review gates; 703 and 92.67% earlier that day before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 684 and 92.62% before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 737 passing; 92.89% statement coverage (4710 statements, 335 missed), including a real Chromium judge journey and Lambda bridge, 2026-09-30 (725 and 92.74% on 2026-09-29; 723 and 92.67% earlier that day before the Lambda SSE-bridge disconnect fix; 707 and 92.67% on 2026-09-28 before the persona-review gates; 703 and 92.67% earlier that day before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 684 and 92.62% before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.7 s on 2026-09-26 (three runs: 1.7, 1.7, 1.8 s) | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 31.3 ms on the first press, then 38.9, 30.5 and 28.7 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credentials | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -1403,12 +1403,16 @@ simulator in isolation mode, and record which headers the real client sends.
   removed verification call. A deleted guard block, a removed decorator, a dangerous argument
   value and any other language, JSON included, are outside them, which is what the four named
   misses in Measured numbers are. A Python line that does not parse produces no finding rather
-  than a guess. The JavaScript and TypeScript rules read tokens one line at a time, not a
+  than a guess. The JavaScript and TypeScript rules read tokens, not a
   syntax tree, and their held-out recall is 62.5% (JavaScript) and 75.0% (TypeScript) on a
   self-authored corpus, independent of the tuning, not of the author. Eight probes written
-  after the rules show the limit: a flip through a helper call or across two lines is missed,
-  and an equivalent rewrite of a check is flagged (0 of 4 detected, 4 of 4 over-flagged).
-  Until 2026-09-27 this entry said Python only.
+  after the rules first showed the limit (0 of 4 detected, 4 of 4 over-flagged); the rules now
+  join bracket- and colon-continued lines, cancel a negation the rewrite cancels, skip test
+  sources, and catch an un-negated guard call, which moves the probes to 4 of 4 detected and
+  2 of 4 over-flagged. The two remaining false alarms fail closed by design: an early-return
+  refactor needs control-flow reasoning the token rules do not have, and a wildcard origin in
+  a local-only development server is still worth one dismissed finding. Until 2026-09-27 this
+  entry said Python only.
 * **The public endpoint serves this commit since 2026-09-30, and Alexa hardware remains untested.** On
   2026-09-23 `GET /health`, `/`, the REST digest and the MCP initialize/tool path answered
   successfully. On 2026-09-27 the same endpoint reported `source_revision` `2d0b8f8`, an

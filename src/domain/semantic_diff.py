@@ -107,6 +107,14 @@ class SemanticDiffReport:
     #: answered. Carried to the API and the companion page so an unexplained
     #: fallback is never presented as a choice.
     fallback_reason: str | None = None
+    #: The model's full prose, uncut. None when the heuristic path answered,
+    #: which has no model prose to keep.
+    model_prose_full: str | None = None
+    #: Diff characters the model was shown, and the whole patch size. None on
+    #: the heuristic path, which reads the parsed sections instead. When sent
+    #: is smaller than total, the model answered from a prefix of the patch.
+    model_input_chars_sent: int | None = None
+    model_input_chars_total: int | None = None
 
     def to_voice_summary(self, level: int = 0) -> str:
         """Render multi-level hierarchical voice digests.
@@ -371,7 +379,7 @@ class UnifiedDiffParser:
                 if file_path.lower().endswith(js_security_rules.JS_TS_EXTENSIONS)
                 else ast_security_rules
             )
-            for finding in rules.evaluate(added_lines, removed_lines):
+            for finding in rules.evaluate(added_lines, removed_lines, file_path):
                 # Structural findings lead: they say what happened, so a
                 # listener hears the deletion before the vocabulary match.
                 security_flags.insert(0, finding.rule_id)

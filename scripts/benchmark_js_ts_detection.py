@@ -34,12 +34,14 @@ from src.domain.semantic_diff import UnifiedDiffParser  # noqa: E402
 from tests.fixtures.diff_corpus_js_ts import CASES, SPLIT_SEED, split  # noqa: E402
 from tests.fixtures.diff_corpus_js_ts_probes import PROBES  # noqa: E402
 
-#: Every named rule, the three structural rules and the classic-family rules
-#: added on 2026-09-28, so a detection or a false alarm from any of them is
-#: attributed to a rule and never counted as the keyword pass.
+#: Every named rule: the three structural rules, the classic-family rules
+#: added on 2026-09-28, and the guard-call rule added against the 2026-09-27
+#: probes, so a detection or a false alarm from any of them is attributed to
+#: a rule and never counted as the keyword pass.
 STRUCTURAL_RULES = {
     "authz_comparison_inverted", "permissive_cors_origin", "security_call_removed",
     "sql_built_from_strings", "tls_verification_disabled", "shell_command_from_input",
+    "authz_guard_call_unnegated",
 }
 LANGUAGES = ("javascript", "typescript")
 
