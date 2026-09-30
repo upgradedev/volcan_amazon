@@ -46,11 +46,11 @@ Tuning record. The two choices below were made against the training half of
 import re
 
 from src.domain.ast_security_rules import (
+    _ORIGIN_TARGETS,
+    _WILDCARD_ORIGINS,
     AUTHORIZATION_TERMS,
     SQL_STATEMENT,
     AstFinding,
-    _ORIGIN_TARGETS,
-    _WILDCARD_ORIGINS,
     _is_security_call,
     values_words,
 )
