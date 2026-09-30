@@ -881,7 +881,7 @@ estimate unless it says ESTIMATE.
 | Security-flag detection, JavaScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 25.0% recall (2/8), 0.0% false positives (0/8), the parser before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **50.0% recall (4/8), 0.0% false positives (0/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
 | Security-flag detection, TypeScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 37.5% recall (3/8), 25.0% false positives (2/8), before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **75.0% recall (6/8), 25.0% false positives (2/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
 | Security-flag detection, JavaScript and TypeScript, eight probes written after the rules to find where they break (4 must flag, 4 must not; self-authored, synthetic; not part of the corpus or either half) | not applicable | **0 of 4 detected; all 4 that must not flag are flagged, each by a structural rule**, 2026-09-27 | `python scripts/benchmark_js_ts_detection.py --probes` |
-| Documented Alexa+ client session, replayed locally, `tools/call` round trip | not applicable | Median of 15 sessions per client shape, against a local server on 127.0.0.1:8841 (`python -m src.interfaces.mcp_server --port 8841`) after three warm-up sessions, local engine, no AWS credentials, 2026-09-27, after the version-header fix: every one of the six shapes (asks for 2025-03-26 or 2025-11-25; follows the protocol, declares the revision it asked for, or never sends the header) answered in 15 of 15 sessions with the finding in the first sentence. Medians for the 2025-03-26 shapes: 32.0 ms (range 25.6 to 50.4) spec-following, 27.3 ms (24.1 to 36.9) declaring, 26.8 ms (21.5 to 33.8) no header; for the 2025-11-25 shapes: 29.1 ms (23.8 to 38.4), 27.3 ms (24.5 to 39.8), 27.8 ms (23.6 to 29.4). Amazon's documented limit is 500 ms. Earlier the same day, at `f3331d6`, the no-header shape was refused. Not the endpoint registered in the add-on manifest, which runs an older build that still refuses that shape, and not Alexa+ | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8841/mcp --runs 15` |
+| Documented Alexa+ client session, replayed locally, `tools/call` round trip | not applicable | Median of 15 sessions per client shape, against a local server on 127.0.0.1:8841 (`python -m src.interfaces.mcp_server --port 8841`) after three warm-up sessions, local engine, no AWS credentials, 2026-09-27, after the version-header fix: every one of the six shapes (asks for 2025-03-26 or 2025-11-25; follows the protocol, declares the revision it asked for, or never sends the header) answered in 15 of 15 sessions with the finding in the first sentence. Medians for the 2025-03-26 shapes: 32.0 ms (range 25.6 to 50.4) spec-following, 27.3 ms (24.1 to 36.9) declaring, 26.8 ms (21.5 to 33.8) no header; for the 2025-11-25 shapes: 29.1 ms (23.8 to 38.4), 27.3 ms (24.5 to 39.8), 27.8 ms (23.6 to 29.4). Amazon's documented limit is 500 ms. Earlier the same day, at `f3331d6`, the no-header shape was refused. Not the endpoint registered in the add-on manifest (which serves this commit since 2026-09-30; on 2026-09-27 it ran an older build that still refused that shape), and not Alexa+ | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8841/mcp --runs 15` |
 | Digest earcon, benign patch vs security-sensitive patch | **byte-identical until 2026-09-08**: both returned `DIFF_READY`, 19448 WAV bytes, `sha256[:16] 08f48648388bff02` | 19448 bytes `08f48648388bff02` for the benign patch, 26504 bytes `22c91bec11e275d1` for the security-sensitive one | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
 | Patch parse latency, 1000 steady runs | not measured | mean 0.281 ms; p95 0.448 ms | `python scripts/benchmark_suite.py` |
 | Earcon synthesis latency, 1000 steady runs | not measured | mean 3.592 ms; p95 6.565 ms | `python scripts/benchmark_suite.py` |
@@ -1139,12 +1139,19 @@ git rev-list --count 2d0b8f8..HEAD
   This branch opens the spoken summary with the finding itself. The public build therefore
   does not speak the headline finding, and it does not show a Bedrock answer.
 
-[`deploy_teardown_receipt.json`](../deploy_teardown_receipt.json) is a superseded probe from
-2026-09-05 of an even older commit, `38668ad`, and says so in its `_note`. Readiness gates D2
-and G2 stay red until the owner redeploys the submitted commit, grants the Bedrock permission
-if the model path is to be shown (the checked-in Terraform in [`infra/`](../infra/) keeps it
-behind `enable_bedrock_mantle`), and records
-the new `source_revision`. Until then, run the server locally to see this branch.
+**Checked on 2026-09-30, and current with this branch.** The endpoint was redeployed from HEAD and the Bedrock mantle grant was attached the same day:
+
+```bash
+curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health | python -m json.tool
+# source_revision 0e96e45ff9d136f9dbc7e59076808ca45eef4497; bedrock_model_path ready_to_attempt;
+# durable_state configured_reachable (DynamoDB volcan-state-euw1-prod, Secrets Manager secret)
+curl -s -X POST -H "Content-Type: application/json" --data @auth_bypass.json <endpoint>/api/digest_semantic_diff
+# HTTP 200, synthesis_mode bedrock, synthesis_fallback_reason null; the spoken summary names
+# the admin-check bypass as an authentication bypass. First model answer recorded for this repo.
+```
+
+[`deploy_teardown_receipt.json`](../deploy_teardown_receipt.json) is still the superseded probe from
+2026-09-05 of an even older commit, `38668ad`, and says so in its `_note`. Gates D2 and G2 read that committed file, so they stay red until a fresh receipt is recorded; live observations stay uncommitted by convention, because committing one moves HEAD and invalidates its own comparison. The 2026-09-27 block above stays as the dated history of the older build.
 
 ---
 
@@ -1191,7 +1198,7 @@ sources fetched with `curl` on 2026-09-27; the date after each link is the page'
 
 | Piece | What it is | Check it |
 |---|---|---|
-| [`alexa_plus/addon-package/addon.json`](../alexa_plus/addon-package/addon.json) | The MCP Toolkit manifest: name, descriptions, four example phrases and the MCP endpoint, which is the public Lambda URL and runs an older build today ([The public deployment](#the-public-deployment)). Nine values are placeholders on the reserved `.invalid` domain: the privacy page, the terms page, six icons and a carousel image, which must be the owner's own hosted files | `python scripts/validate_alexa_addon.py` prints `schema: pass` and lists the nine; `--strict` fails on them |
+| [`alexa_plus/addon-package/addon.json`](../alexa_plus/addon-package/addon.json) | The MCP Toolkit manifest: name, descriptions, four example phrases and the MCP endpoint, which is the public Lambda URL and serves this commit since 2026-09-30 ([The public deployment](#the-public-deployment)). Nine values are placeholders on the reserved `.invalid` domain: the privacy page, the terms page, six icons and a carousel image, which must be the owner's own hosted files | `python scripts/validate_alexa_addon.py` prints `schema: pass` and lists the nine; `--strict` fails on them |
 | [`scripts/validate_alexa_addon.py`](../scripts/validate_alexa_addon.py) | Checks the constraints in Amazon's schema reference: name up to 30 characters, short description up to 123, 3 to 4 example phrases, HTTPS URIs, the six icon sizes, a 600x900 carousel image, an MCP integration over HTTPS. A local stand-in: Amazon's CLI, which really validates, was not run | `python -m pytest tests/integration/test_alexa_plus_client_replay.py -v` |
 | [`tests/fixtures/alexa_plus_envelopes.py`](../tests/fixtures/alexa_plus_envelopes.py) and [`scripts/replay_alexa_plus_envelopes.py`](../scripts/replay_alexa_plus_envelopes.py) | The initialize and `tools/call` bodies Amazon documents for its Alexa+ MCP client, copied from the [lifecycle page](https://developer.amazon.com/docs/alexaplus/add-ons/mcp-toolkit-client-lifecycle.html) (Jul 10, 2026), with Amazon's example hotel tool swapped for `digest_semantic_diff` and the inverted admin-check patch, sent to a running server | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp` |
 
@@ -1397,21 +1404,21 @@ simulator in isolation mode, and record which headers the real client sends.
   value and any other language, JSON included, are outside them, which is what the four named
   misses in Measured numbers are. A Python line that does not parse produces no finding rather
   than a guess. The JavaScript and TypeScript rules read tokens one line at a time, not a
-  syntax tree, and their held-out recall is 50.0% (JavaScript) and 75.0% (TypeScript) on a
+  syntax tree, and their held-out recall is 62.5% (JavaScript) and 75.0% (TypeScript) on a
   self-authored corpus, independent of the tuning, not of the author. Eight probes written
   after the rules show the limit: a flip through a helper call or across two lines is missed,
   and an equivalent rewrite of a check is flagged (0 of 4 detected, 4 of 4 over-flagged).
   Until 2026-09-27 this entry said Python only.
-* **The public endpoint runs an older build, and Alexa hardware remains untested.** On
+* **The public endpoint serves this commit since 2026-09-30, and Alexa hardware remains untested.** On
   2026-09-23 `GET /health`, `/`, the REST digest and the MCP initialize/tool path answered
   successfully. On 2026-09-27 the same endpoint reported `source_revision` `2d0b8f8`, an
   ancestor of this branch 43 commits behind `6d2e227`; see
   [The public deployment](#the-public-deployment). No Alexa skill or Echo-device execution is
   inferred from that server proof.
-* **No video has been published.** A 164.52 second render at 1920x1080 (ffprobe) of a local run of
-  `7a3de49` exists outside the repository, pending upload by the owner; it supersedes the
-  174.32 second render of `1dc939f` and the earlier one of `de30b11`. The review-dialogue fixes
-  after `7a3de49` are not on camera, including extensionless file names, next from the
+* **No video has been published.** A 163.68 second render at 1920x1080 (ffprobe) of a local run of
+  `09d4862` exists outside the repository, pending upload by the owner; it supersedes the
+  164.52 second render of `7a3de49`, the 174.32 second render of `1dc939f` and the earlier one of `de30b11`. The review-dialogue fixes
+  after `09d4862` are not on camera, including extensionless file names, next from the
   overview, help examples from the open change, next steps outlined only where they work,
   plain words for a pull request that cannot be opened, and README as documentation. [`video/README.md`](../video/README.md) says how it was made.
   `video/` holds no footage, so gates E2 and E4 stay red.

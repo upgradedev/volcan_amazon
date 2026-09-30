@@ -32,8 +32,7 @@ the interface an Alexa+ MCP add-on would call. The add-on package for it is in
 or deployed: the [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) says Amazon's Alexa+ add-on tools are
 "available to select partners only". With AWS credentials and the `bedrock` extra,
 Volcan sends the digest request to Claude on Amazon Bedrock; otherwise, or when the call fails,
-a local deterministic engine answers and the response says why. No Bedrock answer has been
-recorded yet. The public endpoint is an AWS Lambda in eu-west-1, and [`infra/`](infra/) declares
+a local deterministic engine answers and the response says why. A Bedrock answer was recorded on 2026-09-30: one live digest answered `synthesis_mode: bedrock` with a null reason. The public endpoint is an AWS Lambda in eu-west-1, and [`infra/`](infra/) declares
 a Lambda with a function URL and a DynamoDB table in Terraform.
 
 ## Table of Contents
@@ -156,14 +155,13 @@ what the [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) asks
 Skill) per the Official Rules, and demo it via your own web-based simulator or front end."
 *Not possible for participants:* deploying the add-on package, because the add-on tools are
 partner-only (FAQ), so Alexa+ has never called Volcan. *Not tested:* an Echo device; the FAQ
-says "no physical device needed". *Missing:* a published demo video (a render of a local
-run exists, pending upload), a live GitHub write and a recorded Bedrock answer. *Not required
-for this track:* a public build of this version; the FAQ says "hosting isn't required", and the
-public endpoint runs an older build, as the table below says.
+says "no physical device needed". *Missing:* a published demo video (a render of a local run exists, pending upload) and a live GitHub write. *Not required
+for this track:* a public build of this version; the FAQ says "hosting isn't required". The
+public endpoint serves this commit, as the table below says.
 
 | | |
 |---|---|
-| **Live endpoint** | [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health) serves revision `2d0b8f8`, which is **behind this branch**: an ancestor of it, checked 2026-09-27 with `git merge-base --is-ancestor 2d0b8f8 HEAD`; `git rev-list --count 2d0b8f8..HEAD` prints the current gap. That build still refuses an MCP client that omits the `MCP-Protocol-Version` header, which this branch serves. It shows an older page, its spoken summary (`voice_summary`) does not name the inverted check although its `critical_findings` field does, and its Bedrock call is refused as not authorized, so the local engine answers. [Details](docs/EVIDENCE.md#the-public-deployment). |
+| **Live endpoint** | [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health) serves revision `0e96e45`, which **is this branch**: `/health` reported `source_revision` `0e96e45ff9d136f9dbc7e59076808ca45eef4497` on 2026-09-30 with `git rev-list --count HEAD` gap zero. It serves MCP clients that omit the version header, shows the current page, names the finding in the spoken summary, answers one recorded digest from Bedrock (mantle grant attached 2026-09-30), and keeps durable state in DynamoDB. [Details](docs/EVIDENCE.md#the-public-deployment). On 2026-09-27 it served `2d0b8f8`, 43 commits behind; that observation stays in EVIDENCE as history. |
 | **Evidence** | [docs/EVIDENCE.md](docs/EVIDENCE.md): every claim with the command that prints it |
 | **Source** | A private repository. The [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) rule for one: "Add the Amazon and Devpost reviewers as collaborators before the submission deadline". That is an owner step. The MIT licence is in [LICENSE](LICENSE) |
 
@@ -174,11 +172,11 @@ public endpoint runs an older build, as the table below says.
 | Earcon that encodes the verdict | Real: different WAV bytes for a finding and a clean patch | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
 | Eight-dot code Braille | Real and lossless over 95 ASCII characters. Not reviewed by a Braille transcriber, not read on a physical display | `python -m pytest tests/unit/test_braille_code_fidelity.py -v` |
 | Governed review | Real: HMAC single-use grants, self-approval refused, head commit re-read, dry run by default. No live GitHub review has ever been sent | `python -m pytest tests/unit/test_governance.py -v` |
-| Digest by Claude on Amazon Bedrock | Real code with a stated fallback. A provider failure returns a fixed public category; raw account, role and request identifiers never enter the anonymous response. No Bedrock answer has been recorded: locally the SDK was absent, and the public build's call is refused as not authorized | `python -m pytest tests/unit/test_bedrock_synthesis_path.py -v` |
+| Digest by Claude on Amazon Bedrock | Real code with a stated fallback. A provider failure returns a fixed public category; raw account, role and request identifiers never enter the anonymous response. One Bedrock answer recorded 2026-09-30 (live digest, `synthesis_mode: bedrock`, null reason); where the SDK is absent the local engine answers with the reason stated | `python -m pytest tests/unit/test_bedrock_synthesis_path.py -v` |
 | Voice loop | Simulated: the browser's speech, not an Alexa skill, and no test drives a microphone | [Evidence](docs/EVIDENCE.md#what-is-true-and-what-is-simulated) |
-| Shared durable state | In the code and the Terraform, not deployed; a local run keeps state in memory | The `durable_state` field of `GET /health` says which |
-| Alexa+ MCP add-on package | Built and tested locally, not certified or deployed: the hackathon FAQ says the add-on tools are "available to select partners only", so participants cannot deploy it. A replay of Amazon's documented Alexa+ client requests, against a local build of this commit and not the registered endpoint (which runs an older build), gets the finding back from all three client shapes: one that follows the protocol's version rules, one that declares the revision it asked for, and one that never sends the version header. The page's Evidence tab, Server and MCP, runs the same three clients from the browser on a press. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
-| Demo video | Rendered locally: 164.52 s at 1920x1080 (ffprobe) from a local run of `7a3de49`, whose `src/` and `docs/` it shows. The review-dialogue fixes after it are not on camera, including README and other extensionless file names, next from the overview, help examples taken from the open change, next steps outlined only where they work, plain words when a pull request cannot be opened, and README spoken as documentation. Pending upload by the owner; no public link yet | [video/README.md](video/README.md) |
+| Shared durable state | Deployed: DynamoDB `volcan-state-euw1-prod` plus a Secrets Manager approval secret; a local run keeps state in memory | The `durable_state` field of `GET /health` says which |
+| Alexa+ MCP add-on package | Built and tested locally, not certified or deployed: the hackathon FAQ says the add-on tools are "available to select partners only", so participants cannot deploy it. A replay of Amazon's documented Alexa+ client requests, against a local build of this commit (the registered endpoint serves this commit since 2026-09-30; the replay was not re-run against it), gets the finding back from all three client shapes: one that follows the protocol's version rules, one that declares the revision it asked for, and one that never sends the version header. The page's Evidence tab, Server and MCP, runs the same three clients from the browser on a press. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
+| Demo video | Rendered locally: 163.68 s at 1920x1080 (ffprobe) from a local run of `09d4862`, whose `src/` and `docs/` it shows (earlier 164.52 s render from `7a3de49` superseded). The review-dialogue fixes after `09d4862` are not on camera, including README and other extensionless file names, next from the overview, help examples taken from the open change, next steps outlined only where they work, plain words when a pull request cannot be opened, and README spoken as documentation. Pending upload by the owner; no public link yet | [video/README.md](video/README.md) |
 | Test suite | 725 passing, 92.74% statement coverage, 2026-09-29 | `python -m pytest tests/ -q --cov=src` |
 
 ## Who it is for and who pays
