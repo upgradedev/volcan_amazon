@@ -1,4 +1,4 @@
-"""The three structural security rules, for JavaScript and TypeScript lines.
+"""The structural security rules, for JavaScript and TypeScript lines.
 
 ``ast_security_rules`` reads a changed line as a Python syntax tree. A line of
 JavaScript or TypeScript is not Python, so that module either refuses it or,
@@ -24,13 +24,24 @@ silent on:
 * ``tls_verification_disabled``  ``rejectUnauthorized`` or ``strictSSL`` set to
   false, or ``NODE_TLS_REJECT_UNAUTHORIZED`` set to 0
 
+and, written against the eight probes in
+``tests/fixtures/diff_corpus_js_ts_probes.py``:
+
+* ``authz_guard_call_unnegated``  a ``!name(...)`` guard rewritten as
+  ``name(...)`` with the same deny-shaped consequent
+
 These are token rules, not a full parse. Each changed line is split into
 JavaScript tokens (strings, template literals, numbers, names, operators and
 punctuation), and the rules read patterns in that token stream. No parser
-package is used, so the product gains no dependency. The cost is stated: a
-statement spread over several lines is read one line at a time, and a
-construct the token patterns do not describe produces no finding rather than a
-guess.
+package is used, so the product gains no dependency. Lines whose brackets
+stay open are joined into logical lines before the comparison and origin
+rules read them, so a statement spread over several lines is read whole;
+the other rules still read one physical line at a time. The cost is stated:
+a construct the token patterns do not describe produces no finding rather
+than a guess, an equivalent rewrite through several statements (an
+early-return refactor of a check) still flags, and a wildcard origin in a
+local-only development server still flags, because failing closed on a
+one-line dismissal costs less than an open cross-origin policy.
 
 Tuning record. The two choices below were made against the training half of
 ``tests/fixtures/diff_corpus_js_ts.py`` only:
@@ -216,8 +227,8 @@ def _operand_right(tokens, index) -> list[tuple[str, str]]:
     return tokens[start:position]
 
 
-def _comparisons(line: str) -> list[tuple[str, str, str, str]]:
-    """(left, operator name, right, readable source) for each comparison."""
+def _comparisons_indexed(line: str) -> list[tuple[list[tuple[str, str]], str, str, str, str, int]]:
+    """(tokens, left, operator name, right, readable source, operator index)."""
     tokens = tokenize(line)
     found = []
     for index, (kind, text) in enumerate(tokens):
@@ -228,8 +239,71 @@ def _comparisons(line: str) -> list[tuple[str, str, str, str]]:
         if not left or not right:
             continue
         left_text, right_text = _render(left), _render(right)
-        found.append((left_text, _COMPARISON[text], right_text, f"{left_text} {text} {right_text}"))
+        found.append((tokens, left_text, _COMPARISON[text], right_text,
+                      f"{left_text} {text} {right_text}", index))
     return found
+
+
+def _comparisons(line: str) -> list[tuple[str, str, str, str]]:
+    """(left, operator name, right, readable source) for each comparison."""
+    return [(left, operator, right, source)
+            for _, left, operator, right, source, _ in _comparisons_indexed(line)]
+
+
+def _join_logical_lines(lines: list[str]) -> list[str]:
+    """Physical lines joined where a statement visibly continues.
+
+    Two continuations: brackets left open at end of line, and a line ending
+    in a colon (an object key on its own line, ``origin:`` above its value).
+    Token-aware: brackets inside strings never count, because the tokenizer
+    eats the whole literal. The joined text keeps its newlines, so the cited
+    source a finding renders is the exact statement, whitespace aside.
+    """
+    joined: list[str] = []
+    buf: list[str] = []
+    depth = 0
+    for line in lines:
+        buf.append(line)
+        for _kind, text in tokenize(line):
+            if text in "([{":
+                depth += 1
+            elif text in ")]}":
+                depth = max(0, depth - 1)
+        stripped = line.strip()
+        continues = depth > 0 or (
+            stripped.endswith(":") and not stripped.endswith("::")
+        )
+        if not continues:
+            joined.append("\n".join(buf))
+            buf = []
+            depth = 0
+    if buf:
+        joined.append("\n".join(buf))
+    return joined
+
+
+def _negation_wraps(tokens: list[tuple[str, str]], op_index: int) -> bool:
+    """Whether a ``!(...)`` around the comparison at ``op_index`` negates it."""
+    for pos, (_kind, text) in enumerate(tokens):
+        if text != "!" or pos + 1 >= len(tokens):
+            continue
+        if tokens[pos + 1][1] != "(":
+            continue
+        if _matching(tokens, pos + 1, 1) > op_index:
+            return True
+    return False
+
+
+def _is_test_file(file_path: str) -> bool:
+    """Test sources never gate users, so their assertions are not findings."""
+    lowered = (file_path or "").lower().replace("\\", "/")
+    name = lowered.rsplit("/", 1)[-1]
+    return (
+        "/__tests__/" in lowered
+        or name.startswith("test_")
+        or ".test." in name
+        or ".spec." in name
+    )
 
 
 def _decides_authorization(left: str, right: str) -> bool:
@@ -240,16 +314,26 @@ def _decides_authorization(left: str, right: str) -> bool:
     return bool(_PRINCIPAL.search(text) or _PRIVILEGED_VALUE.search(right) or _PRIVILEGED_VALUE.search(left))
 
 
-def _find_inverted_authorization(added: list[str], removed: list[str]) -> list[AstFinding]:
+def _find_inverted_authorization(
+    added: list[str], removed: list[str], file_path: str = ""
+) -> list[AstFinding]:
     findings: list[AstFinding] = []
+    if _is_test_file(file_path):
+        return findings
     seen: set[str] = set()
-    before = [item for line in removed for item in _comparisons(line)]
-    for line in added:
-        for left, operator, right, source in _comparisons(line):
-            for old_left, old_operator, old_right, old_source in before:
+    before = [
+        item
+        for line in _join_logical_lines(removed)
+        for item in _comparisons_indexed(line)
+    ]
+    for line in _join_logical_lines(added):
+        for tokens, left, operator, right, source, op_index in _comparisons_indexed(line):
+            for old_tokens, old_left, old_operator, old_right, old_source, old_index in before:
                 if (left, right) != (old_left, old_right):
                     continue
                 if _INVERSE.get(old_operator) != operator:
+                    continue
+                if _negation_wraps(old_tokens, old_index) != _negation_wraps(tokens, op_index):
                     continue
                 if not _decides_authorization(left, right) or source in seen:
                     continue
@@ -309,7 +393,7 @@ def _find_permissive_cors(added: list[str]) -> list[AstFinding]:
             f"a cross-origin policy was {why}: {label}",
         ))
 
-    for line in added:
+    for line in _join_logical_lines(added):
         tokens = tokenize(line)
         for index, (kind, text) in enumerate(tokens):
             nxt = tokens[index + 1][1] if index + 1 < len(tokens) else ""
@@ -371,6 +455,54 @@ def _called_names(lines: list[str]) -> dict[str, str]:
             end = closing + 1 if closing > 0 else len(tokens)
             names.setdefault(text, _render(tokens[start:end]))
     return names
+
+
+#: A consequent that refuses the caller rather than continuing past them.
+_DENY_CONSEQUENT = re.compile(r"(deny|forbid|unauthori[sz]ed|forbidden|\b40[13]\b)", re.IGNORECASE)
+
+
+def _guard_calls(line: str) -> list[tuple[str, str]]:
+    """(name, call as written) for each call in an if/while guard line."""
+    tokens = tokenize(line)
+    if not any(text in ("if", "while") for _, text in tokens):
+        return []
+    if not any(text in ("return", "throw") for _, text in tokens):
+        return []
+    calls = []
+    for index, (kind, text) in enumerate(tokens):
+        if kind != "name" or text in _NOT_CALLS:
+            continue
+        negated = index > 0 and tokens[index - 1][1] == "!"
+        if index + 1 >= len(tokens) or tokens[index + 1][1] != "(":
+            continue
+        closing = _matching(tokens, index + 1, 1)
+        end = closing + 1 if closing > 0 else len(tokens)
+        start = index - 1 if negated else index
+        calls.append((text, _render(tokens[start:end])))
+    return calls
+
+
+def _find_unnegated_guard_call(added: list[str], removed: list[str]) -> list[AstFinding]:
+    findings: list[AstFinding] = []
+    before: dict[str, tuple[str, str]] = {}
+    for line in _join_logical_lines(removed):
+        for name, source in _guard_calls(line):
+            if source.startswith("!"):
+                before.setdefault(name, (source, line))
+    for line in _join_logical_lines(added):
+        for name, source in _guard_calls(line):
+            if source.startswith("!") or name not in before:
+                continue
+            old_source, old_line = before[name]
+            auth_signal = AUTHORIZATION_TERMS.search(_snake(name)) or _PRIVILEGED_VALUE.search(name)
+            deny_signal = _DENY_CONSEQUENT.search(line) or _DENY_CONSEQUENT.search(old_line)
+            if not (auth_signal or deny_signal):
+                continue
+            findings.append(AstFinding(
+                "authz_guard_call_unnegated",
+                f"a guard call was un-negated: {old_source} became {source}",
+            ))
+    return findings
 
 
 def _find_removed_security_calls(added: list[str], removed: list[str]) -> list[AstFinding]:
@@ -549,12 +681,15 @@ def _find_tls_verification_disabled(added: list[str], removed: list[str]) -> lis
     ]
 
 
-def evaluate(added_lines: list[str], removed_lines: list[str]) -> list[AstFinding]:
+def evaluate(
+    added_lines: list[str], removed_lines: list[str], file_path: str = ""
+) -> list[AstFinding]:
     """Run every JavaScript and TypeScript rule over one file's changed lines."""
     return (
-        _find_inverted_authorization(added_lines, removed_lines)
+        _find_inverted_authorization(added_lines, removed_lines, file_path)
         + _find_permissive_cors(added_lines)
         + _find_removed_security_calls(added_lines, removed_lines)
         + _find_sql_built_from_strings(added_lines, removed_lines)
         + _find_tls_verification_disabled(added_lines, removed_lines)
+        + _find_unnegated_guard_call(added_lines, removed_lines)
     )

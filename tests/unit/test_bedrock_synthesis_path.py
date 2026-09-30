@@ -16,7 +16,9 @@ from src.infrastructure.bedrock_adapter import (
     DEFAULT_MODEL_ID,
     MODE_BEDROCK,
     MODE_HEURISTIC,
+    MODEL_DIFF_CHAR_BUDGET,
     BedrockSynthesisAdapter,
+    shorten_for_speech,
 )
 
 SECTION = DiffSectionDigest(
@@ -223,3 +225,74 @@ def test_the_region_reaches_the_client_factory(monkeypatch, with_credentials):
     _run(BedrockSynthesisAdapter(client_factory=_factory))
 
     assert seen["region"] == "eu-central-1"
+
+
+def _run_diff(adapter, raw_diff):
+    return asyncio.run(adapter.summarize_diff(raw_diff, [SECTION]))
+
+
+def test_short_model_prose_passes_through_untouched(with_credentials):
+    client = _StubClient({"content": [{"type": "text", "text": "Authorization check inverted."}]})
+    adapter = BedrockSynthesisAdapter(client_factory=lambda region: client)
+
+    report = _run(adapter)
+
+    assert report.executive_spoken_summary == "Authorization check inverted."
+    assert report.model_prose_full == "Authorization check inverted."
+
+
+def test_long_model_prose_is_cut_at_a_sentence_end(with_credentials):
+    """The September receipt cut mid-word ("admin ac"); speech never does."""
+    prose = (
+        "In src/auth.py, login now grants a session to any admin flagged user without "
+        "verifying their password. High risk: critical authentication bypass of the login "
+        "form that guards every protected page and API route in this service."
+    )
+    client = _StubClient({"content": [{"type": "text", "text": prose}]})
+    adapter = BedrockSynthesisAdapter(client_factory=lambda region: client)
+
+    report = _run(adapter)
+    spoken = report.executive_spoken_summary
+
+    assert spoken == (
+        "In src/auth.py, login now grants a session to any admin flagged user without "
+        "verifying their password. \u2026"
+    )
+    assert report.model_prose_full == prose
+
+
+def test_word_boundary_cut_when_no_sentence_end_fits():
+    prose = " ".join(f"word{i:03d}" for i in range(60))
+    spoken = shorten_for_speech(prose)
+
+    assert spoken.endswith(" \u2026")
+    assert "\u2026" not in spoken[:-2]
+    assert len(spoken) <= 182
+    tail = spoken[:-2].rsplit(" ", 1)[-1]
+    assert tail in prose.split(), f"cut inside a word: {tail!r}"
+
+
+def test_a_long_patch_records_what_the_model_saw(with_credentials):
+    client = _StubClient({"content": [{"type": "text", "text": "ok"}]})
+    adapter = BedrockSynthesisAdapter(client_factory=lambda region: client)
+    raw_diff = "x" * 5000
+
+    report = _run_diff(adapter, raw_diff)
+    sent_prompt = client.messages.seen["messages"][0]["content"]
+
+    assert report.model_input_chars_sent == MODEL_DIFF_CHAR_BUDGET == 3000
+    assert report.model_input_chars_total == len(raw_diff)
+    assert sent_prompt.endswith("x" * 3000)
+    assert "x" * 3001 not in sent_prompt
+
+
+def test_heuristic_digests_carry_no_model_shaped_data(with_credentials):
+    client = _StubClient(error=TimeoutError("timed out"))
+    adapter = BedrockSynthesisAdapter(client_factory=lambda region: client)
+
+    report = _run(adapter)
+
+    assert report.synthesis_mode == MODE_HEURISTIC
+    assert report.model_prose_full is None
+    assert report.model_input_chars_sent is None
+    assert report.model_input_chars_total is None

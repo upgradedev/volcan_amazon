@@ -51,6 +51,31 @@ DEFAULT_MODEL_ID = "anthropic.claude-opus-5"
 #: so a small ceiling truncates the answer rather than saving anything.
 DEFAULT_MAX_TOKENS = 16000
 
+#: Diff characters the model is shown. A longer patch is cut here, and the
+#: report says so with exact counts rather than silently narrowing the view.
+MODEL_DIFF_CHAR_BUDGET = 3000
+
+#: Spoken-summary characters. The model is asked for under 25 words, but its
+#: answer is cut for the ear anyway, at a sentence end when one fits and at
+#: a word end otherwise, never mid-word, with an ellipsis marking the cut.
+SPOKEN_SUMMARY_CHAR_BUDGET = 180
+
+
+def shorten_for_speech(text: str, budget: int = SPOKEN_SUMMARY_CHAR_BUDGET) -> str:
+    """Flatten model prose to one speakable line within ``budget`` chars."""
+    flat = " ".join(text.split())
+    if len(flat) <= budget:
+        return flat
+    room = flat[:budget]
+    for end in (". ", "! ", "? "):
+        cut = room.rfind(end)
+        if cut > 0:
+            return room[: cut + 1] + " \u2026"
+    cut = room.rfind(" ")
+    if cut > 0:
+        return room[:cut] + " \u2026"
+    return room + " \u2026"
+
 #: The one field ``/health`` reports about the model path. Credentials alone
 #: were reported for a while, and read as a promise that a model would answer:
 #: they resolve on the development machine, where the SDK is absent and no call
@@ -231,14 +256,18 @@ class BedrockSynthesisAdapter:
 
         raise ValueError("the Bedrock response carried no text block")
 
-    def _invoke(self, raw_diff: str) -> str:
-        """The blocking client call, run off the event loop by the caller."""
+    def _invoke(self, diff_excerpt: str) -> str:
+        """The blocking client call, run off the event loop by the caller.
+
+        ``diff_excerpt`` is already cut to ``MODEL_DIFF_CHAR_BUDGET`` by the
+        caller, which records what the model saw; this method sends it whole.
+        """
         client = self._build_client()
         prompt = (
             "You are Volcan, an accessibility agent assisting a visually impaired engineer. "
             "Summarize the following code changes into a clear, concise (under 25 words) "
             "executive spoken summary. Identify any high-risk changes.\n\n"
-            f"Diff:\n{raw_diff[:3000]}"
+            f"Diff:\n{diff_excerpt}"
         )
         message = client.messages.create(
             model=self.model_id,
@@ -297,10 +326,11 @@ class BedrockSynthesisAdapter:
                 "no AWS credentials were resolved by the boto3 credential chain",
             )
 
+        excerpt = raw_diff[:MODEL_DIFF_CHAR_BUDGET]
         try:
             # The client is synchronous. Calling it directly would block the
             # event loop for the whole round trip, stalling every other request.
-            content_text = await asyncio.to_thread(self._invoke, raw_diff)
+            content_text = await asyncio.to_thread(self._invoke, excerpt)
         except ImportError:
             return self._heuristic_fallback(
                 raw_diff, sections,
@@ -318,12 +348,15 @@ class BedrockSynthesisAdapter:
             total_files_changed=len(sections),
             total_insertions=sum(s.added_count for s in sections),
             total_deletions=sum(s.removed_count for s in sections),
-            executive_spoken_summary=content_text[:180],
+            executive_spoken_summary=shorten_for_speech(content_text),
             category_breakdown={},
             critical_findings=[],
             sections=sections,
             synthesis_mode=MODE_BEDROCK,
             fallback_reason=None,
+            model_prose_full=content_text,
+            model_input_chars_sent=len(excerpt),
+            model_input_chars_total=len(raw_diff),
         )
 
     def summarize_locally(

@@ -74,18 +74,21 @@ def test_published_figures():
 
 def test_the_probes_written_after_the_rules_break_them_as_recorded():
     """Eight probes written after the rules, to find where line-at-a-time
-    reading breaks (tests/fixtures/diff_corpus_js_ts_probes.py). Measured once
-    on 2026-09-27 and recorded, not fixed: every probe that must flag is
-    missed, and every probe that must not flag is flagged by a structural rule.
+    reading breaks (tests/fixtures/diff_corpus_js_ts_probes.py). Measured on
+    2026-09-27 as 0 of 4 detected and 4 of 4 over-flagged; the 2026-09-30 rule
+    work (logical-line joining, negation cancellation, test-source scope, the
+    guard-call rule) moved the record to 4 of 4 detected and 2 of 4
+    over-flagged. probe-01 (early-return refactor) and probe-03 (local-only
+    wildcard) fail closed by design: see the scope note in docs/EVIDENCE.md.
     Closing one means changing its expected outcome here and in the docs."""
     from scripts.benchmark_js_ts_detection import measure
     from tests.fixtures.diff_corpus_js_ts_probes import PROBES
 
     assert len(PROBES) == 8
     rows = measure(PROBES)
-    assert set(rows["javascript"]["missed_fixture_ids"]) == {"probe-05", "probe-07"}
-    assert set(rows["typescript"]["missed_fixture_ids"]) == {"probe-06", "probe-08"}
+    assert set(rows["javascript"]["missed_fixture_ids"]) == set()
+    assert set(rows["typescript"]["missed_fixture_ids"]) == set()
     assert set(rows["javascript"]["false_positive_fixture_ids"]) == {"probe-01", "probe-03"}
-    assert set(rows["typescript"]["false_positive_fixture_ids"]) == {"probe-02", "probe-04"}
+    assert set(rows["typescript"]["false_positive_fixture_ids"]) == set()
     assert rows["javascript"]["false_positives_from_structural_rule"] == 2
-    assert rows["typescript"]["false_positives_from_structural_rule"] == 2
+    assert rows["typescript"]["false_positives_from_structural_rule"] == 0

@@ -8,12 +8,12 @@ from src.domain import js_security_rules
 from src.domain.semantic_diff import UnifiedDiffParser
 
 
-def _ids(added, removed=()):
-    return [f.rule_id for f in js_security_rules.evaluate(list(added), list(removed))]
+def _ids(added, removed=(), path="src/change.js"):
+    return [f.rule_id for f in js_security_rules.evaluate(list(added), list(removed), path)]
 
 
-def _spoken(added, removed=()):
-    return " ".join(f.spoken for f in js_security_rules.evaluate(list(added), list(removed)))
+def _spoken(added, removed=(), path="src/change.js"):
+    return " ".join(f.spoken for f in js_security_rules.evaluate(list(added), list(removed), path))
 
 
 # --- tokens -------------------------------------------------------------------
@@ -55,6 +55,27 @@ def test_a_relaxed_bound_is_not_an_inversion():
     assert _ids(["if (user.plan.seats <= used) {"], ["if (user.plan.seats < used) {"]) == []
 
 
+def test_a_comparison_split_across_two_lines_is_still_caught():
+    removed = ["  if (session.account", "      === 'owner') {"]
+    added = ["  if (session.account", "      !== 'owner') {"]
+    assert _ids(added, removed) == ["authz_comparison_inverted"]
+
+
+def test_a_double_negation_cancelled_by_the_rewrite_is_refused():
+    removed = ["  if (!(member.tier == 'staff')) return deny(res);"]
+    added = ["  if (member.tier != 'staff') return deny(res);"]
+    assert _ids(added, removed) == []
+
+
+def test_an_assertion_rewrite_in_a_test_file_is_refused():
+    removed = ["    expect(session.role === 'owner').toBe(true);"]
+    added = ["    expect(session.role !== 'owner').toBe(false);"]
+    assert _ids(added, removed, path="src/routes/permissions.spec.ts") == []
+    assert _ids(added, removed, path="src/routes/permissions.ts") == [
+        "authz_comparison_inverted"
+    ]
+
+
 # --- Rule 2: a cross-origin policy widened ------------------------------------
 
 def test_a_wildcard_in_an_origin_list_is_found():
@@ -84,6 +105,33 @@ def test_an_origin_that_is_a_point_is_refused():
 
 def test_origin_false_is_refused():
     assert _ids(["  origin: false,"]) == []
+
+
+def test_an_origin_value_on_its_own_line_is_caught():
+    assert _ids(['    "Access-Control-Allow-Origin":', '      "*",']) == ["permissive_cors_origin"]
+
+
+# --- Rule: a guard call un-negated --------------------------------------------
+
+def test_an_unnegated_guard_call_is_found_and_quotes_both_sides():
+    removed = ["  if (!hasPermission(actor, 'merge')) return deny();"]
+    added = ["  if (hasPermission(actor, 'merge')) return deny();"]
+    assert _ids(added, removed) == ["authz_guard_call_unnegated"]
+    spoken = _spoken(added, removed)
+    assert "!hasPermission(actor, 'merge')" in spoken
+    assert "became hasPermission(actor, 'merge')" in spoken
+
+
+def test_a_guard_flip_without_an_authorization_signal_is_refused():
+    removed = ["  if (!ready(state)) return;"]
+    added = ["  if (ready(state)) return;"]
+    assert _ids(added, removed) == []
+
+
+def test_a_denied_consequent_counts_as_the_signal():
+    removed = ["  if (!check(user)) return deny();"]
+    added = ["  if (check(user)) return deny();"]
+    assert _ids(added, removed) == ["authz_guard_call_unnegated"]
 
 
 # --- Rule 3: a verification call removed --------------------------------------

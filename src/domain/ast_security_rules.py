@@ -536,8 +536,14 @@ def _find_tls_verification_disabled(
     ]
 
 
-def evaluate(added_lines: list[str], removed_lines: list[str]) -> list[AstFinding]:
-    """Run every structural rule over one file's added and removed lines."""
+def evaluate(
+    added_lines: list[str], removed_lines: list[str], file_path: str = ""
+) -> list[AstFinding]:
+    """Run every structural rule over one file's added and removed lines.
+
+    ``file_path`` is accepted for symmetry with the JavaScript rules, which
+    skip test sources; the Python rules do not read it.
+    """
     added = _parsed_lines(added_lines)
     removed = _parsed_lines(removed_lines)
     return (

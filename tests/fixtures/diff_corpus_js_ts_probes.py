@@ -16,7 +16,9 @@ This is not part of the 64-case corpus and not part of its held-out half: it
 was written with full knowledge of the rules, to find where they break. It is
 self-authored and synthetic, it is small (four of each label), and its figure
 is reported on its own by ``python scripts/benchmark_js_ts_detection.py
---probes``. The rules were not changed after it was measured.
+--probes``. The rules were first measured against it unchanged (0 of 4
+detected, 4 of 4 over-flagged); the 2026-09-30 rule work answers four of
+the eight and documents the other four as fail-closed limits.
 """
 from tests.fixtures.diff_corpus_js_ts import JS, TS, LabelledDiff
 
