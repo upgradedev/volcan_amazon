@@ -1158,7 +1158,7 @@ git rev-list --count 2d0b8f8..HEAD
   This branch opens the spoken summary with the finding itself. The public build therefore
   does not speak the headline finding, and it does not show a Bedrock answer.
 
-**Checked on 2026-09-30, and current with this branch.** The endpoint was redeployed from HEAD `6e9ae4d` (PR #22: detector scope plus model prose retention); the re-downloaded live zip carries the new rule and prose markers, and an independent 2026-10-01 review digested the auth-bypass patch live (HTTP 200, `synthesis_mode` bedrock, 19.67 s). The 2026-09-30 block below stays as the dated history of the earlier build, which recorded the first model answer:
+**Checked on 2026-10-01, and current with this branch.** The endpoint was redeployed from HEAD `9b2bcb9` (PR #23: full model prose and coverage, markdown-stripped speech, CORS test-scope, detector probes round 2); the re-downloaded live zip is byte-identical to the pushed package, carries the `MODEL_DIFF_CHAR_BUDGET` and `strip_markdown_for_speech` markers, and `bedrock_model_path` is still `ready_to_attempt`. The `6e9ae4d` build (PR #22) stays as history: an independent 2026-10-01 review digested the auth-bypass patch live against it (HTTP 200, `synthesis_mode` bedrock, 19.67 s). The 2026-09-30 block below stays as the dated history of the earlier build, which recorded the first model answer:
 
 ```bash
 curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health | python -m json.tool
