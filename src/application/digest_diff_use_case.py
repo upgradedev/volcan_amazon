@@ -71,7 +71,9 @@ class DigestDiffUseCase:
         else:
             enhanced_report = await self._bedrock.summarize_diff(raw_diff, sections)
         
-        # Merge deterministic bounds with synthesis
+        # Merge deterministic bounds with synthesis. The model-evidence fields
+        # ride along untouched: rebuilding the report without them answered
+        # model_input_truncated:false for a prefix the model never saw whole.
         return SemanticDiffReport(
             total_files_changed=len(sections),
             total_insertions=total_insertions,
@@ -82,4 +84,7 @@ class DigestDiffUseCase:
             sections=sections,
             synthesis_mode=enhanced_report.synthesis_mode,
             fallback_reason=enhanced_report.fallback_reason,
+            model_prose_full=enhanced_report.model_prose_full,
+            model_input_chars_sent=enhanced_report.model_input_chars_sent,
+            model_input_chars_total=enhanced_report.model_input_chars_total,
         )

@@ -1043,6 +1043,11 @@
                 </div>
               </div>
               <p class="caption" id="spokenCaption"></p>
+              <p class="caption" id="modelCoverage"></p>
+              <details class="model-prose" id="modelProseWrap" hidden>
+                <summary>The model's full answer</summary>
+                <p id="modelProse"></p>
+              </details>
               <div id="securityAlert"></div>
             </article>
 
@@ -1062,6 +1067,8 @@
           <label for="diffInput">Patch to review</label>
           <textarea id="diffInput" spellcheck="false" aria-describedby="diffHelp"></textarea>
           <p class="hint" id="diffHelp">Paste any <code>git diff</code> output, or pick one of the patches below.
+            Pressing Hear this code review sends the first 3000 characters of the patch to
+            Amazon Bedrock when a model is available; the local rules always read the whole patch.
             Each reaches one rule Volcan ships, except the last, the control, where the right
             answer is no finding at all. Each label names the sentence the server will speak back, and
             <code>tests/e2e/test_shipped_presets_reach_their_rule.py</code> fails the build if a
@@ -2232,6 +2239,34 @@
 
     /* --- rendering the three outputs ---------------------------------- */
 
+    /* The model's own words and what it was shown. Both are null unless a
+       model answered, so the heuristic path shows neither: no empty "the
+       model read" line and no details with nothing inside. When the patch
+       ran past the model budget the line says exactly how much of it the
+       model saw, because the spoken summary was synthesised from a prefix
+       while the local rules read the whole patch. */
+    function renderModelProvenance(data) {
+      var coverage = $("modelCoverage");
+      var wrap = $("modelProseWrap");
+      var prose = $("modelProse");
+      clear(coverage);
+      clear(prose);
+      wrap.hidden = true;
+      if (data.model_prose_full === null || data.model_prose_full === undefined) { return; }
+      var sent = data.model_input_chars_sent;
+      var total = data.model_input_chars_total;
+      if (typeof sent === "number" && typeof total === "number" && total > sent) {
+        coverage.textContent = "The model read the first " + sent + " of " + total
+          + " patch characters; the local rules still read the whole patch.";
+      } else if (typeof total === "number") {
+        coverage.textContent = "The model read the whole " + total + "-character patch.";
+      } else {
+        coverage.textContent = "A model answered; what it was shown was not reported.";
+      }
+      prose.textContent = data.model_prose_full;
+      wrap.hidden = false;
+    }
+
     function renderSpoken(data, elapsedMs, label) {
       State.lastDigest = data;
       var sentence = spokenSentence(data.voice_summary);
@@ -2239,6 +2274,7 @@
       spokenTarget().appendChild(sentence.node);
       plainThenRaw($("spokenCaption"), label + " returned in " + elapsedMs.toFixed(1)
         + " ms by " + engineWords(data.synthesis_mode), data.synthesis_mode, ".");
+      renderModelProvenance(data);
       return sentence.words;
     }
 
@@ -2559,6 +2595,9 @@
       clear($("spokenPane"));
       clear($("securityAlert"));
       $("spokenCaption").textContent = "";
+      clear($("modelCoverage"));
+      clear($("modelProse"));
+      $("modelProseWrap").hidden = true;
       var legend = clear($("earconCaption"));
       legend.classList.add("legend");
       Array.prototype.forEach.call(EARCON_LEGEND.childNodes, function (node) {
@@ -2721,6 +2760,7 @@
         spokenTarget().appendChild(sentence.node);
         $("spokenCaption").textContent = "Drill down on " + drill.data.file_path
           + ", returned in " + drill.elapsedMs.toFixed(1) + " ms.";
+        renderModelProvenance({});
         State.lastDigest = {
           voice_summary: drill.data.spoken_text,
           voice_summary_for_speech: drill.data.spoken_text_for_speech

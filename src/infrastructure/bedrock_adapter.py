@@ -34,6 +34,7 @@ from src.domain.semantic_diff import (
     plural,
     touched_names,
 )
+from src.domain.spoken_form import strip_markdown_for_speech
 
 MODE_BEDROCK = "bedrock"
 MODE_HEURISTIC = "heuristic-local"
@@ -60,10 +61,20 @@ MODEL_DIFF_CHAR_BUDGET = 3000
 #: a word end otherwise, never mid-word, with an ellipsis marking the cut.
 SPOKEN_SUMMARY_CHAR_BUDGET = 180
 
+#: Seconds a model call may run before it is abandoned to the labelled
+#: local fallback. The production function budget is 30 seconds; a call
+#: that outlives this deadline degrades with the timeout reason instead of
+#: dying to a hard function timeout with no answer at all.
+MODEL_CALL_TIMEOUT_SEC = 25
+
 
 def shorten_for_speech(text: str, budget: int = SPOKEN_SUMMARY_CHAR_BUDGET) -> str:
-    """Flatten model prose to one speakable line within ``budget`` chars."""
-    flat = " ".join(text.split())
+    """Flatten model prose to one speakable line within ``budget`` chars.
+
+    Markdown goes first: the cut is measured on the words a voice will
+    say, not on stars and ticks it would stumble over.
+    """
+    flat = " ".join(strip_markdown_for_speech(text).split())
     if len(flat) <= budget:
         return flat
     room = flat[:budget]
@@ -272,6 +283,7 @@ class BedrockSynthesisAdapter:
         message = client.messages.create(
             model=self.model_id,
             max_tokens=DEFAULT_MAX_TOKENS,
+            timeout=MODEL_CALL_TIMEOUT_SEC,
             messages=[{"role": "user", "content": prompt}],
         )
         return self._first_text_block(message)

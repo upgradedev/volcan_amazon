@@ -236,6 +236,20 @@ synthesis meter. An unexplained fallback is indistinguishable from a design deci
 verbatim cloud error can expose account, role and request identifiers. Volcan returns a fixed
 category for permission, unavailable-model, throttling, timeout and malformed-response cases.
 
+**The model reads a prefix; the rules read the patch.** The model is shown the first 3000
+characters of the diff (`MODEL_DIFF_CHAR_BUDGET`); the local rules parse the whole patch, so a
+finding past the budget is still found locally. Every digest answers what the model saw:
+`model_input_chars_sent` and `model_input_chars_total`, `model_prose_full`, and
+`model_input_truncated`. The companion prints the coverage beside the speech pane with the full
+answer behind a disclosure, and the patch box warns before a press that the first 3000
+characters go to Amazon Bedrock when a model is available. Speech never hears Markdown:
+emphasis, ticks, links, headers and bullets are stripped, code-shaped stars kept, before the
+summary is cut and before operators are named. A model call has 25 seconds inside the
+30-second function budget, and patches past one million characters are refused with 422.
+Covered by `tests/unit/test_model_evidence_reaches_the_api.py`,
+`tests/e2e/test_model_coverage_display.py` and the spoken-form tests; added 2026-10-01 after a
+review found the evidence fields dropped in the use case and `**Spoken summary:**` read aloud.
+
 The client uses the account-scoped Bedrock Mantle project. The checked-in infrastructure
 defines that permission as a separate policy behind `enable_bedrock_mantle=false`; the
 durable-state plan does not add model authority by default. Enabling it is a separate owner
@@ -878,9 +892,10 @@ estimate unless it says ESTIMATE.
 | Metric | Baseline | Volcan | Command that prints it |
 |---|---|---|---|
 | Security-flag detection, Python corpus | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **86.4% recall over n=40 labelled patches (19/22)**, 22 that must flag and 18 that must not, with 0% false positives. It was 81.8% (18/22) until 2026-09-28, when the TLS rule written for the classic-family held-out set also closed `pos-21`, a miss known before that rule was written. Of the 40, 36 are Python files: 90.0% recall (18/20, 85.0% before) and 0.0% false positives (0/16) over those, printed on the "Python files only" line | `python scripts/benchmark_suite.py` |
-| Security-flag detection, JavaScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 25.0% recall (2/8), 0.0% false positives (0/8), the parser before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **50.0% recall (4/8), 0.0% false positives (0/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
+| Security-flag detection, JavaScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 25.0% recall (2/8), 0.0% false positives (0/8), the parser before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **62.5% recall (5/8), 0.0% false positives (0/8)** (50.0% before the SQL rule, 2026-09-28) | `python scripts/benchmark_js_ts_detection.py --split heldout` |
 | Security-flag detection, TypeScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 37.5% recall (3/8), 25.0% false positives (2/8), before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **75.0% recall (6/8), 25.0% false positives (2/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
-| Security-flag detection, JavaScript and TypeScript, eight probes written after the rules to find where they break (4 must flag, 4 must not; self-authored, synthetic; not part of the corpus or either half) | not applicable | **0 of 4 detected; all 4 that must not flag are flagged, each by a structural rule**, 2026-09-27 | `python scripts/benchmark_js_ts_detection.py --probes` |
+| Security-flag detection, JavaScript and TypeScript, eight probes written after the rules to find where they break (4 must flag, 4 must not; self-authored, synthetic; not part of the corpus or either half) | not applicable | **4 of 4 detected; 2 of 4 that must not flag are flagged (probe-01, probe-03, fail closed by design)**, 2026-09-30 (0 of 4 and 4 of 4 on 2026-09-27) | `python scripts/benchmark_js_ts_detection.py --probes` |
+| Security-flag detection, second-round probes, eight unseen shapes (4 must flag, 4 must not; self-authored, synthetic; not part of the corpus or either half) | not applicable | **4 of 4 detected; 1 of 4 over-flagged (probe2-01, the control-flow limit in a new shape)**, 2026-10-01 | `python scripts/benchmark_js_ts_detection.py --probes2` |
 | Documented Alexa+ client session, replayed locally, `tools/call` round trip | not applicable | Median of 15 sessions per client shape, against a local server on 127.0.0.1:8841 (`python -m src.interfaces.mcp_server --port 8841`) after three warm-up sessions, local engine, no AWS credentials, 2026-09-27, after the version-header fix: every one of the six shapes (asks for 2025-03-26 or 2025-11-25; follows the protocol, declares the revision it asked for, or never sends the header) answered in 15 of 15 sessions with the finding in the first sentence. Medians for the 2025-03-26 shapes: 32.0 ms (range 25.6 to 50.4) spec-following, 27.3 ms (24.1 to 36.9) declaring, 26.8 ms (21.5 to 33.8) no header; for the 2025-11-25 shapes: 29.1 ms (23.8 to 38.4), 27.3 ms (24.5 to 39.8), 27.8 ms (23.6 to 29.4). Amazon's documented limit is 500 ms. Earlier the same day, at `f3331d6`, the no-header shape was refused. Not the endpoint registered in the add-on manifest (which serves this commit since 2026-09-30; on 2026-09-27 it ran an older build that still refused that shape), and not Alexa+ | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8841/mcp --runs 15` |
 | Digest earcon, benign patch vs security-sensitive patch | **byte-identical until 2026-09-08**: both returned `DIFF_READY`, 19448 WAV bytes, `sha256[:16] 08f48648388bff02` | 19448 bytes `08f48648388bff02` for the benign patch, 26504 bytes `22c91bec11e275d1` for the security-sensitive one | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
 | Patch parse latency, 1000 steady runs | not measured | mean 0.281 ms; p95 0.448 ms | `python scripts/benchmark_suite.py` |
@@ -888,7 +903,7 @@ estimate unless it says ESTIMATE.
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **23 of 23 conformance checks pass**, stateful on port 8841 and stateless (`VOLCAN_MCP_SESSION_MODE=stateless`, `--expect-mode stateless`) on port 8842, 2026-09-27 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 737 passing; 92.89% statement coverage (4710 statements, 335 missed), including a real Chromium judge journey and Lambda bridge, 2026-09-30 (725 and 92.74% on 2026-09-29; 723 and 92.67% earlier that day before the Lambda SSE-bridge disconnect fix; 707 and 92.67% on 2026-09-28 before the persona-review gates; 703 and 92.67% earlier that day before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 684 and 92.62% before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 751 passing; 92.84% statement coverage (4734 statements, 339 missed), including a real Chromium judge journey and Lambda bridge, 2026-10-01 (737 and 92.89% on 2026-09-30; 725 and 92.74% on 2026-09-29; 723 and 92.67% earlier that day before the Lambda SSE-bridge disconnect fix; 707 and 92.67% on 2026-09-28 before the persona-review gates; 703 and 92.67% earlier that day before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 684 and 92.62% before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.7 s on 2026-09-26 (three runs: 1.7, 1.7, 1.8 s) | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 31.3 ms on the first press, then 38.9, 30.5 and 28.7 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credentials | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -957,13 +972,13 @@ training cases only, and the held-out half was measured before the rules as aggr
 once more after the rules were frozen; no artefact proves that sequence. Its misses are
 recorded, not fixed. An audit checked the split seed afterwards with a script of its own, not
 in this repository: it reports that over 2000 other seeds the held-out recall averages 11.5 of
-16, against 10 of 16 for the published seed. That is the audit's measurement; no command here
+16, against 11 of 16 for the published seed (10 before the SQL rule). That is the audit's measurement; no command here
 reproduces it. The engineer who wrote the rules also wrote the
 held-out cases, so the held-out figure is independent of the tuning, not of the author.
 
 | Half | Language | Recall before | Recall after | False positives before | False positives after |
 |---|---|---|---|---|---|
-| held-out | JavaScript | 25.0% (2/8) | **50.0% (4/8)** | 0.0% (0/8) | **0.0% (0/8)** |
+| held-out | JavaScript | 25.0% (2/8) | **62.5% (5/8)** | 0.0% (0/8) | **0.0% (0/8)** |
 | held-out | TypeScript | 37.5% (3/8) | **75.0% (6/8)** | 25.0% (2/8) | **25.0% (2/8)** |
 | training | JavaScript | 37.5% (3/8) | 87.5% (7/8) | 37.5% (3/8) | 37.5% (3/8) |
 | training | TypeScript | 12.5% (1/8) | 75.0% (6/8) | 12.5% (1/8) | 12.5% (1/8) |
@@ -971,17 +986,19 @@ held-out cases, so the held-out figure is independent of the tuning, not of the 
 Printed by `python scripts/benchmark_js_ts_detection.py` (both halves, with fixture ids), or
 `--split heldout --aggregate-only`; the "before" columns come from the same command run on
 commit `aedccbf`, which has the corpus and no JavaScript or TypeScript rule. Before the rules, every detection came from the keyword
-pass; after them, 6 of the 10 held-out detections come from a structural rule.
+pass; after them, 7 of the 11 held-out detections come from a structural rule.
 
 *The trade-offs, both sides measured.*
 
-* *Training fits better than new cases.* JavaScript is 87.5% on training and 50.0% held-out.
+* *Training fits better than new cases.* JavaScript is 87.5% on training and 62.5% held-out (50.0% before the SQL rule).
   With 8 cases per cell, one case moves a figure by 12.5 points.
 * *False positives did not fall.* All 6 of the 32 negatives that raise a flag, across both
   halves, are the keyword pass, which was left unchanged so the Python figure stays
   comparable. No structural rule over-flags on either half of this corpus. That does not
-  generalise: the rules read one changed line at a time, and eight probes written after them
-  (below) were all misjudged.
+  generalise: the rules read tokens, not control flow. Eight probes written after them first
+  went 0 of 4 detected with 4 of 4 over-flagged (2026-09-27); the rule work since moved them
+  to 4 of 4 with 2 of 4 (2026-09-30), and a second round of eight unseen shapes went 4 of 4
+  with 1 of 4 (2026-10-01, `--probes2`).
 * *A stricter authorization test.* A flipped comparison counts only when it names a principal
   (`user`, `session`, `account`, `member` ...) or a privileged value (`admin`, `owner` ...).
   The training case that forced this is a chat renderer flipping `message.role === 'assistant'`.
@@ -1009,8 +1026,10 @@ early-return refactor of an admin check, a test assertion rewritten to an equiva
 form, a wildcard origin in a local development server, and `!(a === b)` rewritten as
 `a !== b`. Must flag: a negated `isAdmin(user)` or `canEdit(...)` helper un-negated, an admin
 comparison flipped across two lines, and a CORS origin widened with the value on its own line.
-`python scripts/benchmark_js_ts_detection.py --probes` prints 0 of 4 detected and all 4
-negatives flagged, each by a structural rule. The rules were not changed. The corpus figures
+`python scripts/benchmark_js_ts_detection.py --probes` prints 4 of 4 detected and 2 of 4
+negatives flagged (probe-01, probe-03), each by a structural rule; on 2026-09-27 it printed
+0 of 4 and 4 of 4, before the logical-line, negation, test-scope and guard-call work. A second
+round (`--probes2`), eight shapes the rules never saw, prints 4 of 4 and 1 of 4. The corpus figures
 above hold for that corpus; the probes show what a reader should not assume beyond it. The
 next corpus should be written by someone other than the rule author, with refactor negatives
 of this kind in its held-out half.
@@ -1139,7 +1158,7 @@ git rev-list --count 2d0b8f8..HEAD
   This branch opens the spoken summary with the finding itself. The public build therefore
   does not speak the headline finding, and it does not show a Bedrock answer.
 
-**Checked on 2026-09-30, and current with this branch.** The endpoint was redeployed from HEAD and the Bedrock mantle grant was attached the same day:
+**Checked on 2026-09-30, and current with this branch.** The endpoint was redeployed from HEAD `6e9ae4d` (PR #22: detector scope plus model prose retention); the re-downloaded live zip carries the new rule and prose markers, and an independent 2026-10-01 review digested the auth-bypass patch live (HTTP 200, `synthesis_mode` bedrock, 19.67 s). The 2026-09-30 block below stays as the dated history of the earlier build, which recorded the first model answer:
 
 ```bash
 curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health | python -m json.tool
@@ -1411,8 +1430,10 @@ simulator in isolation mode, and record which headers the real client sends.
   sources, and catch an un-negated guard call, which moves the probes to 4 of 4 detected and
   2 of 4 over-flagged. The two remaining false alarms fail closed by design: an early-return
   refactor needs control-flow reasoning the token rules do not have, and a wildcard origin in
-  a local-only development server is still worth one dismissed finding. Until 2026-09-27 this
-  entry said Python only.
+  a development server still flags, because the patch shows no listen address and "local only"
+  is unproven from what the rule sees. A second round of eight unseen shapes (2026-10-01) went
+  4 of 4 detected with 1 of 4 over-flagged, the control-flow limit in a new shape. Until
+  2026-09-27 this entry said Python only.
 * **The public endpoint serves this commit since 2026-09-30, and Alexa hardware remains untested.** On
   2026-09-23 `GET /health`, `/`, the REST digest and the MCP initialize/tool path answered
   successfully. On 2026-09-27 the same endpoint reported `source_revision` `2d0b8f8`, an

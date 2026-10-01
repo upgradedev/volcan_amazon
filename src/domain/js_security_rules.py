@@ -295,7 +295,13 @@ def _negation_wraps(tokens: list[tuple[str, str]], op_index: int) -> bool:
 
 
 def _is_test_file(file_path: str) -> bool:
-    """Test sources never gate users, so their assertions are not findings."""
+    """Test sources never gate users, so their assertions are not findings.
+
+    The same holds for their fixture servers: a wildcard origin in a test
+    CORS fixture sets no production policy. Development servers are NOT
+    scoped out with them: a dev-server patch shows no listen address, so
+    "local only" is unproven from the evidence the rule sees.
+    """
     lowered = (file_path or "").lower().replace("\\", "/")
     name = lowered.rsplit("/", 1)[-1]
     return (
@@ -380,8 +386,10 @@ def _is_origin_target(text: str) -> bool:
     return bool(_ORIGIN_TARGETS.search(text))
 
 
-def _find_permissive_cors(added: list[str]) -> list[AstFinding]:
+def _find_permissive_cors(added: list[str], file_path: str = "") -> list[AstFinding]:
     findings: list[AstFinding] = []
+    if _is_test_file(file_path):
+        return findings
     seen: set[str] = set()
 
     def report(label: str, why: str) -> None:
@@ -687,7 +695,7 @@ def evaluate(
     """Run every JavaScript and TypeScript rule over one file's changed lines."""
     return (
         _find_inverted_authorization(added_lines, removed_lines, file_path)
-        + _find_permissive_cors(added_lines)
+        + _find_permissive_cors(added_lines, file_path)
         + _find_removed_security_calls(added_lines, removed_lines)
         + _find_sql_built_from_strings(added_lines, removed_lines)
         + _find_tls_verification_disabled(added_lines, removed_lines)

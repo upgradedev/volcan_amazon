@@ -9,7 +9,7 @@ measurement was taken.
 **Deployment reality, verified on 2026-09-23, re-checked on 2026-09-26 and current since 2026-09-30:** on 2026-09-23
 the endpoint at `https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com` served the
 companion, REST API and MCP Streamable HTTP surface of the candidate deployed that day.
-`GET /health` reports the immutable `source_revision`. **It serves this commit since the 2026-09-30 redeploy** (`0e96e45`, durable DynamoDB live, one Bedrock answer recorded). Before that it was not the current build: on
+`GET /health` reports the immutable `source_revision`. **It serves this commit since the 2026-09-30 redeploy** (`6e9ae4d`, durable DynamoDB live, Bedrock answers recorded). Before that it served `0e96e45` earlier the same day, and before that it was not the current build: on
 2026-09-27 it reported `2d0b8f8`, an ancestor 43 commits behind `6d2e227`; its page was an
 older design, its spoken summary did not name the inverted authorization check (its
 `critical_findings` field did), and its Bedrock call was refused as not authorized, so the

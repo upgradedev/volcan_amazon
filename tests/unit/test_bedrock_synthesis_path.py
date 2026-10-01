@@ -16,6 +16,7 @@ from src.infrastructure.bedrock_adapter import (
     DEFAULT_MODEL_ID,
     MODE_BEDROCK,
     MODE_HEURISTIC,
+    MODEL_CALL_TIMEOUT_SEC,
     MODEL_DIFF_CHAR_BUDGET,
     BedrockSynthesisAdapter,
     shorten_for_speech,
@@ -94,6 +95,7 @@ def test_the_request_carries_the_pinned_model_and_room_to_finish(with_credential
     assert client.messages.seen["model"] == DEFAULT_MODEL_ID
     assert client.messages.seen["max_tokens"] == DEFAULT_MAX_TOKENS
     assert client.messages.seen["max_tokens"] >= 4096, "a small ceiling truncates a thinking model"
+    assert client.messages.seen["timeout"] == MODEL_CALL_TIMEOUT_SEC == 25
 
 
 def test_a_thinking_block_before_the_text_does_not_break_the_digest(with_credentials):
@@ -270,6 +272,20 @@ def test_word_boundary_cut_when_no_sentence_end_fits():
     assert len(spoken) <= 182
     tail = spoken[:-2].rsplit(" ", 1)[-1]
     assert tail in prose.split(), f"cut inside a word: {tail!r}"
+
+
+def test_shorten_measures_the_cut_on_words_not_markup():
+    """Stars and ticks must not consume the spoken budget or reach the ear."""
+    prose = (
+        "**Spoken summary:** In permissions dot py, workspace deletion now requires the user *not* be an admin, "
+        "because the comparison was inverted in this patch and the surrounding code stayed the same throughout."
+    )
+    spoken = shorten_for_speech(prose)
+
+    assert "*" not in spoken
+    assert spoken.startswith("Spoken summary: In permissions dot py")
+    assert spoken.endswith(" \u2026")
+    assert len(spoken) <= 182
 
 
 def test_a_long_patch_records_what_the_model_saw(with_credentials):

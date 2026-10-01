@@ -11,10 +11,13 @@ Run command:
     python scripts/benchmark_js_ts_detection.py --split train
     python scripts/benchmark_js_ts_detection.py --split heldout --aggregate-only
     python scripts/benchmark_js_ts_detection.py --probes          # probes only
+    python scripts/benchmark_js_ts_detection.py --probes2         # second-round probes only
 
 The probes (``tests/fixtures/diff_corpus_js_ts_probes.py``) are eight patches
 written after the rules, to find where reading one line at a time breaks. They
-are not part of either half and their figure is printed on its own.
+are not part of either half and their figure is printed on its own. The
+second round (``tests/fixtures/diff_corpus_js_ts_probes_round2.py``) tests
+whether the rules' documented scope holds on shapes the rules never saw.
 
 Nothing is written. Every figure is recomputed from the production parser.
 
@@ -33,6 +36,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from src.domain.semantic_diff import UnifiedDiffParser  # noqa: E402
 from tests.fixtures.diff_corpus_js_ts import CASES, SPLIT_SEED, split  # noqa: E402
 from tests.fixtures.diff_corpus_js_ts_probes import PROBES  # noqa: E402
+from tests.fixtures.diff_corpus_js_ts_probes_round2 import PROBES_ROUND2  # noqa: E402
 
 #: Every named rule: the three structural rules, the classic-family rules
 #: added on 2026-09-28, and the guard-call rule added against the 2026-09-27
@@ -111,12 +115,16 @@ def main(argv: list[str] | None = None) -> dict:
                         help="print counts and rates only, never fixture ids")
     parser.add_argument("--probes", action="store_true",
                         help="measure the eight probes written after the rules instead of the corpus")
+    parser.add_argument("--probes2", action="store_true",
+                        help="measure the eight second-round probes instead of the corpus")
     args = parser.parse_args(argv)
 
-    if args.probes:
-        print(f"JS/TS security detection. Probes: {len(PROBES)} self-authored synthetic patches written "
+    if args.probes or args.probes2:
+        cases = PROBES_ROUND2 if args.probes2 else PROBES
+        which = "second-round " if args.probes2 else ""
+        print(f"JS/TS security detection. {which}Probes: {len(cases)} self-authored synthetic patches written "
               "after the rules, to find where they break; not part of the corpus or its held-out half.")
-        results = {"probes": measure(PROBES)}
+        results = {"probes": measure(cases)}
         _print_rows(results["probes"], args.aggregate_only)
         return results
 

@@ -202,11 +202,12 @@ covered. We deleted all of it. The page now shows a real result or an honest emp
   miss fails the build and closing one means deleting its id from the list.
 * **JavaScript and TypeScript, on a held-out half.** Rules for the same three structural
   findings were added on 2026-09-27, tuned on a training half of 64 self-authored, synthetic
-  patches and measured on the other half (independent of the tuning, not of the author): recall 25.0% to 50.0% for JavaScript and 37.5% to
+  patches and measured on the other half (independent of the tuning, not of the author): recall 25.0% to 62.5% for JavaScript (50.0% before the SQL rule) and 37.5% to
   75.0% for TypeScript, 8 patches per language that must flag. False positives stayed at 0.0%
-  and 25.0% of 8, all from the unchanged keyword pass on this corpus. The rules read one line
-  at a time: eight probes written after them to find where that breaks gave 0 of 4 detected
-  and 4 of 4 over-flagged, all by a structural rule (`--probes`). Printed by
+  and 25.0% of 8, all from the unchanged keyword pass on this corpus. The rules read tokens
+  without control-flow reasoning: two rounds of eight probes written after them to find where
+  that breaks now give 4 of 4 detected with 2 of 4 over-flagged (`--probes`; 0 of 4 and 4 of 4
+  before the rule work) and 4 of 4 with 1 of 4 (`--probes2`), all by a structural rule. Printed by
   `python scripts/benchmark_js_ts_detection.py`; the split rule, the seed and every miss are in
   `docs/EVIDENCE.md`.
 

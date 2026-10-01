@@ -74,3 +74,28 @@ def test_a_review_turn_hands_the_speech_engine_named_operators():
     assert "!=" in turn["spoken"]
     assert "not equals" in turn["spoken_for_speech"] and "!=" not in turn["spoken_for_speech"]
     assert turn["readback_for_speech"] == turn["readback"]
+
+
+def test_model_markdown_is_stripped_for_speech():
+    """A live Bedrock answer reached a speech engine as "**Spoken summary:**"
+    and "*not*". Stars are read aloud or drop the word; the spoken form
+    keeps the words and loses the markup.
+    """
+    assert speakable("**Spoken summary:** In permissions dot py, the user *not* be an admin.") == (
+        "Spoken summary: In permissions dot py, the user not be an admin."
+    )
+    assert speakable("***urgent*** review") == "urgent review"
+    assert speakable("run `make test` now") == "run make test now"
+    assert speakable("see [the rule](https://example.invalid/r)") == "see the rule"
+    assert speakable("# Findings\n- one\n- two") == "Findings\none\ntwo"
+
+
+def test_stars_shaped_like_code_survive_the_strip():
+    """The strip must not eat the code the spoken form exists to protect."""
+    assert speakable("a*b*c") == "a*b*c"
+    assert speakable("2 * 3 * x") == "2 * 3 * x"
+    assert speakable("2**10") == "2**10"
+    assert speakable("a**b**c here") == "a**b**c here"
+    assert speakable("**2** to the **10**") == "**2** to the **10**"
+    assert speakable("allow_origins = ['*']") == "allow_origins = ['star']"
+    assert speakable("a != b") == "a not equals b"
