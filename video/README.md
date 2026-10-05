@@ -258,8 +258,11 @@ follows it, with these limits.
       the plan outro is at 7.59. What moves the figure is fewer rows: a one-row headline,
       fewer or shorter lines, a shorter system-voice sentence in `outro_lines_for`, or the
       text split over two shorter cards. The shot list fixes the closing card's words, so
-      this is a change to the plan. One trial with the headline `Volcan`, the two URLs, and
-      two shorter disclosure lines still measured 5.54 with the system-voice line.
+      this is a change to the plan. One trial still measured 5.54 (7 rows) with the
+      system-voice line, from the command below with `cards["outro_lines"]` replaced by these
+      five lines: `Volcan`, the `Live build:` and `Source:` lines as they are,
+      `Live build, commit {sha7}. Simulated Alexa+ front end, not an Alexa skill.`, and
+      `GitHub review: dry run, not sent. Narration: synthetic ElevenLabs voice. Product voice: the page's own speech.`
     * **Re-measure** the chosen card with the command below before the take.
 
   The figures come from ffmpeg 8.1.1 and Pillow 12.2.0, with the build's encoder settings
