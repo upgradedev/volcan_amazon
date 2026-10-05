@@ -22,9 +22,13 @@ What this copy adds, so the video carries its own honesty and the product's soun
      The outro repeats the provenance. Long card lines are wrapped so none runs off
      the frame. The build writes the video_manifest.json and caption_windows.json that
      scripts/verify_video_sync.py reads, computed from timing.json and the capture
-     receipt and nothing else. That gate samples the title slot as a card, so with
-     cold-open footage in it the unchanged gate fails its order-pixels check; the
-     manifest says what the slot holds, and the build prints a note.
+     receipt and nothing else. That gate samples the middle of the title slot and of
+     the outro and expects a card in both. With cold-open footage in the title slot the
+     unchanged gate fails its order-pixels check there. A closing card with more rows
+     than OUTRO_ROWS_MEASURED_AS_CARD fails it too, whatever the title slot holds: the
+     plan's outro is 9 rows and measured an edge mean of 7.59 against the gate's 4.5
+     (video/README.md, section 4, has the command). The manifest notes both, and the
+     build prints them.
   2. A caption band. The page is scaled to 1632x918 at the top of the frame, and
      everything the build adds sits in the 162 pixel band under it: the captions, a
      small tag naming the build and the commit (a local run, or the live build when
@@ -89,6 +93,10 @@ EARCON_CUE_MIN_SECONDS = 0.4
 CARD_HEADLINE_CHARACTERS = 30
 CARD_LINE_CHARACTERS = 90
 PAGE_OWN_SPEECH = "Product voice: the page's own speech."
+# The 2026-09-29 outro was 5 rows and measured an edge mean of 3.70; the re-take plan's
+# outro is 9 rows and measured 7.59 (video/README.md, section 4). The sync gate reads a
+# frame above 4.5 as content, so a longer card is reported before the gate is run.
+OUTRO_ROWS_MEASURED_AS_CARD = 5
 MAX_TRIM_LEAD_SECONDS = 30.0
 MAX_COLD_OPEN_LEAD_SECONDS = 180.0
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1", "0.0.0.0"}
@@ -538,6 +546,15 @@ def main() -> None:
             "the title segment holds the cold-open footage, not a card. "
             "scripts/verify_video_sync.py samples the middle of the title segment as a card, "
             "so its order-pixels check fails on this video until the gate learns the cold open")
+    outro_rows = len(card_rows(outro_lines))
+    if outro_rows > OUTRO_ROWS_MEASURED_AS_CARD:
+        manifest["_outro_note"] = (
+            f"the outro card is {outro_rows} rows. The 2026-09-29 outro was "
+            f"{OUTRO_ROWS_MEASURED_AS_CARD} rows and measured an edge mean of 3.70; the re-take "
+            "plan's 9-row outro measured 7.59. scripts/verify_video_sync.py reads a frame above 4.5 "
+            "as content, so its order-pixels check is expected to fail at the outro probe too, "
+            "with a title card or with the cold open. video/README.md, section 4, has the "
+            "measuring command")
     (OUTPUT / "video_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     windows = [
         [round(title_seconds + start, 3), round(title_seconds + end, 3), text]
@@ -594,6 +611,8 @@ def main() -> None:
     if cold_open:
         print("note: the title slot holds the cold-open footage; the unchanged sync gate samples it "
               "as a card and fails order-pixels on this video")
+    if "_outro_note" in manifest:
+        print("note: " + str(manifest["_outro_note"]))
 
 
 def stamp(value: float) -> str:

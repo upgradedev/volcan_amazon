@@ -227,15 +227,66 @@ follows it, with these limits.
     and its commit.
   * Card lines too long for the frame wrap.
   * Without `title_slot`, the title card of the 2026-09-29 take is drawn as before.
-* **The sync gate fails the re-take on one check, by design.**
+* **The sync gate fails the re-take on one check, `order-pixels`, at two of its four probes.**
   * `scripts/verify_video_sync.py` and its selftest are unchanged.
-  * The gate samples the middle of the title segment and expects a card.
-  * With cold-open footage there, `order-pixels` fails.
-  * The manifest says `"title_slot": "cold_open_footage"`, and the build prints a note.
-  * Before this take can pass the gate, the owner decides one of two things:
-    * Teach the gate the cold open, and add a cold-open case to the selftest so it still
-      proves the gate fails on bad files.
-    * Keep a short title card, which the shot list does not want.
+  * The gate samples the middle of the title segment and of the outro segment, and expects a
+    card in both. It calls a frame a card when its `FIND_EDGES` mean is at most
+    `EDGE_CARD_CONTENT_THRESHOLD`, 4.5.
+  * **Title probe.** With cold-open footage in the title slot, the title probe reads content.
+    The manifest says `"title_slot": "cold_open_footage"`.
+  * **Outro probe.** The plan's closing card reads as content too, on both shapes of the title
+    slot. It is 9 rows: the 50-character headline wraps to 2 rows at 110 px, and the narration
+    line wraps to 3 once the build puts the system-voice sentence in it. Measured edge means,
+    from the command below:
+
+    | Card | Rows | Edge mean |
+    |---|---|---|
+    | Plan outro, with the system-voice line the headless capture adds | 9 | 7.59 |
+    | Plan outro, without that line | 7 | 6.31 |
+    | Outro of the 2026-09-29 take (`git show fc10e7d:video/narration.json`) | 5 | 3.70 |
+    | Plan title lines drawn as a card | 4 | 3.64 |
+
+  * The build prints a note for each probe it expects to fail. The manifest carries
+    `_title_note` for the cold open, and `_outro_note` when the closing card has more than
+    the 5 rows of the 2026-09-29 outro (`OUTRO_ROWS_MEASURED_AS_CARD` in `build-video.py`).
+  * Before this take can pass the gate, the owner decides three things:
+    * **Title slot.** Teach the gate the cold open, and add a cold-open case to the selftest
+      so it still proves the gate fails on bad files. Or keep a short title card, which the
+      shot list does not want. The plan's title lines as a card measure 3.64, under 4.5.
+    * **Closing card.** Neither title choice fixes the outro. Lowering the threshold does not
+      either: the gate's comment puts terminal and browser frames at about 7.6 to 14.3, and
+      the plan outro is at 7.59. What moves the figure is fewer rows: a one-row headline,
+      fewer or shorter lines, a shorter system-voice sentence in `outro_lines_for`, or the
+      text split over two shorter cards. The shot list fixes the closing card's words, so
+      this is a change to the plan. One trial with the headline `Volcan`, the two URLs, and
+      two shorter disclosure lines still measured 5.54 with the system-voice line.
+    * **Re-measure** the chosen card with the command below before the take.
+
+  The figures come from ffmpeg 8.1.1 and Pillow 12.2.0, with the build's encoder settings
+  (libx264, preset medium, crf 20, 25 fps) and the gate's own `frame_edge_mean`. Run from the
+  repository root, with `VOLCAN_VIDEO_ROOT` set to an empty folder that has `output/overlays/`:
+
+  ```bash
+  python - <<'EOF'
+  import importlib.util, json, os, subprocess, sys
+  sys.path.insert(0, "scripts")
+  from verify_video_sync import frame_edge_mean
+  spec = importlib.util.spec_from_file_location("bv", "video/build-video.py")
+  bv = importlib.util.module_from_spec(spec); spec.loader.exec_module(bv)
+  cards = json.load(open("video/narration.json", encoding="utf-8"))["cards"]
+  voice = [{"kind": "speech", "renderedWith": "Windows System.Speech, voice Microsoft David Desktop, rate 0"}]
+  for name, lines in (("outro", bv.outro_lines_for(cards["outro_lines"], "9b2bcb9", voice)),
+                      ("title", bv.outro_lines_for(cards["title_lines"], "9b2bcb9", []))):
+      out = os.path.join(os.environ["VOLCAN_VIDEO_ROOT"], name + ".mp4")
+      subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i",
+                      bv.card(lines, 1.0, name) + ",format=yuv420p", "-t", "1", "-c:v", "libx264",
+                      "-preset", "medium", "-crf", "20", "-r", "25", out], check=True)
+      print(name, len(bv.card_rows(lines)), "rows", round(frame_edge_mean(out, 0.5), 2))
+  EOF
+  ```
+
+  Pass `[]` in place of `voice` for the outro without the system-voice line. On 2026-10-06 it
+  printed `outro 9 rows 7.59` and `title 4 rows 3.64`.
 * **The optional consented clip has no place in the pipeline.** It goes in during the edit,
   and every later timestamp moves by its length.
 
