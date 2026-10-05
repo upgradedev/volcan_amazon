@@ -8,6 +8,13 @@ schema in the same commit that changes the parsing code.
 Earcons are returned as audio content blocks rather than described in text. A
 blind reviewer hears the cue; a client that only renders text still gets the
 spoken fallback in the block beside it.
+
+The first text block of the digest, drill-down and review-turn tools is the
+``*_for_speech`` form of the sentence: code operators named ("not equals" for
+``!=``) and Markdown removed. A voice client reads that block aloud, and a
+voice that drops or slurs ``!=`` turns the finding into its opposite. The
+literal code stays in the JSON detail block (``voice_summary``,
+``spoken_text``, ``readback`` and ``spoken``) for a client that shows it.
 """
 from typing import Any
 
@@ -62,14 +69,14 @@ async def tool_digest(req: DigestRequest) -> list[dict[str, Any]]:
     result = await op_digest(req)
     wav = result.pop("_wav")
     result.pop("earcon", None)
-    return _spoken_and_detail(result["voice_summary"], result, wav)
+    return _spoken_and_detail(result["voice_summary_for_speech"], result, wav)
 
 
 async def tool_drill_down(req: DrillDownRequest) -> list[dict[str, Any]]:
     result = await op_drill_down(req)
     wav = result.pop("_wav")
     result.pop("earcon", None)
-    return _spoken_and_detail(result["spoken_text"], result, wav)
+    return _spoken_and_detail(result["spoken_text_for_speech"], result, wav)
 
 
 async def tool_stage_action(req: StageActionRequest) -> list[dict[str, Any]]:
@@ -113,7 +120,7 @@ async def tool_review_turn(req: ReviewTurnRequest) -> list[dict[str, Any]]:
     )
     wav = result.pop("_wav", None)
     result.pop("earcon", None)
-    spoken = f"{result['readback']} {result['spoken']}".strip()
+    spoken = f"{result['readback_for_speech']} {result['spoken_for_speech']}".strip()
     return _spoken_and_detail(spoken, result, wav)
 
 

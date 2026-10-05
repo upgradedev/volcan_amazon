@@ -263,6 +263,30 @@ def test_long_model_prose_is_cut_at_a_sentence_end(with_credentials):
     assert report.model_prose_full == prose
 
 
+def test_the_full_answer_panel_gets_the_prose_without_markdown(with_credentials):
+    """The page shows model_prose_full under "The model's full answer" with
+    textContent, so raw stars, ticks and quote markers reached the screen and
+    the screen reader. The words stay whole; only the markup goes, and a
+    code-shaped star survives."""
+    prose = "\n".join((
+        "**Spoken summary:** the check is _inverted_.",
+        "> __Note:__ `user.role != 'admin'` now *lets everyone else* in.",
+        "- keep a*b*c as written",
+    ))
+    client = _StubClient({"content": [{"type": "text", "text": prose}]})
+    adapter = BedrockSynthesisAdapter(client_factory=lambda region: client)
+
+    full = _run(adapter).model_prose_full
+
+    assert full.splitlines() == [
+        "Spoken summary: the check is inverted.",
+        "Note: user.role != 'admin' now lets everyone else in.",
+        "keep a*b*c as written",
+    ]
+    assert "**" not in full and "`" not in full and "_inverted_" not in full
+    assert not any(line.startswith(">") for line in full.splitlines())
+
+
 def test_word_boundary_cut_when_no_sentence_end_fits():
     prose = " ".join(f"word{i:03d}" for i in range(60))
     spoken = shorten_for_speech(prose)

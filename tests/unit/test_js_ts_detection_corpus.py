@@ -78,8 +78,10 @@ def test_the_probes_written_after_the_rules_break_them_as_recorded():
     2026-09-27 as 0 of 4 detected and 4 of 4 over-flagged; the 2026-09-30 rule
     work (logical-line joining, negation cancellation, test-source scope, the
     guard-call rule) moved the record to 4 of 4 detected and 2 of 4
-    over-flagged. probe-01 (early-return refactor) and probe-03 (local-only
-    wildcard) fail closed by design: see the scope note in docs/EVIDENCE.md.
+    over-flagged. Both over-flags are the JavaScript must-not-flag probes, so
+    the JavaScript false-alarm figure for this round is 2 of 2: probe-01
+    (early-return refactor) and probe-03 (local-only wildcard) are false
+    alarms. docs/EVIDENCE.md says why the token rules cannot clear them.
     Closing one means changing its expected outcome here and in the docs."""
     from scripts.benchmark_js_ts_detection import measure
     from tests.fixtures.diff_corpus_js_ts_probes import PROBES
@@ -97,11 +99,12 @@ def test_the_probes_written_after_the_rules_break_them_as_recorded():
 def test_the_second_round_probes_measure_unseen_shapes():
     """Eight new probes against the current rules\u2019 documented scope, labels decided
     from meaning before the rules ran (tests/fixtures/diff_corpus_js_ts_probes_round2.py).
-    First measured 2026-10-01: 4 of 4 detected, 1 of 4 over-flagged. The one,
-    probe2-01, is the documented control-flow-equivalence limit in a new shape:
-    an if/else rewritten as a guard clause reads as a flipped comparison to
-    token rules. probe2-02 (CORS in a test fixture) stays silent by the test
-    scoping the CORS rule gained with this round.
+    Measured 2026-10-01: 4 of 4 detected, 1 of 4 over-flagged, but only after
+    commit f1c35a1, the same commit that added these probes, exempted test
+    files from the CORS rule. Before that exemption the round was 2 of 4
+    over-flagged (the next test pins why). The one left, probe2-01, is the
+    documented control-flow-equivalence limit in a new shape: an if/else
+    rewritten as a guard clause reads as a flipped comparison to token rules.
     """
     from scripts.benchmark_js_ts_detection import measure
     from tests.fixtures.diff_corpus_js_ts_probes_round2 import PROBES_ROUND2
@@ -112,3 +115,22 @@ def test_the_second_round_probes_measure_unseen_shapes():
     assert set(rows["typescript"]["missed_fixture_ids"]) == set()
     assert set(rows["javascript"]["false_positive_fixture_ids"]) == {"probe2-01"}
     assert set(rows["typescript"]["false_positive_fixture_ids"]) == set()
+
+
+def test_the_second_round_figure_before_the_cors_test_file_exemption():
+    """The round-2 figure is not untuned. Commit f1c35a1 added these probes
+    together with a test-file exemption to the CORS rule, and probe2-02 is a
+    wildcard origin in a test fixture. Called as it was before that commit,
+    with no file path, the CORS rule flags probe2-02, so the round was 2 of 4
+    over-flagged before the exemption (probe2-01 and probe2-02) and 1 of 4
+    after it.
+    """
+    from src.domain.js_security_rules import _find_permissive_cors
+    from tests.fixtures.diff_corpus_js_ts_probes_round2 import PROBES_ROUND2
+
+    probe = next(case for case in PROBES_ROUND2 if case.fixture_id == "probe2-02")
+    added = [line[1:] for line in probe.raw_diff.splitlines()
+             if line.startswith("+") and not line.startswith("+++")]
+    assert "test/cors.test.js" in probe.raw_diff
+    assert _find_permissive_cors(added), "the pre-f1c35a1 call shape must flag the fixture"
+    assert _find_permissive_cors(added, "test/cors.test.js") == []

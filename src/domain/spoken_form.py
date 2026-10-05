@@ -16,7 +16,10 @@ speech engine verbatim, which reads the stars aloud or drops the word. The
 same second string therefore has lightweight markup stripped first. Only
 emphasis-shaped markup goes: a star that could be code (``a*b*c``,
 ``2 * 3 * x``, ``['*']``) is left alone, and so is ``**`` without letters
-inside (``2**10``).
+inside (``2**10``). Underscore emphasis follows the same guards: ``_not_`` and
+``__Note:__`` go, while ``user_role_id``, ``src/_internal_/x.py`` and a
+dunder name such as ``__init__`` stay. A ``>`` blockquote marker at a line
+start goes; ``>>> print(x)`` and ``x >= 3`` do not.
 """
 import re
 
@@ -37,6 +40,9 @@ _NAMES = dict(OPERATOR_NAMES)
 #: A quoted star, as in ``allow_origins = ['*']``: a voice that skips
 #: symbols would otherwise say "allow origins equals" and stop.
 _QUOTED_STAR = re.compile(r"""(['"])\*\1""")
+#: Blockquote markers at a line start, nested ones included (``> > x``). Each
+#: marker must be followed by a space or a tab, so ``>>>`` and ``>=`` stay.
+_BLOCKQUOTE = re.compile(r"(?m)^[ \t]{0,3}(?:>[ \t]+)+")
 #: ATX heading and bullet markers at a line start. Handled per line before
 #: flattening, so a ``#`` or ``-`` mid-sentence is never touched.
 _LINE_MARKUP = re.compile(r"(?m)^[ \t]{0,3}(?:#{1,6}[ \t]+|[*\-+][ \t]+)")
@@ -48,8 +54,18 @@ _BOLD_ITALIC = re.compile(r"(?<![\w*])\*{3}([A-Za-z][^*\n]*?)\*{3}(?![\w*])")
 #: Bold when the inner text holds a letter and the markers sit outside words,
 #: so ``2**10`` and ``a**b**c`` survive and ``**Spoken summary:**`` does not.
 _BOLD = re.compile(r"(?<![\w*])\*\*([^*\n]+?)\*\*(?![\w*])")
-#: One emphasized word outside words: ``*not*`` goes, ``a*b*c`` stays.
-_ITALIC_WORD = re.compile(r"(?<![\w*])\*([A-Za-z][A-Za-z'_-]*)\*(?![\w*])")
+#: Emphasis outside words, one word or several: ``*not*`` and ``*does not
+#: check*`` go, ``a*b*c`` stays. The inner text starts with a letter and ends
+#: on a letter, digit or closing punctuation, never a space or a comma, so
+#: ``*args, **kwargs`` and ``2 * 3 * x`` are not read as emphasis.
+_ITALIC = re.compile(r"""(?<![\w*])\*([A-Za-z](?:[^*\n]*?[A-Za-z0-9.!?'")])?)\*(?![\w*])""")
+#: ``__bold__`` when the markers sit outside words and paths. A name shaped
+#: like a Python dunder (``__init__``, ``__main__``) is code, not emphasis.
+_UNDERSCORE_BOLD = re.compile(r"(?<![\w/.])__([A-Za-z](?:[^_\n]*?\S)?)__(?![\w/])")
+#: ``_italic_`` under the same guards: ``user_role_id`` and ``src/_internal_/x``
+#: keep their underscores, because the markers there touch a word or a slash.
+_UNDERSCORE_ITALIC = re.compile(r"(?<![\w/.])_([A-Za-z](?:[^_\n]*?\S)?)_(?![\w/])")
+_DUNDER_NAME = re.compile(r"[a-z][a-z0-9_]*")
 #: A link reads as its text; the URL is spelling no listener asked for.
 _LINK = re.compile(r"\[([^\[\]\n]+)\]\((?:[^()\n]*)\)")
 
@@ -61,18 +77,29 @@ def _unbold(match):
     return inner
 
 
+def _un_underscore_bold(match):
+    inner = match.group(1)
+    if _DUNDER_NAME.fullmatch(inner):
+        return match.group(0)
+    return inner
+
+
 def strip_markdown_for_speech(text: str) -> str:
     """``text`` with lightweight Markdown emphasis removed, code kept.
 
-    Headers, bullets, links, code ticks, ``**bold**``, ``***both***`` and single-word
-    ``*emphasis*`` are normalised to the words a voice should say. Anything
+    Blockquotes, headers, bullets, links, code ticks, ``**bold**``,
+    ``***both***``, ``*emphasis*`` over one word or several, ``__bold__`` and
+    ``_emphasis_`` are normalised to the words a voice should say. Anything
     shaped like code is preserved: see the guards on each pattern above.
     """
-    stripped = _LINE_MARKUP.sub("", text)
+    stripped = _BLOCKQUOTE.sub("", text)
+    stripped = _LINE_MARKUP.sub("", stripped)
     stripped = _CODE_SPAN.sub(r"\1", stripped)
     stripped = _BOLD_ITALIC.sub(r"\1", stripped)
     stripped = _BOLD.sub(_unbold, stripped)
-    stripped = _ITALIC_WORD.sub(r"\1", stripped)
+    stripped = _ITALIC.sub(r"\1", stripped)
+    stripped = _UNDERSCORE_BOLD.sub(_un_underscore_bold, stripped)
+    stripped = _UNDERSCORE_ITALIC.sub(r"\1", stripped)
     return _LINK.sub(r"\1", stripped)
 
 

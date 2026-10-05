@@ -366,7 +366,12 @@ class BedrockSynthesisAdapter:
             sections=sections,
             synthesis_mode=MODE_BEDROCK,
             fallback_reason=None,
-            model_prose_full=content_text,
+            # The panel under "The model's full answer" shows these words, so
+            # Markdown goes here too: stars and ticks are noise on screen and
+            # are read aloud by a screen reader. Code-shaped text survives the
+            # strip and nothing is cut; only emphasis, heading, bullet, quote
+            # and link markup is removed.
+            model_prose_full=strip_markdown_for_speech(content_text),
             model_input_chars_sent=len(excerpt),
             model_input_chars_total=len(raw_diff),
         )

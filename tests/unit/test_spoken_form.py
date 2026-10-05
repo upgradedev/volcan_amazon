@@ -99,3 +99,30 @@ def test_stars_shaped_like_code_survive_the_strip():
     assert speakable("**2** to the **10**") == "**2** to the **10**"
     assert speakable("allow_origins = ['*']") == "allow_origins = ['star']"
     assert speakable("a != b") == "a not equals b"
+
+
+def test_underscore_multi_word_and_blockquote_markup_is_stripped_for_speech():
+    """Models also write _emphasis_, __bold__, *several words* and '>' quotes.
+    Each reached the ear as underscores, stars or "greater than"."""
+    assert speakable("the user *does not* need to be an admin") == "the user does not need to be an admin"
+    assert speakable("*very* *important*") == "very important"
+    assert speakable("see *the rule.*") == "see the rule."
+    assert speakable("_not_ an admin") == "not an admin"
+    assert speakable("__Note:__ read this") == "Note: read this"
+    assert speakable("> quoted line\n> > nested") == "quoted line\nnested"
+    assert speakable("> - bullet in a quote") == "bullet in a quote"
+    assert speakable("> **Finding:** user.role != 'admin'") == "Finding: user.role not equals 'admin'"
+
+
+def test_underscores_and_angle_brackets_shaped_like_code_survive_the_strip():
+    """The new patterns keep the guards the star patterns have."""
+    assert speakable("__init__ runs first") == "__init__ runs first"
+    assert speakable("the `__main__` module") == "the __main__ module"
+    assert speakable("user_role_id stays") == "user_role_id stays"
+    assert speakable("a_b and c_d") == "a_b and c_d"
+    assert speakable("src/_internal_/x.py") == "src/_internal_/x.py"
+    assert speakable("call _private() then") == "call _private() then"
+    assert speakable("def f(*args, **kwargs)") == "def f(*args, **kwargs)"
+    assert speakable("*.py and *.js") == "*.py and *.js"
+    assert speakable(">>> print(x)") == ">>> print(x)"
+    assert speakable("x >= 3 here") == "x greater than or equal to 3 here"
