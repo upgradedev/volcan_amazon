@@ -1,130 +1,263 @@
-# Volcan: shot list
+# Volcan: shot list for the re-take on the live build
 
-**Status: recorded on 2026-09-28 (local time), from a local run of commit `7a3de49`.** The
-render is 164.52 seconds and lives outside the repository, pending upload by the owner. This
-file is the journey `video/capture-local.py` drives, beat by beat, and it matches what that take
-shows. [`README.md`](README.md) in this folder says how the render was produced.
+**Status: a plan, not recorded.** This take is to be recorded on the live build at
+https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com, with Amazon Bedrock answering. It
+replaces the 2026-09-29 render of a local run of `09d4862`, which [`README.md`](README.md) in
+this folder describes. That take's six-beat script is kept in history:
+`git show fc10e7d:video/narration.json`.
 
 The beat ids match [`narration.json`](narration.json) and [`cue_sheet.json`](cue_sheet.json)
-one for one. Beat windows are measured, not authored: each is the ElevenLabs audio length from
-ffprobe plus a 0.65 second tail, and beats 1, 3 and 4 add a window in which the page itself
-speaks. Times below are from the start of the video, after the 3.0 second title card.
+one for one. Every time below is an ESTIMATE until `video/generate-narration.py` measures the
+narration and the rehearsal measures the product's turns. The basis for each window is
+written beside it in `narration.json`.
+
+---
+
+## What this take must show, and where
+
+| Requirement | Where |
+|---|---|
+| A full spoken product turn inside the first 5 seconds | Cold open |
+| The Alexa+ value first. "Not an Alexa skill" stays on screen, but it is not the opening line | Beat 1 |
+| A real Amazon Bedrock answer, the model coverage line and the model's full answer | Beats 2 and 3 |
+| "Amazon Bedrock", "AWS Lambda" and "DynamoDB" said on camera, for the AWS Builder mini | Beat 2 |
+| Every product turn on camera in the product's own voice, with nothing talked over. That includes Request changes, which the last take talked over | Cold open, beats 2, 4 and 5 |
+| A non-trivial pull request | Cold open, beats 4 and 5 |
+| No hard-coded test count | No count is spoken; see the rules at the end |
+| End on the repository and live URLs | Closing card |
+| Under 3:00 | 156.5 s ESTIMATE, or 171.5 s with the optional slot |
+
+## Time budget (ESTIMATE)
+
+| Segment | From | To | Seconds | Product sound in it |
+|---|---|---|---|---|
+| Cold open | 0.0 | 12.0 | 12.0 | Findings or File by file on the open pull request |
+| Beat 1, `beat_01_alexa_value` | 12.0 | 32.7 | 20.7 | none |
+| Beat 2, `beat_02_bedrock_press` | 32.7 | 71.0 | 38.4 | the Bedrock answer to Hear this code review |
+| Beat 3, `beat_03_model_coverage` | 71.0 | 82.1 | 11.1 | none |
+| Optional slot, consented clip | after beat 3 | | 0 to 15 | only if the owner records a consented session; every later segment moves by its length |
+| Beat 4, `beat_04_request_changes` | 82.1 | 105.0 | 22.8 | Request changes |
+| Beat 5, `beat_05_confirm` | 105.0 | 139.6 | 34.6 | Confirm |
+| Beat 6, `beat_06_mcp_handshake` | 139.6 | 152.0 | 12.5 | none |
+| Closing card | 152.0 | 156.5 | 4.5 | none |
+
+Narration is estimated at 2.2 words a second, the slowest rate of the 2026-09-29 take's
+beats rounded down. If the measured total without the optional slot comes out above 160 s,
+shorten the optional clip toward 10 s or trim beat 3, so that the whole stays under the kit's
+175 s publication budget.
+
+Dropped from the 2026-09-29 take to fit: the title card (the cold open takes its slot), the
+"what you heard" beat, the Findings turn on octocat/Hello-World, the Alexa+ replay press (see
+below), and the spoken test and conformance counts.
+
+---
+
+## What calls Amazon Bedrock on the live build
+
+The owner authorises these presses before rehearsal, because each one is billed. The page
+load does not call a model: the silent preview asks for the local engine.
+
+| Action | Model calls |
+|---|---|
+| **Hear this code review** | one, with the first 3000 characters of the stage patch |
+| Opening a pull request in the review dialogue | one, with the pull request's patch (the dialogue digests it with the default engine) |
+| **Replay the documented Alexa+ requests** | three, one `digest_semantic_diff` call per client. It is not used in this take |
+| Findings, File by file, Request changes, Confirm, **Run a real MCP handshake** | none |
+
+**Bound to authorise:** at most 12 Bedrock calls. That covers three rehearsals and three takes
+at two calls each (opening the pull request, then the press). A take that needs more stops,
+and the owner is asked again.
+
+---
+
+## Choosing the pull request
+
+* It is a public pull request on GitHub, so the server reads it without a token.
+* It changes real code in two to five files, not only documentation.
+* It is not one written for this video, and the narration names nothing about it beyond what
+  the page says.
+* In rehearsal, Findings reports at least one finding, so the cold open is a finding. If no
+  candidate does, choose one where no rule matched, and use File by file instead of Findings
+  in the cold open. On such a pull request the page's Findings answer is "No security finding
+  in this change.", which claims more than the rules can know. That turn is kept off camera
+  until the product hedges it.
+* Record the URL, the head commit and the rehearsal's spoken answers in the take's receipt.
 
 ---
 
 ## Before the camera rolls
 
-| Step | Command or action | What must be true |
-|---|---|---|
-| 1 | `python -m pytest tests/ -q` on the commit | `646 passed` on 2026-09-28, on `7a3de49`. |
-| 2 | `python -m src.interfaces.mcp_server --port 8871`, started fresh, with no AWS credentials reachable, no GitHub token and `SOURCE_REVISION` set to the commit | `GET /health` reports `unavailable_no_sdk_and_no_credentials`, `dry_run_no_token` and the commit as `source_revision`. |
-| 3 | `python scripts/mcp_conformance.py http://127.0.0.1:8871/mcp` against that server, then restart it fresh | `23/23 checks passed` on 2026-09-28. |
-| 4 | `python video/capture-local.py` | The page at `http://127.0.0.1:8871/` in headless Chromium at 1280x720 reads **Online** and has drawn the silent preview before the timeline starts, and `/health` reports the same commit as `VOLCAN_RELEASE_SHA`. |
+| Step | Who | Command or action | What must be true |
+|---|---|---|---|
+| 1 | Owner | Authorise the billed calls above, in writing | The bound and the date are written down before any press |
+| 2 | Owner | `curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health` | `source_revision` names the commit that becomes `{sha7}`. `bedrock_model_path` reads `ready_to_attempt`, `durable_state` reads `configured_reachable`, and `github_review_path` reads `dry_run_no_token`. If it reads `dry_run_with_token`, beat 5 must not say "this build has no GitHub token" |
+| 3 | Owner | Open the GitHub Actions run for that commit | Green. Note the run id in the take's receipt. If a test count is ever shown, it is this run's count, filmed from this page |
+| 4 | Owner | Rehearse three times on the live page, in the browser and window size used for the take | Each turn is timed from the action to the browser's speech end event, and each window in `narration.json` is replaced by the slowest run plus 1 s. Each Bedrock press reads **Amazon Bedrock** on the engine meter with no fallback reason. The fastest press's answer arrives at least 1 s after beat 2's measured narration ends |
+| 5 | Owner | Read the model's full answer in rehearsal | Note whether it shows Markdown marks; see the risks below |
+| 6 | Owner | `video/generate-narration.py --write-timestamps` | Measured beat windows written back; total narration 90 to 174 s |
+| 7 | Owner | Within 60 s before the take, `GET /health` again, then reload the page and open the chosen pull request | The function is warm, and the opened overview is on screen before recording starts |
 
 ---
 
-## Title card, 0 to 3.0 seconds
+## Capture
 
-`Volcan. Hear your code review instead of scrubbing a diff. A local run of commit 7a3de49.
-Simulated Alexa+ front end. GitHub dry run.`
+A headed browser at 1280x720, recorded with its own audio, so every product turn is the
+page's own voice and earcon. `video/capture-local.py` records headless, without audio, and
+re-renders the page's sentences in a system voice; see [`README.md`](README.md) for what it
+needs before it can drive this take. If a system voice is used after all, the closing card
+names it.
 
-## The frame
+The band under the page carries the captions and a tag naming the live build and its commit.
+The tag replaces the last take's "Local run of commit ... Not the public deployment."
 
-The page is scaled to 1632x918 at the top of the 1920x1080 frame. Everything the build adds sits
-in the band under it: the captions, a small grey tag `Local run of commit 7a3de49. Not the public
-deployment.`, and the amber label for the stretches where the page's own voice is not mixed. No
-overlay covers the page.
+---
 
-## Beat 1, `beat_01_press`, 3.0 to 35.1 seconds
+## Cold open, 0 to 12.0 seconds
 
-* **On screen, while the narrator speaks:** the page at first paint: the heading **Hear your
-  code review instead of scrubbing a diff**, **For blind and low-vision developers**, the
-  `Inverted admin check` patch, the silent preview (grey waveform, **Falling** contour, the
-  finding sentence, **Server's first sentence, not played yet.**) and the label **Live MCP
-  server, simulated Alexa+ front end. Not an Alexa skill. GitHub: dry-run.** On "one key press",
+* **Before the first frame:** the chosen pull request was opened on the live page. Opening it
+  is a Bedrock call, so it happens off camera, and the band says "Pull request opened before
+  this shot."
+* **First frame:** the dialogue under **Talk through a real pull request, then request
+  changes**, showing the opened overview with the next steps outlined.
+* **Within 0.5 s:** **Findings**, or **File by file** when the rehearsal found no finding. The
+  same command can be typed with <kbd>Alt</kbd>+<kbd>4</kbd> or said with
+  <kbd>Alt</kbd>+<kbd>5</kbd>.
+* **Sound:** the page's cue, its readback (`Understood: findings.`), and then its answer: each
+  finding as the server words it, or each file with its additions and deletions. The narrator
+  is silent.
+* **Gate:** the first product sound by 2.0 s and the first spoken word by 5.0 s, with the turn
+  playing to its end. A take that misses either is recorded again.
+
+## Beat 1, `beat_01_alexa_value`, 12.0 to 32.7 seconds
+
+* **Narration:** "That was Volcan, live, answering in its own voice. It is a Model Context
+  Protocol server built to be called by Alexa+, so a blind or low-vision developer can review
+  an AI agent's pull request by voice, and hear the verdict first."
+* **On screen:** the view scrolls to the top of the page. It shows the heading **Hear your code
+  review instead of scrubbing a diff**, **For blind and low-vision developers**, the silent
+  preview of the `Inverted admin check` patch, and the label **Live MCP server, simulated
+  Alexa+ front end. Not an Alexa skill. GitHub: dry-run.** On the last sentence,
   <kbd>Alt</kbd>+<kbd>1</kbd> puts the focus ring on **Hear this code review**.
-* **At 15.7 s, after the narrator says "Listen":** <kbd>Enter</kbd>. The page plays the earcon,
-  then the view moves so the earcon caption, the spoken sentence, the security finding box and
-  the Braille share the frame while the browser speaks the server's sentence, finding first.
-* **Sound and captions:** the earcon WAV the server returned, captioned `[Volcan earcon: security
-  finding]`, and the sentence the page passed to `speechSynthesis`, rendered with the Windows
-  system voice and captioned `Volcan (product voice):`.
-* **Window:** 19.5 seconds. The take fails if speech has not ended inside it; in this take it
-  ended 0.93 seconds early.
 
-## Beat 2, `beat_02_what_you_heard`, 35.1 to 57.8 seconds
+## Beat 2, `beat_02_bedrock_press`, 32.7 to 71.0 seconds
 
-* **On screen:** the same frame: the earcon caption `Security finding cue, falling pitch contour
-  measured from its samples, 0.60 seconds of 16-bit PCM at 22050 Hz (SECURITY_FINDING)`, the
-  spoken sentence, the red security finding box and the Braille. On the last sentence the
-  information button beside **Synthesis engine** opens the server's reason: `no AWS credentials
-  were resolved by the boto3 credential chain`.
+* **At the first frame, before the narrator speaks:** <kbd>Enter</kbd> on **Hear this code
+  review**. The model call starts, and the narration covers the wait.
+* **Narration:** "This patch, an inverted admin check, goes to Claude on Amazon Bedrock. Volcan
+  runs on AWS Lambda, with its review state in Amazon DynamoDB."
+* **After the narrator stops:** the answer arrives. The page plays the falling earcon the
+  server returned and speaks the server's sentence, finding first, while the words light.
+  Nothing is cut or sped up: the wait is shown as it happened.
+* **Fails the take:** an engine meter that reads local heuristic, a fallback reason, or an
+  answer that starts while the narrator is still speaking.
 
-## Beat 3, `beat_03_open_pull_request`, 57.8 to 82.5 seconds
+## Beat 3, `beat_03_model_coverage`, 71.0 to 82.1 seconds
 
-* **On screen:** **Talk through a real pull request, then request changes.**
-  <kbd>Alt</kbd>+<kbd>6</kbd> focuses the pull request URL box, the URL of `octocat/Hello-World`
-  pull request 1 is typed, and <kbd>Enter</kbd> opens it: `Opened octocat/Hello-World pull
-  request 1, Edited README via GitHub, by unoju, head commit 7044a8a ... 0 security findings`.
-  The view moves to the dialogue with the next steps outlined: **File by file**, **Findings**,
-  **Read the lines**.
-* **Label, while the narrator talks over the page:** `Not in this recording: the page's own cue
-  and voice for this turn`, from the page's first sound for the turn until **Findings**
-  interrupts it.
-* **After the narrator stops:** **Findings**. The page plays its cue and speaks `Understood:
-  findings.` then `No security finding in this change.` Both are in the mix, captioned as the
-  product voice; the cue is captioned `[Volcan earcon: diff ready]`.
+* **Narration:** "The meter names Amazon Bedrock, this line says how much of the patch the model
+  read, and this panel opens its full answer."
+* **On screen:**
+  * The engine meter reading **Amazon Bedrock**, with the round trip the page measured.
+  * The coverage line, exactly as the page prints it. The stage patch is under the
+    3000-character budget, so the line reads `The model read the whole N-character patch.`
+    with the page's own N. The other form, `The model read the first N of M patch
+    characters; the local rules still read the whole patch.`, appears only for a longer
+    patch. That would be a second billed press, so this take does not promise it.
+  * The details **The model's full answer** are opened and held.
 
-## Beat 4, `beat_04_request_changes`, 82.5 to 119.0 seconds
+## Optional slot, after beat 3: only if the owner records a consented session
 
-* **On screen:** a comment that says it is a dry-run demo goes into the comment box and
-  **Request changes** stages the review: the dialogue reads back `Ready to request changes on
-  octocat/Hello-World pull request 1, bound to head commit 7044a8a ... Say confirm to submit it,
-  or cancel.`, state `AWAITING CONFIRM`, with **Confirm** and **Cancel** outlined.
-* **Label:** the same band label, from the page's first sound for the turn until **Confirm**
-  interrupts it.
-* **After the narrator stops:** **Confirm**. The page plays its cue and speaks `Understood:
-  confirm.` then `Dry run. Nothing was sent to GitHub. The head commit is still 7044a8a, and the
-  exact request Volcan would send has been recorded. A live send would be refused: no
-  GITHUB_TOKEN is set.` Both are in the mix, captioned as the product voice. State `RECORDED,
-  NOT SENT`. Midway the view moves to the review pane: outcome `recorded and not sent`, the live
-  head re-read and the exact `POST .../pulls/1/reviews` body the server recorded.
+**Only if the owner records a consented session.** Without one, this slot is left out and
+nothing replaces it. It is deliberately not in `narration.json`, so a default render can never
+include it.
 
-## Beat 5, `beat_05_mcp_handshake`, 119.0 to 136.6 seconds
+* 10 to 15 seconds of a blind or low-vision developer using Volcan with their own screen
+  reader, during one of the five timed sessions the README names as the cheapest test of its
+  riskiest assumption.
+* Written consent to appear in a public video is given before recording. The participant
+  decides whether their face, voice and name appear.
+* The clip shows what happened, including a failure if that is what happened. It is not
+  re-staged, and no praise is scripted.
+* The band says it is a recorded session, with its date, and that consent was given. The
+  narration adds no claim about the result beyond what the published session results say.
 
-* **On screen:** Evidence, tab **Server and MCP**, with **SERVER REACHED** naming commit
-  `7a3de49`. **Run a real MCP handshake**, then the four facts: `2025-11-25`,
-  `volcan-accessible-forge 0.1.0`, a session id from the `Mcp-Session-Id` header and `12` tools.
-  The first tool, `braille_diff_digest`, expands to its published `inputSchema`.
+## Beat 4, `beat_04_request_changes`, 82.1 to 105.0 seconds
 
-## Beat 6, `beat_06_verification`, 136.6 to 160.0 seconds
+* **Narration:** "Back on the pull request, request changes stages a review, bound to the head
+  commit Volcan read. Listen."
+* **After the narrator stops:** a comment that says it is a dry-run demo goes into the comment
+  box, and then **Request changes**. Typing `request changes:` and the comment with
+  <kbd>Alt</kbd>+<kbd>4</kbd> works too.
+* **Sound:** the page's cue and readback, then `Ready to request changes on` the pull request,
+  `bound to head commit` and its short id, `with the comment:`, and `Say confirm to submit it,
+  or cancel.` State **AWAITING CONFIRM**. The last take talked over this turn; this one keeps
+  all of it.
 
-* **On screen:** the connection strip, whose Alexa+ add-on box reads `package built and tested
-  locally, not certified or deployed; the add-on tools are partner-only (hackathon FAQ); no
-  device test`. On the second sentence, **Replay the documented Alexa+ requests**, then the
-  three client lines, each `served`, and `3 of 3 clients served`. Back to the connection strip,
-  then the page heading and its label.
-* **Not on screen:** `python -m pytest tests/ -q` and `python scripts/mcp_conformance.py`. The
-  figures in the narration, 646 tests and 23 of 23 conformance checks, were printed by those
-  commands on 2026-09-28 against commit `7a3de49`.
+## Beat 5, `beat_05_confirm`, 105.0 to 139.6 seconds
 
-## Outro card, 160.0 to 164.5 seconds
+* **Narration:** "Nothing leaves until you confirm, and this build has no GitHub token, so it
+  records the review and sends nothing. Confirm, and listen."
+* **After the narrator stops:** **Confirm**. The page speaks `Understood: confirm.` and then its
+  dry-run answer: nothing was sent to GitHub, the head commit is unchanged, the exact request
+  is recorded, and a live send would be refused because no `GITHUB_TOKEN` is set. State
+  **RECORDED, NOT SENT**. Midway through, the view moves to the review pane, which shows the
+  outcome and the exact `POST` body the server recorded.
 
-`Volcan. Local run of commit 7a3de49. Not the public deployment. Not an Alexa skill. GitHub
-review: a dry run, recorded and not sent. Engine: local heuristic. Narration: synthetic
-ElevenLabs voice. Product voice: the page's own sentences, rendered with the Windows system
-voice.`
+## Beat 6, `beat_06_mcp_handshake`, 139.6 to 152.0 seconds
+
+* **Narration:** "This handshake is a real one with the server under the page, at protocol
+  revision 2025-11-25. Alexa+ itself has never called Volcan."
+* **On screen:**
+  * Evidence, tab **Server and MCP**, shows **Server reached** with the commit and the model
+    path the live server reports.
+  * **Run a real MCP handshake** sends `initialize` and `tools/list` and calls no tool. Hold
+    on the negotiated version and the tool list as the page prints them.
+  * Then the connection strip's Alexa+ box: package built and tested locally, not certified
+    or deployed.
+* **Not pressed:** **Replay the documented Alexa+ requests**. On the live build it costs three
+  Bedrock calls and could run close to a minute. The README's replay command against a local
+  server remains the evidence for it.
+
+## Closing card, 152.0 to 156.5 seconds
+
+`Volcan: code review by ear, by touch and by voice.`
+`Live build: https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com`
+`Source: https://github.com/upgradedev/volcan_amazon`
+`Recorded on the live build at commit {sha7}. Simulated Alexa+ front end, not an Alexa skill.
+GitHub review: a dry run, recorded and not sent.`
+`Narration: synthetic ElevenLabs voice. Product voice: the page's own speech.`
+
+The repository is private today. Before upload, the owner either makes it public or confirms
+that the judges are collaborators. Otherwise the source line points at a page judges cannot
+open.
 
 ---
 
-## What must not appear in the recording
+## Rules for this take
 
-* An Echo device, an Alexa wake word, or any Alexa skill screen. No skill exists.
-* A Bedrock console, a model id, or a response labelled `synthesis_mode: bedrock`. This take's
-  server had no credentials and no SDK, and the page says so.
-* A review sent to GitHub. The server records the request and sends nothing.
-* A command executing after approval.
-* Any figure typed into an overlay. The overlays are the title and outro cards, the commit tag,
-  the band label and the captions; every number on a page frame is one the page printed during
+* No test count is spoken or typed. If one is ever shown, it is filmed from the GitHub Actions
+  run of the recorded commit, whose run id goes in the take's receipt.
+* No figure is typed over the page. Every number in a page frame is one the page printed during
   the take.
-* A deployed URL. The public endpoint runs an older commit.
+* No cut or speed-up inside a product turn or a model wait.
+* Nothing says or implies that Alexa+ called Volcan. No Echo device, no wake word, no Alexa
+  skill screen and no Alexa developer console appear.
+* Nothing says that Bedrock read the pull request in this take. The open happened off camera,
+  and the page shows model coverage only for the stage patch.
+* No AWS console, account id, role ARN or request id appears.
+* No review is sent to GitHub.
+* No person appears without written consent.
+* "Not an Alexa skill" is not the opening line. It stays on screen in the page's label and on
+  the closing card.
+
+## Known risks on camera
+
+* **Markdown in the full answer.** The speech strings have Markdown stripped; "The model's
+  full answer" may still show marks such as asterisks. If the rehearsal shows them, the
+  narration still only says the panel holds the model's full answer. Stripping them is product
+  work and is not part of this plan.
+* **Model timeout.** A model call that runs past its 25 s timeout falls back to the local
+  engine. The meter then reads local heuristic, and the take is recorded again.
+* **"No security finding in this change."** This sentence claims more than the rules can know.
+  The pull request rule above keeps it off camera.
+* **Latency.** The only live Bedrock figure on record is one digest of 19.67 s on 2026-10-01.
+  The rehearsal measures it again, and beat 2's window follows the measurement.

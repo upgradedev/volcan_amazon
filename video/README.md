@@ -1,5 +1,13 @@
 # Volcan: how the demo video is made
 
+**Next take: planned, not recorded.** [`SHOT_LIST.md`](SHOT_LIST.md) and `narration.json` in
+this folder now hold the plan for a re-take on the live build, with Amazon Bedrock answering.
+Section 4 lists what the pipeline needs before it can render that take. Everything from here
+to section 3 describes the render that exists. Its script is in history:
+`git show fc10e7d:video/narration.json`. The `cue_sheet.json`, `subtitles.srt` and
+`subtitles.vtt` in this folder are generated from the plan by
+`scripts/synthesize_video_assets.py`, not from a render.
+
 **Status: rendered locally, not published.** The current render is `volcan-demo.mp4`, 163.68
 seconds, 1920x1080 at 25 fps, recorded on 2026-09-29 (local time) from a local run of commit
 `09d48620afde0cbb7d14ed0913efe882bea21a3d`. It lives outside the repository, at
@@ -141,3 +149,31 @@ rasterisation and record blank tiles.
 * Upload `output/captions.en.srt` from the media root as the caption track: it is sentence
   level, includes the product voice and the earcon descriptions, and carries the title card
   offset. `video/subtitles.srt` in this folder is one cue per beat.
+
+## 4. Before the re-take can be rendered
+
+The plan in [`SHOT_LIST.md`](SHOT_LIST.md) is written for the live build. The committed
+pipeline was written for the local `09d4862` take, so four of its pieces do not fit the new
+plan yet:
+
+* `video/capture-local.py` drives the six beats of the `09d4862` take:
+  * Its `EXPECTED_BEATS` lists the old beat ids, so it refuses the new `narration.json`.
+  * It opens octocat/Hello-World pull request 1 and checks for that sentence.
+  * It presses Hear this code review after the narration; beat 2 now presses before it.
+  * It records headless, without audio, and voices three turns.
+
+  It needs updating for this journey, or the take is captured by hand in a headed browser
+  with its own audio.
+* `video/build-video.py` renders `cards.title_lines` as a text card for `title_seconds`. In
+  this plan the title slot carries the cold-open footage, with those lines in the band, so the
+  build has to splice that footage in. `scripts/verify_video_sync.py` reads the title
+  segment's length from the manifest the build writes.
+* The optional consented clip has no place in the pipeline. It goes in during the edit, and
+  every later timestamp moves by its length.
+* The commands in section 1 start a local server with no cloud credentials. For this take,
+  `VOLCAN_APP_URL` points at the live build, and `VOLCAN_RELEASE_SHA` is the
+  `source_revision` that its `/health` reports.
+
+`video/generate-narration.py` works as it is. It checks each beat's text, each product
+window and its basis, and the 90 to 174 s narration range. `--write-timestamps` offsets the
+beats by `title_seconds`, which in this plan is the cold-open length.
