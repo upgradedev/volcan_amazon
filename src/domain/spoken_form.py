@@ -20,6 +20,15 @@ inside (``2**10``). Underscore emphasis follows the same guards: ``_not_`` and
 ``__Note:__`` go, while ``user_role_id``, ``src/_internal_/x.py`` and a
 dunder name such as ``__init__`` stay. A ``>`` blockquote marker at a line
 start goes; ``>>> print(x)`` and ``x >= 3`` do not.
+
+A fenced code block is code, not prose. In a diff the leading ``-`` and ``+``
+say removed and added, and in Python a ``#`` starts a comment, so every line
+between the fences is kept character for character. The fence lines go the
+way inline code ticks go, because no voice should say three ticks, but a
+block needs its edges marked: the opening fence becomes ``Code:`` (``Code,
+diff:`` when it names a language) and the closing fence ``End of code.``.
+These guarantees cover fenced blocks only. Inline code loses its ticks and
+then passes through the emphasis and link rules like any other text.
 """
 import re
 
@@ -68,6 +77,10 @@ _UNDERSCORE_ITALIC = re.compile(r"(?<![\w/.])_([A-Za-z](?:[^_\n]*?\S)?)_(?![\w/]
 _DUNDER_NAME = re.compile(r"[a-z][a-z0-9_]*")
 #: A link reads as its text; the URL is spelling no listener asked for.
 _LINK = re.compile(r"\[([^\[\]\n]+)\]\((?:[^()\n]*)\)")
+#: A fence line opens a code block: three or more ticks or tildes, indented
+#: by any amount so a block inside a list item counts, then an optional
+#: language word. A tick fence may not hold another tick on its line.
+_FENCE_OPEN = re.compile(r"^[ \t]*(?P<fence>`{3,}|~{3,})(?P<info>.*?)[ \t\r]*$")
 
 
 def _unbold(match):
@@ -84,14 +97,63 @@ def _un_underscore_bold(match):
     return inner
 
 
-def strip_markdown_for_speech(text: str) -> str:
-    """``text`` with lightweight Markdown emphasis removed, code kept.
+def _opening_fence(line: str):
+    """The fence and the spoken cue for an opening fence line, or None."""
+    match = _FENCE_OPEN.match(line)
+    if not match:
+        return None
+    fence, info = match.group("fence"), match.group("info").strip()
+    if fence[0] == "`" and "`" in info:
+        return None
+    language = info.split()[0] if info else ""
+    return fence, (f"Code, {language}:" if language else "Code:")
 
-    Blockquotes, headers, bullets, links, code ticks, ``**bold**``,
-    ``***both***``, ``*emphasis*`` over one word or several, ``__bold__`` and
-    ``_emphasis_`` are normalised to the words a voice should say. Anything
-    shaped like code is preserved: see the guards on each pattern above.
+
+def _closes(line: str, fence: str) -> bool:
+    """Whether ``line`` closes a block opened by ``fence``: the same character,
+    at least as many of it, and nothing else on the line."""
+    body = line.strip(" \t\r")
+    return len(body) >= len(fence) and body == fence[0] * len(body)
+
+
+def strip_markdown_for_speech(text: str) -> str:
+    """``text`` with lightweight Markdown removed and fenced code kept whole.
+
+    Outside a fence, blockquotes, headers, bullets, links, code ticks,
+    ``**bold**``, ``***both***``, ``*emphasis*`` over one word or several,
+    ``__bold__`` and ``_emphasis_`` are normalised to the words a voice should
+    say, under the code-shaped guards on each pattern above. Inside a fence
+    nothing is touched: ``-`` and ``+`` diff markers, ``#`` comments, stars and
+    underscores all stay. The fence lines become ``Code:`` and ``End of
+    code.``. A fence the text never closes, as in an answer cut at its token
+    ceiling, keeps everything after it as code and gets no closing cue.
     """
+    pieces: list[str] = []
+    prose: list[str] = []
+    fence = None
+    for line in text.split("\n"):
+        if fence is None:
+            opening = _opening_fence(line)
+            if opening is None:
+                prose.append(line)
+                continue
+            if prose:
+                pieces.append(_strip_prose("\n".join(prose)))
+                prose = []
+            fence, cue = opening
+            pieces.append(cue)
+        elif _closes(line, fence):
+            pieces.append("End of code.")
+            fence = None
+        else:
+            pieces.append(line)
+    if prose:
+        pieces.append(_strip_prose("\n".join(prose)))
+    return "\n".join(pieces)
+
+
+def _strip_prose(text: str) -> str:
+    """The Markdown rules above, applied to text outside any code fence."""
     stripped = _BLOCKQUOTE.sub("", text)
     stripped = _LINE_MARKUP.sub("", stripped)
     stripped = _CODE_SPAN.sub(r"\1", stripped)

@@ -287,6 +287,38 @@ def test_the_full_answer_panel_gets_the_prose_without_markdown(with_credentials)
     assert not any(line.startswith(">") for line in full.splitlines())
 
 
+def test_the_full_answer_panel_keeps_fenced_code_whole(with_credentials):
+    """Inside a fence the '-' and '+' diff markers and the '#' comment marker
+    carry meaning, so model_prose_full keeps them while the prose around the
+    fence still loses its Markdown."""
+    prose = "\n".join((
+        "**Spoken summary:** the check is *inverted*.",
+        "```diff",
+        '-    return user.role == "admin"',
+        '+    return user.role != "admin"',
+        "```",
+        "```python",
+        "# only admins may delete",
+        "```",
+    ))
+    client = _StubClient({"content": [{"type": "text", "text": prose}]})
+    adapter = BedrockSynthesisAdapter(client_factory=lambda region: client)
+
+    report = _run(adapter)
+
+    assert report.model_prose_full.splitlines() == [
+        "Spoken summary: the check is inverted.",
+        "Code, diff:",
+        '-    return user.role == "admin"',
+        '+    return user.role != "admin"',
+        "End of code.",
+        "Code, python:",
+        "# only admins may delete",
+        "End of code.",
+    ]
+    assert "```" not in report.executive_spoken_summary
+
+
 def test_word_boundary_cut_when_no_sentence_end_fits():
     prose = " ".join(f"word{i:03d}" for i in range(60))
     spoken = shorten_for_speech(prose)

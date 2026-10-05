@@ -8,7 +8,7 @@ every count agrees with its noun.
 """
 from fastapi.testclient import TestClient
 
-from src.domain.spoken_form import speakable
+from src.domain.spoken_form import speakable, strip_markdown_for_speech
 from src.interfaces.mcp_server import app
 
 INVERTED = """diff --git a/src/auth/permissions.py b/src/auth/permissions.py
@@ -126,3 +126,65 @@ def test_underscores_and_angle_brackets_shaped_like_code_survive_the_strip():
     assert speakable("*.py and *.js") == "*.py and *.js"
     assert speakable(">>> print(x)") == ">>> print(x)"
     assert speakable("x >= 3 here") == "x greater than or equal to 3 here"
+
+
+#: A code review answer as a model writes it: prose with Markdown, a fenced
+#: diff and a fenced Python snippet whose comment holds a star-shaped word.
+FENCED_ANSWER = "\n".join((
+    "**Finding:** the check is _inverted_.",
+    "```diff",
+    '-    return user.role == "admin"',
+    '+    return user.role != "admin"',
+    "```",
+    "- keep *this* in mind",
+    "```python",
+    "# only admins may delete, *not* owners",
+    "def can_delete(user, *args, **kwargs):",
+    "    return _private_",
+    "```",
+))
+
+
+def test_a_fenced_diff_keeps_its_minus_and_plus_markers():
+    """For a blind developer the leading '-' and '+' are the review: removed
+    and added. The bullet rule used to eat both inside a fence."""
+    lines = strip_markdown_for_speech(FENCED_ANSWER).splitlines()
+    assert lines[1:5] == [
+        "Code, diff:",
+        '-    return user.role == "admin"',
+        '+    return user.role != "admin"',
+        "End of code.",
+    ]
+
+
+def test_a_fenced_python_comment_keeps_its_hash_stars_and_underscores():
+    """The heading rule used to eat '#', and the emphasis rules '*not*' and
+    '_private_', inside a fence."""
+    lines = strip_markdown_for_speech(FENCED_ANSWER).splitlines()
+    assert lines[6:] == [
+        "Code, python:",
+        "# only admins may delete, *not* owners",
+        "def can_delete(user, *args, **kwargs):",
+        "    return _private_",
+        "End of code.",
+    ]
+
+
+def test_markdown_outside_fences_is_still_stripped():
+    plain = strip_markdown_for_speech(FENCED_ANSWER)
+    assert plain.splitlines()[0] == "Finding: the check is inverted."
+    assert plain.splitlines()[5] == "keep this in mind"
+    assert "```" not in plain
+
+
+def test_the_spoken_form_of_a_fenced_diff_names_its_operators_and_keeps_its_markers():
+    spoken = speakable(FENCED_ANSWER).splitlines()
+    assert spoken[2] == '- return user.role equals equals "admin"'
+    assert spoken[3] == '+ return user.role not equals "admin"'
+    assert "```" not in "\n".join(spoken)
+
+
+def test_an_unclosed_fence_keeps_the_rest_of_the_answer_as_code():
+    """An answer cut at its token ceiling can stop inside a fence."""
+    cut = "See:\n~~~\n- old\n# note *this*"
+    assert strip_markdown_for_speech(cut) == "See:\nCode:\n- old\n# note *this*"
