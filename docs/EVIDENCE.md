@@ -540,6 +540,47 @@ tools array. That did not reproduce then, and it cannot happen now for a differe
 request is served, and `test_missing_protocol_version_with_a_session_uses_the_negotiated_revision`
 asserts that it returns the real catalog, not an empty one.
 
+**Structured results and the review card.** Since 2026-10-06 three tools publish an
+`outputSchema` and return `structuredContent`, as the 2025-11-25 tools page describes ("Output
+Schema", "Structured Content"):
+
+* `digest_semantic_diff`, `drill_down_section` and `review_dialogue_turn`. Each schema comes
+  from a pydantic model in `src/interfaces/dto.py` that names every top-level key and forbids
+  others, so a key added to an operation and not to its model fails a test.
+* The structured object is the same object as the JSON text block, which stays for clients that
+  predate the field. The first block is still the sentence a listener hears.
+* `initialize` now advertises `resources: {listChanged: false}`. `resources/list` lists one
+  resource, `resources/read` returns it, and `resources/templates/list` returns an empty list.
+  An unknown URI gets `-32002` with the URI in `data`, as the resources page names it.
+  `resources/subscribe` stays `-32601`.
+* The resource is `ui://volcan/review-card`, served as `text/html;profile=mcp-app`, the format
+  of the MCP Apps extension (SEP-1865, marked stable 2026-01-26). `review_dialogue_turn` links
+  it through `_meta.ui.resourceUri`, which is where the extension puts the link: on the tool,
+  not in each result. The card shows the file in focus, the first finding a rule matched in it,
+  up to eight changed lines with each line in eight-dot code Braille, and Confirm and Cancel
+  while a review is staged. It loads nothing from the network and declares no `csp` domains, so
+  a host applies the extension's restrictive default policy.
+* The card's Confirm and Cancel send `tools/call review_dialogue_turn` with `confirm` or
+  `cancel`, only on a press. The server then runs the same confirm every surface uses: the
+  single-use grant, custody, the live head re-read and, in live mode, the reviewer credential.
+  `test_a_forged_grant_from_any_surface_is_refused` pins that a forged grant is still refused.
+
+What this does not show. The extension says a server SHOULD check the client's
+`io.modelcontextprotocol/ui` capability before publishing a UI link; this server publishes it
+always, because the stateless deployment keeps no per-client memory, and a client without the
+extension ignores `_meta`. The companion page is the only host that has drawn the card. It is a
+simplified host: the extension asks a web host to load a view through a sandbox proxy on a
+second origin, and the page uses one iframe sandboxed to scripts only, whose origin is opaque.
+It also keeps one view for the whole review session and sends each later turn as another
+`tool-result`, where the extension describes one view per tool call. No MCP Apps client, Echo
+Show or Alexa+ has rendered it.
+
+`python -m pytest tests/integration/test_mcp_structured_results.py -v` validates every
+structured result against its schema with a JSON Schema 2020-12 validator across the dialogue
+states, and checks the listing, the read and the errors. `python -m pytest
+tests/e2e/test_review_card.py -v` checks how the page hosts the card and drives Chromium to
+reach and press its Confirm by keyboard.
+
 The REST surface at `/api` is ordinary JSON over HTTP for the web companion. It is not MCP
 and is not described as MCP anywhere in this repository.
 
@@ -903,7 +944,7 @@ estimate unless it says ESTIMATE.
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **23 of 23 conformance checks pass**, stateful on port 8841 and stateless (`VOLCAN_MCP_SESSION_MODE=stateless`, `--expect-mode stateless`) on port 8842, 2026-09-27 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 751 passing; 92.84% statement coverage (4734 statements, 339 missed), including a real Chromium judge journey and Lambda bridge, 2026-10-01 (737 and 92.89% on 2026-09-30; 725 and 92.74% on 2026-09-29; 723 and 92.67% earlier that day before the Lambda SSE-bridge disconnect fix; 707 and 92.67% on 2026-09-28 before the persona-review gates; 703 and 92.67% earlier that day before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 684 and 92.62% before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 772 collected on 2026-10-06 after the structured results and the review card (`python -m pytest --collect-only -q`; not run in full on this host); 751 passing; 92.84% statement coverage (4734 statements, 339 missed), including a real Chromium judge journey and Lambda bridge, 2026-10-01 (737 and 92.89% on 2026-09-30; 725 and 92.74% on 2026-09-29; 723 and 92.67% earlier that day before the Lambda SSE-bridge disconnect fix; 707 and 92.67% on 2026-09-28 before the persona-review gates; 703 and 92.67% earlier that day before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 684 and 92.62% before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.7 s on 2026-09-26 (three runs: 1.7, 1.7, 1.8 s) | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 31.3 ms on the first press, then 38.9, 30.5 and 28.7 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credentials | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -1314,9 +1355,12 @@ the untested part.
 * `review_dialogue_turn` asks for a `session_id`. Amazon's lifecycle page says Alexa+ keeps its
   own conversation context and names no session identifier it would send, so the model would
   have to supply one.
-* The tools answer with a text block, an audio block and a JSON text block, not the
-  `structuredContent` field Amazon's example response shows. Whether Alexa+ plays an MCP audio
-  block is not documented; PCM/WAVE in its codec list says nothing about tool results.
+* Since 2026-10-06 `digest_semantic_diff`, `drill_down_section` and `review_dialogue_turn`
+  also return the `structuredContent` field Amazon's example response shows, matching each
+  tool's published `outputSchema`; the text block, the audio block and the JSON text block stay.
+  Whether Alexa+ reads `structuredContent`, draws a `ui://` view or plays an MCP audio block is
+  not documented; PCM/WAVE in its codec list says nothing about tool results. The live endpoint
+  at `9b2bcb9` predates the field.
 * The endpoint has no OAuth. Amazon's authentication checklist applies to a private server.
 * Amazon's certification criteria include VoiceView, captions and screen magnifier support on
   Alexa devices. Nothing here was tried on a device.

@@ -698,6 +698,35 @@
     .rail { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
     .rail-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-l); padding: 18px 20px; }
     .rail-card h3 { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; font-size: var(--t-md); }
+
+    /* The review card, drawn in a frame shaped like a smart display. The
+       frame is this page's drawing; the card inside it is the server's
+       ui:// resource. Nothing here uses an Amazon mark. */
+    .show-card { margin: 24px 0 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 16px 24px; align-items: start; }
+    .show-card figcaption h3 { margin: 0 0 8px; font-size: var(--t-md); }
+    .show-card figcaption p { margin: 0 0 10px; color: var(--ink-soft); max-width: var(--measure); }
+    .show-device {
+      background: #16181b; border-radius: 26px; padding: 16px 16px 30px;
+      box-shadow: 0 1px 0 var(--line-strong), 0 10px 26px rgba(0, 0, 0, 0.22);
+      position: relative;
+    }
+    .show-device::after {
+      content: ""; position: absolute; left: 50%; bottom: 11px; width: 44px; height: 6px;
+      margin-left: -22px; border-radius: 3px; background: #2c3036;
+    }
+    .show-screen {
+      background: #0f1720; border-radius: 12px; min-height: 300px; overflow: auto;
+      display: flex; flex-direction: column;
+    }
+    .show-screen iframe { border: 0; width: 100%; height: 300px; display: block; background: #0f1720; border-radius: 12px; }
+    .show-screen iframe[hidden], .show-screen .show-state[hidden] { display: none; }
+    .show-screen .show-state { margin: 0; padding: 20px; color: #e8edf2; font-size: var(--t-sm); }
+    @media (max-width: 1000px) {
+      .show-card { grid-template-columns: minmax(0, 1fr); }
+    }
+    @media (forced-colors: active) {
+      .show-device { border: 2px solid CanvasText; }
+    }
     .rail-card h3 .n { font-family: var(--mono); color: var(--ink-faint); font-size: var(--t-sm); }
     .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
     .replay-list { list-style: none; padding: 0; margin: 14px 0 0; display: grid; gap: 10px; font-size: var(--t-sm); }
@@ -1268,6 +1297,28 @@
                     title="Open the full keyboard map. The question mark key does the same">Full keyboard map <kbd>?</kbd></button>
           </div>
         </div>
+
+        <figure class="show-card" id="showCard" aria-labelledby="showCardHeading">
+          <figcaption>
+            <h3 id="showCardHeading">The same turn as a card on a smart display</h3>
+            <p id="showCardNote"><strong>Drawn by this page.</strong> No Echo Show and no Alexa+
+              has rendered this card, and the frame is a drawing, not a device. The card itself is
+              the server's own <code>ui://volcan/review-card</code>, an MCP Apps view this page
+              reads with <code>resources/read</code> over <code>POST /mcp</code> and hands each
+              turn's result as <code>structuredContent</code>, the way an MCP Apps host would.</p>
+            <p>Its <strong>Confirm</strong> and <strong>Cancel</strong> send the same confirm and
+              cancel as the buttons above, through the same grant check, so the card adds no
+              second way to release a review. Inside the card only <kbd>Tab</kbd>,
+              <kbd>Shift</kbd>+<kbd>Tab</kbd>, <kbd>Enter</kbd>, <kbd>Space</kbd> and
+              <kbd>Escape</kbd> work; the other shortcuts work again once focus leaves it.</p>
+          </figcaption>
+          <div class="show-device">
+            <div class="show-screen">
+              <p class="show-state" id="showCardState">No card yet. It appears after the first review turn, when this page reads the card from the server.</p>
+              <iframe id="reviewCardFrame" title="Review card: the MCP Apps view ui://volcan/review-card, served by this Volcan server" sandbox="allow-scripts" hidden></iframe>
+            </div>
+          </div>
+        </figure>
       </section>
 
       <section class="evidence" id="evidence" aria-labelledby="evidence-heading">
@@ -1490,7 +1541,8 @@
           <tr><td><kbd>Alt</kbd>+<kbd>5</kbd></td><td>Start or stop listening with the browser's speech recognition, when it has one.</td></tr>
           <tr><td><kbd>Alt</kbd>+<kbd>6</kbd></td><td>Focus the pull request URL box. Paste a URL and press <kbd>Enter</kbd> to open it.</td></tr>
           <tr><td><kbd>Left</kbd> and <kbd>Right</kbd></td><td>Move between the Evidence tabs once one has focus.</td></tr>
-          <tr><td><kbd>Escape</kbd></td><td>Interrupt: stop the speech, stop the earcon, and stop listening. Closes this map.</td></tr>
+          <tr><td><kbd>Escape</kbd></td><td>Interrupt: stop the speech, stop the earcon, and stop listening. Closes this map. Inside the review card it does the same, because the card asks this page to.</td></tr>
+          <tr><td>Inside the review card</td><td>Only <kbd>Tab</kbd>, <kbd>Shift</kbd>+<kbd>Tab</kbd>, <kbd>Enter</kbd>, <kbd>Space</kbd> and <kbd>Escape</kbd> work there. A key pressed inside the card's frame does not reach this page, so <kbd>?</kbd> and the <kbd>Alt</kbd> shortcuts work again once focus leaves it.</td></tr>
         </tbody>
       </table>
 
@@ -3553,6 +3605,8 @@
       setBusy(open, false);
     }
 
+    /* Returns the server's answer for the turn, or null when no answer came.
+       The review card's Confirm and Cancel wait on it. */
     async function sendTranscript(transcript, source) {
       var text = String(transcript || "").trim();
       if (!text) {
@@ -3568,7 +3622,8 @@
       // Interruption: a new command silences whatever is still being spoken
       // before the server is asked, so the listener is never talked over.
       stopAudio();
-      logTurn("you", (source === "microphone" ? "Heard: " : "Typed: ") + text);
+      logTurn("you", (source === "microphone" ? "Heard: "
+        : source === "card" ? "Pressed in the review card: " : "Typed: ") + text);
       startTurn(text);
       try {
         var ready = await requireServer([
@@ -3582,14 +3637,15 @@
         }
 
         try {
-          var result = await postJson("/api/review/turn", {
+          var turnArguments = {
             session_id: Review.sessionId,
             user_id: "companion-developer",
             transcript: text,
             pr_url: $("prUrl").value.trim() || null,
             raw_diff: $("diffInput").value || null,
             approval_grant: Review.grant
-          });
+          };
+          var result = await postJson("/api/review/turn", turnArguments);
           var data = result.data;
 
           logTurn("understood", data.readback);
@@ -3615,6 +3671,8 @@
 
           if (data.earcon) { renderEarcon(data.earcon); }
           speakAfterCue(data);
+          showCardTurn(turnArguments, data);
+          return data;
         } catch (error) {
           logTurn("you", "The turn failed: " + error.message);
           clear($("reviewPane")).appendChild(failureCard("The dialogue call failed: " + error.message + "."));
@@ -3623,7 +3681,185 @@
       } finally {
         endTurn();
       }
+      return null;
     }
+
+    /* --- the review card, as an MCP Apps host would draw it ------------------
+       The card is ui://volcan/review-card, read from this server with
+       resources/read. It runs in an iframe sandboxed to scripts only, so its
+       origin is opaque: it cannot read this page, its storage or its cookies.
+       The page speaks to it in JSON-RPC over postMessage, as MCP Apps (SEP-1865,
+       2026-01-26) describes: ui/initialize, then tool-input, then tool-result.
+       Two departures, stated plainly. The extension asks a web host to load a
+       view through a sandbox proxy on a second origin; this page has one origin
+       and uses the opaque-origin iframe instead. And the extension draws one
+       view per tool call; this page keeps one view for the review session and
+       sends each later turn as another tool-result.
+       The card may ask for exactly two things, confirm and cancel. Either is
+       run by sendTranscript, the function the Confirm and Cancel buttons above
+       call, so the stored grant, the reviewer credential and the one-turn-at-a-
+       time rule all apply. What the card sends as arguments is ignored. */
+    var REVIEW_CARD_URI = "ui://volcan/review-card";
+    var MCP_APPS_VERSION = "2026-01-26";
+    // The extension's restrictive default, because the card declares no domains.
+    var REVIEW_CARD_CSP = "default-src 'none'; script-src 'self' 'unsafe-inline'; "
+      + "style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' data:; "
+      + "connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'";
+    var Card = { loading: null, ready: false, inputSent: false, pending: null };
+
+    function cardFrame() { return $("reviewCardFrame"); }
+
+    function cardPost(message) {
+      var frame = cardFrame();
+      if (frame.contentWindow) { frame.contentWindow.postMessage(message, "*"); }
+    }
+
+    function cardState(text) {
+      var state = $("showCardState");
+      state.textContent = text;
+      state.hidden = !text;
+    }
+
+    function structuredFor(data) {
+      // The MCP tool's structuredContent is this same object without the
+      // earcon, which MCP carries as an audio block instead.
+      var copy = Object.assign({}, data);
+      delete copy.earcon;
+      return copy;
+    }
+
+    async function readCardResource() {
+      var init = await rpc({
+        jsonrpc: "2.0", id: "card-1", method: "initialize",
+        params: {
+          protocolVersion: PROTOCOL_VERSION,
+          capabilities: { extensions: { "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] } } },
+          clientInfo: { name: "volcan-web-companion", version: "1" }
+        }
+      });
+      if (init.body.error) { throw new Error(init.body.error.message); }
+      var headers = { "MCP-Protocol-Version": init.negotiated || PROTOCOL_VERSION };
+      if (init.sessionId) { headers["Mcp-Session-Id"] = init.sessionId; }
+      await fetch(State.apiBase + "/mcp", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, headers),
+        body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" })
+      });
+      try {
+        var read = await rpc({
+          jsonrpc: "2.0", id: "card-2", method: "resources/read", params: { uri: REVIEW_CARD_URI }
+        }, headers);
+        if (read.body.error) { throw new Error(read.body.error.message); }
+        var contents = read.body.result.contents[0];
+        if (!contents || contents.mimeType !== "text/html;profile=mcp-app" || typeof contents.text !== "string") {
+          throw new Error("resources/read did not return an MCP Apps HTML view");
+        }
+        return contents.text;
+      } finally {
+        if (init.sessionId) {
+          fetch(State.apiBase + "/mcp", { method: "DELETE", headers: headers }).catch(function () {});
+        }
+      }
+    }
+
+    function loadCard() {
+      if (!Card.loading) {
+        Card.loading = readCardResource().then(function (html) {
+          if (html.indexOf("<head>") < 0) { throw new Error("the card has no head to carry its policy"); }
+          var policy = '<meta http-equiv="Content-Security-Policy" content="' + REVIEW_CARD_CSP + '">';
+          var frame = cardFrame();
+          frame.srcdoc = html.replace("<head>", "<head>\n" + policy);
+          frame.hidden = false;
+          cardState("");
+        }, function (error) {
+          Card.loading = null;
+          cardState("The card could not be read from this server: " + error.message
+            + ". The conversation and the buttons above work without it.");
+          throw error;
+        });
+      }
+      return Card.loading;
+    }
+
+    function showCardTurn(args, data) {
+      Card.pending = { args: args, data: data };
+      loadCard().then(flushCard, function () {});
+    }
+
+    function flushCard() {
+      if (!Card.ready || !Card.pending) { return; }
+      var turn = Card.pending;
+      Card.pending = null;
+      if (!Card.inputSent) {
+        cardPost({ jsonrpc: "2.0", method: "ui/notifications/tool-input", params: { arguments: turn.args } });
+        Card.inputSent = true;
+      }
+      cardPost({
+        jsonrpc: "2.0", method: "ui/notifications/tool-result",
+        params: {
+          content: [{ type: "text", text: (turn.data.readback + " " + (turn.data.spoken || "")).trim() }],
+          structuredContent: structuredFor(turn.data),
+          isError: false
+        }
+      });
+    }
+
+    async function answerCardToolCall(message) {
+      var params = message.params || {};
+      var transcript = params.arguments && params.arguments.transcript;
+      if (params.name !== "review_dialogue_turn" || (transcript !== "confirm" && transcript !== "cancel")) {
+        cardPost({ jsonrpc: "2.0", id: message.id, error: {
+          code: -32602, message: "This page lets the review card send only confirm or cancel." } });
+        return;
+      }
+      var data = await sendTranscript(transcript, "card");
+      if (!data) {
+        cardPost({ jsonrpc: "2.0", id: message.id, error: {
+          code: -32000, message: "The " + transcript + " was not run; the conversation says why." } });
+        return;
+      }
+      cardPost({ jsonrpc: "2.0", id: message.id, result: {
+        content: [{ type: "text", text: (data.readback + " " + (data.spoken || "")).trim() }],
+        structuredContent: structuredFor(data),
+        isError: false
+      } });
+    }
+
+    window.addEventListener("message", function (event) {
+      var frame = cardFrame();
+      if (!frame.contentWindow || event.source !== frame.contentWindow) { return; }
+      var message = event.data;
+      if (!message || message.jsonrpc !== "2.0" || typeof message.method !== "string") { return; }
+      var isRequest = message.id !== undefined && message.id !== null;
+      if (message.method === "ui/initialize" && isRequest) {
+        var dark = !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        cardPost({ jsonrpc: "2.0", id: message.id, result: {
+          protocolVersion: MCP_APPS_VERSION,
+          hostInfo: { name: "volcan-web-companion", version: "1" },
+          hostCapabilities: { serverTools: {} },
+          hostContext: {
+            theme: dark ? "dark" : "light",
+            displayMode: "inline",
+            availableDisplayModes: ["inline"],
+            containerDimensions: { maxHeight: 900 }
+          }
+        } });
+      } else if (message.method === "ui/notifications/initialized") {
+        Card.ready = true;
+        flushCard();
+      } else if (message.method === "ui/notifications/size-changed") {
+        var height = Number(message.params && message.params.height);
+        if (height > 0) { frame.style.height = Math.min(Math.ceil(height), 900) + "px"; }
+      } else if (message.method === "notifications/volcan/interrupt") {
+        stopAudio();
+        stopListening();
+      } else if (message.method === "tools/call" && isRequest) {
+        answerCardToolCall(message);
+      } else if (isRequest) {
+        cardPost({ jsonrpc: "2.0", id: message.id, error: {
+          code: -32601, message: "This page does not offer " + message.method + " to the card." } });
+      }
+    });
 
     function sendTyped() {
       var box = $("commandInput");
