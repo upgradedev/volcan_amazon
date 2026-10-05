@@ -19,7 +19,7 @@ needed; [step by step](#run-it-locally).
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-751%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-783%20passing-brightgreen.svg)](tests/)
 
 **What it does.** Paste a patch or open a GitHub pull request. Volcan says the risky change
 first in one sentence, plays a cue whose pitch falls on a security finding and rises on a clean

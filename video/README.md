@@ -2,9 +2,10 @@
 
 **Next take: planned, not recorded.** [`SHOT_LIST.md`](SHOT_LIST.md) and `narration.json` in
 this folder now hold the plan for a re-take on the live build, with Amazon Bedrock answering.
-Section 4 lists what the pipeline needs before it can render that take. Everything from here
-to section 3 describes the render that exists. Its script is in history:
-`git show fc10e7d:video/narration.json`. The `cue_sheet.json`, `subtitles.srt` and
+Section 1 gives the commands for that take, and section 4 says what the pipeline does for it
+and what is still open. Sections 2 and 3 describe the render that exists. Its script and its
+capture are in history: `git show fc10e7d:video/narration.json` and
+`git show fc10e7d:video/capture-local.py`. The `cue_sheet.json`, `subtitles.srt` and
 `subtitles.vtt` in this folder are generated from the plan by
 `scripts/synthesize_video_assets.py`, not from a render.
 
@@ -43,28 +44,55 @@ so any one beat can be re-rendered later.
 | Compose | `video/build-video.py` | `output/volcan-demo.mp4`, `video-receipt.json`, `video_manifest.json`, `caption_windows.json`, `captions.en.srt` |
 | Gate | `scripts/verify_video_sync.py` | pass or fail, from the mp4 itself |
 
+For the re-take on the live build:
+
 ```bash
 export VOLCAN_VIDEO_ROOT=/a/folder/outside/the/repo
-export VOLCAN_RELEASE_SHA=$(git rev-parse HEAD)   # the commit the server runs
-export VOLCAN_APP_URL=http://127.0.0.1:8871/
+export VOLCAN_APP_URL=https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/
+export VOLCAN_RELEASE_SHA=<the 40 character source_revision that GET $VOLCAN_APP_URL/health reports>
+export VOLCAN_PR_URL=https://github.com/<owner>/<repo>/pull/<number>   # chosen in rehearsal
+export VOLCAN_COLD_OPEN=findings      # or files, when the rehearsal found no finding
 export FFMPEG=/path/to/ffmpeg FFPROBE=/path/to/ffprobe
 # ELEVENLABS_API_KEY goes into the generator's environment only; never printed or written.
 
 python video/generate-narration.py --write-timestamps
-# A fresh server with no cloud credentials. On a machine with ~/.aws, point the SDK away from it:
-AWS_SHARED_CREDENTIALS_FILE=/nonexistent AWS_CONFIG_FILE=/nonexistent AWS_EC2_METADATA_DISABLED=true \
-  SOURCE_REVISION=$VOLCAN_RELEASE_SHA python -m src.interfaces.mcp_server --port 8871
-python video/capture-local.py
+python video/capture-local.py                          # checks only; presses nothing billed
+python video/capture-local.py --allow-billed-presses   # the take: two Amazon Bedrock calls
 python video/build-video.py
 cd "$VOLCAN_VIDEO_ROOT/output" && VIDEO_MANIFEST=video_manifest.json \
   CAPTION_WINDOWS=caption_windows.json python /path/to/repo/scripts/verify_video_sync.py volcan-demo.mp4
 python scripts/synthesize_video_assets.py         # cue sheet and subtitles from the measured beats
 ```
 
+The 2026-09-29 take ran the scripts at `fc10e7d` against a fresh local server with no cloud
+credentials; `git show fc10e7d:video/README.md` has those commands.
+
+### Billed presses: `--allow-billed-presses`
+
+Two actions in the re-take call Amazon Bedrock on the live build: opening the chosen pull
+request, which the capture does before the cold open and off camera, and **Hear this code
+review** at the start of beat 2. Each is one billed model call.
+
+* **Without the flag (the default),** `video/capture-local.py` reads `/health` and the measured
+  beats, prints the two calls the take would bill, and exits before it opens a browser. It
+  presses nothing and leaves an earlier `capture/` folder in place.
+* **With the flag,** a request guard in the browser lets exactly one pull request open and one
+  default-engine digest through, each armed just before the script makes that press. Any
+  other request that would reach a model is aborted, and the take fails. That includes a
+  digest without `"engine"` in its body, a second open, and a `tools/call` on `POST /mcp`.
+* The receipt lists the calls that went through, under `billedCalls`.
+* **Replay the documented Alexa+ requests** is never pressed. On the live build it is three
+  calls.
+
+Pass the flag only after the owner has authorised the calls in writing, as step 1 of
+[`SHOT_LIST.md`](SHOT_LIST.md) says. Each run with the flag is one take, and two calls
+against the bound of 12.
+
 The gate calls `ffmpeg` and `ffprobe` by name, so put their folder on `PATH` for it.
 `python tests/video/verify_gate_selftest.py` proves the gate still fails on a mis-ordered
 video, a caption that runs into the outro and an audio track longer than the picture. It is
-not collected by pytest.
+not collected by pytest. The gate is unchanged, and on the re-take it fails one check by
+design; see section 4.
 
 ### Re-rendering one beat
 
@@ -79,15 +107,38 @@ capture is paced by the measured windows, so a changed beat length changes the t
 
 ### What the capture refuses
 
-A take fails, and has to be recorded again, when the page logs an error, when `/health`
-reports a different commit than `VOLCAN_RELEASE_SHA`, when a voiced turn's speech has not ended
-before the next beat starts or was interrupted, when the page speaks a sentence other than the
-one the server returned, when the review dialogue refuses a turn or does not answer it, when
-Findings or Confirm is not an outlined next step, when the review pane does not show a
-recorded, unsent review, when the Alexa+ replay serves fewer than three clients, or when the
-picture stays one flat colour for 0.75 s or longer. That last check reads the recording's
-pixels: on a loaded machine a long smooth scroll can outrun
-rasterisation and record blank tiles.
+Before it opens a browser, the capture refuses:
+
+* a `narration.json` whose beats are not the six beats of the re-take, in order;
+* a title slot that does not name the cold open;
+* a `/health` that reports a different commit than `VOLCAN_RELEASE_SHA`, a
+  `bedrock_model_path` other than `ready_to_attempt`, or a `github_review_path` other than
+  `dry_run_no_token` (beat 5 says the build has no GitHub token);
+* a run without `--allow-billed-presses`.
+
+During or after the take, it fails, and the take has to be recorded again:
+
+* **Errors and focus.** The page logs an error, or a key press would go to an element other
+  than the one the journey means. It checks the pull request box before typing and Enter,
+  Hear this code review before Enter, and the comment box before typing.
+* **The model call.** A request would bill a model call the take did not plan. The press is
+  not answered by Amazon Bedrock or carries a fallback reason. The engine meter does not read
+  Amazon Bedrock, or the page prints no coverage line. The answer's first sound comes before
+  beat 2's narration ends.
+* **The cold open.** Its first sound comes later than 2.0 s, or its first word later than
+  5.0 s. Findings answers `No security finding in this change.` The cold-open command is not
+  an outlined next step.
+* **Speech.** A voiced turn's speech has not ended before the next segment starts, or was
+  interrupted. The page speaks a sentence other than the one the server returned.
+* **The review.** The dialogue does not open the chosen pull request, refuses a turn or does
+  not answer it. Confirm is not an outlined next step. The review pane does not show a
+  recorded, unsent review.
+* **The picture.** It stays one flat colour for 0.75 s or longer. This check reads the
+  recording's pixels: on a loaded machine a long smooth scroll can outrun rasterisation and
+  record blank tiles.
+
+The build refuses a recording that drifted more than 5% from the page clock, and a capture
+receipt whose cold open does not match `cards.title_seconds`.
 
 ---
 
@@ -150,30 +201,52 @@ rasterisation and record blank tiles.
   level, includes the product voice and the earcon descriptions, and carries the title card
   offset. `video/subtitles.srt` in this folder is one cue per beat.
 
-## 4. Before the re-take can be rendered
+## 4. Rendering the re-take
 
-The plan in [`SHOT_LIST.md`](SHOT_LIST.md) is written for the live build. The committed
-pipeline was written for the local `09d4862` take, so four of its pieces do not fit the new
-plan yet:
+The plan in [`SHOT_LIST.md`](SHOT_LIST.md) is written for the live build. The pipeline now
+follows it, with these limits.
 
-* `video/capture-local.py` drives the six beats of the `09d4862` take:
-  * Its `EXPECTED_BEATS` lists the old beat ids, so it refuses the new `narration.json`.
-  * It opens octocat/Hello-World pull request 1 and checks for that sentence.
-  * It presses Hear this code review after the narration; beat 2 now presses before it.
-  * It records headless, without audio, and voices three turns.
+* **`video/capture-local.py` drives the re-take journey.**
+  * It accepts the six beat ids in `narration.json` and refuses any other list.
+  * It opens `VOLCAN_PR_URL` off camera and waits for that turn's speech to end.
+  * It records the cold open on timeline seconds from minus `cards.title_seconds` to 0.
+  * It presses Hear this code review at the first frame of beat 2.
+  * It holds on the meter, the coverage line and the model's full answer in beat 3.
+  * It voices Request changes in beat 4 and Confirm in beat 5.
+  * In beat 6 it runs the MCP handshake, and it does not press the replay.
 
-  It needs updating for this journey, or the take is captured by hand in a headed browser
-  with its own audio.
-* `video/build-video.py` renders `cards.title_lines` as a text card for `title_seconds`. In
-  this plan the title slot carries the cold-open footage, with those lines in the band, so the
-  build has to splice that footage in. `scripts/verify_video_sync.py` reads the title
-  segment's length from the manifest the build writes.
-* The optional consented clip has no place in the pipeline. It goes in during the edit, and
-  every later timestamp moves by its length.
-* The commands in section 1 start a local server with no cloud credentials. For this take,
-  `VOLCAN_APP_URL` points at the live build, and `VOLCAN_RELEASE_SHA` is the
-  `source_revision` that its `/health` reports.
+  The capture still records headless, without audio. It re-renders the page's sentences in
+  the Windows system voice, and the build then names that voice on the closing card. A
+  headed capture with the browser's own audio, which the shot list prefers, is not built.
+* **`video/build-video.py` puts the cold open in the title slot.**
+  * It does this when `cards.title_slot` starts with `cold_open`.
+  * The page's footage from the cold open's first frame fills the title slot, and the title
+    lines sit in the band under it.
+  * The band tag names the build from the capture's `appUrl`: a local run, or the live build
+    and its commit.
+  * Card lines too long for the frame wrap.
+  * Without `title_slot`, the title card of the 2026-09-29 take is drawn as before.
+* **The sync gate fails the re-take on one check, by design.**
+  * `scripts/verify_video_sync.py` and its selftest are unchanged.
+  * The gate samples the middle of the title segment and expects a card.
+  * With cold-open footage there, `order-pixels` fails.
+  * The manifest says `"title_slot": "cold_open_footage"`, and the build prints a note.
+  * Before this take can pass the gate, the owner decides one of two things:
+    * Teach the gate the cold open, and add a cold-open case to the selftest so it still
+      proves the gate fails on bad files.
+    * Keep a short title card, which the shot list does not want.
+* **The optional consented clip has no place in the pipeline.** It goes in during the edit,
+  and every later timestamp moves by its length.
 
 `video/generate-narration.py` works as it is. It checks each beat's text, each product
 window and its basis, and the 90 to 174 s narration range. `--write-timestamps` offsets the
 beats by `title_seconds`, which in this plan is the cold-open length.
+
+`tests/unit/test_video_retake_pipeline.py` covers both scripts without a browser, ffmpeg or a
+request. Its 32 cases (`python -m pytest tests/unit/test_video_retake_pipeline.py -q`) check:
+
+* the beat ids;
+* the billed-press flag and the request guard;
+* the `/health` refusals and the cold-open timing gate;
+* the two shapes of the title slot;
+* the band tag and the closing card.

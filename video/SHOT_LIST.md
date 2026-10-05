@@ -102,10 +102,11 @@ and the owner is asked again.
 ## Capture
 
 A headed browser at 1280x720, recorded with its own audio, so every product turn is the
-page's own voice and earcon. `video/capture-local.py` records headless, without audio, and
-re-renders the page's sentences in a system voice; see [`README.md`](README.md) for what it
-needs before it can drive this take. If a system voice is used after all, the closing card
-names it.
+page's own voice and earcon. `video/capture-local.py` drives this journey, but records
+headless, without audio, and re-renders the page's sentences in a system voice. It presses
+nothing billed unless it is run with `--allow-billed-presses`; see [`README.md`](README.md),
+sections 1 and 4. If a system voice is used after all, the closing card names it, and
+`video/build-video.py` writes that line.
 
 The band under the page carries the captions and a tag naming the live build and its commit.
 The tag replaces the last take's "Local run of commit ... Not the public deployment."
