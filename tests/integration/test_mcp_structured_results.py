@@ -57,14 +57,17 @@ def local_only(monkeypatch):
     """No model call and no GitHub request can leave this process."""
     monkeypatch.setattr(bedrock_adapter, "credentials_present", lambda refresh=False: False)
     fake = FakeGitHub()
-    saved = (github_adapter.transport, github_adapter.token, github_adapter.write_enabled)
+    saved = (github_adapter.transport, github_adapter.token, github_adapter.write_enabled,
+             list(github_adapter.recorded_requests))
     github_adapter.transport = httpx.MockTransport(fake)
     github_adapter.token = None
     github_adapter.write_enabled = False
+    github_adapter.recorded_requests.clear()
     try:
         yield fake
     finally:
-        github_adapter.transport, github_adapter.token, github_adapter.write_enabled = saved
+        github_adapter.transport, github_adapter.token, github_adapter.write_enabled = saved[:3]
+        github_adapter.recorded_requests[:] = saved[3]
 
 
 def rpc(method: str, params: dict | None = None, request_id: int = 7) -> dict:
