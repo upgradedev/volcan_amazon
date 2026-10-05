@@ -151,6 +151,10 @@ def check_health(health: dict[str, object], release_sha: str) -> None:
     model = (health.get("bedrock_model_path") or {}).get("resolved_capability")
     if model != "ready_to_attempt":
         raise SystemExit(f"/health reports bedrock_model_path {model!r}; beat 2 needs ready_to_attempt")
+    durable = (health.get("durable_state") or {}).get("resolved_capability")
+    if durable != "configured_reachable":
+        raise SystemExit(f"/health reports durable_state {durable!r}; beat 2 says the review state is "
+                         "in Amazon DynamoDB, so it needs configured_reachable")
     review = (health.get("github_review_path") or {}).get("resolved_capability")
     if review != "dry_run_no_token":
         raise SystemExit(f"/health reports github_review_path {review!r}; beat 5 says the build has "

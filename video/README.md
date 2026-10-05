@@ -112,7 +112,8 @@ Before it opens a browser, the capture refuses:
 * a `narration.json` whose beats are not the six beats of the re-take, in order;
 * a title slot that does not name the cold open;
 * a `/health` that reports a different commit than `VOLCAN_RELEASE_SHA`, a
-  `bedrock_model_path` other than `ready_to_attempt`, or a `github_review_path` other than
+  `bedrock_model_path` other than `ready_to_attempt`, a `durable_state` other than
+  `configured_reachable` (beat 2 names DynamoDB), or a `github_review_path` other than
   `dry_run_no_token` (beat 5 says the build has no GitHub token);
 * a run without `--allow-billed-presses`.
 

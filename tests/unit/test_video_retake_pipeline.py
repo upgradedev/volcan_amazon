@@ -96,12 +96,15 @@ def healthy() -> dict[str, object]:
     return {
         "source_revision": SHA,
         "bedrock_model_path": {"resolved_capability": "ready_to_attempt"},
+        "durable_state": {"resolved_capability": "configured_reachable"},
         "github_review_path": {"resolved_capability": "dry_run_no_token"},
     }
 
 
 def test_the_capture_accepts_the_live_build_it_was_told_about():
     capture.check_health(healthy(), SHA)
+    with pytest.raises(SystemExit, match="configured_reachable"):
+        capture.check_health({**healthy(), "durable_state": {"resolved_capability": "process_memory"}}, SHA)
 
 
 @pytest.mark.parametrize(
