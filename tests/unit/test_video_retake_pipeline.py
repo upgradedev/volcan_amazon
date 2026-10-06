@@ -345,6 +345,15 @@ def test_the_band_tag_names_the_build_the_capture_recorded():
     assert build.band_tag("http://127.0.0.1:8871/", "9b2bcb9").startswith("Local run of commit 9b2bcb9.")
 
 
+def test_a_local_run_is_never_labelled_the_live_build():
+    lines = PLAN["cards"]["title_lines"] + PLAN["cold_open"]["band_lines"]
+    live = build.filled(lines, "9b2bcb9", LIVE + "/")
+    local = build.filled(lines, "9b2bcb9", "http://127.0.0.1:8813/")
+    assert any(line.startswith("Live build at commit 9b2bcb9.") for line in live)
+    assert any(line.startswith("Local run at commit 9b2bcb9.") for line in local)
+    assert not any("Live build" in line or "{" in line for line in local)
+
+
 def test_the_closing_card_names_a_system_voice_when_one_was_used():
     lines = build.outro_lines_for(PLAN["cards"]["outro_lines"], "9b2bcb9", SYSTEM_VOICE)
     assert not any(build.PAGE_OWN_SPEECH in line for line in lines)

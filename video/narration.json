@@ -25,7 +25,7 @@
     "visual_action": "After the 2.0 s title card. The chosen pull request was opened on the live page before the camera rolled, because opening one runs the default engine, an Amazon Bedrock call, and one live digest took 19.67 s on 2026-10-01; the band says so. The first frame is the dialogue under Talk through a real pull request, showing the opened overview, with the next steps outlined. Within the first 0.5 s press Findings when the rehearsal showed at least one finding, otherwise File by file (or the same command typed with Alt and 4 or said with Alt and 5). The page plays its cue and speaks its readback, Understood: findings. or Understood: file by file., then its answer: each finding, file and line as the server words it, or each file with its additions and deletions. These turns read the report already built and call no model. The narrator is silent. The product's own sound and voice are in the mix for the whole turn.",
     "gate": "The first product sound by 2.0 s after the title card ends, which is 4.0 s into the video, and the first spoken word by 5.0 s into the video, which is 3.0 s into the cold open with the 2.0 s card. The turn plays to its end with nothing over it. A take that misses either is recorded again.",
     "band_lines": [
-      "Volcan on its live build, commit {sha7}. Pull request opened before this shot."
+      "{build} at commit {sha7}. Pull request opened before this shot."
     ]
   },
   "cards": {
@@ -34,7 +34,7 @@
     "title_lines": [
       "Volcan",
       "Hear your code review instead of scrubbing a diff.",
-      "Live build, commit {sha7}. Simulated Alexa+ front end. GitHub review: dry run."
+      "{build} at commit {sha7}. Simulated Alexa+ front end. GitHub review: dry run."
     ],
     "outro_seconds": 4.5,
     "outro_lines": [

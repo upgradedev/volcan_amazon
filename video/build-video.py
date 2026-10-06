@@ -223,12 +223,24 @@ def check_outro_rows(lines: list[str]) -> int:
     return rows
 
 
+def is_local(app_url: str) -> bool:
+    host = (urllib.parse.urlparse(app_url).hostname or "").lower()
+    return host in LOCAL_HOSTS or host.endswith(".localhost")
+
+
 def band_tag(app_url: str, sha7: str) -> str:
     """The grey tag in the band: which build the capture recorded, and its commit."""
-    host = (urllib.parse.urlparse(app_url).hostname or "").lower()
-    if host in LOCAL_HOSTS or host.endswith(".localhost"):
+    if is_local(app_url):
         return f"Local run of commit {sha7}. Not the public deployment."
+    host = (urllib.parse.urlparse(app_url).hostname or "").lower()
     return f"Live build at {host}, commit {sha7}."
+
+
+def filled(lines: list[str], sha7: str, app_url: str) -> list[str]:
+    """Card and band lines with {sha7} and {build} filled in. {build} says which build the
+    capture recorded, so a local run is never labelled the live build."""
+    build = "Local run" if is_local(app_url) else "Live build"
+    return [line.replace("{sha7}", sha7).replace("{build}", build) for line in lines]
 
 
 def system_voice(product_audio: list[dict[str, object]]) -> str | None:
@@ -469,7 +481,8 @@ def main() -> None:
     # the video, the title card comes before the content stream.
     content_offset = cold_seconds
     video_offset = title_seconds + cold_seconds
-    title_lines = [line.replace("{sha7}", sha7) for line in cards["title_lines"]]
+    app_url = str(receipt_in.get("appUrl") or "")
+    title_lines = filled(list(cards["title_lines"]), sha7, app_url)
     outro_lines = outro_lines_for(list(cards["outro_lines"]), sha7, receipt_in["productAudio"])
     check_outro_rows(outro_lines)
     OUTPUT.mkdir(parents=True, exist_ok=True)
@@ -523,7 +536,10 @@ def main() -> None:
         if following and ends > min(following):
             raise SystemExit(f"{item['file']} runs into the next sentence the page spoke")
 
-    narration_cues = srt_windows(NARRATION / "captions.en.srt")
+    # A rehearsal on the silent timing stub has no narration to caption: its narration
+    # is silence, so its captions would describe a voice the video does not have.
+    silent_stub = rehearsal and bool(timing.get("stub"))
+    narration_cues = [] if silent_stub else srt_windows(NARRATION / "captions.en.srt")
     product_cues: list[tuple[float, float, str]] = []
     for item in speech:
         begins = float(item["timelineSeconds"])
@@ -552,7 +568,7 @@ def main() -> None:
         "FontName=Segoe UI,FontSize=11,PrimaryColour=&H00FFFFFF,"
         "BorderStyle=1,Outline=0,Shadow=0,MarginV=12,Alignment=2"
     )
-    tag = text_file("tag.txt", band_tag(str(receipt_in.get("appUrl") or ""), sha7))
+    tag = text_file("tag.txt", band_tag(app_url, sha7))
     unrecorded_label = text_file(
         "unrecorded.txt",
         "Not in this recording: the page's own cue and voice for this turn",
@@ -563,8 +579,7 @@ def main() -> None:
         f"{content_offset + float(item['toTimelineSeconds']):.3f})"
         for item in unrecorded
     ) or "0"
-    cold_band_lines = [line.replace("{sha7}", sha7) for line in spec["cold_open"].get("band_lines", [])] \
-        if cold_open else []
+    cold_band_lines = filled(list(spec["cold_open"].get("band_lines", [])), sha7, app_url) if cold_open else []
     filters.extend(video_graph(
         cold_open=cold_open, cold_seconds=cold_seconds, total=total, trim_lead=trim_lead,
         cold_trim_lead=cold_trim_lead, video_per_page=video_per_page, captions=captions,
@@ -628,6 +643,9 @@ def main() -> None:
     }
     if rehearsal:
         manifest["_rehearsal"] = "a free rehearsal, not shippable; see the capture receipt"
+        if silent_stub:
+            manifest["_rehearsal"] += ("; the narration is the silent timing stub, uncaptioned, so the "
+                                       "gate's web-beat-audible check cannot pass on this video")
     (OUTPUT / "video_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     windows = [
         [round(video_offset + start, 3), round(video_offset + end, 3), text]
