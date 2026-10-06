@@ -254,47 +254,82 @@ def test_every_product_window_fits_the_generator_s_cap():
 BASIS = "Measured on the rehearsal server, slowest run plus 1 s, rounded up to the half second."
 
 
-def test_the_generator_s_cap_is_45_s_and_refuses_more():
-    # The cap is a plan constraint, not a gate: it was raised from 30 s so beat 2 can hold
-    # the whole Bedrock answer without a narration long enough for the answer to interrupt.
-    assert narration.MAX_PRODUCT_SOUND_SECONDS == 45.0
-    assert narration.product_sound({"product_sound_seconds": 45.0, "product_sound_basis": BASIS}, "b") == 45.0
+def test_the_generator_s_cap_is_60_s_and_refuses_more():
+    # The cap is a plan constraint, not a gate: it was raised from 30 s to 45 s, then to 60 s,
+    # so beat 2 can hold a call up to the 25 s timeout and the whole Bedrock answer after the
+    # press, which waits for the narrator.
+    assert narration.MAX_PRODUCT_SOUND_SECONDS == 60.0
+    assert narration.product_sound({"product_sound_seconds": 60.0, "product_sound_basis": BASIS}, "b") == 60.0
     assert narration.product_sound({}, "b") == 0.0
-    for value in (45.5, 0, -1.0, "42"):
+    for value in (60.5, 0, -1.0, "42"):
         with pytest.raises(SystemExit, match="product_sound_seconds must be in"):
             narration.product_sound({"product_sound_seconds": value, "product_sound_basis": BASIS}, "b")
     with pytest.raises(SystemExit, match="product_sound_basis"):
         narration.product_sound({"product_sound_seconds": 42.5, "product_sound_basis": "short"}, "b")
 
 
-# One live Bedrock digest on record (docs/EVIDENCE.md, 2026-10-01), and the call's timeout.
-LIVE_BEDROCK_SECONDS = 19.67
+# The call's timeout (MODEL_CALL_TIMEOUT_SEC in src/infrastructure/bedrock_adapter.py), and
+# the Bedrock answer take 3 measured on the live build on 2026-10-06: the earcon's lead on the
+# first word, and the sentence (finding, a 173-character headline, counts), plus about 0.5 s
+# for the 7 more characters a 180-character headline may hold.
 MODEL_TIMEOUT_SECONDS = 25.0
+EARCON_LEAD_SECONDS = 0.65
+TAKE_3_ANSWER_SPEECH_SECONDS = 31.42
+HEADLINE_ALLOWANCE_SECONDS = 0.5
 
 
-def test_beat_2_holds_the_billed_answer_from_the_press():
+def test_beat_2_presses_when_the_narrator_stops_and_holds_a_25_s_call():
+    from src.infrastructure.bedrock_adapter import MODEL_CALL_TIMEOUT_SEC, SPOKEN_SUMMARY_CHAR_BUDGET
+
+    assert MODEL_CALL_TIMEOUT_SEC == MODEL_TIMEOUT_SECONDS and SPOKEN_SUMMARY_CHAR_BUDGET == 180
     beat = next(b for b in PLAN["beats"] if b["beat_id"] == "beat_02_bedrock_press")
-    window = round(beat["timestamp_end"] - beat["timestamp_start"], 3)
-    # The press is at the first frame. 19.67 s of model call, 0.6 s of earcon, 16.7 s for the
-    # finding and the counts, and up to about 14 s of model headline: at least 56 s.
-    assert window >= 56.0
-    narration_seconds = window - narration.TAIL_SECONDS - beat["product_sound_seconds"]
-    # The narration must end well before the one live answer arrived, so a faster call
-    # does not start its answer under the narrator.
-    assert narration_seconds <= LIVE_BEDROCK_SECONDS - 5.0
+    hold = round(beat["timestamp_end"] - beat["timestamp_start"], 3)
+    window = beat["product_sound_seconds"]
+    narration_seconds = round(hold - narration.TAIL_SECONDS - window, 3)
+    # One short line before the press, about 3 to 4 s: the generator refuses under 3 s.
+    assert 3.0 <= narration_seconds <= 4.5
+    # The press is when the narrator stops, so the window runs from the press and must hold a
+    # call that runs to the timeout, then the whole answer.
+    press = capture.press_timeline_seconds(0.0, narration_seconds, narration.TAIL_SECONDS)
+    assert press > narration_seconds
+    assert round(hold - press, 3) == window
+    need = MODEL_TIMEOUT_SECONDS + EARCON_LEAD_SECONDS + TAKE_3_ANSWER_SPEECH_SECONDS + HEADLINE_ALLOWANCE_SECONDS
+    assert window >= need
     basis = beat["product_sound_basis"]
-    assert basis.startswith("ESTIMATE")
-    for part in ("47 to 51 s", "19.67 s", "0.6 s", "16.7 s", "180 characters", "to_voice_summary"):
+    for part in ("25 s timeout", "31.42 s", "173-character", "180 characters", "to_voice_summary",
+                 "16.75 s", "ESTIMATE", "58.0 s"):
         assert part in basis
-    assert "Amazon Bedrock" in beat["narration_text"] and "AWS Lambda" in beat["narration_text"]
-    assert "DynamoDB" in beat["narration_text"]
+    assert "Amazon Bedrock" in beat["narration_text"]
     # The narration speaks of the stage patch, never of the pull request.
     assert "pull request" not in beat["narration_text"]
 
 
-def test_the_shot_list_and_readme_state_the_beat_2_estimate_and_the_cold_open():
+@pytest.mark.parametrize("latency", [2.0, 5.0, 19.67, 25.0])
+def test_beat_2_s_answer_starts_after_the_narration_and_ends_inside_the_beat(latency):
+    beat = next(b for b in PLAN["beats"] if b["beat_id"] == "beat_02_bedrock_press")
+    hold = beat["timestamp_end"] - beat["timestamp_start"]
+    narration_seconds = hold - narration.TAIL_SECONDS - beat["product_sound_seconds"]
+    press = capture.press_timeline_seconds(0.0, narration_seconds, narration.TAIL_SECONDS)
+    answer_starts = press + latency
+    answer_ends = answer_starts + EARCON_LEAD_SECONDS + TAKE_3_ANSWER_SPEECH_SECONDS + HEADLINE_ALLOWANCE_SECONDS
+    assert answer_starts > narration_seconds
+    assert answer_ends <= hold
+
+
+def test_beat_3_names_the_aws_services_and_the_coverage_line_after_the_answer():
+    beat = next(b for b in PLAN["beats"] if b["beat_id"] == "beat_03_model_coverage")
+    text = beat["narration_text"]
+    for name in ("Amazon Bedrock", "AWS Lambda", "DynamoDB"):
+        assert name in text
+    assert "A W S Lambda" in beat["speech_text"] and "Dynamo D B" in beat["speech_text"]
+    # The capture scrolls to the coverage line on the last sentence, the one about it.
+    assert "how much it read" in text.split(". ")[-1]
+
+
+def test_the_shot_list_and_readme_state_the_beat_2_window_and_the_cold_open():
     shot_list = (VIDEO / "SHOT_LIST.md").read_text(encoding="utf-8")
-    assert "about 47 to 51 s" in shot_list and "about 40 s" not in shot_list
+    assert "58.0 s" in shot_list and "about 47 to 51 s" not in shot_list
+    assert "Beat 2 presses when its narrator stops" in shot_list
     assert "| Cold open band only." in shot_list
     readme = (VIDEO / "README.md").read_text(encoding="utf-8")
     assert "export VOLCAN_COLD_OPEN=" not in readme
@@ -390,7 +425,7 @@ def test_the_silent_timing_stub_follows_the_plan_windows(tmp_path):
         assert audio.getnframes() / audio.getframerate() == pytest.approx(first["durationSeconds"], abs=0.001)
         assert set(audio.readframes(1600)) == {0}
     assert json.loads((tmp_path / "timing.json").read_text(encoding="utf-8")) == timing
-    assert "That was Volcan." in (tmp_path / "captions.en.srt").read_text(encoding="utf-8")
+    assert "Volcan, built for Alexa+" in (tmp_path / "captions.en.srt").read_text(encoding="utf-8")
 
 
 # --- the composer ------------------------------------------------------------

@@ -17,7 +17,7 @@ What this copy changes, so it reads Volcan's own video/narration.json:
      after the beat's speech, in which the page itself makes its sound (the
      earcon and the browser's speech). It is added to the beat's hold, never to
      its captions, and must be backed by a "product_sound_basis" that says how it
-     was measured. It is at most MAX_PRODUCT_SOUND_SECONDS, 45 s.
+     was measured. It is at most MAX_PRODUCT_SOUND_SECONDS, 60 s.
   4. timing.json also records each caption sentence's window inside the beat, so
      the capture can press a button on the sentence that talks about it, and the
      number of characters sent to the text to speech provider on this run. Every
@@ -59,14 +59,14 @@ SPEC = pathlib.Path(__file__).with_name("narration.json")
 TAIL_SECONDS = 0.65
 # The longest product window one beat may hold. It is a plan constraint, not a gate:
 # scripts/verify_video_sync.py never reads it, and every window still needs a basis.
-# It was 30 s. Beat 2 presses Hear this code review at its first frame and must hold
-# the whole Amazon Bedrock answer: the call (one live figure of 19.67 s, abandoned to
-# the local engine at MODEL_CALL_TIMEOUT_SEC = 25 in src/infrastructure/bedrock_adapter.py),
-# the 0.6 s earcon, the finding and the counts (16.7 s on this patch) and the model's
-# headline of up to 180 characters. At 30 s the beat held 40.6 s from the press, under
-# that answer, so the cap would have forced a 25 s narration over a wait the answer may
-# interrupt. 45 s lets the beat hold the answer with a narration that ends before it.
-MAX_PRODUCT_SOUND_SECONDS = 45.0
+# It was 30 s, then 45 s. Beat 2 now presses Hear this code review when its narrator
+# stops, so the answer can never start under the narration, and its window must hold
+# the whole Amazon Bedrock answer after the press: a call that may run to its timeout
+# (MODEL_CALL_TIMEOUT_SEC = 25 in src/infrastructure/bedrock_adapter.py, past which the
+# server falls back to the local engine), then the earcon and the sentence, which took
+# about 32 s in the take of 2026-10-06 with a 173-character headline. That is about
+# 58 s, so the cap is 60 s.
+MAX_PRODUCT_SOUND_SECONDS = 60.0
 
 ELEVENLABS_KEY_ENV_NAMES = ("ELEVENLABS_API_KEY", "XI_API_KEY", "ELEVEN_LABS_KEY")
 

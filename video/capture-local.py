@@ -32,9 +32,10 @@ instead of failing. Every other check that would fail the take after the journey
 collected under failures, so one run reports all of them, and the script exits 1 if
 there are any. Without a measured narration/timing.json it uses a silent timing stub
 built from the plan's ESTIMATE windows in narration.json, in rehearsal/narration-stub/.
-The local engine answers the beat 2 press at once, so a rehearsal makes that press
-when the narrator stops rather than at the beat's first frame; notRepresentative
-says so.
+The take and the rehearsal both press Hear this code review when beat 2's narrator
+stops, after the generator's tail, so the answer can only start after the narration
+whether the model answers in 2 s or at its 25 s timeout; the check that it did runs
+in both modes.
 
 What it records and what it refuses to do:
 
@@ -131,7 +132,7 @@ TITLE_SLOT = "card_then_cold_open"
 # The presses this take is allowed to bill, in order, one model call each.
 BILLED_PRESSES = (
     ("open_pull_request", "opening the pull request, before the cold open, off camera"),
-    ("digest", "Hear this code review, at the start of beat 2"),
+    ("digest", "Hear this code review, in beat 2 when the narrator stops"),
 )
 # Each cold-open command: the button's selector, its label, the button's id, and the
 # words typed into the command box (Alt+4) for a typed command, or None for a button.
@@ -156,6 +157,14 @@ NARRATION_TAIL_SECONDS = 0.65
 # A Bedrock call can take up to its 25 s timeout before the server falls back, and
 # one live digest took 19.67 s on 2026-10-01; the page waits longer than both.
 BILLED_TURN_TIMEOUT_SECONDS = 60.0
+
+
+def press_timeline_seconds(beat_start: float, narration_seconds: float, tail_seconds: float) -> float:
+    """When beat 2 presses Hear this code review: once the narrator has stopped and the
+    generator's tail has passed, in a take and in a rehearsal alike. The model call
+    starts only then, so its answer, however fast, starts after the narration; the
+    beat's product window, which starts here, holds a call up to the 25 s timeout."""
+    return beat_start + narration_seconds + tail_seconds
 
 
 def check_beats(scene_ids: list[str]) -> None:
@@ -227,7 +236,7 @@ def check_rehearsal_health(health: dict[str, object], release_sha: str) -> list[
     durable = (health.get("durable_state") or {}).get("resolved_capability")
     if durable != "configured_reachable":
         notes.append({"check": "durable_state", "take": "configured_reachable", "rehearsal": durable,
-                      "why": "beat 2 says the review state is in Amazon DynamoDB; the local server keeps it in memory"})
+                      "why": "beat 3 names Amazon DynamoDB; the local server keeps its review state in memory"})
     return notes
 
 
@@ -706,7 +715,8 @@ def main() -> None:
 
         def window_opens(beat: str) -> float:
             """Where the narrator stops and the beat's product sound window begins."""
-            return narrator_stops(beat) + float(timing["tailSeconds"])
+            return press_timeline_seconds(beat_start(beat), float(by_id[beat]["durationSeconds"]),
+                                          float(timing["tailSeconds"]))
 
         def sentence(beat: str, index: int, fraction: float = 0.0) -> float:
             window = by_id[beat]["sentences"][index]
@@ -871,12 +881,12 @@ def main() -> None:
         if focused() != "runReview":
             raise SystemExit(f"Alt+1 put the focus on {focused()!r}, not Hear this code review")
 
-        # Beat 2: press at the first frame; the narrator covers the model wait. One billed call.
-        # The local engine answers in well under a second, so a rehearsal presses when the
-        # narrator stops instead, the earliest a model answer may start; pressed at the
-        # first frame, its answer would sound under beat 2's narration. notRepresentative
-        # records it. A take always presses at the first frame.
-        until(window_opens(b2) if rehearsal else beat_start(b2))
+        # Beat 2: one short line from the narrator, then the press. One billed call. The
+        # press waits for the narrator to stop, in a take as in a rehearsal, so the answer
+        # starts after the narration whatever the model's latency: take 3 pressed at the
+        # first frame and Amazon Bedrock answered in about 5 s, under the narration. The
+        # product window that opens here holds a call up to the 25 s timeout and the answer.
+        until(window_opens(b2))
         armed["digest"] = 1
         press = start_turn("Enter presses Hear this code review",
                            lambda: press_key("Enter", "runReview", "Hear this code review"),
@@ -899,7 +909,8 @@ def main() -> None:
             lambda: scroll_to(".r-earcon", 16))
         finish_voiced(press, beat_start(b3))
 
-        # Beat 3: the meter, the coverage line as printed, and the model's full answer.
+        # Beat 3: the meter while the narrator names Amazon Bedrock, AWS Lambda and
+        # DynamoDB; the coverage line as printed on the sentence about it; the full answer.
         until(beat_start(b3))
         meter = page.inner_text("#meterEngine").strip()
         if not meter.startswith("Amazon Bedrock"):
@@ -910,9 +921,10 @@ def main() -> None:
             differs("the page prints a model coverage line", "The model read ...", coverage[:120] or None,
                     "the page printed no model coverage line")
         act("scroll to the engine meter", lambda: scroll_to("#meters", 120))
-        until(sentence(b3, 0, 0.35))
+        coverage_sentence = len(by_id[b3]["sentences"]) - 1
+        until(sentence(b3, coverage_sentence))
         act("scroll to the coverage line", lambda: scroll_to("#modelCoverage", 260))
-        until(sentence(b3, 0, 0.7))
+        until(sentence(b3, coverage_sentence, 0.6))
         if page.is_visible("#modelProseWrap summary"):
             act("open The model's full answer", lambda: page.click("#modelProseWrap summary"))
             act("scroll to the model's full answer", lambda: scroll_to("#modelProseWrap", 80))
@@ -1069,22 +1081,12 @@ def main() -> None:
     except SystemExit as exc:
         fail(str(exc))
     press_sound, _ = first_sound(press)
+    # The take and the rehearsal press at the same moment, so this check is the take's in
+    # both: a rehearsal that fails it has a failure, not a note.
     if rehearsal:
-        # The rehearsal pressed when the narrator stopped, so its answer cannot start
-        # under the narration: neither the press time nor this check is the take's.
-        not_representative.append({
-            "check": "the press is made at the first frame of beat 2",
-            "take": f"at {round(beat_start(b2), 3)} s, and the narrator covers the model wait",
-            "rehearsal": press["timelineAction"],
-            "why": ("the local engine answers at once, so a rehearsal presses when the narrator stops, "
-                    "the earliest a model answer may start"),
-        })
-        not_representative.append({
-            "check": "the answer starts after beat 2's narration",
-            "take": f"after {round(narrator_stops(b2), 3)} s",
-            "rehearsal": None if press_sound is None else timeline_time(press_sound),
-            "why": "the rehearsal pressed after the narration, so this cannot fail in a rehearsal",
-        })
+        if press_sound is None or timeline_time(press_sound) < narrator_stops(b2):
+            fail("the answer starts after beat 2's narration: the answer began while the narrator was "
+                 f"still speaking, or made no sound (after {round(narrator_stops(b2), 3)} s)")
     elif press_sound is None or timeline_time(press_sound) < narrator_stops(b2):
         differs("the answer starts after beat 2's narration", f"after {round(narrator_stops(b2), 3)} s",
                 None if press_sound is None else timeline_time(press_sound),
@@ -1232,6 +1234,8 @@ def main() -> None:
             "sentenceOnScreen": press["data"].get("voice_summary"),
             "firstSoundTimelineSeconds": None if press_sound is None else timeline_time(press_sound),
             "narratorStopsTimelineSeconds": round(narrator_stops(b2), 3),
+            "pressTimelineSeconds": press["timelineAction"],
+            "windowClosesTimelineSeconds": round(beat_end(b2), 3),
         },
         "productAudio": product_audio,
         "unrecordedProductVoice": [],

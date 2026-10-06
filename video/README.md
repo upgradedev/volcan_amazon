@@ -77,7 +77,7 @@ credentials; `git show fc10e7d:video/README.md` has those commands.
 
 Two actions in the re-take call Amazon Bedrock on the live build: opening the chosen pull
 request, which the capture does before the cold open and off camera, and **Hear this code
-review** at the start of beat 2. Each is one billed model call.
+review** in beat 2, when the narrator stops. Each is one billed model call.
 
 * **Without the flag (the default),** `video/capture-local.py` reads `/health` and the measured
   beats, prints the two calls the take would bill, and exits before it opens a browser. It
@@ -126,8 +126,8 @@ python video/build-video.py --rehearsal       # writes output-rehearsal/
   without `--rehearsal`, and with it writes `output-rehearsal/`, never `output/`.
 * **Not representative.** Each check that needs Amazon Bedrock is listed under
   `rehearsal.notRepresentative` with what the local engine did: the model path and durable
-  state in `/health`, the press's engine and fallback reason, the meter, the coverage line,
-  the model's full answer, and an answer that starts while the narrator speaks.
+  state in `/health`, the press's engine and fallback reason, the meter, the coverage line
+  and the model's full answer.
 * **Every failure, in one run.** Checks that would fail the take after the journey has run
   are collected under `rehearsal.failures`, so one run reports all of them: speech overruns
   and interruptions, the cold-open timing, page errors, blank stretches and unplanned model
@@ -136,13 +136,15 @@ python video/build-video.py --rehearsal       # writes output-rehearsal/
   stub to `rehearsal/narration-stub/`, built from the ESTIMATE windows in `narration.json`.
   Nothing is sent to ElevenLabs. The build leaves the stub's silent narration uncaptioned, so
   on that video the gate's `web-beat-audible` check fails by construction.
-* **The beat 2 press waits for the narrator.** The local engine answers at once, so a
-  rehearsal presses Hear this code review when beat 2's narrator stops, not at the beat's
-  first frame. Pressed at the first frame, the answer was captioned over the narration and
-  `build-video.py --rehearsal` refused the measured narration on the caption overlap; now it
-  composes the real narration. `notRepresentative` lists the press time and the
-  answer-after-narration check, which cannot fail in a rehearsal. A take presses at the first
-  frame, as before.
+* **The beat 2 press waits for the narrator, in a take as in a rehearsal.** Hear this code
+  review is pressed when beat 2's one-line narration ends, after the generator's 0.65 s tail
+  (`press_timeline_seconds` in `video/capture-local.py`). Take 3 on the live build pressed at
+  the beat's first frame instead; Amazon Bedrock answered in about 5 s, under the 13.886 s
+  narration, and the capture refused the take. Now the model call starts only after the
+  narration, so no latency can start the answer under it, and the rehearsal presses at the
+  same moment as the take. The check that the answer starts after the narration is the
+  take's, unchanged; a rehearsal that fails it lists it under `failures`, not
+  `notRepresentative`.
 
 The gate calls `ffmpeg` and `ffprobe` by name, so put their folder on `PATH` for it.
 `python tests/video/verify_gate_selftest.py` proves the gate still fails on a mis-ordered
@@ -170,7 +172,7 @@ Before it opens a browser, the capture refuses:
   1.5 to 3 s, or a cold open outside 3 to 20 s;
 * a `/health` that reports a different commit than `VOLCAN_RELEASE_SHA`, a
   `bedrock_model_path` other than `ready_to_attempt`, a `durable_state` other than
-  `configured_reachable` (beat 2 names DynamoDB), or a `github_review_path` other than
+  `configured_reachable` (beat 3 names DynamoDB), or a `github_review_path` other than
   `dry_run_no_token` (beat 6 says the build has no GitHub token);
 * a run without `--allow-billed-presses`, unless it is a rehearsal (see above).
 
@@ -182,7 +184,7 @@ During or after the take, it fails, and the take has to be recorded again:
 * **The model call.** A request would bill a model call the take did not plan. The press is
   not answered by Amazon Bedrock or carries a fallback reason. The engine meter does not read
   Amazon Bedrock, or the page prints no coverage line. The answer's first sound comes before
-  beat 2's narration ends.
+  beat 2's narration ends (a rehearsal fails on this too).
 * **The cold open.** Its first sound comes later than 2.0 s after the title card ends, or its
   first word later than 5.0 s into the video, which is 3.0 s into the cold open after the
   2.0 s card. Findings answers that no security rule matched (`No security rule matched this
@@ -277,9 +279,10 @@ follows it, with these limits.
   * `cards.title_slot` starts with `card_then_cold_open`.
   * `cards.title_seconds` is the 2.0 s title card.
   * `cold_open.seconds` is the 13.5 s cold open, measured on the chosen pull request.
-  * Beat 1 starts at 15.5 s, and the closing card ends at 169.6 s, measured except beat 2's
-    42.5 s product window (ESTIMATE). Beat 2 holds 57.0 s from the press, against a billed
-    answer of about 47 to 51 s (ESTIMATE); `SHOT_LIST.md` gives the parts.
+  * Beat 1 starts at 15.5 s, and the closing card ends at 169.309 s, measured. Beat 2 says
+    one 3.39 s line, then presses, and holds 58.0 s from the press: a call up to the 25 s
+    timeout, then the Amazon Bedrock answer take 3 measured on the live build, with 0.5 s
+    (ESTIMATE) for a full 180-character headline. `SHOT_LIST.md` gives the parts.
 * **`video/capture-local.py` drives the re-take journey.**
   * It accepts the seven beat ids in `narration.json` and refuses any other list.
   * It opens `VOLCAN_PR_URL` off camera and waits for that turn's speech to end.
@@ -287,9 +290,10 @@ follows it, with these limits.
     cold-open command is `cold_open.command`, `line 26`, typed into the command box with
     Alt+4 and sent with Enter; `VOLCAN_COLD_OPEN` overrides it with `findings`, `files`,
     `summary` or another `line N`.
-  * It presses Hear this code review at the first frame of beat 2 (in a rehearsal, when the
-    narrator stops).
-  * It holds on the meter, the coverage line and the model's full answer in beat 3.
+  * It presses Hear this code review in beat 2 when the narrator stops, in a take and in a
+    rehearsal.
+  * It holds on the meter while beat 3 names Amazon Bedrock, AWS Lambda and DynamoDB, then on
+    the coverage line on the sentence about it, then on the model's full answer.
   * It voices Request changes in beat 4, with the comment `is_admin is inverted.`, and
     Confirm in beat 5.
   * Beat 6 is narration over the recorded request, after the page has stopped speaking.
