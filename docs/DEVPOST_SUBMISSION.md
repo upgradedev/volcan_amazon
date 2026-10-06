@@ -260,9 +260,11 @@ was sent to GitHub.` beside the exact `POST .../reviews` body it recorded. No li
 been sent from this repository. The owner command that produces one is in `docs/EVIDENCE.md`.
 
 **Real, labelled Amazon Bedrock path.** The adapter calls Claude on Amazon
-Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client, pinned to
-`anthropic.claude-opus-5`. Every response states whether `bedrock` or the deterministic local
-path answered. When Bedrock fails, `synthesis_fallback_reason` returns one bounded category;
+Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client. The default model is
+`anthropic.claude-sonnet-5` from 2026-10-06, chosen by measurement after `anthropic.claude-opus-5`
+refused 2 of 4 reviews of an inverted admin check; `AWS_BEDROCK_MODEL_ID` overrides it. Every
+response states whether `bedrock` or the deterministic local path answered, and a model answer
+names its model in `model_answered`. When Bedrock fails, `synthesis_fallback_reason` returns one bounded category;
 provider account, role and request identifiers are never returned to the anonymous client.
 The checked-in infrastructure narrows the intended Lambda grant to
 `bedrock-mantle:CreateInference` on its account-scoped default project. A deployment missing

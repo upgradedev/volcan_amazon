@@ -26,6 +26,7 @@ import importlib.util
 import json
 import logging
 import os
+import re
 import threading
 import time
 
@@ -47,7 +48,41 @@ MODE_HEURISTIC = "heuristic-local"
 #: legacy InvokeModel integration and answers ResourceNotFoundException. Set
 #: AWS_BEDROCK_MODEL_ID to pin a different model or a region-scoped inference
 #: profile without editing this file.
-DEFAULT_MODEL_ID = "anthropic.claude-opus-5"
+#:
+#: Claude Sonnet 5, chosen on 2026-10-06 by measurement on the Bedrock Mantle
+#: endpoint in eu-west-1 with SDK 1.8.0, this request body unchanged, and two
+#: patches: the take-4 permissions.py patch (an inverted admin check) and the
+#: first 3000 characters of upgradedev/volcan-demo-service pull request 1 (an
+#: inverted admin check and CORS opened to "*"). One call per press:
+#:
+#: * ``anthropic.claude-sonnet-5``: 0 of 8 refused; every answer named the
+#:   inverted admin check, and on pull request 1 also the CORS change, and so
+#:   did the spoken cut of all 8; 1.7 to 3.4 seconds per call.
+#: * ``anthropic.claude-haiku-4-5``: 0 of 8 refused; every full answer named
+#:   the risks, but on pull request 1 the spoken cut named neither in 4 of 4,
+#:   because the answer led with the new endpoint; 1.1 to 2.5 seconds.
+#: * ``anthropic.claude-opus-5``, the model this file pinned before: 2 of 4
+#:   refused the take-4 patch earlier that day (stop_reason "refusal",
+#:   category "cyber", no content); on pull request 1, 0 of 2 refused, 4.1 and
+#:   6.6 seconds.
+#: * ``anthropic.claude-sonnet-5-5`` answered 404: the Mantle model list for
+#:   eu-west-1 does not carry it. ``anthropic.claude-opus-4-8`` timed out at
+#:   25 seconds and then answered 403 for this account.
+#:
+#: Eight calls cannot show a refusal rate of zero; a refusal still reaches
+#: the listener as its own named reason with the local digest beside it.
+DEFAULT_MODEL_ID = "anthropic.claude-sonnet-5"
+
+#: A model id that is safe to show to anyone: a bare Bedrock model id, with or
+#: without a geographic inference-profile prefix such as ``eu.``. An ARN, which
+#: carries an account id, never matches, and is reported by a fixed label.
+_PUBLIC_MODEL_ID = re.compile(r"^(?:[a-z]{2,6}\.)?anthropic\.[a-z0-9][a-z0-9.:-]*$")
+CONFIGURED_MODEL_LABEL = "a configured inference profile"
+
+
+def public_model_label(model_id: str) -> str:
+    """The model id as it may be shown in an answer, a log line or a page."""
+    return model_id if _PUBLIC_MODEL_ID.match(model_id or "") else CONFIGURED_MODEL_LABEL
 
 #: Room for the model to think and still finish the sentence. Adaptive thinking
 #: is on by default on this model family and is billed against the same ceiling,
@@ -88,8 +123,9 @@ RETRY_MIN_REMAINING_SEC = 8.0
 RETRY_DEFAULT_WAIT_SEC = 0.5
 
 #: The request text, unchanged from the build that was live on 2026-10-06.
-#: Measured that day against anthropic.claude-opus-5 in eu-west-1 with the
-#: take-4 permissions.py patch (16 calls, ledger outside the repository):
+#: Measured that day against anthropic.claude-opus-5, the model pinned then,
+#: in eu-west-1 with the take-4 permissions.py patch (16 calls, ledger outside
+#: the repository):
 #:
 #: * this prompt and request body (231 input tokens): 2 of 4 calls ended in
 #:   text; the other 2 were refused (stop_reason "refusal", stop_details
@@ -106,7 +142,8 @@ RETRY_DEFAULT_WAIT_SEC = 0.5
 #:
 #: The trials fell in one window, so settings and time cannot be separated,
 #: and no trial setting ever produced an answer to measure. The request body
-#: therefore stays the one with live evidence behind it.
+#: therefore stays the one with live evidence behind it, and the refusals were
+#: answered by changing the model instead (see ``DEFAULT_MODEL_ID``).
 PROMPT_TEMPLATE = (
     "You are Volcan, an accessibility agent assisting a visually impaired engineer. "
     "Summarize the following code changes into a clear, concise (under 25 words) "
@@ -388,16 +425,21 @@ class BedrockSynthesisAdapter:
         raise NoSpokenText(cause, stop_reason)
 
     @classmethod
-    def _log_model_call(cls, attempt: int, latency_ms: int, message=None, error=None) -> dict:
+    def _log_model_call(cls, attempt: int, latency_ms: int, message=None, error=None,
+                        model: str | None = None) -> dict:
         """Emit one private telemetry line for one model call and return it.
 
-        Only the shape of the answer is recorded: stop reason, the refusal
-        category (a fixed enum), each block's type and character count, and
-        token usage. The answer's words, the refusal explanation, message and
-        request ids, the model id (which may be an inference-profile ARN) and
-        exception messages (which can carry account ids and ARNs) never are.
+        Only the shape of the answer is recorded: the model asked, stop
+        reason, the refusal category (a fixed enum), each block's type and
+        character count, and token usage. The model is recorded by
+        ``public_model_label``, so a configured inference-profile ARN is never
+        written. The answer's words, the refusal explanation, message and
+        request ids, and exception messages (which can carry account ids and
+        ARNs) never are.
         """
         line: dict = {"event": "bedrock_model_call", "attempt": attempt, "latency_ms": latency_ms}
+        if model is not None:
+            line["model"] = public_model_label(model)
         if error is not None:
             line["outcome"] = "error"
             line["error_type"] = type(error).__name__
@@ -484,7 +526,8 @@ class BedrockSynthesisAdapter:
                     messages=[{"role": "user", "content": prompt}],
                 )
             except Exception as exc:
-                self._log_model_call(attempt, round((time.monotonic() - started) * 1000), error=exc)
+                self._log_model_call(attempt, round((time.monotonic() - started) * 1000), error=exc,
+                                     model=self.model_id)
                 if first_no_text is not None:
                     raise first_no_text from exc
                 if attempt >= 2 or not self._is_transient(exc):
@@ -494,7 +537,8 @@ class BedrockSynthesisAdapter:
                     raise
                 time.sleep(wait)
                 continue
-            self._log_model_call(attempt, round((time.monotonic() - started) * 1000), message=message)
+            self._log_model_call(attempt, round((time.monotonic() - started) * 1000), message=message,
+                                 model=self.model_id)
             try:
                 return self._first_text_block(message)
             except NoSpokenText as no_text:
@@ -599,6 +643,7 @@ class BedrockSynthesisAdapter:
             model_prose_full=strip_markdown_for_speech(content_text),
             model_input_chars_sent=len(excerpt),
             model_input_chars_total=len(raw_diff),
+            model_answered=public_model_label(self.model_id),
         )
 
     def summarize_locally(

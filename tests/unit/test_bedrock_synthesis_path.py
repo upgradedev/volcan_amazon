@@ -62,16 +62,19 @@ def _run(adapter):
     return asyncio.run(adapter.summarize_diff("diff --git a/x b/x\n+1\n", [SECTION]))
 
 
-def test_the_pinned_model_id_is_a_current_claude_model_on_bedrock():
-    """The retired snapshot this file used to pin answers ResourceNotFoundException."""
-    assert DEFAULT_MODEL_ID == "anthropic.claude-opus-5"
+def test_the_pinned_model_id_is_a_current_claude_model_on_bedrock(monkeypatch):
+    """The retired snapshot this file used to pin answers ResourceNotFoundException.
+    anthropic.claude-sonnet-5 is on the Bedrock Mantle model list for eu-west-1,
+    and answered 8 of 8 measured presses there on 2026-10-06."""
+    monkeypatch.delenv("AWS_BEDROCK_MODEL_ID", raising=False)
+    assert DEFAULT_MODEL_ID == "anthropic.claude-sonnet-5"
     assert "2024" not in DEFAULT_MODEL_ID
     assert BedrockSynthesisAdapter().model_id == DEFAULT_MODEL_ID
 
 
 def test_the_model_id_can_be_repinned_without_editing_the_source(monkeypatch):
-    monkeypatch.setenv("AWS_BEDROCK_MODEL_ID", "us.anthropic.claude-opus-5")
-    assert BedrockSynthesisAdapter().model_id == "us.anthropic.claude-opus-5"
+    monkeypatch.setenv("AWS_BEDROCK_MODEL_ID", "anthropic.claude-opus-5")
+    assert BedrockSynthesisAdapter().model_id == "anthropic.claude-opus-5"
 
 
 def test_a_model_answer_is_labelled_bedrock_with_no_fallback_reason(with_credentials):

@@ -5,10 +5,12 @@ takes with "Amazon Bedrock returned no usable text block". In both, the one
 model call had 231 input and 0 output tokens (AWS/BedrockMantle metrics); the
 stop reason was not logged live. Reproduced against anthropic.claude-opus-5
 in eu-west-1, the only shape with 0 output tokens was a refusal: stop_reason
-"refusal", stop_details category "cyber", content []. These tests pin each
-no-text shape to its own public reason, the bounded retry and its shared
-budget, the request body, and the private telemetry line, which must carry
-the answer's shape and never its words.
+"refusal", stop_details category "cyber", content []. The default model
+moved to anthropic.claude-sonnet-5 the same day (0 of 8 refused on the same
+body; see DEFAULT_MODEL_ID). These tests pin each no-text shape to its own
+public reason, the bounded retry and its shared budget, the request body, and
+the private telemetry line, which must carry the answer's shape and the model
+asked, and never the answer's words.
 """
 import asyncio
 import importlib
@@ -65,7 +67,7 @@ def _message(content, stop_reason="end_turn", category=None, output_tokens=0, th
     if stop_reason == "refusal":
         stop_details = SimpleNamespace(type="refusal", category=category, explanation=SECRET_EXPLANATION)
     return SimpleNamespace(
-        id=SECRET_ID, type="message", role="assistant", model="anthropic.claude-opus-5",
+        id=SECRET_ID, type="message", role="assistant", model="anthropic.claude-sonnet-5",
         content=content, stop_reason=stop_reason, stop_details=stop_details,
         usage=_usage(output_tokens, thinking_tokens),
     )
@@ -418,18 +420,20 @@ def test_the_sdk_connection_and_server_errors_are_retried_and_its_timeout_is_not
 # --- The request the adapter sends. ---
 
 
-def test_the_request_body_is_the_one_with_live_evidence(with_credentials):
-    """The live body answered 2 of 4 calls on 2026-10-06; two trial bodies
-    (A: a system prompt, with one resend per press; B: a trimmed prompt; both
-    at effort low with adaptive thinking stated) answered 0 of 12. Nothing is
-    added to the request."""
+def test_the_request_body_is_the_one_with_live_evidence(with_credentials, monkeypatch):
+    """The live body answered 2 of 4 calls on anthropic.claude-opus-5 on
+    2026-10-06; two trial bodies (A: a system prompt, with one resend per
+    press; B: a trimmed prompt; both at effort low with adaptive thinking
+    stated) answered 0 of 12. The same body answered 8 of 8 on
+    anthropic.claude-sonnet-5. Only the model changed; nothing is added."""
+    monkeypatch.delenv("AWS_BEDROCK_MODEL_ID", raising=False)
     client = _Client([(ANSWER, 3.0)])
 
     _press(client)
 
     (sent,) = client.messages.calls
     assert set(sent) == {"model", "max_tokens", "timeout", "messages"}
-    assert sent["model"] == ba.DEFAULT_MODEL_ID == "anthropic.claude-opus-5"
+    assert sent["model"] == ba.DEFAULT_MODEL_ID == "anthropic.claude-sonnet-5"
     assert sent["max_tokens"] == ba.DEFAULT_MAX_TOKENS == 16000
     assert sent["timeout"] == ba.MODEL_CALL_TIMEOUT_SEC == 25
     assert sent["messages"] == [{"role": "user", "content": (
@@ -476,7 +480,8 @@ def _telemetry_lines(caplog):
     return [json.loads(r.getMessage()) for r in caplog.records if r.name == "volcan.bedrock"]
 
 
-def test_one_telemetry_line_per_model_call_with_the_shape_and_no_text(with_credentials, caplog):
+def test_one_telemetry_line_per_model_call_with_the_shape_and_no_text(with_credentials, caplog, monkeypatch):
+    monkeypatch.delenv("AWS_BEDROCK_MODEL_ID", raising=False)
     caplog.set_level(logging.INFO, logger="volcan.bedrock")
     client = _Client([(ANSWER, 3.0)])
 
@@ -492,8 +497,45 @@ def test_one_telemetry_line_per_model_call_with_the_shape_and_no_text(with_crede
                               {"type": "text", "chars": len(SECRET_WORDS + " Admin check inverted.")}]
     assert line["usage"]["output_tokens"] == 190
     assert line["usage"]["thinking_tokens"] == 120
-    for secret in (SECRET_WORDS, "Admin check", SECRET_ID, "anthropic.claude-opus-5", "sig"):
+    # The model asked is logged, so an operator can tell which model refused.
+    assert line["model"] == "anthropic.claude-sonnet-5"
+    for secret in (SECRET_WORDS, "Admin check", SECRET_ID, "sig"):
         assert secret not in raw[0]
+
+
+def test_a_model_configured_by_arn_is_logged_and_reported_by_a_label(with_credentials, caplog, monkeypatch):
+    """AWS_BEDROCK_MODEL_ID may name an inference-profile ARN, which carries
+    an account id. Neither the log line nor the answer may repeat it."""
+    arn = "arn:aws:bedrock:eu-west-1:123456789012:application-inference-profile/abc123"
+    monkeypatch.setenv("AWS_BEDROCK_MODEL_ID", arn)
+    caplog.set_level(logging.INFO, logger="volcan.bedrock")
+    client = _Client([(ANSWER, 3.0)])
+
+    report = _press(client)
+
+    (sent,) = client.messages.calls
+    assert sent["model"] == arn
+    raw = [r.getMessage() for r in caplog.records if r.name == "volcan.bedrock"]
+    (line,) = _telemetry_lines(caplog)
+    assert line["model"] == ba.CONFIGURED_MODEL_LABEL
+    assert report.model_answered == ba.CONFIGURED_MODEL_LABEL
+    for secret in ("arn:aws", "123456789012", "abc123"):
+        assert secret not in raw[0]
+        assert secret not in report.model_answered
+
+
+def test_the_answer_names_the_model_that_answered(with_credentials, monkeypatch):
+    monkeypatch.delenv("AWS_BEDROCK_MODEL_ID", raising=False)
+    assert _press(_Client([(ANSWER, 3.0)])).model_answered == "anthropic.claude-sonnet-5"
+    # A geographic inference-profile id holds no account id and is shown as is.
+    monkeypatch.setenv("AWS_BEDROCK_MODEL_ID", "eu.anthropic.claude-sonnet-5")
+    assert _press(_Client([(ANSWER, 3.0)])).model_answered == "eu.anthropic.claude-sonnet-5"
+
+
+def test_no_model_is_named_when_none_answered(with_credentials):
+    report = _press(_Client([(REFUSAL, 1.4)]))
+    assert report.synthesis_mode == ba.MODE_HEURISTIC
+    assert report.model_answered is None
 
 
 def test_a_refusal_is_logged_with_its_category_and_without_its_explanation(with_credentials, caplog):

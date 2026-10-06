@@ -2337,7 +2337,8 @@
        model read" line and no details with nothing inside. When the patch
        ran past the model budget the line says exactly how much of it the
        model saw, because the spoken summary was synthesised from a prefix
-       while the local rules read the whole patch. */
+       while the local rules read the whole patch. The model is named from
+       the answer's own model_answered, never from a constant on this page. */
     function renderModelProvenance(data) {
       var coverage = $("modelCoverage");
       var wrap = $("modelProseWrap");
@@ -2355,6 +2356,9 @@
         coverage.textContent = "The model read the whole " + total + "-character patch.";
       } else {
         coverage.textContent = "A model answered; what it was shown was not reported.";
+      }
+      if (typeof data.model_answered === "string" && data.model_answered) {
+        coverage.textContent += " Answered by " + data.model_answered + ".";
       }
       prose.textContent = data.model_prose_full;
       wrap.hidden = false;

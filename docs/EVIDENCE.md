@@ -230,8 +230,13 @@ line by line, and on `confirm` printed `Dry run. Nothing was sent to GitHub. The
 is still 02a87ce, and the exact request Volcan would send has been recorded.`
 
 **Real code with a labelled fallback, and a stated reason.** The Amazon Bedrock adapter calls
-Claude on Amazon Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client, pinned to
-`anthropic.claude-opus-5`. When the call cannot be made or fails, the deterministic local path
+Claude on Amazon Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client. The default
+model is `anthropic.claude-sonnet-5` from 2026-10-06 (before that, `anthropic.claude-opus-5`; see
+[Model choice](#model-choice-2026-10-06)), and `AWS_BEDROCK_MODEL_ID` overrides it. A model answer
+names the model that wrote it in `model_answered`, which the companion prints after the coverage
+line, so neither the page nor these documents need to name the model from a constant. An
+override that is not a bare model id, such as an inference-profile ARN, is reported and logged
+as "a configured inference profile", never verbatim. When the call cannot be made or fails, the deterministic local path
 runs instead. Every response carries `synthesis_mode`, which is `"bedrock"` when a model
 answered and `"heuristic-local"` when none did, **and `synthesis_fallback_reason`, which says
 why without returning the provider's raw payload**. The companion prints both beside the
@@ -290,6 +295,37 @@ characters are refused with 422.
 Covered by `tests/unit/test_model_evidence_reaches_the_api.py`,
 `tests/e2e/test_model_coverage_display.py` and the spoken-form tests; added 2026-10-01 after a
 review found the evidence fields dropped in the use case and `**Spoken summary:**` read aloud.
+
+<a id="model-choice-2026-10-06"></a>
+**Model choice, 2026-10-06.** The refusals above come from the model's safety classifier, so the
+model was measured, not the prompt. Every call went to the Bedrock Mantle endpoint in eu-west-1
+through this adapter with the deployed SDK (anthropic 1.8.0), the request body unchanged and one
+call per press, on two patches: the take-4 `permissions.py` patch, and the first 3000 characters
+of `gh pr diff 1 -R upgradedev/volcan-demo-service` (an inverted `is_admin` and CORS origins set
+to `"*"`). Whether an answer named the risk was judged from its text in memory, by keyword, and
+the text was then discarded; the ledger, outside this repository, keeps only the shape of each
+call.
+
+| Model | Refused | Full answer names the risk | Spoken cut names the risk | Seconds per call |
+|---|---|---|---|---|
+| `anthropic.claude-sonnet-5` (new default) | 0 of 8 | 8 of 8 | 8 of 8 | 1.7 to 3.4 |
+| `anthropic.claude-haiku-4-5` | 0 of 8 | 8 of 8 | 4 of 8 (0 of 4 on pull request 1) | 1.1 to 2.5 |
+| `anthropic.claude-opus-5` (old default), take-4 patch | 2 of 4 | not judged | not judged | 1.5 to 5.8 |
+| `anthropic.claude-opus-5`, pull request 1 | 0 of 2 | 2 of 2 | 2 of 2 | 4.1 and 6.6 |
+
+The Opus 5 take-4 row is the earlier reproduction above, made before the risk was judged.
+`anthropic.claude-sonnet-5-5` answered 404 on its first call: the Mantle model list for eu-west-1
+(`GET /v1/models` on the Mantle endpoint) carries `anthropic.claude-opus-5`,
+`anthropic.claude-opus-4-8`, `anthropic.claude-opus-4-7`, `anthropic.claude-sonnet-5` and
+`anthropic.claude-haiku-4-5`, and no Sonnet 5.5. `anthropic.claude-opus-4-8` timed out at 25 s on
+its first call and answered 403 on its second, so it was not measured. Haiku 4.5 was faster, but
+on pull request 1 it led with the new endpoint, and the spoken cut, the first 180 characters,
+named no risk in 4 of 4. Sonnet 5 named the inverted check in all 8 spoken cuts, and CORS as well
+in 3 of the 4 on pull request 1. Sonnet 5 is the default, with one call per press. Eight calls
+cannot show a refusal rate of zero, and Sonnet 5 runs a cyber classifier too; a refusal still
+reaches the listener as its own named reason with the local digest beside it. 21 calls in all,
+24 allowed, the 404, the timeout and the 403 among them, made from a local machine and not by the
+live function, which keeps the model it was deployed with until it is redeployed.
 
 The client uses the account-scoped Bedrock Mantle project. The checked-in infrastructure
 defines that permission as a separate policy behind `enable_bedrock_mantle=false`; the
@@ -1537,6 +1573,9 @@ simulator in isolation mode, and record which headers the real client sends.
     "region": "us-east-1"
   }
   ```
+
+  That reading is from 2026-09-08. The default `model_id` became `anthropic.claude-sonnet-5`
+  on 2026-10-06 ([Model choice](#model-choice-2026-10-06)).
 
   Even `ready_to_attempt` promises an attempt and not an answer; only `synthesis_mode` on a
   digest reports what happened, and
