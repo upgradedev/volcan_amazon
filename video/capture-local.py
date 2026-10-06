@@ -787,7 +787,7 @@ def main() -> None:
         scroll_to("#reviewConvo", 12, "instant")
         page.wait_for_timeout(1500)
 
-        # Cold open, in the title slot: the first frame is the opened overview.
+        # Cold open, after the title card: the first frame is the opened overview.
         clock["origin"] = time.monotonic()
         cold_epoch = page_epoch()
         timeline_epoch = cold_epoch + cold_seconds * 1000

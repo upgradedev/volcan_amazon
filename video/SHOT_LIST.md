@@ -17,7 +17,8 @@ written beside it in `narration.json`.
 
 | Requirement | Where |
 |---|---|
-| A full spoken product turn inside the first 5 seconds | Cold open |
+| The first spoken product word inside the first 5 seconds, after a 2.0 s title card | Title card, then the cold open |
+| A title card and a closing card the sync gate reads as cards | Title card, closing card |
 | The Alexa+ value first. "Not an Alexa skill" stays on screen, but it is not the opening line | Beat 1 |
 | A real Amazon Bedrock answer, the model coverage line and the model's full answer | Beats 2 and 3 |
 | "Amazon Bedrock", "AWS Lambda" and "DynamoDB" said on camera, for the AWS Builder mini | Beat 2 |
@@ -25,30 +26,39 @@ written beside it in `narration.json`.
 | A non-trivial pull request | Cold open, beats 4 and 5 |
 | No hard-coded test count | No count is spoken; see the rules at the end |
 | End on the repository and live URLs | Closing card |
-| Under 3:00 | 156.5 s ESTIMATE, or 171.5 s with the optional slot |
+| Under 3:00 | 158.5 s ESTIMATE, or 173.5 s with the optional slot |
 
 ## Time budget (ESTIMATE)
 
 | Segment | From | To | Seconds | Product sound in it |
 |---|---|---|---|---|
-| Cold open | 0.0 | 12.0 | 12.0 | Findings or File by file on the open pull request |
-| Beat 1, `beat_01_alexa_value` | 12.0 | 32.7 | 20.7 | none |
-| Beat 2, `beat_02_bedrock_press` | 32.7 | 71.0 | 38.4 | the Bedrock answer to Hear this code review |
-| Beat 3, `beat_03_model_coverage` | 71.0 | 82.1 | 11.1 | none |
+| Title card | 0.0 | 2.0 | 2.0 | none |
+| Cold open | 2.0 | 14.0 | 12.0 | Findings or File by file on the open pull request |
+| Beat 1, `beat_01_alexa_value` | 14.0 | 34.7 | 20.7 | none |
+| Beat 2, `beat_02_bedrock_press` | 34.7 | 73.0 | 38.4 | the Bedrock answer to Hear this code review |
+| Beat 3, `beat_03_model_coverage` | 73.0 | 84.1 | 11.1 | none |
 | Optional slot, consented clip | after beat 3 | | 0 to 15 | only if the owner records a consented session; every later segment moves by its length |
-| Beat 4, `beat_04_request_changes` | 82.1 | 105.0 | 22.8 | Request changes |
-| Beat 5, `beat_05_confirm` | 105.0 | 139.6 | 34.6 | Confirm |
-| Beat 6, `beat_06_mcp_handshake` | 139.6 | 152.0 | 12.5 | none |
-| Closing card | 152.0 | 156.5 | 4.5 | none |
+| Beat 4, `beat_04_request_changes` | 84.1 | 107.0 | 22.8 | Request changes |
+| Beat 5, `beat_05_confirm` | 107.0 | 141.6 | 34.6 | Confirm |
+| Beat 6, `beat_06_mcp_handshake` | 141.6 | 154.0 | 12.5 | none |
+| Closing card | 154.0 | 158.5 | 4.5 | none |
 
 Narration is estimated at 2.2 words a second, the slowest rate of the 2026-09-29 take's
 beats rounded down. If the measured total without the optional slot comes out above 160 s,
 shorten the optional clip toward 10 s or trim beat 3, so that the whole stays under the kit's
 175 s publication budget.
 
-Dropped from the 2026-09-29 take to fit: the title card (the cold open takes its slot), the
-"what you heard" beat, the Findings turn on octocat/Hello-World, the Alexa+ replay press (see
-below), and the spoken test and conformance counts.
+Dropped from the 2026-09-29 take to fit: the "what you heard" beat, the Findings turn on
+octocat/Hello-World, the Alexa+ replay press (see below), and the spoken test and conformance
+counts. The title card stays, cut to 2.0 s: the sync gate samples the middle of the title
+segment and must read a card there, and cold-open footage in that slot reads as content
+(`video/README.md`, section 4).
+
+**The 5 s rule, measured on the planned timeline.** The title card runs 0 to 2.0 s, the cold
+open's first frame is at 2.0 s, and the cold-open command is pressed 0.3 s later. In the free
+rehearsal of 2026-10-06 the cold open's first sound came at 3.091 s of the video and its first
+spoken word at 3.744 s, inside 5.0 s. The capture fails a take whose first sound comes more
+than 2.0 s after the title card or whose first word comes after 5.0 s of video.
 
 ---
 
@@ -78,9 +88,14 @@ and the owner is asked again.
   the page says.
 * In rehearsal, Findings reports at least one finding, so the cold open is a finding. If no
   candidate does, choose one where no rule matched, and use File by file instead of Findings
-  in the cold open. On such a pull request the page's Findings answer is "No security finding
-  in this change.", which claims more than the rules can know. That turn is kept off camera
-  until the product hedges it.
+  in the cold open. On such a pull request the page's Findings answer starts "No security rule
+  matched this change." and says the rules can miss a risk; the capture refuses it in the
+  cold open, which is for a finding.
+* The Findings answer fits the cold open. Every finding is a sentence, and each keyword-set
+  match ("text matching the auth_token keyword set appears in this change") is one too. In
+  the free rehearsal of 2026-10-06 a pull request with 4 findings, 3 of them keyword-set
+  matches, was still being spoken 27.7 s after its answer began, against a 12.0 s cold open.
+  Prefer one or two findings, or re-measure the window.
 * Record the URL, the head commit and the rehearsal's spoken answers in the take's receipt.
 
 ---
@@ -89,6 +104,7 @@ and the owner is asked again.
 
 | Step | Who | Command or action | What must be true |
 |---|---|---|---|
+| 0 | Anyone | `video/capture-local.py --rehearsal` and `video/build-video.py --rehearsal` against a local server, as `video/README.md` section 1 says | Free: no Bedrock or ElevenLabs call. It runs the whole journey on the chosen pull request and lists every failure, and what the local engine cannot show. Its output is never shippable |
 | 1 | Owner | Authorise the billed calls above, in writing | The bound and the date are written down before any press |
 | 2 | Owner | `curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health` | `source_revision` names the commit that becomes `{sha7}`. `bedrock_model_path` reads `ready_to_attempt`, `durable_state` reads `configured_reachable`, and `github_review_path` reads `dry_run_no_token`. If it reads `dry_run_with_token`, beat 5 must not say "this build has no GitHub token" |
 | 3 | Owner | Open the GitHub Actions run for that commit | Green. Note the run id in the take's receipt. If a test count is ever shown, it is this run's count, filmed from this page |
@@ -113,7 +129,17 @@ The tag replaces the last take's "Local run of commit ... Not the public deploym
 
 ---
 
-## Cold open, 0 to 12.0 seconds
+## Title card, 0 to 2.0 seconds
+
+`Volcan`
+`Hear your code review instead of scrubbing a diff.`
+`Live build at commit {sha7}. Simulated Alexa+ front end. GitHub review: dry run.`
+
+A flat card, silent. The build writes `Local run` in place of `Live build` when the capture
+was not recorded on the live build. It measured an edge mean of 1.98, a card to the sync gate
+(threshold 4.5).
+
+## Cold open, 2.0 to 14.0 seconds
 
 * **Before the first frame:** the chosen pull request was opened on the live page. Opening it
   is a Bedrock call, so it happens off camera, and the band says "Pull request opened before
@@ -126,10 +152,12 @@ The tag replaces the last take's "Local run of commit ... Not the public deploym
 * **Sound:** the page's cue, its readback (`Understood: findings.`), and then its answer: each
   finding as the server words it, or each file with its additions and deletions. The narrator
   is silent.
-* **Gate:** the first product sound by 2.0 s and the first spoken word by 5.0 s, with the turn
-  playing to its end. A take that misses either is recorded again.
+* **Band:** `Live build at commit {sha7}. Pull request opened before this shot.`
+* **Gate:** the first product sound by 2.0 s after the title card ends, and the first spoken
+  word by 5.0 s into the video, with the turn playing to its end. A take that misses either is
+  recorded again.
 
-## Beat 1, `beat_01_alexa_value`, 12.0 to 32.7 seconds
+## Beat 1, `beat_01_alexa_value`, 14.0 to 34.7 seconds
 
 * **Narration:** "That was Volcan, live, answering in its own voice. It is a Model Context
   Protocol server built to be called by Alexa+, so a blind or low-vision developer can review
@@ -140,7 +168,7 @@ The tag replaces the last take's "Local run of commit ... Not the public deploym
   Alexa+ front end. Not an Alexa skill. GitHub: dry-run.** On the last sentence,
   <kbd>Alt</kbd>+<kbd>1</kbd> puts the focus ring on **Hear this code review**.
 
-## Beat 2, `beat_02_bedrock_press`, 32.7 to 71.0 seconds
+## Beat 2, `beat_02_bedrock_press`, 34.7 to 73.0 seconds
 
 * **At the first frame, before the narrator speaks:** <kbd>Enter</kbd> on **Hear this code
   review**. The model call starts, and the narration covers the wait.
@@ -152,7 +180,7 @@ The tag replaces the last take's "Local run of commit ... Not the public deploym
 * **Fails the take:** an engine meter that reads local heuristic, a fallback reason, or an
   answer that starts while the narrator is still speaking.
 
-## Beat 3, `beat_03_model_coverage`, 71.0 to 82.1 seconds
+## Beat 3, `beat_03_model_coverage`, 73.0 to 84.1 seconds
 
 * **Narration:** "The meter names Amazon Bedrock, this line says how much of the patch the model
   read, and this panel opens its full answer."
@@ -181,7 +209,7 @@ include it.
 * The band says it is a recorded session, with its date, and that consent was given. The
   narration adds no claim about the result beyond what the published session results say.
 
-## Beat 4, `beat_04_request_changes`, 82.1 to 105.0 seconds
+## Beat 4, `beat_04_request_changes`, 84.1 to 107.0 seconds
 
 * **Narration:** "Back on the pull request, request changes stages a review, bound to the head
   commit Volcan read. Listen."
@@ -191,9 +219,11 @@ include it.
 * **Sound:** the page's cue and readback, then `Ready to request changes on` the pull request,
   `bound to head commit` and its short id, `with the comment:`, and `Say confirm to submit it,
   or cancel.` State **AWAITING CONFIRM**. The last take talked over this turn; this one keeps
-  all of it.
+  all of it. In the free rehearsal of 2026-10-06 the readback, which repeats the comment, took
+  9.5 s, and the whole turn ran past this beat's 14.0 s ESTIMATE window: Confirm interrupted
+  it 25.1 s after the click. Size the window from the rehearsals on the chosen pull request.
 
-## Beat 5, `beat_05_confirm`, 105.0 to 139.6 seconds
+## Beat 5, `beat_05_confirm`, 107.0 to 141.6 seconds
 
 * **Narration:** "Nothing leaves until you confirm, and this build has no GitHub token, so it
   records the review and sends nothing. Confirm, and listen."
@@ -203,7 +233,7 @@ include it.
   **RECORDED, NOT SENT**. Midway through, the view moves to the review pane, which shows the
   outcome and the exact `POST` body the server recorded.
 
-## Beat 6, `beat_06_mcp_handshake`, 139.6 to 152.0 seconds
+## Beat 6, `beat_06_mcp_handshake`, 141.6 to 154.0 seconds
 
 * **Narration:** "This handshake is a real one with the server under the page, at protocol
   revision 2025-11-25. Alexa+ itself has never called Volcan."
@@ -218,14 +248,19 @@ include it.
   Bedrock calls and could run close to a minute. The README's replay command against a local
   server remains the evidence for it.
 
-## Closing card, 152.0 to 156.5 seconds
+## Closing card, 154.0 to 158.5 seconds
 
-`Volcan: code review by ear, by touch and by voice.`
-`Live build: https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com`
-`Source: https://github.com/upgradedev/volcan_amazon`
-`Recorded on the live build at commit {sha7}. Simulated Alexa+ front end, not an Alexa skill.
-GitHub review: a dry run, recorded and not sent.`
-`Narration: synthetic ElevenLabs voice. Product voice: the page's own speech.`
+`Volcan`
+`Live build: qylv1gxor9.execute-api.eu-west-1.amazonaws.com`
+`Source: github.com/upgradedev/volcan_amazon`
+`Commit {sha7}. Simulated Alexa+, not an Alexa skill. Narration: synthetic ElevenLabs.`
+`GitHub review: dry run. Product voice: the page's own speech.`
+
+Five rows, at most: the sync gate must read it as a card. When the capture re-renders the
+page's sentences in a system voice, the build replaces the last sentence with `Product voice:
+the page's sentences in <voice>.`, which keeps the card at 5 rows; it measured an edge mean of
+3.98 against the gate's 4.5. The earlier 9-row card measured 7.59 and read as content. The
+build refuses a closing card of more than 5 rows.
 
 The repository is private today. Before upload, the owner either makes it public or confirms
 that the judges are collaborators. Otherwise the source line points at a page judges cannot
@@ -258,7 +293,12 @@ open.
   work and is not part of this plan.
 * **Model timeout.** A model call that runs past its 25 s timeout falls back to the local
   engine. The meter then reads local heuristic, and the take is recorded again.
-* **"No security finding in this change."** This sentence claims more than the rules can know.
-  The pull request rule above keeps it off camera.
+* **No rule matched.** The page now hedges that answer ("No security rule matched this
+  change. The rules can miss a risk"), but the cold open is for a finding, so the capture
+  refuses it there. The pull request rule above keeps it off camera.
+* **The sync gate's seam check.** `content-seam<=1s` still fails on this plan: in the free
+  rehearsal the last sound before beat 6 ended 3.196 s before it, because the system voice
+  speaks the Confirm answer faster than the browser did. `video/README.md`, section 4, has the
+  figures and the choices.
 * **Latency.** The only live Bedrock figure on record is one digest of 19.67 s on 2026-10-01.
   The rehearsal measures it again, and beat 2's window follows the measurement.
