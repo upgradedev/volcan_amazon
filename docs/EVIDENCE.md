@@ -321,7 +321,12 @@ The Opus 5 take-4 row is the earlier reproduction above, made before the risk wa
 its first call and answered 403 on its second, so it was not measured. Haiku 4.5 was faster, but
 on pull request 1 it led with the new endpoint, and the spoken cut, the first 180 characters,
 named no risk in 4 of 4. Sonnet 5 named the inverted check in all 8 spoken cuts, and CORS as well
-in 3 of the 4 on pull request 1. Sonnet 5 is the default, with one call per press. Eight calls
+in 3 of the 4 on pull request 1. The spoken cut is not the first thing a listener hears when a
+local rule matched: level 0 speaks the local finding first and the model's cut after it, so on
+both patches measured the risk was heard with either model. The cut carries the risk alone only
+when no local rule matched, and that is why it decided between two models that tied on refusals
+and on the full answer; by latency alone, Haiku 4.5 (median 1.6 s against 2.2 s) would have won.
+Sonnet 5 is the default, with one call per press. Eight calls
 cannot show a refusal rate of zero, and Sonnet 5 runs a cyber classifier too; a refusal still
 reaches the listener as its own named reason with the local digest beside it. 21 calls in all,
 24 allowed, the 404, the timeout and the 403 among them, made from a local machine and not by the
