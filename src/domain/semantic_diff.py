@@ -107,8 +107,8 @@ class SemanticDiffReport:
     #: answered. Carried to the API and the companion page so an unexplained
     #: fallback is never presented as a choice.
     fallback_reason: str | None = None
-    #: The model's full prose, uncut. None when the heuristic path answered,
-    #: which has no model prose to keep.
+    #: The model's full prose, uncut, with Markdown markup removed. None when
+    #: the heuristic path answered, which has no model prose to keep.
     model_prose_full: str | None = None
     #: Diff characters the model was shown, and the whole patch size. None on
     #: the heuristic path, which reads the parsed sections instead. When sent

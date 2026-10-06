@@ -57,8 +57,9 @@ async def op_digest(req: DigestRequest, engine: str = "auto") -> dict[str, Any]:
         # explains why the deterministic path answered. Provider payloads can
         # contain cloud identity and request identifiers and never cross the API.
         "synthesis_fallback_reason": report.fallback_reason,
-        # The model's own words, uncut, and what it was shown: null unless a
-        # model answered, so a heuristic digest never carries model-shaped data.
+        # The model's own words, uncut and with Markdown markup removed, and
+        # what it was shown: null unless a model answered, so a heuristic
+        # digest never carries model-shaped data.
         "model_prose_full": report.model_prose_full,
         "model_input_truncated": (
             report.model_input_chars_sent is not None

@@ -158,6 +158,18 @@ RATE_MAX = 1.6
 #: the failure the product exists to end.
 LINES_PER_READ = 20
 
+#: What a clean findings turn may honestly claim. No rule matching is not the
+#: same as no risk: on the held-out JavaScript half the rules caught 5 of 8
+#: risky patches (``python scripts/benchmark_js_ts_detection.py --split heldout``).
+#: tests/unit/test_clean_verdict_is_hedged.py fails if these two numbers and
+#: that command ever disagree.
+HELD_OUT_JS_CAUGHT = 5
+HELD_OUT_JS_TOTAL = 8
+CLEAN_FINDINGS_TEXT = (
+    "No security rule matched this change. The rules can miss a risk: "
+    f"on held-out JavaScript patches they caught {HELD_OUT_JS_CAUGHT} of {HELD_OUT_JS_TOTAL} risky ones."
+)
+
 HELP_TEXT = (
     "You can say: open the pull request, or open the patch. Summary. File by file. "
     "What changed in auth dot py. Next, previous. Read the lines. Next line, previous line, "
@@ -509,7 +521,9 @@ class ReviewDialogue:
     def _findings(self, command: Command) -> DialogueTurn:
         findings = list(self.report.critical_findings)
         if not findings:
-            return self._turn(command, "findings", "No security finding in this change.", earcon=EarconType.DIFF_READY)
+            # The ready cue stays: it says the review found nothing to flag,
+            # which is true. The words say how far that reaches.
+            return self._turn(command, "findings", CLEAN_FINDINGS_TEXT, earcon=EarconType.DIFF_READY)
         return self._turn(command, "findings", f"{plural(len(findings), 'finding')}. " + " ".join(findings),
                           earcon=EarconType.SECURITY_FINDING)
 

@@ -205,9 +205,12 @@ covered. We deleted all of it. The page now shows a real result or an honest emp
   patches and measured on the other half (independent of the tuning, not of the author): recall 25.0% to 62.5% for JavaScript (50.0% before the SQL rule) and 37.5% to
   75.0% for TypeScript, 8 patches per language that must flag. False positives stayed at 0.0%
   and 25.0% of 8, all from the unchanged keyword pass on this corpus. The rules read tokens
-  without control-flow reasoning: two rounds of eight probes written after them to find where
-  that breaks now give 4 of 4 detected with 2 of 4 over-flagged (`--probes`; 0 of 4 and 4 of 4
-  before the rule work) and 4 of 4 with 1 of 4 (`--probes2`), all by a structural rule. Printed by
+  without control-flow reasoning. Eight probes written after them to find where that breaks give
+  4 of 4 detected with 2 of 4 over-flagged (`--probes`; 0 of 4 and 4 of 4 before the rule work).
+  Both false alarms are JavaScript and they are the only JavaScript must-not-flag probes, so the
+  rules raise a false alarm on 2 of 2 of them. A second round of eight gives 4 of 4 detected with
+  2 of 4 over-flagged before the CORS test-file exemption and 1 of 4 after it (`--probes2`);
+  commit `f1c35a1` added that exemption in the same commit as those probes. Printed by
   `python scripts/benchmark_js_ts_detection.py`; the split rule, the seed and every miss are in
   `docs/EVIDENCE.md`.
 
@@ -276,9 +279,10 @@ it as the evidence. `docs/EVIDENCE.md` carries the exact command that reproduces
 source module's AST on each run to keep it that way. Volcan plans commands and refuses the
 rest.
 
-**Not recorded.** No demonstration video exists yet. `video/SHOT_LIST.md` is a beat sheet in
-which every beat is an action this repository can perform today, and readiness gates E2 and
-E4 report red until footage exists.
+**Not published.** A 163.68 second render at 1920x1080 (ffprobe) of a local run of `09d4862`
+exists outside the repository, pending upload by the owner; there is no public link yet.
+`video/SHOT_LIST.md` is a beat sheet in which every beat is an action this repository can
+perform today, and readiness gates E2 and E4 report red until footage is in `video/`.
 
 **Deployed.** On 2026-09-23 the public endpoint served `GET /health`, the current companion,
 the REST digest and MCP initialize/tool calls. Health exposes the immutable source revision.
