@@ -287,7 +287,10 @@ perform today, and readiness gates E2 and E4 report red until footage is in `vid
 **Deployed.** On 2026-09-23 the public endpoint served `GET /health`, the current companion,
 the REST digest and MCP initialize/tool calls. Health exposes the immutable source revision.
 A governed action remained a dry-run and its bounded EMF records were read back from
-CloudWatch. A live GitHub write remains absent. An Alexa+ add-on deployment is absent because
+CloudWatch. On 2026-10-06, after a redeploy, `GET /health` reported `source_revision`
+`aa3364a`; the later commits on master change no file under `src/` and not `docs/index.html`
+(`git diff --name-only aa3364a HEAD -- src docs/index.html` prints nothing), so the endpoint
+serves the current runtime. A live GitHub write remains absent. An Alexa+ add-on deployment is absent because
 the add-on tools are partner-only ([hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs)). No Alexa skill has been
 certified and nothing has run on an Echo device; for this track the FAQ says "no physical
 device needed".
@@ -360,7 +363,7 @@ does and does not compound, is in `docs/EVIDENCE.md`.
 1. **Deploy the Alexa+ add-on, if Amazon grants MCP Toolkit access**, which the hackathon FAQ
    says participants cannot get at present, so the voice experience stops being a simulation.
    The package in `alexa_plus/` passes Amazon's documented schema locally; what remains is that
-   access, the owner's hosted privacy page and images, a redeploy of the current commit, the
+   access, the owner's hosted privacy page and images, a redeploy whenever `src/` or `docs/index.html` next changes, the
    header question the replay raised, and a test in Amazon's simulator and on an Echo device.
 2. **Send one live review** with `VOLCAN_GITHUB_WRITE=1` and a fine-grained token against a
    repository the owner controls, and record the receipt. The code path exists and is tested

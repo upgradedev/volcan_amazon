@@ -2,17 +2,29 @@
 
 > **Volcan lets blind and low-vision software developers review autonomous coding agents by ear and by touch instead of by reading a diff.**
 
-**Status: a live MCP server with a simulated Alexa+ front end.** The voice is the browser's
-own speech, not an Alexa skill; GitHub reviews are dry-run; the demo video is rendered and
-not yet published. [What is real and what is not](#what-is-real-and-what-is-not).
+**What it is.** A Model Context Protocol server that reads a pull request or a patch and
+answers three ways: one spoken sentence that names the risky change first, a sound cue whose
+pitch falls on a security finding and rises on a clean patch, and eight-dot Braille of the
+code. A review that would change GitHub is staged behind a single-use approval grant that the
+coding agent cannot approve for itself.
 
-```bash
-python -m pip install -e ".[dev,bedrock]"
-python -m src.interfaces.mcp_server
-```
+**Who it is for.** A blind or low-vision developer asked to review code an AI agent wrote, who
+today hears the raw patch from a screen reader one plus sign at a time.
 
-Then open `http://127.0.0.1:8000/` and press **Hear this code review**. No cloud account is
-needed; [step by step](#run-it-locally).
+**Alexa+ fit.** A live MCP server (revision 2025-11-25, Streamable HTTP) with a simulated
+Alexa+ front end. Through an MCP add-on, Alexa+ would be this server's MCP client; the add-on
+package is in [`alexa_plus/`](alexa_plus/addon-package/addon.json), built and tested locally.
+The companion page stands in for Alexa+ with the browser's own speech, and its Evidence tab
+(Server and MCP) sends Amazon's documented Alexa+ client requests to `/mcp` on a press.
+
+**Live.** [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/)
+serves commit `aa3364a`: its `/health` reported that `source_revision` on 2026-10-06.
+
+**Try it in one step.** Open the live page and press **Hear this code review**. Nothing plays
+or speaks until you press. To run it on your own machine, see [Run it locally](#run-it-locally).
+
+It is not an Alexa skill, the Alexa+ front end is simulated, and GitHub reviews are a dry run;
+[what is real and what is not](#what-is-real-and-what-is-not).
 
 ![Volcan's first screen at 1280 by 720 in the dark theme, before any press: the headline "Hear your code review instead of scrubbing a diff", the line "For blind and low-vision developers.", a card reading "Live MCP server, simulated Alexa+ front end" and "Not an Alexa skill. GitHub: dry-run.", a two-line patch that turns user.role == "admin" into user.role != "admin", one "Hear this code review" button, and the server's real answer drawn silently beside it: a falling earcon waveform, the sentence "an authorization comparison was inverted", and eight-dot Braille cells.](docs/assets/volcan-first-viewport.png)
 
@@ -21,27 +33,14 @@ needed; [step by step](#run-it-locally).
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
 [![tests](https://img.shields.io/badge/tests-854%20passing-brightgreen.svg)](tests/)
 
-**What it does.** Paste a patch or open a GitHub pull request. Volcan says the risky change
-first in one sentence, plays a cue whose pitch falls on a security finding and rises on a clean
-patch, and prints the code as eight-dot Braille. Then you can stage a request-changes review
-that is a dry run by default and needs a single-use approval grant from a human.
-
-**Amazon technology.** A hand-written Model Context Protocol server (revision 2025-11-25),
-the interface an Alexa+ MCP add-on would call. The add-on package for it is in
-[`alexa_plus/`](alexa_plus/addon-package/addon.json), built and tested locally, not certified
-or deployed: the [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) says Amazon's Alexa+ add-on tools are
-"available to select partners only". With AWS credentials and the `bedrock` extra,
-Volcan sends the digest request to Claude on Amazon Bedrock; otherwise, or when the call fails,
-a local deterministic engine answers and the response says why. A Bedrock answer was recorded on 2026-09-30: one live digest answered `synthesis_mode: bedrock` with a null reason. The public endpoint is an AWS Lambda in eu-west-1, and [`infra/`](infra/) declares
-a Lambda with a function URL and a DynamoDB table in Terraform.
-
 ## Table of Contents
 
 1. [How it works](#how-it-works)
-2. [Run it locally](#run-it-locally)
-3. [What is real and what is not](#what-is-real-and-what-is-not)
-4. [Who it is for and who pays](#who-it-is-for-and-who-pays)
-5. [The full evidence](#the-full-evidence)
+2. [Amazon technology](#amazon-technology)
+3. [Run it locally](#run-it-locally)
+4. [What is real and what is not](#what-is-real-and-what-is-not)
+5. [Who it is for and who pays](#who-it-is-for-and-who-pays)
+6. [The full evidence](#the-full-evidence)
 
 ## How it works
 
@@ -101,6 +100,18 @@ sequenceDiagram
 
 ![The same screen in the daylight theme after one keyboard press, Alt+1 then Enter, on a local server with no cloud credentials: the card reading "Live MCP server, simulated Alexa+ front end" and "Not an Alexa skill. GitHub: dry-run.", the focus ring still on Hear this code review, the waveform drawn in ember now that the falling cue has played, a Replay the cue button and its caption, the spoken sentence naming the inverted authorization comparison, and the engine meter reading local heuristic beside the round trip measured on that run.](docs/assets/volcan-after-one-press.png)
 
+## Amazon technology
+
+A hand-written Model Context Protocol server (revision 2025-11-25),
+the interface an Alexa+ MCP add-on would call. The add-on package for it is in
+[`alexa_plus/`](alexa_plus/addon-package/addon.json), built and tested locally, not certified
+or deployed: the [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) says Amazon's Alexa+ add-on tools are
+"available to select partners only". With AWS credentials and the `bedrock` extra,
+Volcan sends the digest request to Claude on Amazon Bedrock; otherwise, or when the call fails,
+a local deterministic engine answers and the response says why. A Bedrock answer was recorded on 2026-09-30: one live digest answered `synthesis_mode: bedrock` with a null reason. The public endpoint is an AWS Lambda in eu-west-1; its `GET /health` on 2026-10-06 read
+`bedrock_model_path` `ready_to_attempt` and `durable_state` `configured_reachable`, and
+[`infra/`](infra/) declares a Lambda with a function URL and a DynamoDB table in Terraform.
+
 ## Run it locally
 
 Python 3.11 or newer. No AWS account, GitHub token or device is needed.
@@ -112,7 +123,7 @@ python -m pip install -e ".[dev,bedrock]"
 python -m pytest tests/ -q
 ```
 
-CI run 36804593070 at `fc10e7d` printed `751 passed` on 2026-10-01. This branch adds tests, and
+CI run 37432272539 on master at `f9e5135` printed `854 passed` on 2026-10-06, and
 `python -m pytest tests/ --collect-only -q` collects 854. The `bedrock` extra installs
 `anthropic[bedrock]`. With AWS credentials as well, a Bedrock call is ready to attempt.
 Credentials and an importable SDK do not prove a model answered: the receipt is the digest
@@ -162,12 +173,13 @@ Skill) per the Official Rules, and demo it via your own web-based simulator or f
 *Not possible for participants:* deploying the add-on package, because the add-on tools are
 partner-only (FAQ), so Alexa+ has never called Volcan. *Not tested:* an Echo device; the FAQ
 says "no physical device needed". *Missing:* a published demo video (a render of a local run exists, pending upload) and a live GitHub write. *Not required
-for this track:* a public build of this version; the FAQ says "hosting isn't required". The
-public endpoint serves an older build, `9b2bcb9`; the table below says what differs.
+for this track:* a public build; the FAQ says "hosting isn't required". The public endpoint
+serves `aa3364a`, whose `src/` and `docs/index.html` are those of every later commit on
+master; the table below gives the commands.
 
 | | |
 |---|---|
-| **Live endpoint** | [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health) serves revision `9b2bcb9`: `/health` reported `source_revision` `9b2bcb9ad4c3ad0f38d150fbc546d7b30a56e062` on 2026-10-01 and again on 2026-10-05 (`curl -s <endpoint>/health`). This branch changes `src/` after it: the first MCP text block of the digest, drill-down and review-turn tools is now the spoken form with operators named, the model's full answer loses its Markdown, and a clean findings turn says that no rule matched and that the rules can miss a risk; it also adds `outputSchema` and `structuredContent` on three tools, `resources/list` and `resources/read`, and the `ui://volcan/review-card` view. The live endpoint shows none of that until the owner redeploys. It serves MCP clients that omit the version header, shows the current page, names the finding in the spoken summary, answers one recorded digest from Bedrock (mantle grant attached 2026-09-30), and keeps durable state in DynamoDB. [Details](docs/EVIDENCE.md#the-public-deployment). Earlier it served `6e9ae4d` (PR #22, 2026-09-30), before that `0e96e45`; on 2026-09-27 it served `2d0b8f8`, 43 commits behind; all three observations stay in EVIDENCE as history. |
+| **Live endpoint** | [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health) serves `aa3364a` (PR #30, which merged #25 to #29), redeployed on 2026-10-06: `curl -s <endpoint>/health` reported `source_revision` `aa3364a94928de9b4f6586603bf11a5ff8d988e0` at 08:03 UTC that day, and `GET /` answered HTTP 200 with 299,248 bytes, the size `git cat-file -s aa3364a:docs/index.html` prints. The commits on master after it, PR #31 through `f9e5135` (`git log --oneline aa3364a..f9e5135`), change only the video pipeline, its test, `video_sync_receipt.json`, this README and the evidence file; `git diff --name-only aa3364a HEAD -- src docs/index.html` prints nothing, so the live runtime is the current one. The deploy probe of 2026-10-06, kept outside the repository like every live observation, found 12 tools in `tools/list`, an `outputSchema` on `digest_semantic_diff`, `drill_down_section` and `review_dialogue_turn`, and the `ui://` card link on `review_dialogue_turn`; it made no `tools/call` or `resources/read`, so `structuredContent` and the card body are proven by the local tests named below. [Details](docs/EVIDENCE.md#the-public-deployment). Earlier builds, kept in EVIDENCE as history: `9b2bcb9` (PR #23) on 2026-10-01 and 2026-10-05, `6e9ae4d` (PR #22) on 2026-09-30, before that `0e96e45`, and `2d0b8f8` on 2026-09-27, 43 commits behind. |
 | **Evidence** | [docs/EVIDENCE.md](docs/EVIDENCE.md): every claim with the command that prints it |
 | **Friction log** | [docs/FRICTION_LOG.md](docs/FRICTION_LOG.md): eight entries from building Volcan on MCP, Amazon Bedrock, AWS Lambda and the Alexa+ documentation, each with the task attempted, the steps taken, the expected and actual result, a severity rating, the workaround used and an actionable suggestion |
 | **Source** | A private repository. The [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) rule for one: "Add the Amazon and Devpost reviewers as collaborators before the submission deadline". That is an owner step. The MIT licence is in [LICENSE](LICENSE) |
@@ -175,7 +187,7 @@ public endpoint serves an older build, `9b2bcb9`; the table below says what diff
 | Part | Status | Check it |
 |---|---|---|
 | MCP server, 12 tools, Streamable HTTP | Real, written by hand | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Structured results and the review card | Real: `digest_semantic_diff`, `drill_down_section` and `review_dialogue_turn` publish an `outputSchema` and return `structuredContent`; `resources/read` returns `ui://volcan/review-card` as `text/html;profile=mcp-app`. The page hosts the card itself, so no MCP Apps client, Echo Show or Alexa+ has rendered it, and the live endpoint at `9b2bcb9` predates it | `python -m pytest tests/integration/test_mcp_structured_results.py tests/e2e/test_review_card.py -v` |
+| Structured results and the review card | Real: `digest_semantic_diff`, `drill_down_section` and `review_dialogue_turn` publish an `outputSchema` and return `structuredContent`; `resources/read` returns `ui://volcan/review-card` as `text/html;profile=mcp-app`. The page hosts the card itself, so no MCP Apps client, Echo Show or Alexa+ has rendered it. The live endpoint at `aa3364a` lists the three schemas and the card link in `tools/list` (deploy probe, 2026-10-06) | `python -m pytest tests/integration/test_mcp_structured_results.py tests/e2e/test_review_card.py -v` |
 | Security finding named first | Real. Python corpus: 86.4% recall over n=40 labelled patches with 0% false positives, against a baseline of 0% for a screen reader reading the raw patch, three known misses named. It was 81.8% until the TLS rule of 2026-09-28 closed `pos-21`, a miss known before that rule was written, so this corpus is not held out for it. JavaScript and TypeScript, on a held-out half of 16 patches per language: recall 62.5% (JS) and 75.0% (TS), false positives 0.0% and 25.0%; the held-out half is independent of the tuning, not of the author. Classic families (string-built SQL, TLS checks off, shell built from input), on 72 patches written before those rules: recall 91.7% (Python), 66.7% (JS) and 66.7% (TS), up from 41.7%, 41.7% and 50.0%; false positives unchanged at 33.3%, 50.0% and 25.0%, all from the older keyword pass, none from a family rule. Eight probes written after the rules to find where line-at-a-time reading breaks: 4 of 4 detected, 2 of 4 over-flagged, and the two are both JavaScript must-not-flag probes, so 2 of 2 JavaScript false alarms (0 of 4 detected and 4 of 4 over-flagged on 2026-09-27, before the rule work). A second round of eight: 4 of 4 detected, 2 of 4 over-flagged before the CORS test-file exemption and 1 of 4 after it; commit `f1c35a1` added that exemption and those probes together, so 1 of 4 is not an untuned figure. Every corpus is self-written and synthetic | `python scripts/benchmark_suite.py`, `python scripts/benchmark_js_ts_detection.py` (`--probes`, `--probes2`) and `python scripts/benchmark_classic_families.py` |
 | Earcon that encodes the verdict | Real: different WAV bytes for a finding and a clean patch | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
 | Eight-dot code Braille | Real and lossless over 95 ASCII characters. Not reviewed by a Braille transcriber, not read on a physical display | `python -m pytest tests/unit/test_braille_code_fidelity.py -v` |
@@ -183,9 +195,9 @@ public endpoint serves an older build, `9b2bcb9`; the table below says what diff
 | Digest by Claude on Amazon Bedrock | Real code with a stated fallback. A provider failure returns a fixed public category; raw account, role and request identifiers never enter the anonymous response. One Bedrock answer recorded 2026-09-30 (live digest, `synthesis_mode: bedrock`, null reason); where the SDK is absent the local engine answers with the reason stated | `python -m pytest tests/unit/test_bedrock_synthesis_path.py -v` |
 | Voice loop | Simulated: the browser's speech, not an Alexa skill, and no test drives a microphone | [Evidence](docs/EVIDENCE.md#what-is-true-and-what-is-simulated) |
 | Shared durable state | Deployed: DynamoDB `volcan-state-euw1-prod` plus a Secrets Manager approval secret; a local run keeps state in memory | The `durable_state` field of `GET /health` says which |
-| Alexa+ MCP add-on package | Built and tested locally, not certified or deployed: the hackathon FAQ says the add-on tools are "available to select partners only", so participants cannot deploy it. A replay of Amazon's documented Alexa+ client requests, against a local build of this commit (the registered endpoint serves `9b2bcb9`, `source_revision` read 2026-10-01, which predates this branch's change to the first text block and its `outputSchema` and `structuredContent` on three tools, `resources/list` and `resources/read`, and the `ui://volcan/review-card` view, none of it deployed; the replay was not re-run against it), gets the finding back from all three client shapes: one that follows the protocol's version rules, one that declares the revision it asked for, and one that never sends the version header. The page's Evidence tab, Server and MCP, runs the same three clients from the browser on a press. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
+| Alexa+ MCP add-on package | Built and tested locally, not certified or deployed: the hackathon FAQ says the add-on tools are "available to select partners only", so participants cannot deploy it. A replay of Amazon's documented Alexa+ client requests, against a local build (the registered endpoint serves `aa3364a`, `source_revision` read 2026-10-06, whose `src/` is the current one; the replay was not re-run against that endpoint), gets the finding back from all three client shapes: one that follows the protocol's version rules, one that declares the revision it asked for, and one that never sends the version header. The page's Evidence tab, Server and MCP, runs the same three clients from the browser on a press. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
 | Demo video | Rendered locally: 163.68 s at 1920x1080 (ffprobe) from a local run of `09d4862`, whose `src/` and `docs/` it shows (earlier 164.52 s render from `7a3de49` superseded). The review-dialogue fixes after `09d4862` are not on camera, including README and other extensionless file names, next from the overview, help examples taken from the open change, next steps outlined only where they work, plain words when a pull request cannot be opened, and README spoken as documentation. Pending upload by the owner; no public link yet | [video/README.md](video/README.md) |
-| Test suite | 854 collected on this branch (`python -m pytest tests/ --collect-only -q`). CI run 36804593070 at `fc10e7d` passed 751 with 93.18% statement coverage (4734 statements, 323 missed) on 2026-10-01; coverage for this branch is measured by its own CI run | `python -m pytest tests/ -q --cov=src` |
+| Test suite | 854 collected (`python -m pytest tests/ --collect-only -q`). CI run 37432272539 on master at `f9e5135`, 2026-10-06: `854 passed`, 93.52% statement coverage (5029 statements, 326 missed), readiness `46/53 passed, 0 blocking failures, 7 externally blocked`. Earlier: CI run 36804593070 at `fc10e7d` passed 751 with 93.18% (4734 statements, 323 missed) on 2026-10-01 | `python -m pytest tests/ -q --cov=src` |
 
 ## Who it is for and who pays
 
@@ -214,7 +226,7 @@ icons and carousel image are placeholders for the owner to host. The
 "available to select partners only", and "You do not need these tools for your submission".
 Volcan is the shape it asks for instead, a self-hosted MCP server with its own web front end.
 Deploying the add-on waits on Amazon granting access. Replaying Amazon's
-documented client requests, against a local build of this commit rather than the registered
+documented client requests, against a local build rather than the registered
 endpoint, found that the server listed protocol revision 2025-03-26, which Amazon's example
 client asks for, without honouring it. It no longer offers that revision, and still serves a
 client that declares it in its header; the first version of that fix refused one. A client
