@@ -1211,9 +1211,9 @@ git diff --name-only 22c32ab HEAD -- src docs/index.html   # prints nothing
   durable voice stage go through the same corrected transactions; they were not exercised live,
   and `tests/unit/test_dynamodb_wire_shape.py` checks each transaction body offline with real
   boto3 serialization.
-* The commits after `22c32ab` change the video pipeline under `video/`,
-  `tests/unit/test_video_retake_pipeline.py`, `video_sync_receipt.json`, the README and this
-  file. The last command shows that neither `src/` nor `docs/index.html` changed, so no redeploy
+* The commits after `22c32ab` change only documentation (the README, this file,
+  `docs/DEVPOST_SUBMISSION.md` and `docs/COMPLIANCE_AND_ARCHITECTURE.md`) and the video
+  pipeline (`video/`, `tests/unit/test_video_retake_pipeline.py`, `video_sync_receipt.json`). The last command shows that neither `src/` nor `docs/index.html` changed, so no redeploy
   is pending.
 
 ### Known issue: durable stages answered HTTP 503 on live
