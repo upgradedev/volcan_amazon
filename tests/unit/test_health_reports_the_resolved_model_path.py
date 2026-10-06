@@ -135,8 +135,11 @@ def test_health_names_an_arn_override_only_by_its_label(monkeypatch):
 
     arn = "arn:aws:bedrock:eu-west-1:123456789012:application-inference-profile/abc123"
     monkeypatch.setattr(served, "model_id", arn)
-    monkeypatch.setattr(BedrockSynthesisAdapter, "credentials_present", lambda self, refresh=False: True)
-    monkeypatch.setattr(BedrockSynthesisAdapter, "sdk_present", staticmethod(lambda: True))
+    # On the served instance, not the class: an earlier test's monkeypatch of
+    # this instance leaves the original bound method behind as an instance
+    # attribute, which a class-level patch would not reach.
+    monkeypatch.setattr(served, "credentials_present", lambda refresh=False: True)
+    monkeypatch.setattr(served, "sdk_present", lambda: True)
 
     raw = client.get("/health").text
     path = client.get("/health").json()["bedrock_model_path"]
