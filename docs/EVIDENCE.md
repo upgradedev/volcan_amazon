@@ -1187,7 +1187,7 @@ named governed-action calls only.
 ## The public deployment
 
 **Checked on 2026-10-06, after the second redeploy that day: the endpoint serves `22c32ab`, and
-its runtime is this branch's.** The endpoint is
+its runtime is the current one.** The endpoint is
 `https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com`.
 
 ```bash
@@ -1201,8 +1201,8 @@ git diff --name-only 22c32ab HEAD -- src docs/index.html   # prints nothing
 
 * `22c32ab` is PR #34, the fix described in the known issue below. Against `aa3364a` it
   changes only `src/infrastructure/dynamodb_state.py` and
-  `src/infrastructure/dynamodb_audit_repository.py` under `src/`, and `docs/index.html` is
-  the same size. `GET /` was not re-measured after this redeploy.
+  `src/infrastructure/dynamodb_audit_repository.py` under `src/`; `docs/index.html` is
+  unchanged. `GET /` was not re-measured after this redeploy.
 * The deploy probe after this redeploy, kept outside the repository like every live
   observation, ran the page's sequence through `POST /api/review/turn`: open the pull request
   answered `OVERVIEW` (one Bedrock call), line 26 `LINES`, Request changes `CONFIRM_REVIEW`
@@ -1211,7 +1211,7 @@ git diff --name-only 22c32ab HEAD -- src docs/index.html   # prints nothing
   durable voice stage go through the same corrected transactions; they were not exercised live,
   and `tests/unit/test_dynamodb_wire_shape.py` checks each transaction body offline with real
   boto3 serialization.
-* The commits after `22c32ab` on this branch change the video pipeline under `video/`,
+* The commits after `22c32ab` change the video pipeline under `video/`,
   `tests/unit/test_video_retake_pipeline.py`, `video_sync_receipt.json`, the README and this
   file. The last command shows that neither `src/` nor `docs/index.html` changed, so no redeploy
   is pending.
@@ -1236,9 +1236,10 @@ through `aa3364a`. Fixed in `22c32ab` (PR #34), deployed 2026-10-06.**
   build that contains it is `e500731`, whose deploy receipt reports the DynamoDB backend, and
   `git diff --name-only e500731 aa3364a -- src/infrastructure/dynamodb_state.py
   src/infrastructure/dynamodb_audit_repository.py` prints nothing, so `e500731`, `0e96e45`,
-  `6e9ae4d`, `9b2bcb9` and `aa3364a` all carried the same code. The HTTP 503 was observed on
-  `aa3364a` on 2026-10-06; for the earlier builds it follows from that code, not from a
-  recorded request. Through that whole period `/health` read `durable_state`
+  `6e9ae4d`, `9b2bcb9` and `aa3364a` all carried the same code, and
+  `git diff e500731 aa3364a -- src` changes no line that maps a store failure to HTTP 503. The
+  HTTP 503 was observed on `aa3364a` on 2026-10-06; for the earlier builds it follows from that
+  code, not from a recorded request. Through that whole period `/health` read `durable_state`
   `configured_reachable`, because it checks that the table answers, not that a transaction
   write is accepted.
 * *Fix.* PR #34 passes plain Python values to every transaction, as the single `put_item` and
