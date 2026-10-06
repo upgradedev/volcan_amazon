@@ -270,12 +270,12 @@ def test_the_generator_s_cap_is_60_s_and_refuses_more():
 
 # The call's timeout (MODEL_CALL_TIMEOUT_SEC in src/infrastructure/bedrock_adapter.py), and
 # the Bedrock answer take 3 measured on the live build on 2026-10-06: the earcon's lead on the
-# first word, and the sentence (finding, a 173-character headline, counts), plus about 0.5 s
-# for the 7 more characters a 180-character headline may hold.
+# first word, and the sentence (finding, a 171-character headline, counts), plus about 0.8 s
+# for the 9 more characters a 180-character headline may hold, at take 3's 0.086 s a character.
 MODEL_TIMEOUT_SECONDS = 25.0
 EARCON_LEAD_SECONDS = 0.65
 TAKE_3_ANSWER_SPEECH_SECONDS = 31.42
-HEADLINE_ALLOWANCE_SECONDS = 0.5
+HEADLINE_ALLOWANCE_SECONDS = 0.8
 
 
 def test_beat_2_presses_when_the_narrator_stops_and_holds_a_25_s_call():
@@ -296,8 +296,8 @@ def test_beat_2_presses_when_the_narrator_stops_and_holds_a_25_s_call():
     need = MODEL_TIMEOUT_SECONDS + EARCON_LEAD_SECONDS + TAKE_3_ANSWER_SPEECH_SECONDS + HEADLINE_ALLOWANCE_SECONDS
     assert window >= need
     basis = beat["product_sound_basis"]
-    for part in ("25 s timeout", "31.42 s", "173-character", "180 characters", "to_voice_summary",
-                 "16.75 s", "ESTIMATE", "58.0 s"):
+    for part in ("25 s timeout", "31.42 s", "171-character", "180 characters", "to_voice_summary",
+                 "16.75 s", "ESTIMATE", "58.5 s"):
         assert part in basis
     assert "Amazon Bedrock" in beat["narration_text"]
     # The narration speaks of the stage patch, never of the pull request.
@@ -328,7 +328,7 @@ def test_beat_3_names_the_aws_services_and_the_coverage_line_after_the_answer():
 
 def test_the_shot_list_and_readme_state_the_beat_2_window_and_the_cold_open():
     shot_list = (VIDEO / "SHOT_LIST.md").read_text(encoding="utf-8")
-    assert "58.0 s" in shot_list and "about 47 to 51 s" not in shot_list
+    assert "58.5 s" in shot_list and "58.0 s" not in shot_list and "about 47 to 51 s" not in shot_list
     assert "Beat 2 presses when its narrator stops" in shot_list
     assert "| Cold open band only." in shot_list
     readme = (VIDEO / "README.md").read_text(encoding="utf-8")

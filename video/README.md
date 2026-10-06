@@ -279,9 +279,9 @@ follows it, with these limits.
   * `cards.title_slot` starts with `card_then_cold_open`.
   * `cards.title_seconds` is the 2.0 s title card.
   * `cold_open.seconds` is the 13.5 s cold open, measured on the chosen pull request.
-  * Beat 1 starts at 15.5 s, and the closing card ends at 169.309 s, measured. Beat 2 says
-    one 3.39 s line, then presses, and holds 58.0 s from the press: a call up to the 25 s
-    timeout, then the Amazon Bedrock answer take 3 measured on the live build, with 0.5 s
+  * Beat 1 starts at 15.5 s, and the closing card ends at 169.809 s, measured. Beat 2 says
+    one 3.39 s line, then presses, and holds 58.5 s from the press: a call up to the 25 s
+    timeout, then the Amazon Bedrock answer take 3 measured on the live build, with 0.8 s
     (ESTIMATE) for a full 180-character headline. `SHOT_LIST.md` gives the parts.
 * **`video/capture-local.py` drives the re-take journey.**
   * It accepts the seven beat ids in `narration.json` and refuses any other list.

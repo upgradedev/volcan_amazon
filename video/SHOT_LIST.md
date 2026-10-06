@@ -10,7 +10,7 @@ The beat ids match [`narration.json`](narration.json) and [`cue_sheet.json`](cue
 one for one. The narration is measured by `video/generate-narration.py`. The cold open and
 the product windows of beats 4 and 5 are measured in a free rehearsal of 2026-10-06 on the
 chosen pull request. Beat 2's window is sized from the model call's 25 s timeout and the Amazon
-Bedrock answer that take 3 measured on the live build on 2026-10-06; only a 0.5 s allowance in
+Bedrock answer that take 3 measured on the live build on 2026-10-06; only a 0.8 s allowance in
 it for a longer headline is an ESTIMATE. The basis for each window is written beside it in
 `narration.json`.
 
@@ -30,7 +30,7 @@ it for a longer headline is an ESTIMATE. The basis for each window is written be
 | The screencast ends on narration, so the sync gate's `content-seam<=1s` check can pass | Beat 6 |
 | No hard-coded test count | No count is spoken; see the rules at the end |
 | End on the repository and live URLs | Closing card |
-| Under 170 s measured, inside the kit's 175 s publication budget | 169.3 s measured |
+| Under 170 s measured, inside the kit's 175 s publication budget | 169.8 s measured |
 
 ## Time budget (measured)
 
@@ -39,21 +39,23 @@ it for a longer headline is an ESTIMATE. The basis for each window is written be
 | Title card | 0.0 | 2.0 | 2.0 | none |
 | Cold open | 2.0 | 15.5 | 13.5 | `line 26` on the opened pull request |
 | Beat 1, `beat_01_alexa_value` | 15.5 | 23.3 | 7.8 | none |
-| Beat 2, `beat_02_bedrock_press` | 23.3 | 85.3 | 62.0 | the Bedrock answer to Hear this code review |
-| Beat 3, `beat_03_model_coverage` | 85.3 | 93.6 | 8.3 | none |
-| Beat 4, `beat_04_request_changes` | 93.6 | 125.0 | 31.5 | Request changes |
-| Beat 5, `beat_05_confirm` | 125.0 | 154.3 | 29.3 | Confirm |
-| Beat 6, `beat_06_recorded_request` | 154.3 | 158.7 | 4.4 | none |
-| Beat 7, `beat_07_mcp_handshake` | 158.7 | 164.8 | 6.1 | none |
-| Closing card | 164.8 | 169.3 | 4.5 | none |
+| Beat 2, `beat_02_bedrock_press` | 23.3 | 85.8 | 62.5 | the Bedrock answer to Hear this code review |
+| Beat 3, `beat_03_model_coverage` | 85.8 | 94.1 | 8.3 | none |
+| Beat 4, `beat_04_request_changes` | 94.1 | 125.5 | 31.5 | Request changes |
+| Beat 5, `beat_05_confirm` | 125.5 | 154.8 | 29.3 | Confirm |
+| Beat 6, `beat_06_recorded_request` | 154.8 | 159.2 | 4.4 | none |
+| Beat 7, `beat_07_mcp_handshake` | 159.2 | 165.3 | 6.1 | none |
+| Closing card | 165.3 | 169.8 | 4.5 | none |
 
-`video/generate-narration.py --write-timestamps` measured 149.309 s of beats on 2026-10-06,
-so the video is 2.0 + 13.5 + 149.309 + 4.5 = 169.309 s. This fit re-synthesized beats 1, 2,
+`video/generate-narration.py --write-timestamps` measured 149.809 s of beats on 2026-10-06,
+so the video is 2.0 + 13.5 + 149.809 + 4.5 = 169.809 s. This fit re-synthesized beats 1, 2,
 3, 4, 6 and 7; beat 5 reused its cached audio. Fitting the budget took four runs, which sent
 988 characters to ElevenLabs in all (the ledger is `narration/tts-ledger.jsonl` in the media
 root): 462 for the first texts, which measured 153.477 s of beats; 245 for shorter beats 1, 3
 and 4, of which beat 4 measured 2.972 s and was refused under the generator's 3 s floor; 131
-for beats 4 and 7 again (151.063 s); and 150 for shorter beats 3 and 7 (149.309 s).
+for beats 4 and 7 again (151.063 s); and 150 for shorter beats 3 and 7 (149.309 s, with
+beat 2's window half a second shorter). Widening that window to 58.5 s re-used every cached
+beat and sent nothing.
 
 * **Beat 2 presses when its narrator stops.** Take 3 on the live build, on 2026-10-06, pressed
   Hear this code review at the beat's first frame, under a 13.886 s narration. Amazon Bedrock
@@ -63,21 +65,23 @@ for beats 4 and 7 again (151.063 s); and 150 for shorter beats 3 and 7 (149.309 
   rehearsal. The model call starts only then, so its answer starts after the narration
   whether the call takes 2 s or runs to its timeout. The capture's check that it did is
   unchanged, and now runs in the rehearsal too.
-* **Beat 2's window, 58.0 s from the press, holds a call that runs to the 25 s timeout.** Its
+* **Beat 2's window, 58.5 s from the press, holds a call that runs to the 25 s timeout.** Its
   parts:
   * the call, up to `MODEL_CALL_TIMEOUT_SEC = 25` in `src/infrastructure/bedrock_adapter.py`.
     Past it the server falls back to the local engine, and the take is recorded again anyway;
   * the falling earcon, which starts 0.65 s before the first word (measured in the rehearsal);
   * the sentence `to_voice_summary(level=0)` builds: the finding, then the model's headline
     (only when `synthesis_mode` is `bedrock`), then the counts. Take 3 measured it on the live
-    build at 31.42 s, with a 173-character headline. The local engine's sentence, finding and
-    counts only, took 16.75 s in the rehearsal, so that headline took about 14.7 s;
-  * 0.5 s for the 7 more characters a full 180-character headline may hold (ESTIMATE).
+    build at 31.42 s, with a 171-character headline. The local engine's sentence, finding and
+    counts only, took 16.75 s in the rehearsal, so that headline took about 14.67 s, 0.086 s a
+    character;
+  * 0.8 s for the 9 more characters a full 180-character headline may hold (ESTIMATE).
 
-  25 + 0.65 + 31.42 + 0.5 = 57.57 s, rounded up to the half second: 58.0 s, which leaves 0.43
-  s for the request's round trip outside the model call. A faster call only moves the silent
+  25 + 0.65 + 31.42 + 0.8 = 57.87 s, rounded up to the half second: 58.5 s, which leaves about
+  0.6 s for the request's round trip outside the model call and for the press itself, which
+  the rehearsal made 0.033 s after the window opened. A faster call only moves the silent
   hold after the answer: in take 3 the answer's first sound came about 4.3 s after the press,
-  so the page would hold, silent, for about 21 s before beat 3.
+  so the page would hold, silent, for about 22 s before beat 3.
 * **The generator's cap was raised from 45 s to 60 s for this.** The cap is a plan constraint
   in `video/generate-narration.py`, not a gate: `scripts/verify_video_sync.py` never reads it,
   and every window still needs its basis.
@@ -86,8 +90,8 @@ for beats 4 and 7 again (151.063 s); and 150 for shorter beats 3 and 7 (149.309 
   coverage line are on screen.
 * **Beats 1, 4, 6 and 7 were cut to pay for it.** Beat 1 went from 8.9 to 7.8 s, beat 4 from
   33.6 to 31.5 s, beat 6 from 6.9 to 4.4 s and beat 7 from 8.5 to 6.1 s. Beat 3 grew from 5.4
-  to 8.3 s and beat 2 from 57.0 to 62.0 s.
-* **The optional consented clip no longer fits as planned.** At 169.3 s, at most 5.6 s is left
+  to 8.3 s and beat 2 from 57.0 to 62.5 s.
+* **The optional consented clip no longer fits as planned.** At 169.8 s, at most 5.1 s is left
   under the 175 s budget. A clip of 10 to 15 s needs a cut elsewhere first.
 
 Dropped from the 2026-09-29 take to fit: the "what you heard" beat, the Findings turn on
@@ -165,7 +169,7 @@ port 8813 with no cloud credentials, from the action to the browser's speech end
 | 1 | Owner | Authorise the billed calls above, in writing | The bound and the date are written down before any press |
 | 2 | Owner | `curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health` | `source_revision` names the commit that becomes `{sha7}`. `bedrock_model_path` reads `ready_to_attempt`, `durable_state` reads `configured_reachable`, and `github_review_path` reads `dry_run_no_token`. If it reads `dry_run_with_token`, beat 6 must not say "No GitHub token here" |
 | 3 | Owner | Open the GitHub Actions run for that commit | Green. Note the run id in the take's receipt. If a test count is ever shown, it is this run's count, filmed from this page |
-| 4 | Owner | Rehearse on the live page, in the browser and window size used for the take | Each Bedrock press reads **Amazon Bedrock** on the engine meter with no fallback reason, and its answer ends inside 58.0 s of the press. The press waits for beat 2's narrator, so no latency can start the answer under the narration |
+| 4 | Owner | Rehearse on the live page, in the browser and window size used for the take | Each Bedrock press reads **Amazon Bedrock** on the engine meter with no fallback reason, and its answer ends inside 58.5 s of the press. The press waits for beat 2's narrator, so no latency can start the answer under the narration |
 | 5 | Owner | Read the model's full answer in rehearsal | Note whether it shows Markdown marks; see the risks below |
 | 6 | Owner | `video/generate-narration.py --write-timestamps` | Measured beat windows written back; total narration 90 to 174 s. With the cached audio it sends nothing to ElevenLabs |
 | 7 | Owner | Within 60 s before the take, `GET /health` again, then reload the page and open the chosen pull request | The function is warm, and the opened overview is on screen before recording starts |
@@ -229,7 +233,7 @@ was not recorded on the live build. It measured an edge mean of 1.98, a card to 
   Alexa+ front end. Not an Alexa skill. GitHub: dry-run.** Late in the line,
   <kbd>Alt</kbd>+<kbd>1</kbd> puts the focus ring on **Hear this code review**.
 
-## Beat 2, `beat_02_bedrock_press`, 23.3 to 85.3 seconds
+## Beat 2, `beat_02_bedrock_press`, 23.3 to 85.8 seconds
 
 * **Narration, before the press:** "Press once, and this patch goes to Amazon Bedrock." It
   measured 3.39 s. "This patch" is the stage patch; nothing says the model read the pull
@@ -241,7 +245,7 @@ was not recorded on the live build. It measured an edge mean of 1.98, a card to 
 * **The answer:** the page plays the falling earcon the server returned and speaks the server's
   sentence, the finding, then the model's headline, then the counts, while the words light.
   Nothing talks over it. A fast answer leaves the page holding, silent, until beat 3.
-* **Window:** 58.0 s from the press, for a call up to the 25 s timeout and the whole answer;
+* **Window:** 58.5 s from the press, for a call up to the 25 s timeout and the whole answer;
   the parts are under the time budget above.
 * **Fails the take:** an engine meter that reads local heuristic, a fallback reason, an
   answer that starts while the narrator is still speaking, or an answer still speaking when
@@ -249,7 +253,7 @@ was not recorded on the live build. It measured an edge mean of 1.98, a card to 
 * **In a free rehearsal** the press is made at the same moment. The local engine answers at
   once, and its sentence has no headline, so the page holds, silent, for about 40 s.
 
-## Beat 3, `beat_03_model_coverage`, 85.3 to 93.6 seconds
+## Beat 3, `beat_03_model_coverage`, 85.8 to 94.1 seconds
 
 * **Narration:** "Amazon Bedrock answered Volcan on AWS Lambda, with DynamoDB. That's how much it
   read." Amazon Bedrock, AWS Lambda and DynamoDB are said on camera here, after the answer.
@@ -267,7 +271,7 @@ was not recorded on the live build. It measured an edge mean of 1.98, a card to 
 
 **Only if the owner records a consented session.** Without one, this slot is left out and
 nothing replaces it. It is deliberately not in `narration.json`, so a default render can never
-include it. At 169.3 s, a clip longer than 5.6 s needs a cut elsewhere first.
+include it. At 169.8 s, a clip longer than 5.1 s needs a cut elsewhere first.
 
 * 10 to 15 seconds of a blind or low-vision developer using Volcan with their own screen
   reader, during one of the five timed sessions the README names as the cheapest test of its
@@ -279,7 +283,7 @@ include it. At 169.3 s, a clip longer than 5.6 s needs a cut elsewhere first.
 * The band says it is a recorded session, with its date, and that consent was given. The
   narration adds no claim about the result beyond what the published session results say.
 
-## Beat 4, `beat_04_request_changes`, 93.6 to 125.0 seconds
+## Beat 4, `beat_04_request_changes`, 94.1 to 125.5 seconds
 
 * **Narration:** "Request changes stages a review, bound to the head commit it read."
 * **After the narrator stops:** the review comment `is_admin is inverted.` goes into the
@@ -290,7 +294,7 @@ include it. At 169.3 s, a clip longer than 5.6 s needs a cut elsewhere first.
   or cancel.` State **AWAITING CONFIRM**. The last take talked over this turn; this one keeps
   all of it, in a 26.5 s window measured on the chosen pull request.
 
-## Beat 5, `beat_05_confirm`, 125.0 to 154.3 seconds
+## Beat 5, `beat_05_confirm`, 125.5 to 154.8 seconds
 
 * **Narration:** "Nothing leaves Volcan until you confirm. Confirm, and listen."
 * **After the narrator stops:** **Confirm**. The page speaks `Understood: confirm.` and then its
@@ -299,7 +303,7 @@ include it. At 169.3 s, a clip longer than 5.6 s needs a cut elsewhere first.
   **RECORDED, NOT SENT**. Midway through, the view moves to the review pane, which shows the
   outcome and the exact `POST` body the server recorded. Nothing talks over the turn.
 
-## Beat 6, `beat_06_recorded_request`, 154.3 to 158.7 seconds
+## Beat 6, `beat_06_recorded_request`, 154.8 to 159.2 seconds
 
 * **Narration:** "No GitHub token here: the request is recorded, not sent."
 * **On screen:** the review pane, held: outcome recorded and not sent, the live head re-read,
@@ -310,7 +314,7 @@ include it. At 169.3 s, a clip longer than 5.6 s needs a cut elsewhere first.
   the browser's, so the sync gate's `content-seam<=1s` check failed by 4.0 s on the earlier
   plan. Ending on narration leaves the generator's 0.65 s tail.
 
-## Beat 7, `beat_07_mcp_handshake`, 158.7 to 164.8 seconds
+## Beat 7, `beat_07_mcp_handshake`, 159.2 to 165.3 seconds
 
 * **Narration:** "This MCP handshake is real. Alexa+ never called Volcan." The page prints the
   negotiated revision, 2025-11-25.
@@ -325,7 +329,7 @@ include it. At 169.3 s, a clip longer than 5.6 s needs a cut elsewhere first.
   Bedrock calls and could run close to a minute. The README's replay command against a local
   server remains the evidence for it.
 
-## Closing card, 164.8 to 169.3 seconds
+## Closing card, 165.3 to 169.8 seconds
 
 `Volcan`
 `Live build: qylv1gxor9.execute-api.eu-west-1.amazonaws.com`
@@ -372,9 +376,11 @@ open.
   work and is not part of this plan.
 * **Model timeout.** A model call that runs past its 25 s timeout falls back to the local
   engine. The meter then reads local heuristic, and the take is recorded again.
-* **Beat 2's window.** The window holds 58.0 s from the press, which waits for the narrator:
+* **Beat 2's window.** The window holds 58.5 s from the press, which waits for the narrator:
   a call up to the 25 s timeout, then the answer take 3 measured (0.65 s of earcon lead and
-  31.42 s of sentence with a 173-character headline), and 0.5 s for a 180-character headline.
+  31.42 s of sentence with a 171-character headline), and 0.8 s for a 180-character headline.
+  That leaves about 0.6 s for the request's round trip outside the model call; a call that
+  runs right up to the timeout and spends more than that around it runs past the beat.
   A call that reaches the timeout falls back and fails the take anyway. The model client is
   built with its library's default retry settings, which this plan has not checked; a retried
   call could answer past 25 s, inside the function's 30 s budget, and run past the beat. That

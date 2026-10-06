@@ -64,8 +64,8 @@ TAIL_SECONDS = 0.65
 # the whole Amazon Bedrock answer after the press: a call that may run to its timeout
 # (MODEL_CALL_TIMEOUT_SEC = 25 in src/infrastructure/bedrock_adapter.py, past which the
 # server falls back to the local engine), then the earcon and the sentence, which took
-# about 32 s in the take of 2026-10-06 with a 173-character headline. That is about
-# 58 s, so the cap is 60 s.
+# about 32 s in the take of 2026-10-06 with a 171-character headline. That is about
+# 58.5 s, so the cap is 60 s.
 MAX_PRODUCT_SOUND_SECONDS = 60.0
 
 ELEVENLABS_KEY_ENV_NAMES = ("ELEVENLABS_API_KEY", "XI_API_KEY", "ELEVEN_LABS_KEY")

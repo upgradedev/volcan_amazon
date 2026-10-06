@@ -1,7 +1,7 @@
 {
   "project": "volcan_amazon",
   "title": "Volcan: hear your code review instead of scrubbing a diff",
-  "total_duration_sec": 169.309,
+  "total_duration_sec": 169.809,
   "is_under_180s_cap": true,
   "beats": [
     {
@@ -20,10 +20,10 @@
       "beat_index": 2,
       "beat_id": "beat_02_bedrock_press",
       "timestamp_start": 23.255,
-      "timestamp_end": 85.295,
-      "duration_sec": 62.04,
+      "timestamp_end": 85.795,
+      "duration_sec": 62.54,
       "words_count": 9,
-      "words_per_minute": 8.7,
+      "words_per_minute": 8.6,
       "speech_rate_intelligible": false,
       "narration_text": "Press once, and this patch goes to Amazon Bedrock.",
       "visual_action": "The narrator says one line and stops. After the generator's 0.65 s tail, Enter on Hear this code review, where Alt and 1 put the focus in beat 1: the model call starts only now, so its answer cannot start under the narration. The silent preview stays drawn and the button shows it is working. No cut and no speed-up: the wait is shown as it happened. When the answer arrives, the page plays the falling earcon the server returned and speaks the server's sentence, the finding, then the model's headline, then the counts, while the words light. The product's own sound and voice are in the mix and nothing talks over them. A fast answer leaves the page holding, silent, until beat 3. The engine meter must read Amazon Bedrock; a take whose meter reads local heuristic, or that shows a fallback reason, is recorded again."
@@ -31,8 +31,8 @@
     {
       "beat_index": 3,
       "beat_id": "beat_03_model_coverage",
-      "timestamp_start": 85.295,
-      "timestamp_end": 93.562,
+      "timestamp_start": 85.795,
+      "timestamp_end": 94.062,
       "duration_sec": 8.27,
       "words_count": 14,
       "words_per_minute": 101.6,
@@ -43,8 +43,8 @@
     {
       "beat_index": 4,
       "beat_id": "beat_04_request_changes",
-      "timestamp_start": 93.562,
-      "timestamp_end": 125.03,
+      "timestamp_start": 94.062,
+      "timestamp_end": 125.53,
       "duration_sec": 31.47,
       "words_count": 12,
       "words_per_minute": 22.9,
@@ -55,8 +55,8 @@
     {
       "beat_index": 5,
       "beat_id": "beat_05_confirm",
-      "timestamp_start": 125.03,
-      "timestamp_end": 154.314,
+      "timestamp_start": 125.53,
+      "timestamp_end": 154.814,
       "duration_sec": 29.28,
       "words_count": 9,
       "words_per_minute": 18.4,
@@ -67,8 +67,8 @@
     {
       "beat_index": 6,
       "beat_id": "beat_06_recorded_request",
-      "timestamp_start": 154.314,
-      "timestamp_end": 158.679,
+      "timestamp_start": 154.814,
+      "timestamp_end": 159.179,
       "duration_sec": 4.37,
       "words_count": 10,
       "words_per_minute": 137.3,
@@ -79,8 +79,8 @@
     {
       "beat_index": 7,
       "beat_id": "beat_07_mcp_handshake",
-      "timestamp_start": 158.679,
-      "timestamp_end": 164.809,
+      "timestamp_start": 159.179,
+      "timestamp_end": 165.309,
       "duration_sec": 6.13,
       "words_count": 9,
       "words_per_minute": 88.1,
