@@ -23,6 +23,8 @@ is the per-request receipt: only ``bedrock`` means a model answered.
 """
 import asyncio
 import importlib.util
+import json
+import logging
 import os
 import threading
 import time
@@ -64,8 +66,83 @@ SPOKEN_SUMMARY_CHAR_BUDGET = 180
 #: Seconds a model call may run before it is abandoned to the labelled
 #: local fallback. The production function budget is 30 seconds; a call
 #: that outlives this deadline degrades with the timeout reason instead of
-#: dying to a hard function timeout with no answer at all.
+#: dying to a hard function timeout with no answer at all. The deadline
+#: covers every attempt of one press together, and the client is built with
+#: no SDK retries: the SDK retries a timed-out request by default, so a slow
+#: call could otherwise run three times 25 seconds, past the function budget.
 MODEL_CALL_TIMEOUT_SEC = 25
+
+#: A press whose first answer carries no text, or whose first call fails
+#: with a transient error (HTTP 429 or 5xx, or a connection error), is tried
+#: once more, but only when at least this many seconds of the deadline remain.
+#: The second attempt gets exactly the time that is left, never a fresh 25
+#: seconds. This replaces the SDK's own retries, which ignored the deadline.
+RETRY_MIN_REMAINING_SEC = 8.0
+
+#: The request text, unchanged from the build that was live on 2026-10-06.
+#: Measured that day against anthropic.claude-opus-5 in eu-west-1 with the
+#: take-4 permissions.py patch (16 calls, ledger outside the repository):
+#:
+#: * this prompt and request body: 2 of 4 calls ended in text; the other 2
+#:   were refused (stop_reason "refusal", stop_details category "cyber",
+#:   no content, 0 output tokens, 1.5 to 3.2 seconds);
+#: * three trial variants, run in the 4 minutes after: 0 of 12 ended in
+#:   text, every one the same input-side refusal. They were a system prompt
+#:   with an instruction to flag a weakened authorization or validation rule,
+#:   an identical resend after a refusal, and this prompt without its last
+#:   sentence at effort "low" with adaptive thinking stated.
+#:
+#: The trials fell in one window, so settings and time cannot be separated,
+#: and no trial setting ever produced an answer to measure. The request body
+#: therefore stays the one with live evidence behind it.
+PROMPT_TEMPLATE = (
+    "You are Volcan, an accessibility agent assisting a visually impaired engineer. "
+    "Summarize the following code changes into a clear, concise (under 25 words) "
+    "executive spoken summary. Identify any high-risk changes.\n\n"
+    "Diff:\n{diff}"
+)
+
+#: Private operator telemetry: one structured line per model call, holding
+#: the shape of the answer and never its words, ids or ARNs.
+_telemetry = logging.getLogger("volcan.bedrock")
+_telemetry.setLevel(logging.INFO)
+
+#: Why a model message carried no text a voice could say. Each cause has its
+#: own public sentence, because "a safety filter declined it" and "it wrote
+#: nothing" call for different actions from the person reading the reason.
+NO_TEXT_REFUSAL = "refusal"
+NO_TEXT_MAX_TOKENS = "max_tokens"
+NO_TEXT_THINKING_ONLY = "thinking_only"
+NO_TEXT_EMPTY_TEXT = "empty_text"
+NO_TEXT_NO_CONTENT = "no_content"
+
+_FALLBACK_TAIL = "; the local deterministic digest answered instead"
+NO_TEXT_PUBLIC_REASONS = {
+    NO_TEXT_REFUSAL: "Amazon Bedrock's safety filter declined to summarize this patch" + _FALLBACK_TAIL,
+    NO_TEXT_MAX_TOKENS: "Amazon Bedrock used its whole output allowance before writing an answer" + _FALLBACK_TAIL,
+    NO_TEXT_THINKING_ONLY: "Amazon Bedrock reasoned about the patch but wrote no answer" + _FALLBACK_TAIL,
+    NO_TEXT_EMPTY_TEXT: "Amazon Bedrock returned an empty answer" + _FALLBACK_TAIL,
+    NO_TEXT_NO_CONTENT: "Amazon Bedrock returned no usable text block" + _FALLBACK_TAIL,
+}
+
+#: Causes worth one more attempt within the deadline. A refusal is not one:
+#: it is the classifier's decision on this input, an identical resend
+#: recovered 0 of 4 when measured, and it is reported as a refusal instead.
+#: Running out of output room would only happen again with the same allowance.
+RETRYABLE_NO_TEXT = frozenset({NO_TEXT_THINKING_ONLY, NO_TEXT_EMPTY_TEXT, NO_TEXT_NO_CONTENT})
+
+
+class NoSpokenText(Exception):
+    """A model message arrived but carried no text a voice could say."""
+
+    def __init__(self, cause: str, stop_reason: str | None = None):
+        super().__init__(f"the Bedrock response carried no text block ({cause})")
+        self.cause = cause
+        self.stop_reason = stop_reason
+
+    @property
+    def public_reason(self) -> str:
+        return NO_TEXT_PUBLIC_REASONS.get(self.cause, NO_TEXT_PUBLIC_REASONS[NO_TEXT_NO_CONTENT])
 
 
 def shorten_for_speech(text: str, budget: int = SPOKEN_SUMMARY_CHAR_BUDGET) -> str:
@@ -242,51 +319,146 @@ class BedrockSynthesisAdapter:
             return self._client_factory(self.region_name)
         from anthropic import AnthropicBedrockMantle
 
-        return AnthropicBedrockMantle(aws_region=self.region_name)
+        # No SDK retries: MODEL_CALL_TIMEOUT_SEC is the deadline for the whole
+        # press, and this adapter decides itself whether a second attempt fits.
+        return AnthropicBedrockMantle(aws_region=self.region_name, max_retries=0)
 
     @staticmethod
-    def _first_text_block(message) -> str:
-        """The first text block of a Bedrock response.
+    def _field(obj, name):
+        """Read a field from an SDK object or from a stub's plain dictionary."""
+        if isinstance(obj, dict):
+            return obj.get(name)
+        return getattr(obj, name, None)
+
+    @classmethod
+    def _first_text_block(cls, message) -> str:
+        """The first non-empty text block of a Bedrock response.
 
         Indexing ``content[0]`` is wrong on a model that thinks: the first block
         is then a thinking block and the digest raises instead of speaking. The
         blocks arrive as SDK objects, and as plain dictionaries from a stub, so
-        both shapes are read the same way.
-        """
-        blocks = getattr(message, "content", None)
-        if blocks is None and isinstance(message, dict):
-            blocks = message.get("content")
+        both shapes are read the same way. A message with no such block raises
+        ``NoSpokenText`` naming why, read from ``stop_reason`` and the blocks.
 
-        for block in blocks or []:
-            if isinstance(block, dict):
-                block_type, text = block.get("type"), block.get("text")
-            else:
-                block_type, text = getattr(block, "type", None), getattr(block, "text", None)
+        A refusal raises even when text came first: a classifier can stop a
+        message after partial output, and a sentence it cut off is not an
+        answer to speak as if a model had finished it.
+        """
+        stop_reason = cls._field(message, "stop_reason")
+        if stop_reason == "refusal":
+            raise NoSpokenText(NO_TEXT_REFUSAL, stop_reason)
+        blocks = cls._field(message, "content") or []
+        types = []
+        for block in blocks:
+            block_type, text = cls._field(block, "type"), cls._field(block, "text")
+            types.append(block_type)
             if block_type == "text" and text and text.strip():
                 return text.strip()
 
-        raise ValueError("the Bedrock response carried no text block")
+        if stop_reason == "max_tokens":
+            cause = NO_TEXT_MAX_TOKENS
+        elif "text" in types:
+            cause = NO_TEXT_EMPTY_TEXT
+        elif any(t in ("thinking", "redacted_thinking") for t in types):
+            cause = NO_TEXT_THINKING_ONLY
+        else:
+            cause = NO_TEXT_NO_CONTENT
+        raise NoSpokenText(cause, stop_reason)
+
+    @classmethod
+    def _log_model_call(cls, attempt: int, latency_ms: int, message=None, error=None) -> dict:
+        """Emit one private telemetry line for one model call and return it.
+
+        Only the shape of the answer is recorded: stop reason, the refusal
+        category (a fixed enum), each block's type and character count, and
+        token usage. The answer's words, the refusal explanation, message and
+        request ids, the model id (which may be an inference-profile ARN) and
+        exception messages (which can carry account ids and ARNs) never are.
+        """
+        line: dict = {"event": "bedrock_model_call", "attempt": attempt, "latency_ms": latency_ms}
+        if error is not None:
+            line["outcome"] = "error"
+            line["error_type"] = type(error).__name__
+        else:
+            blocks = []
+            for block in cls._field(message, "content") or []:
+                block_type = cls._field(block, "type")
+                body = cls._field(block, "text") if block_type == "text" else cls._field(block, "thinking")
+                blocks.append({"type": block_type, "chars": len(body) if isinstance(body, str) else None})
+            stop_details = cls._field(message, "stop_details")
+            usage = cls._field(message, "usage")
+            details = cls._field(usage, "output_tokens_details") if usage is not None else None
+            line.update({
+                "outcome": "message",
+                "stop_reason": cls._field(message, "stop_reason"),
+                "refusal_category": cls._field(stop_details, "category") if stop_details is not None else None,
+                "blocks": blocks,
+                "usage": None if usage is None else {
+                    "input_tokens": cls._field(usage, "input_tokens"),
+                    "output_tokens": cls._field(usage, "output_tokens"),
+                    "thinking_tokens": cls._field(details, "thinking_tokens") if details is not None else None,
+                    "cache_read_input_tokens": cls._field(usage, "cache_read_input_tokens"),
+                    "cache_creation_input_tokens": cls._field(usage, "cache_creation_input_tokens"),
+                },
+            })
+        _telemetry.info(json.dumps(line, default=str))
+        return line
+
+    @staticmethod
+    def _is_transient(exc: Exception) -> bool:
+        """An error the SDK would have retried: HTTP 429 or 5xx, or a dropped
+        connection. A timeout is not one here; it has used up the deadline."""
+        status = getattr(exc, "status_code", None)
+        if isinstance(status, int):
+            return status == 429 or status >= 500
+        return type(exc).__name__ == "APIConnectionError"
 
     def _invoke(self, diff_excerpt: str) -> str:
         """The blocking client call, run off the event loop by the caller.
 
         ``diff_excerpt`` is already cut to ``MODEL_DIFF_CHAR_BUDGET`` by the
         caller, which records what the model saw; this method sends it whole.
+
+        All attempts share one deadline of ``MODEL_CALL_TIMEOUT_SEC``. A first
+        answer with no text (other than a refusal or a spent output allowance),
+        or a first call that fails transiently, is tried once more when at least
+        ``RETRY_MIN_REMAINING_SEC`` remain, with the remaining time as its
+        timeout; otherwise the ``NoSpokenText`` or the error reaches the caller.
         """
         client = self._build_client()
-        prompt = (
-            "You are Volcan, an accessibility agent assisting a visually impaired engineer. "
-            "Summarize the following code changes into a clear, concise (under 25 words) "
-            "executive spoken summary. Identify any high-risk changes.\n\n"
-            f"Diff:\n{diff_excerpt}"
-        )
-        message = client.messages.create(
-            model=self.model_id,
-            max_tokens=DEFAULT_MAX_TOKENS,
-            timeout=MODEL_CALL_TIMEOUT_SEC,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return self._first_text_block(message)
+        prompt = PROMPT_TEMPLATE.format(diff=diff_excerpt)
+        deadline = time.monotonic() + MODEL_CALL_TIMEOUT_SEC
+        attempt = 0
+        while True:
+            attempt += 1
+            remaining = deadline - time.monotonic()
+            started = time.monotonic()
+            try:
+                message = client.messages.create(
+                    model=self.model_id,
+                    max_tokens=DEFAULT_MAX_TOKENS,
+                    timeout=MODEL_CALL_TIMEOUT_SEC if attempt == 1 else remaining,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+            except Exception as exc:
+                self._log_model_call(attempt, round((time.monotonic() - started) * 1000), error=exc)
+                if (
+                    attempt >= 2
+                    or not self._is_transient(exc)
+                    or deadline - time.monotonic() < RETRY_MIN_REMAINING_SEC
+                ):
+                    raise
+                continue
+            self._log_model_call(attempt, round((time.monotonic() - started) * 1000), message=message)
+            try:
+                return self._first_text_block(message)
+            except NoSpokenText as no_text:
+                if (
+                    attempt >= 2
+                    or no_text.cause not in RETRYABLE_NO_TEXT
+                    or deadline - time.monotonic() < RETRY_MIN_REMAINING_SEC
+                ):
+                    raise
 
     @staticmethod
     def _public_failure_reason(exc: Exception) -> str:
@@ -298,6 +470,10 @@ class BedrockSynthesisAdapter:
         announcement. Classification therefore uses the exception type and
         message internally but returns only fixed product-owned sentences.
         """
+        # A message that arrived without text is classified by its own cause,
+        # before any substring matching could misread its wording.
+        if isinstance(exc, NoSpokenText):
+            return exc.public_reason
         category = f"{type(exc).__name__} {exc}".lower()
         if "permission" in category or "accessdenied" in category or "unauthorized" in category:
             return (
@@ -317,11 +493,6 @@ class BedrockSynthesisAdapter:
         if "timeout" in category or "timed out" in category:
             return (
                 "Amazon Bedrock did not answer before the request deadline; "
-                "the local deterministic digest answered instead"
-            )
-        if isinstance(exc, ValueError) and "no text block" in category:
-            return (
-                "Amazon Bedrock returned no usable text block; "
                 "the local deterministic digest answered instead"
             )
         return (

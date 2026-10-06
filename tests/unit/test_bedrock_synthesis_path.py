@@ -129,8 +129,10 @@ def test_a_response_with_no_text_block_degrades_instead_of_raising(with_credenti
     report = _run(adapter)
 
     assert report.synthesis_mode == MODE_HEURISTIC
+    # A thinking block and nothing else: the reason names that shape. The
+    # other no-text shapes are pinned in test_bedrock_no_text_answers.py.
     assert report.fallback_reason == (
-        "Amazon Bedrock returned no usable text block; "
+        "Amazon Bedrock reasoned about the patch but wrote no answer; "
         "the local deterministic digest answered instead"
     )
 
