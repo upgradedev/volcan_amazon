@@ -131,9 +131,13 @@ python video/build-video.py --rehearsal       # writes output-rehearsal/
   stub to `rehearsal/narration-stub/`, built from the ESTIMATE windows in `narration.json`.
   Nothing is sent to ElevenLabs. The build leaves the stub's silent narration uncaptioned, so
   on that video the gate's `web-beat-audible` check fails by construction.
-* **Only the stub composes.** With a measured `narration/timing.json`, `build-video.py
-  --rehearsal` refuses on a caption overlap, because the local engine answers the press while
-  beat 2's narration is still captioned. The capture's receipt is still complete.
+* **The beat 2 press waits for the narrator.** The local engine answers at once, so a
+  rehearsal presses Hear this code review when beat 2's narrator stops, not at the beat's
+  first frame. Pressed at the first frame, the answer was captioned over the narration and
+  `build-video.py --rehearsal` refused the measured narration on the caption overlap; now it
+  composes the real narration. `notRepresentative` lists the press time and the
+  answer-after-narration check, which cannot fail in a rehearsal. A take presses at the first
+  frame, as before.
 
 The gate calls `ffmpeg` and `ffprobe` by name, so put their folder on `PATH` for it.
 `python tests/video/verify_gate_selftest.py` proves the gate still fails on a mis-ordered
@@ -156,13 +160,13 @@ capture is paced by the measured windows, so a changed beat length changes the t
 
 Before it opens a browser, the capture refuses:
 
-* a `narration.json` whose beats are not the six beats of the re-take, in order;
+* a `narration.json` whose beats are not the seven beats of the re-take, in order;
 * a `cards.title_slot` that does not start with `card_then_cold_open`, a title card outside
   1.5 to 3 s, or a cold open outside 3 to 20 s;
 * a `/health` that reports a different commit than `VOLCAN_RELEASE_SHA`, a
   `bedrock_model_path` other than `ready_to_attempt`, a `durable_state` other than
   `configured_reachable` (beat 2 names DynamoDB), or a `github_review_path` other than
-  `dry_run_no_token` (beat 5 says the build has no GitHub token);
+  `dry_run_no_token` (beat 6 says the build has no GitHub token);
 * a run without `--allow-billed-presses`, unless it is a rehearsal (see above).
 
 During or after the take, it fails, and the take has to be recorded again:
@@ -177,7 +181,9 @@ During or after the take, it fails, and the take has to be recorded again:
 * **The cold open.** Its first sound comes later than 2.0 s after the title card ends, or its
   first word later than 5.0 s into the video, which is 3.0 s into the cold open after the
   2.0 s card. Findings answers that no security rule matched (`No security rule matched this
-  change.`). The cold-open command is not an outlined next step.
+  change.`). A button command is not an outlined next step. A typed `line N` command is
+  refused by the page, reads another line, or reads a file whose review card names no
+  security finding.
 * **Speech.** A voiced turn's speech has not ended before the next segment starts, or was
   interrupted. The page speaks a sentence other than the one the server returned.
 * **The review.** The dialogue does not open the chosen pull request, refuses a turn or does
@@ -265,16 +271,23 @@ follows it, with these limits.
 * **The video opens on a title card, then the cold open.**
   * `cards.title_slot` starts with `card_then_cold_open`.
   * `cards.title_seconds` is the 2.0 s title card.
-  * `cold_open.seconds` is the 12.0 s cold open (ESTIMATE).
-  * Beat 1 starts at 14.0 s, and the closing card ends at 158.5 s (ESTIMATE).
+  * `cold_open.seconds` is the 13.5 s cold open, measured on the chosen pull request.
+  * Beat 1 starts at 15.5 s, and the closing card ends at 168.1 s, measured except beat 2's
+    window (ESTIMATE, at the generator's 30 s cap).
 * **`video/capture-local.py` drives the re-take journey.**
-  * It accepts the six beat ids in `narration.json` and refuses any other list.
+  * It accepts the seven beat ids in `narration.json` and refuses any other list.
   * It opens `VOLCAN_PR_URL` off camera and waits for that turn's speech to end.
-  * It records the cold open on timeline seconds from minus `cold_open.seconds` to 0.
-  * It presses Hear this code review at the first frame of beat 2.
+  * It records the cold open on timeline seconds from minus `cold_open.seconds` to 0. The
+    cold-open command is `cold_open.command`, `line 26`, typed into the command box with
+    Alt+4 and sent with Enter; `VOLCAN_COLD_OPEN` overrides it with `findings`, `files`,
+    `summary` or another `line N`.
+  * It presses Hear this code review at the first frame of beat 2 (in a rehearsal, when the
+    narrator stops).
   * It holds on the meter, the coverage line and the model's full answer in beat 3.
-  * It voices Request changes in beat 4 and Confirm in beat 5.
-  * In beat 6 it runs the MCP handshake, and it does not press the replay.
+  * It voices Request changes in beat 4, with the comment `is_admin is inverted.`, and
+    Confirm in beat 5.
+  * Beat 6 is narration over the recorded request, after the page has stopped speaking.
+  * In beat 7 it runs the MCP handshake, and it does not press the replay.
 
   The capture still records headless, without audio. It re-renders the page's sentences in
   the Windows system voice, and the build then names that voice on the closing card. A
@@ -336,14 +349,21 @@ follows it, with these limits.
   On 2026-10-06 it printed `outro 5 rows 3.98`, `outro-no-voice 5 rows 3.63` and
   `title 3 rows 1.98`. Re-measure after any change to the card lines.
 * **The 5 s rule, measured.** The plan's timeline is the 2.0 s title card, the cold open's
-  first frame at 2.0 s and the cold-open command 0.3 s later. In the free rehearsal below,
-  the cold open's first sound came 1.091 s into the cold open (3.091 s of video) and its
-  first word 1.744 s in, so the first spoken product word landed at 3.744 s of the video,
-  inside 5.0 s. The capture fails a take whose first word lands later than 5.0 s.
-* **The gate still fails the re-take on `content-seam<=1s`.** It is open.
-  * The check compares the end of the last sound before beat 6 (`a_main`) with beat 6's
-    start, and fails when the gap is over 1 s.
-  * Beat 5 ends on the page's Confirm turn, after the narrator.
+  first frame at 2.0 s, `line 26` typed 0.1 s later and sent with Enter. In the rehearsal of
+  the fitted plan below, the cold open's first sound and first word came 0.55 s into the cold
+  open, 2.55 s into the video, inside 5.0 s. (The earlier rehearsal's Findings press put its
+  first word at 3.744 s.) The capture fails a take whose first word lands later than 5.0 s.
+* **`content-seam<=1s`: the screencast now ends on narration.** The check compares the end
+  of the last sound before the web beat (`a_main`) with the web beat's start, and fails when
+  the gap is over 1 s. The gate is unchanged; the plan changed.
+  * Beat 6, `beat_06_recorded_request`, is narration over the recorded request, after the
+    page has stopped speaking Confirm, and beat 7 is the web beat. So `a_main` is beat 6's
+    narration end, and the gap is the generator's 0.65 s tail.
+  * A window that ends on the page's own speech cannot close the seam: the slowest-run-plus-1-s
+    margin, and a system-voice render that ends before the browser's speech, leave about 4 s
+    of silence, as below. The rest of this bullet is the history of that failure.
+  * Before this change, beat 5 ended on the page's Confirm turn, after the narrator, and beat
+    6 was the web beat.
   * Before this change, `a_main` counted only narration. That gap was 0.65 s plus beat 5's
     23.5 s product window: 24.15 s on the plan. This README then named only `order-pixels`
     as failing; `content-seam` failed on the plan as well.
@@ -363,12 +383,46 @@ follows it, with these limits.
       15.408 s.
   * Cross-check: the title card's 2.0 s plus that `a_main` is 137.568 s of video, and
     ffmpeg `silencedetect` (-40 dB, d=0.5) puts the final silence's start at 137.569 s.
-  * What closes it is the owner's choice: a headed capture with the browser's own audio,
-    which the shot list prefers, or a beat 5 window sized to what is heard.
+  * A headed capture with the browser's own audio would narrow that gap but not close it,
+    because the window keeps its margin. A narration beat after the turn closes it.
 * **The optional consented clip has no place in the pipeline.** It goes in during the edit,
   and every later timestamp moves by its length.
 
-### The free rehearsal of 2026-10-06
+### The free rehearsal of the fitted plan, 2026-10-06
+
+A second free rehearsal ran the plan in this folder on the chosen pull request, with the
+real ElevenLabs narration instead of the silent stub. No Bedrock call was billed; ElevenLabs
+was called for the two rewritten beats only (61 and 88 characters).
+
+* **Setup.** `video/capture-local.py --rehearsal`, `video/build-video.py --rehearsal` and the
+  unchanged gate, against a local server on port 8813 started with the commands in section 1
+  and reporting `source_revision` `6ae7d65`, `bedrock_model_path`
+  `unavailable_no_sdk_and_no_credentials` and `github_review_path` `dry_run_no_token`.
+  `VOLCAN_PR_URL` was https://github.com/upgradedev/volcan-demo-service/pull/1, head `74dd0b1`.
+  The capture, the composed video and the gate's output in `sync-gate.txt` are outside the
+  repository, in `reviews/videos_20261006/volcan_amazon/` in the owner's workspace.
+* **The capture** exited 0 with no failure: no page error, no blank stretch, the recording
+  drifting 0.0013% from the page clock.
+  * Cold open, `line 26`: first sound and first word 0.55 s into the cold open, 2.55 s into the
+    video. Its speech ended 1.09 s before beat 1.
+  * Request changes, with `is_admin is inverted.`: its speech ended 1.04 s before beat 5.
+  * Confirm: its speech ended 2.18 s before beat 6.
+* **The build** composed 168.08 s, with 27 caption windows, and refused nothing.
+* **The gate passed every check:** `order-manifest`, `order-pixels` (title card 1.9,
+  screencast 13.1, web 11.0, closing card 4.0), `durations>0`, `duration-reconstruct`,
+  `publication-budget<175s` (168.08 s), `content-seam<=1s` (0.650 s), `av-duration`,
+  `captions-in-bounds`, `captions-monotonic-nonoverlap`, `captions-no-outro-bleed` and
+  `web-beat-audible` (-1.5 dB).
+  * Cross-check: ffmpeg `silencedetect` (-40 dB, d=0.5) puts beat 6's narration end at
+    151.31 s of video and the web beat at 152.23 s, a 0.92 s gap.
+* **Not representative of the billed take**, from the receipt's `notRepresentative`: the
+  model path and durable state in `/health`; the press answered by the local engine; the
+  meter reading `local heuristic`; no coverage line and no model answer to open; the press
+  made at 28.797 s, when the narrator stopped, not at beat 2's first frame; and so the
+  answer starting after the narration. Beat 2's 40.6 s window is still an ESTIMATE for the
+  billed answer.
+
+### The free rehearsal of 2026-10-06, before the fit
 
 One rehearsal, with no billed call and no ElevenLabs call:
 
@@ -435,13 +489,17 @@ One rehearsal, with no billed call and no ElevenLabs call:
 `video/generate-narration.py` checks each beat's text, each product window and its basis,
 and the 90 to 174 s narration range. `--write-timestamps` offsets the beats by
 `cards.title_seconds` plus `cold_open.seconds` when the title slot plays a cold open after
-the card, 14.0 s in this plan.
+the card, 15.5 s in this plan.
 
 `tests/unit/test_video_retake_pipeline.py` covers the scripts without a browser, ffmpeg or a
-request. Its 58 cases (`python -m pytest tests/unit/test_video_retake_pipeline.py -q`) check:
+request. Its 73 cases (`python -m pytest tests/unit/test_video_retake_pipeline.py -q`) check:
 
-* the plan's title card, cold open and timestamps;
+* the plan's title card, cold open and timestamps, and its total of 170 s or less;
 * the beat ids;
+* the cold-open commands, a typed `line N` and the checks on its answer;
+* the demo label in the cold-open band and the shot list, and the review comment;
+* that every product window fits the generator's cap, and that the screencast ends on
+  narration, so the seam is the generator's tail;
 * the billed-press flag and the request guard;
 * the `/health` refusals, the cold-open timing gate and the clean Findings answer;
 * the rehearsal flag, the loopback-only URL check, its `/health` refusals and the silent

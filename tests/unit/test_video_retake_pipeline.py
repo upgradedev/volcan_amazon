@@ -184,8 +184,87 @@ def test_the_pull_request_check_uses_the_chosen_url():
         capture.pull_request_label("https://example.com/o/r/pull/1")
     assert capture.cold_open_command(None)[1] == "Findings"
     assert capture.cold_open_command("files")[1] == "File by file"
-    with pytest.raises(SystemExit):
-        capture.cold_open_command("summary")
+
+
+def test_the_cold_open_can_be_summary_or_a_typed_line():
+    assert capture.cold_open_command("summary") == ("#cmdSummary", "Summary", "cmdSummary", None)
+    assert capture.cold_open_command("Findings")[3] is None
+    assert capture.cold_open_command("line 26") == ("#commandInput", "line 26", "commandInput", "line 26")
+    assert capture.cold_open_command("  Line   7 ")[3] == "line 7"
+
+
+@pytest.mark.parametrize("value", ["line 0", "line", "line twenty six", "line 26 please", "explain", "line -3"])
+def test_the_cold_open_refuses_any_other_command(value):
+    with pytest.raises(SystemExit, match="VOLCAN_COLD_OPEN"):
+        capture.cold_open_command(value)
+
+
+LINE_26 = {
+    "error": False,
+    "spoken": "Line 6 of 9, added, new line 26:     return user.role != Role.ADMIN",
+    "line": {"kind": "add", "new_no": 26, "old_no": None},
+    "review_card": {"finding": "an authorization comparison was inverted: "
+                               "user.role == Role.ADMIN became user.role != Role.ADMIN"},
+}
+
+
+def test_a_typed_line_cold_open_must_read_that_line_of_a_file_with_a_finding():
+    assert capture.cold_open_line_problem("line 26", LINE_26) is None
+    assert "refused" in capture.cold_open_line_problem("line 26", {**LINE_26, "error": True})
+    assert "not 26" in capture.cold_open_line_problem("line 26", {**LINE_26, "line": {"new_no": 25}})
+    assert "not 26" in capture.cold_open_line_problem("line 26", {**LINE_26, "line": None})
+    assert "no security finding" in capture.cold_open_line_problem("line 26", {**LINE_26, "review_card": {}})
+    assert "no security finding" in capture.cold_open_line_problem(
+        "line 26", {**LINE_26, "review_card": {"finding": None}})
+
+
+def test_the_plan_s_cold_open_is_a_typed_line_inside_the_capture_s_cap():
+    cold = PLAN["cold_open"]
+    assert capture.cold_open_command(cold["command"])[3] == cold["command"]
+    title, seconds = capture.check_title_slot(PLAN)
+    assert seconds == cold["seconds"] <= 20.0
+    # The basis records the measured runs and why Findings and Summary do not fit.
+    assert "Measured" in cold["basis"] and "Summary" in cold["basis"] and "Findings" in cold["basis"]
+
+
+def test_the_band_says_the_pull_request_is_a_demo_written_for_this_walkthrough():
+    band = " ".join(build.filled(PLAN["cold_open"]["band_lines"], "9b2bcb9", LIVE + "/"))
+    assert "a demo pull request in upgradedev/volcan-demo-service, written for this walkthrough" in band.lower()
+    shot_list = (VIDEO / "SHOT_LIST.md").read_text(encoding="utf-8")
+    assert "written for this walkthrough" in shot_list
+    assert "It is not one written for this video" not in shot_list
+
+
+def test_the_review_comment_is_short_and_about_the_inverted_check():
+    comment = capture.REVIEW_COMMENT
+    assert "is_admin" in comment and "inverted" in comment
+    # The readback and the staged answer both repeat it; 21 characters fit the window
+    # the rehearsal measured, the 69-character comment before it did not.
+    assert len(comment) <= 30
+
+
+def test_every_product_window_fits_the_generator_s_cap():
+    for beat in PLAN["beats"]:
+        if "product_sound_seconds" in beat:
+            assert 0 < beat["product_sound_seconds"] <= narration.MAX_PRODUCT_SOUND_SECONDS
+            assert len(beat["product_sound_basis"]) >= 40
+    assert PLAN["target_duration_seconds"] <= 170.0
+
+
+def test_the_screencast_ends_on_narration_so_the_content_seam_closes():
+    # The beat before the web beat has no product window: its narration is the last sound
+    # of the screencast, and the web beat starts one generator tail after it ends.
+    assert "product_sound_seconds" not in PLAN["beats"][-2]
+    assert "product_sound_seconds" in PLAN["beats"][-3]
+    timing = capture.silent_timing_stub(PLAN)
+    web_start = timing["scenes"][-1]["startSeconds"]
+    seam = web_start - build.screencast_sound_end(timing["scenes"], [], {})
+    assert seam == pytest.approx(capture.NARRATION_TAIL_SECONDS, abs=0.002)
+    assert seam <= 1.0
+    # A Confirm sentence the page spoke ends before beat 6's narration, so it cannot widen the seam.
+    confirm = timing["scenes"][-3]
+    speech = [{"file": "c.wav", "timelineSeconds": confirm["startSeconds"] + 10.0, "seconds": 16.2}]
+    assert build.screencast_sound_end(timing["scenes"], speech, {"c.wav": 16.0}) ==         build.screencast_sound_end(timing["scenes"], [], {})
 
 
 # --- the free rehearsal ---------------------------------------------------------

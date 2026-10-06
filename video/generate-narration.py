@@ -335,11 +335,12 @@ def main() -> None:
         cards = spec.get("cards") or {}
         title = lead_seconds(spec)
         outro = float(cards.get("outro_seconds", 0.0))
-        for beat, scene in zip(beats, timing):
+        # Each beat ends where the next one starts, so rounding never opens or overlaps
+        # a millisecond between them; the last ends at the measured total.
+        for index, (beat, scene) in enumerate(zip(beats, timing)):
+            following = timing[index + 1]["startSeconds"] if index + 1 < len(timing) else offset
             beat["timestamp_start"] = round(title + float(scene["startSeconds"]), 3)
-            beat["timestamp_end"] = round(
-                title + float(scene["startSeconds"]) + float(scene["holdSeconds"]), 3
-            )
+            beat["timestamp_end"] = round(title + float(following), 3)
         spec["target_duration_seconds"] = round(title + offset + outro, 3)
         SPEC.write_text(json.dumps(spec, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(f"wrote measured beat windows back to {SPEC.name}")

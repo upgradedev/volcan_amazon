@@ -32,6 +32,9 @@ instead of failing. Every other check that would fail the take after the journey
 collected under failures, so one run reports all of them, and the script exits 1 if
 there are any. Without a measured narration/timing.json it uses a silent timing stub
 built from the plan's ESTIMATE windows in narration.json, in rehearsal/narration-stub/.
+The local engine answers the beat 2 press at once, so a rehearsal makes that press
+when the narrator stops rather than at the beat's first frame; notRepresentative
+says so.
 
 What it records and what it refuses to do:
 
@@ -45,8 +48,9 @@ What it records and what it refuses to do:
 * The cold open follows the title card: cold_open.seconds of narration.json, before the
   first beat, on timeline seconds from minus that length to 0. The pull request was
   opened before it, and its spoken answer has ended before the first frame. Within
-  0.5 s the cold-open command (Findings, or File by file with VOLCAN_COLD_OPEN=files)
-  is pressed. The turn must make its first sound by 2.0 s after the title card ends,
+  0.5 s the cold-open command is pressed: cold_open.command in narration.json, which
+  VOLCAN_COLD_OPEN overrides. Findings, File by file and Summary are buttons; a
+  command such as "line 26" is typed into the command box and sent with Enter. The turn must make its first sound by 2.0 s after the title card ends,
   and speak its first word by 5.0 s from the start of the video, so by 3.0 s into the
   cold open with the plan's 2.0 s card.
 * Four turns are voiced: the cold-open command, the press of Hear this code review,
@@ -74,7 +78,9 @@ Environment:
   VOLCAN_RELEASE_SHA   the 40 character commit /health reports as source_revision
   VOLCAN_APP_URL       default http://127.0.0.1:8801/; the live build for this take
   VOLCAN_PR_URL        required: the public pull request chosen in rehearsal
-  VOLCAN_COLD_OPEN     findings (default) or files: the cold-open command
+  VOLCAN_COLD_OPEN     findings, files, summary or "line N": the cold-open command,
+                       overriding cold_open.command in narration.json (findings when
+                       neither names one)
   FFMPEG               path to ffmpeg, for finding the marker frames
   VOLCAN_SPEECH_VOICE  default "Microsoft David Desktop", the System.Speech voice
 
@@ -106,10 +112,17 @@ EXPECTED_BEATS = [
     "beat_03_model_coverage",
     "beat_04_request_changes",
     "beat_05_confirm",
-    "beat_06_mcp_handshake",
+    "beat_06_recorded_request",
+    "beat_07_mcp_handshake",
 ]
 VIEWPORT = {"width": 1280, "height": 720}
-REVIEW_COMMENT = "Volcan demo: a dry-run request changes review, recorded and not sent."
+# A real review comment about the inverted check. The readback and the staged answer
+# both repeat it, so its length decides whether Request changes fits its window: on
+# upgradedev/volcan-demo-service pull request 1 this comment took 25.28 to 25.45 s from
+# the click to the browser's speech end, and the 69-character comment it replaces took
+# 33.4 s. That the review is a dry run, recorded and not sent, is what Confirm answers
+# on camera and what beat 6 says.
+REVIEW_COMMENT = "is_admin is inverted."
 BILLED_FLAG = "--allow-billed-presses"
 REHEARSAL_FLAG = "--rehearsal"
 # A rehearsal drives only a server on this machine.
@@ -120,10 +133,18 @@ BILLED_PRESSES = (
     ("open_pull_request", "opening the pull request, before the cold open, off camera"),
     ("digest", "Hear this code review, at the start of beat 2"),
 )
+# Each cold-open command: the button's selector, its label, the button's id, and the
+# words typed into the command box (Alt+4) for a typed command, or None for a button.
 COLD_OPEN_COMMANDS = {
-    "findings": ("#cmdFindings", "Findings", "cmdFindings"),
-    "files": ("#cmdFiles", "File by file", "cmdFiles"),
+    "findings": ("#cmdFindings", "Findings", "cmdFindings", None),
+    "files": ("#cmdFiles", "File by file", "cmdFiles", None),
+    "summary": ("#cmdSummary", "Summary", "cmdSummary", None),
 }
+# A typed "line N" turn: the page reads new line N of the first changed file, the
+# file the opened overview starts on. It reads the report already built and calls no
+# model, and its words come from the parsed patch, so they are the same whichever
+# engine digested the pull request.
+COLD_OPEN_LINE = re.compile(r"line (\d{1,4})")
 # The start of the page's answer when no rule matched (CLEAN_FINDINGS_TEXT in
 # src/domain/review_dialogue.py). The plan keeps that turn off camera.
 NO_FINDING_PREFIX = "No security rule matched this change."
@@ -321,11 +342,33 @@ def pull_request_label(url: str) -> str:
     return f"{owner}/{repo} pull request {number}"
 
 
-def cold_open_command(value: str | None) -> tuple[str, str, str]:
-    key = (value or "findings").strip().lower()
-    if key not in COLD_OPEN_COMMANDS:
-        raise SystemExit("VOLCAN_COLD_OPEN must be findings or files")
-    return COLD_OPEN_COMMANDS[key]
+def cold_open_command(value: str | None) -> tuple[str, str, str, str | None]:
+    """The cold-open command: findings (the default), files, summary, or "line N"."""
+    key = " ".join((value or "findings").strip().lower().split())
+    if key in COLD_OPEN_COMMANDS:
+        return COLD_OPEN_COMMANDS[key]
+    found = COLD_OPEN_LINE.fullmatch(key)
+    if found and int(found.group(1)) > 0:
+        words = f"line {int(found.group(1))}"
+        return ("#commandInput", words, "commandInput", words)
+    raise SystemExit("VOLCAN_COLD_OPEN must be findings, files, summary, or line and a number, such as line 26")
+
+
+def cold_open_line_problem(words: str, data: dict[str, object]) -> str | None:
+    """Why a typed "line N" cold open does not show the finding it was chosen for, or None.
+
+    A button command is checked against the outlined next steps before the press; a
+    typed line is checked on its answer: no refusal, the line it asked for, and a file
+    whose review card names a security finding, because the cold open is for a finding."""
+    wanted = int(words.split()[1])
+    if data.get("error"):
+        return f"{words}: the page refused the turn: {str(data.get('spoken') or '')[:120]}"
+    line = data.get("line") or {}
+    if line.get("new_no") != wanted:
+        return f"{words}: the page read new line {line.get('new_no')!r}, not {wanted}"
+    if not (data.get("review_card") or {}).get("finding"):
+        return f"{words}: the review card names no security finding for this file; the cold open is for a finding"
+    return None
 
 
 def billed_kind(url: str, method: str, body: str | None) -> str | None:
@@ -536,9 +579,11 @@ def main() -> None:
         check_local_url(app_url)
     pr_url = env("VOLCAN_PR_URL")
     pr_label = pull_request_label(pr_url)
-    cold_selector, cold_label, cold_id = cold_open_command(os.environ.get("VOLCAN_COLD_OPEN"))
     voice = os.environ.get("VOLCAN_SPEECH_VOICE", "Microsoft David Desktop").strip()
     spec = json.loads(SPEC.read_text(encoding="utf-8"))
+    # VOLCAN_COLD_OPEN overrides the plan's cold_open.command.
+    cold_selector, cold_label, cold_id, cold_typed = cold_open_command(
+        os.environ.get("VOLCAN_COLD_OPEN") or (spec.get("cold_open") or {}).get("command"))
     title_seconds, cold_seconds = check_title_slot(spec)
     measured = root / "narration" / "timing.json"
     narration_dir = "narration"
@@ -763,7 +808,7 @@ def main() -> None:
         def is_press(response) -> bool:
             return '"engine"' not in (response.request.post_data or "")
 
-        b1, b2, b3, b4, b5, b6 = EXPECTED_BEATS
+        b1, b2, b3, b4, b5, b6, b7 = EXPECTED_BEATS
 
         # Off camera: open the chosen pull request. One billed model call. Its spoken
         # answer ends before the cold open's first frame, so nothing on camera cuts it.
@@ -782,7 +827,7 @@ def main() -> None:
         if f"Opened {pr_label}" not in page.inner_text("#dialogueLog"):
             raise SystemExit(f"the dialogue did not open {pr_label}")
         wait_speech_end(int(opened["firstSpeech"]) + 1, BILLED_TURN_TIMEOUT_SECONDS)
-        if cold_id not in outlined():
+        if cold_typed is None and cold_id not in outlined():
             raise SystemExit(f"{cold_label} is not an outlined next step: {outlined()}")
         scroll_to("#reviewConvo", 12, "instant")
         page.wait_for_timeout(1500)
@@ -791,13 +836,31 @@ def main() -> None:
         clock["origin"] = time.monotonic()
         cold_epoch = page_epoch()
         timeline_epoch = cold_epoch + cold_seconds * 1000
-        until(-cold_seconds + 0.3)
+        if cold_typed is None:
+            until(-cold_seconds + 0.3)
+
+            def press_cold() -> None:
+                page.click(cold_selector)
+        else:
+            # Typed on camera into the command box (Alt+4), then sent with Enter.
+            until(-cold_seconds + 0.1)
+            page.keyboard.press("Alt+4")
+            if focused() != cold_id:
+                raise SystemExit(f"Alt+4 put the focus on {focused()!r}, not the command box")
+            act(f"type {cold_typed}", lambda: page.keyboard.type(cold_typed, delay=25))
+
+            def press_cold() -> None:
+                press_key("Enter", cold_id, cold_label)
         before = turns()
-        cold = start_turn(cold_label, lambda: page.click(cold_selector), "/api/review/turn", 2)
+        cold = start_turn(cold_label, press_cold, "/api/review/turn", 2)
         answered(before)
         if cold_label == "Findings" and no_finding(str(cold["data"].get("spoken") or "")):
             fail("Findings answered that no security rule matched; the plan wants a finding in the cold "
                  "open. Choose another pull request or set VOLCAN_COLD_OPEN=files")
+        if cold_typed is not None:
+            problem = cold_open_line_problem(cold_typed, cold["data"])
+            if problem:
+                fail(problem)
         finish_voiced(cold, 0.0)
 
         # Beat 1: the Alexa+ value over the top of the page, then the focus ring.
@@ -809,7 +872,11 @@ def main() -> None:
             raise SystemExit(f"Alt+1 put the focus on {focused()!r}, not Hear this code review")
 
         # Beat 2: press at the first frame; the narrator covers the model wait. One billed call.
-        until(beat_start(b2))
+        # The local engine answers in well under a second, so a rehearsal presses when the
+        # narrator stops instead, the earliest a model answer may start; pressed at the
+        # first frame, its answer would sound under beat 2's narration. notRepresentative
+        # records it. A take always presses at the first frame.
+        until(window_opens(b2) if rehearsal else beat_start(b2))
         armed["digest"] = 1
         press = start_turn("Enter presses Hear this code review",
                            lambda: press_key("Enter", "runReview", "Hear this code review"),
@@ -881,16 +948,23 @@ def main() -> None:
         act("scroll to the recorded request", lambda: scroll_to("#reviewPane", 150))
         finish_voiced(confirm, beat_start(b6))
 
-        # Beat 6: Server and MCP, a real handshake, then the Alexa+ box. No replay press.
+        # Beat 6: the narrator, over the recorded request, once the page has stopped
+        # speaking. The screencast then ends on narration, so the main audio covers it
+        # to within the generator's tail of its end.
         until(beat_start(b6))
+        if "recorded and not sent" not in page.inner_text("#reviewPane"):
+            raise SystemExit("the review pane no longer shows a recorded, unsent review")
+
+        # Beat 7: Server and MCP, a real handshake, then the Alexa+ box. No replay press.
+        until(beat_start(b7))
         act("Server and MCP tab", lambda: page.click("#tabServer"))
         act("scroll to Evidence", lambda: scroll_to("#evidence"))
-        until(sentence(b6, 0, 0.3))
+        until(sentence(b7, 0, 0.3))
         act("scroll to the MCP handshake", lambda: scroll_to("#mcp", 16))
         act("Run a real MCP handshake", lambda: page.click("#runMcp"))
         page.wait_for_selector("#mcpPane details", timeout=10_000)
         act("scroll to the handshake facts", lambda: scroll_to("#mcp .row-actions", 24))
-        until(sentence(b6, len(by_id[b6]["sentences"]) - 1))
+        until(sentence(b7, len(by_id[b7]["sentences"]) - 1))
         act("jump to the connection strip and the Alexa+ box",
             lambda: scroll_to("#evidenceTabs", 24, "instant"))
         until(total + 1.5)
@@ -940,6 +1014,11 @@ def main() -> None:
                 found.setdefault(entry["kind"], entry)
         return found
 
+    def turn_log_end(turn: dict[str, object]) -> int:
+        """Where this turn's stretch of the log ends: the next voiced turn's press."""
+        later = [int(other["logFrom"]) for other in voiced if int(other["logFrom"]) > int(turn["logFrom"])]
+        return min(later) if later else len(log)
+
     def turn_earcon(turn: dict[str, object]) -> dict[str, object] | None:
         """Where the page's own playback clock says this turn's cue started.
 
@@ -947,7 +1026,10 @@ def main() -> None:
         minus that position is the start. Headless Chromium fires "playing" a few
         hundred milliseconds before the clock moves, and the waveform's playhead
         follows the clock, so this is the moment the picture shows the cue sounding."""
-        entries = log[int(turn["logFrom"]):]
+        # Only this turn's own stretch of the log, up to the next voiced turn's press: a
+        # turn the server answered without a cue (a typed "line N") must not be credited
+        # with the next turn's cue, and a cue it did play is still found and checked.
+        entries = log[int(turn["logFrom"]):turn_log_end(turn)]
         play = next((entry for entry in entries if entry["kind"] == "media.play"), None)
         if play is None:
             return None
@@ -987,7 +1069,23 @@ def main() -> None:
     except SystemExit as exc:
         fail(str(exc))
     press_sound, _ = first_sound(press)
-    if press_sound is None or timeline_time(press_sound) < narrator_stops(b2):
+    if rehearsal:
+        # The rehearsal pressed when the narrator stopped, so its answer cannot start
+        # under the narration: neither the press time nor this check is the take's.
+        not_representative.append({
+            "check": "the press is made at the first frame of beat 2",
+            "take": f"at {round(beat_start(b2), 3)} s, and the narrator covers the model wait",
+            "rehearsal": press["timelineAction"],
+            "why": ("the local engine answers at once, so a rehearsal presses when the narrator stops, "
+                    "the earliest a model answer may start"),
+        })
+        not_representative.append({
+            "check": "the answer starts after beat 2's narration",
+            "take": f"after {round(narrator_stops(b2), 3)} s",
+            "rehearsal": None if press_sound is None else timeline_time(press_sound),
+            "why": "the rehearsal pressed after the narration, so this cannot fail in a rehearsal",
+        })
+    elif press_sound is None or timeline_time(press_sound) < narrator_stops(b2):
         differs("the answer starts after beat 2's narration", f"after {round(narrator_stops(b2), 3)} s",
                 None if press_sound is None else timeline_time(press_sound),
                 "the model's answer began while the narrator was still speaking")
