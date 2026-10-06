@@ -358,7 +358,8 @@ def screencast_sound_end(scenes: list[dict[str, object]], speech: list[dict[str,
         page_ended = item.get("pageEndedTimelineSeconds")
         if page_ended is not None:
             heard = min(heard, float(page_ended) - begins)
-        ends.append(begins + max(heard, 0.0))
+        if heard > 0:
+            ends.append(begins + heard)
     return max(ends)
 
 

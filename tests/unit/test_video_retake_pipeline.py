@@ -348,6 +348,8 @@ def test_the_seam_counts_the_page_s_own_speech_before_the_web_beat_up_to_its_aud
     assert build.screencast_sound_end(SEAM_SCENES, cut, fully_audible) == 54.0
     # An audible length can never exceed the rendered length.
     assert build.screencast_sound_end(SEAM_SCENES, speech, {**fully_audible, "a.wav": 99.0}) == 56.5
+    # A sentence with nothing audible adds no sound, even if it starts after the narration.
+    assert build.screencast_sound_end(SEAM_SCENES, speech, {**fully_audible, "a.wav": 0.0}) == 40.0
 
 
 def write_tone_then_silence(path: pathlib.Path, tone: float, silence: float, amplitude: int) -> None:
