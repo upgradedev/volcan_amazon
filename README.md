@@ -19,7 +19,7 @@ needed; [step by step](#run-it-locally).
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-768%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-826%20passing-brightgreen.svg)](tests/)
 
 **What it does.** Paste a patch or open a GitHub pull request. Volcan says the risky change
 first in one sentence, plays a cue whose pitch falls on a security finding and rises on a clean
@@ -113,7 +113,7 @@ python -m pytest tests/ -q
 ```
 
 CI run 36804593070 at `fc10e7d` printed `751 passed` on 2026-10-01. This branch adds tests, and
-`python -m pytest tests/ --collect-only -q` collects 768. The `bedrock` extra installs
+`python -m pytest tests/ --collect-only -q` collects 826. The `bedrock` extra installs
 `anthropic[bedrock]`. With AWS credentials as well, a Bedrock call is ready to attempt.
 Credentials and an importable SDK do not prove a model answered: the receipt is the digest
 response's `synthesis_mode: bedrock`. Without them the local engine answers, and the page says
@@ -185,7 +185,7 @@ public endpoint serves an older build, `9b2bcb9`; the table below says what diff
 | Shared durable state | Deployed: DynamoDB `volcan-state-euw1-prod` plus a Secrets Manager approval secret; a local run keeps state in memory | The `durable_state` field of `GET /health` says which |
 | Alexa+ MCP add-on package | Built and tested locally, not certified or deployed: the hackathon FAQ says the add-on tools are "available to select partners only", so participants cannot deploy it. A replay of Amazon's documented Alexa+ client requests, against a local build of this commit (the registered endpoint serves `9b2bcb9`, `source_revision` read 2026-10-01, which predates this branch's change to the first text block and its `outputSchema` and `structuredContent` on three tools, `resources/list` and `resources/read`, and the `ui://volcan/review-card` view, none of it deployed; the replay was not re-run against it), gets the finding back from all three client shapes: one that follows the protocol's version rules, one that declares the revision it asked for, and one that never sends the version header. The page's Evidence tab, Server and MCP, runs the same three clients from the browser on a press. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
 | Demo video | Rendered locally: 163.68 s at 1920x1080 (ffprobe) from a local run of `09d4862`, whose `src/` and `docs/` it shows (earlier 164.52 s render from `7a3de49` superseded). The review-dialogue fixes after `09d4862` are not on camera, including README and other extensionless file names, next from the overview, help examples taken from the open change, next steps outlined only where they work, plain words when a pull request cannot be opened, and README spoken as documentation. Pending upload by the owner; no public link yet | [video/README.md](video/README.md) |
-| Test suite | 768 collected on this branch (`python -m pytest tests/ --collect-only -q`). CI run 36804593070 at `fc10e7d` passed 751 with 93.18% statement coverage (4734 statements, 323 missed) on 2026-10-01; coverage for this branch is measured by its own CI run | `python -m pytest tests/ -q --cov=src` |
+| Test suite | 826 collected on this branch (`python -m pytest tests/ --collect-only -q`). CI run 36804593070 at `fc10e7d` passed 751 with 93.18% statement coverage (4734 statements, 323 missed) on 2026-10-01; coverage for this branch is measured by its own CI run | `python -m pytest tests/ -q --cov=src` |
 
 ## Who it is for and who pays
 
