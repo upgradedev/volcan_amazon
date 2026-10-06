@@ -1,23 +1,23 @@
 1
-00:00:03,000 --> 00:00:35,131
-This is Volcan. A screen reader reads a patch one plus sign at a time. Volcan turns it into sound, speech and Braille, with one key press. Listen.
+00:00:12,000 --> 00:00:32,649
+That was Volcan, live, answering in its own voice. It is a Model Context Protocol server built to be called by Alexa+, so a blind or low-vision developer can review an AI agent's pull request by voice, and hear the verdict first.
 
 2
-00:00:35,131 --> 00:00:57,840
-The earcon came first, so the verdict arrived before the sentence. This patch touches security, so the cue falls; a clean patch gets a rising cue. The sentence opens with the finding itself. The engine meter reads local heuristic, because this run has no cloud credentials, and the round trip was measured in this browser.
+00:00:32,649 --> 00:01:11,027
+This patch, an inverted admin check, goes to Claude on Amazon Bedrock. Volcan runs on AWS Lambda, with its review state in Amazon DynamoDB.
 
 3
-00:00:57,840 --> 00:01:22,489
-Now a real pull request, read from GitHub without a token. Alt and 6 jumps to the address box, and Enter opens it. The page outlines the next steps; ask for the findings. Listen.
+00:01:11,027 --> 00:01:22,132
+The meter names Amazon Bedrock, this line says how much of the patch the model read, and this panel opens its full answer.
 
 4
-00:01:22,490 --> 00:01:58,993
-Request changes stages the review, bound to the head commit Volcan read, under a single-use grant, and outlines Confirm. Nothing leaves until you say it. Confirm, and listen.
+00:01:22,132 --> 00:01:44,963
+Back on the pull request, request changes stages a review, bound to the head commit Volcan read. Listen.
 
 5
-00:01:58,993 --> 00:02:16,640
-Under the page is Volcan's Model Context Protocol server, written by hand to revision 2025-11-25. This button runs a real handshake: the negotiated version, a session identifier, and all twelve tools with their schemas.
+00:01:44,963 --> 00:02:19,568
+Nothing leaves until you confirm, and this build has no GitHub token, so it records the review and sends nothing. Confirm, and listen.
 
 6
-00:02:16,640 --> 00:02:39,163
-On this commit, 725 tests pass, and 23 of 23 protocol conformance checks. This button replays Amazon's documented Alexa+ requests as three clients; all three are served. Alexa+ itself has never called Volcan. Volcan: code review by ear and by touch.
+00:02:19,568 --> 00:02:32,036
+This handshake is a real one with the server under the page, at protocol revision 2025-11-25. Alexa+ itself has never called Volcan.

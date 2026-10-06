@@ -1,5 +1,14 @@
 # Volcan: how the demo video is made
 
+**Next take: planned, not recorded.** [`SHOT_LIST.md`](SHOT_LIST.md) and `narration.json` in
+this folder now hold the plan for a re-take on the live build, with Amazon Bedrock answering.
+Section 1 gives the commands for that take, and section 4 says what the pipeline does for it
+and what is still open. Sections 2 and 3 describe the render that exists. Its script and its
+capture are in history: `git show fc10e7d:video/narration.json` and
+`git show fc10e7d:video/capture-local.py`. The `cue_sheet.json`, `subtitles.srt` and
+`subtitles.vtt` in this folder are generated from the plan by
+`scripts/synthesize_video_assets.py`, not from a render.
+
 **Status: rendered locally, not published.** The current render is `volcan-demo.mp4`, 163.68
 seconds, 1920x1080 at 25 fps, recorded on 2026-09-29 (local time) from a local run of commit
 `09d48620afde0cbb7d14ed0913efe882bea21a3d`. It lives outside the repository, at
@@ -35,28 +44,55 @@ so any one beat can be re-rendered later.
 | Compose | `video/build-video.py` | `output/volcan-demo.mp4`, `video-receipt.json`, `video_manifest.json`, `caption_windows.json`, `captions.en.srt` |
 | Gate | `scripts/verify_video_sync.py` | pass or fail, from the mp4 itself |
 
+For the re-take on the live build:
+
 ```bash
 export VOLCAN_VIDEO_ROOT=/a/folder/outside/the/repo
-export VOLCAN_RELEASE_SHA=$(git rev-parse HEAD)   # the commit the server runs
-export VOLCAN_APP_URL=http://127.0.0.1:8871/
+export VOLCAN_APP_URL=https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/
+export VOLCAN_RELEASE_SHA=<the 40 character source_revision that GET $VOLCAN_APP_URL/health reports>
+export VOLCAN_PR_URL=https://github.com/<owner>/<repo>/pull/<number>   # chosen in rehearsal
+export VOLCAN_COLD_OPEN=findings      # or files, when the rehearsal found no finding
 export FFMPEG=/path/to/ffmpeg FFPROBE=/path/to/ffprobe
 # ELEVENLABS_API_KEY goes into the generator's environment only; never printed or written.
 
 python video/generate-narration.py --write-timestamps
-# A fresh server with no cloud credentials. On a machine with ~/.aws, point the SDK away from it:
-AWS_SHARED_CREDENTIALS_FILE=/nonexistent AWS_CONFIG_FILE=/nonexistent AWS_EC2_METADATA_DISABLED=true \
-  SOURCE_REVISION=$VOLCAN_RELEASE_SHA python -m src.interfaces.mcp_server --port 8871
-python video/capture-local.py
+python video/capture-local.py                          # checks only; presses nothing billed
+python video/capture-local.py --allow-billed-presses   # the take: two Amazon Bedrock calls
 python video/build-video.py
 cd "$VOLCAN_VIDEO_ROOT/output" && VIDEO_MANIFEST=video_manifest.json \
   CAPTION_WINDOWS=caption_windows.json python /path/to/repo/scripts/verify_video_sync.py volcan-demo.mp4
 python scripts/synthesize_video_assets.py         # cue sheet and subtitles from the measured beats
 ```
 
+The 2026-09-29 take ran the scripts at `fc10e7d` against a fresh local server with no cloud
+credentials; `git show fc10e7d:video/README.md` has those commands.
+
+### Billed presses: `--allow-billed-presses`
+
+Two actions in the re-take call Amazon Bedrock on the live build: opening the chosen pull
+request, which the capture does before the cold open and off camera, and **Hear this code
+review** at the start of beat 2. Each is one billed model call.
+
+* **Without the flag (the default),** `video/capture-local.py` reads `/health` and the measured
+  beats, prints the two calls the take would bill, and exits before it opens a browser. It
+  presses nothing and leaves an earlier `capture/` folder in place.
+* **With the flag,** a request guard in the browser lets exactly one pull request open and one
+  default-engine digest through, each armed just before the script makes that press. Any
+  other request that would reach a model is aborted, and the take fails. That includes a
+  digest without `"engine"` in its body, a second open, and a `tools/call` on `POST /mcp`.
+* The receipt lists the calls that went through, under `billedCalls`.
+* **Replay the documented Alexa+ requests** is never pressed. On the live build it is three
+  calls.
+
+Pass the flag only after the owner has authorised the calls in writing, as step 1 of
+[`SHOT_LIST.md`](SHOT_LIST.md) says. Each run with the flag is one take, and two calls
+against the bound of 12.
+
 The gate calls `ffmpeg` and `ffprobe` by name, so put their folder on `PATH` for it.
 `python tests/video/verify_gate_selftest.py` proves the gate still fails on a mis-ordered
 video, a caption that runs into the outro and an audio track longer than the picture. It is
-not collected by pytest.
+not collected by pytest. The gate is unchanged, and on the re-take it fails one check by
+design; see section 4.
 
 ### Re-rendering one beat
 
@@ -71,15 +107,39 @@ capture is paced by the measured windows, so a changed beat length changes the t
 
 ### What the capture refuses
 
-A take fails, and has to be recorded again, when the page logs an error, when `/health`
-reports a different commit than `VOLCAN_RELEASE_SHA`, when a voiced turn's speech has not ended
-before the next beat starts or was interrupted, when the page speaks a sentence other than the
-one the server returned, when the review dialogue refuses a turn or does not answer it, when
-Findings or Confirm is not an outlined next step, when the review pane does not show a
-recorded, unsent review, when the Alexa+ replay serves fewer than three clients, or when the
-picture stays one flat colour for 0.75 s or longer. That last check reads the recording's
-pixels: on a loaded machine a long smooth scroll can outrun
-rasterisation and record blank tiles.
+Before it opens a browser, the capture refuses:
+
+* a `narration.json` whose beats are not the six beats of the re-take, in order;
+* a title slot that does not name the cold open;
+* a `/health` that reports a different commit than `VOLCAN_RELEASE_SHA`, a
+  `bedrock_model_path` other than `ready_to_attempt`, a `durable_state` other than
+  `configured_reachable` (beat 2 names DynamoDB), or a `github_review_path` other than
+  `dry_run_no_token` (beat 5 says the build has no GitHub token);
+* a run without `--allow-billed-presses`.
+
+During or after the take, it fails, and the take has to be recorded again:
+
+* **Errors and focus.** The page logs an error, or a key press would go to an element other
+  than the one the journey means. It checks the pull request box before typing and Enter,
+  Hear this code review before Enter, and the comment box before typing.
+* **The model call.** A request would bill a model call the take did not plan. The press is
+  not answered by Amazon Bedrock or carries a fallback reason. The engine meter does not read
+  Amazon Bedrock, or the page prints no coverage line. The answer's first sound comes before
+  beat 2's narration ends.
+* **The cold open.** Its first sound comes later than 2.0 s, or its first word later than
+  5.0 s. Findings answers `No security finding in this change.` The cold-open command is not
+  an outlined next step.
+* **Speech.** A voiced turn's speech has not ended before the next segment starts, or was
+  interrupted. The page speaks a sentence other than the one the server returned.
+* **The review.** The dialogue does not open the chosen pull request, refuses a turn or does
+  not answer it. Confirm is not an outlined next step. The review pane does not show a
+  recorded, unsent review.
+* **The picture.** It stays one flat colour for 0.75 s or longer. This check reads the
+  recording's pixels: on a loaded machine a long smooth scroll can outrun rasterisation and
+  record blank tiles.
+
+The build refuses a recording that drifted more than 5% from the page clock, and a capture
+receipt whose cold open does not match `cards.title_seconds`.
 
 ---
 
@@ -141,3 +201,107 @@ rasterisation and record blank tiles.
 * Upload `output/captions.en.srt` from the media root as the caption track: it is sentence
   level, includes the product voice and the earcon descriptions, and carries the title card
   offset. `video/subtitles.srt` in this folder is one cue per beat.
+
+## 4. Rendering the re-take
+
+The plan in [`SHOT_LIST.md`](SHOT_LIST.md) is written for the live build. The pipeline now
+follows it, with these limits.
+
+* **`video/capture-local.py` drives the re-take journey.**
+  * It accepts the six beat ids in `narration.json` and refuses any other list.
+  * It opens `VOLCAN_PR_URL` off camera and waits for that turn's speech to end.
+  * It records the cold open on timeline seconds from minus `cards.title_seconds` to 0.
+  * It presses Hear this code review at the first frame of beat 2.
+  * It holds on the meter, the coverage line and the model's full answer in beat 3.
+  * It voices Request changes in beat 4 and Confirm in beat 5.
+  * In beat 6 it runs the MCP handshake, and it does not press the replay.
+
+  The capture still records headless, without audio. It re-renders the page's sentences in
+  the Windows system voice, and the build then names that voice on the closing card. A
+  headed capture with the browser's own audio, which the shot list prefers, is not built.
+* **`video/build-video.py` puts the cold open in the title slot.**
+  * It does this when `cards.title_slot` starts with `cold_open`.
+  * The page's footage from the cold open's first frame fills the title slot, and the title
+    lines sit in the band under it.
+  * The band tag names the build from the capture's `appUrl`: a local run, or the live build
+    and its commit.
+  * Card lines too long for the frame wrap.
+  * Without `title_slot`, the title card of the 2026-09-29 take is drawn as before.
+* **The sync gate fails the re-take on one check, `order-pixels`, at two of its four probes.**
+  * `scripts/verify_video_sync.py` and its selftest are unchanged.
+  * The gate samples the middle of the title segment and of the outro segment, and expects a
+    card in both. It calls a frame a card when its `FIND_EDGES` mean is at most
+    `EDGE_CARD_CONTENT_THRESHOLD`, 4.5.
+  * **Title probe.** With cold-open footage in the title slot, the title probe reads content.
+    The manifest says `"title_slot": "cold_open_footage"`.
+  * **Outro probe.** The plan's closing card reads as content too, on both shapes of the title
+    slot. It is 9 rows: the 50-character headline wraps to 2 rows at 110 px, and the narration
+    line wraps to 3 once the build puts the system-voice sentence in it. Measured edge means,
+    from the command below:
+
+    | Card | Rows | Edge mean |
+    |---|---|---|
+    | Plan outro, with the system-voice line the headless capture adds | 9 | 7.59 |
+    | Plan outro, without that line | 7 | 6.31 |
+    | Outro of the 2026-09-29 take (`git show fc10e7d:video/narration.json`) | 5 | 3.70 |
+    | Plan title lines drawn as a card | 4 | 3.64 |
+
+  * The build prints a note for each probe it expects to fail. The manifest carries
+    `_title_note` for the cold open, and `_outro_note` when the closing card has more than
+    the 5 rows of the 2026-09-29 outro (`OUTRO_ROWS_MEASURED_AS_CARD` in `build-video.py`).
+  * Before this take can pass the gate, the owner decides three things:
+    * **Title slot.** Teach the gate the cold open, and add a cold-open case to the selftest
+      so it still proves the gate fails on bad files. Or keep a short title card, which the
+      shot list does not want. The plan's title lines as a card measure 3.64, under 4.5.
+    * **Closing card.** Neither title choice fixes the outro. Lowering the threshold does not
+      either: the gate's comment puts terminal and browser frames at about 7.6 to 14.3, and
+      the plan outro is at 7.59. What moves the figure is fewer rows: a one-row headline,
+      fewer or shorter lines, a shorter system-voice sentence in `outro_lines_for`, or the
+      text split over two shorter cards. The shot list fixes the closing card's words, so
+      this is a change to the plan. One trial still measured 5.54 (7 rows) with the
+      system-voice line, from the command below with `cards["outro_lines"]` replaced by these
+      five lines: `Volcan`, the `Live build:` and `Source:` lines as they are,
+      `Live build, commit {sha7}. Simulated Alexa+ front end, not an Alexa skill.`, and
+      `GitHub review: dry run, not sent. Narration: synthetic ElevenLabs voice. Product voice: the page's own speech.`
+    * **Re-measure** the chosen card with the command below before the take.
+
+  The figures come from ffmpeg 8.1.1 and Pillow 12.2.0, with the build's encoder settings
+  (libx264, preset medium, crf 20, 25 fps) and the gate's own `frame_edge_mean`. Run from the
+  repository root, with `VOLCAN_VIDEO_ROOT` set to an empty folder that has `output/overlays/`:
+
+  ```bash
+  python - <<'EOF'
+  import importlib.util, json, os, subprocess, sys
+  sys.path.insert(0, "scripts")
+  from verify_video_sync import frame_edge_mean
+  spec = importlib.util.spec_from_file_location("bv", "video/build-video.py")
+  bv = importlib.util.module_from_spec(spec); spec.loader.exec_module(bv)
+  cards = json.load(open("video/narration.json", encoding="utf-8"))["cards"]
+  voice = [{"kind": "speech", "renderedWith": "Windows System.Speech, voice Microsoft David Desktop, rate 0"}]
+  for name, lines in (("outro", bv.outro_lines_for(cards["outro_lines"], "9b2bcb9", voice)),
+                      ("title", bv.outro_lines_for(cards["title_lines"], "9b2bcb9", []))):
+      out = os.path.join(os.environ["VOLCAN_VIDEO_ROOT"], name + ".mp4")
+      subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i",
+                      bv.card(lines, 1.0, name) + ",format=yuv420p", "-t", "1", "-c:v", "libx264",
+                      "-preset", "medium", "-crf", "20", "-r", "25", out], check=True)
+      print(name, len(bv.card_rows(lines)), "rows", round(frame_edge_mean(out, 0.5), 2))
+  EOF
+  ```
+
+  Pass `[]` in place of `voice` for the outro without the system-voice line. On 2026-10-06 it
+  printed `outro 9 rows 7.59` and `title 4 rows 3.64`.
+* **The optional consented clip has no place in the pipeline.** It goes in during the edit,
+  and every later timestamp moves by its length.
+
+`video/generate-narration.py` works as it is. It checks each beat's text, each product
+window and its basis, and the 90 to 174 s narration range. `--write-timestamps` offsets the
+beats by `title_seconds`, which in this plan is the cold-open length.
+
+`tests/unit/test_video_retake_pipeline.py` covers both scripts without a browser, ffmpeg or a
+request. Its 32 cases (`python -m pytest tests/unit/test_video_retake_pipeline.py -q`) check:
+
+* the beat ids;
+* the billed-press flag and the request guard;
+* the `/health` refusals and the cold-open timing gate;
+* the two shapes of the title slot;
+* the band tag and the closing card.
