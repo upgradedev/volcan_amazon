@@ -8,9 +8,23 @@ schema in the same commit that changes the parsing code.
 Earcons are returned as audio content blocks rather than described in text. A
 blind reviewer hears the cue; a client that only renders text still gets the
 spoken fallback in the block beside it.
+
+The first text block of the digest, drill-down and review-turn tools is the
+``*_for_speech`` form of the sentence: code operators named ("not equals" for
+``!=``) and Markdown removed. A voice client reads that block aloud, and a
+voice that drops or slurs ``!=`` turns the finding into its opposite. The
+literal code stays in the JSON detail block (``voice_summary``,
+``spoken_text``, ``readback`` and ``spoken``) for a client that shows it.
+
+Three tools also publish an ``outputSchema`` and return ``structuredContent``:
+``digest_semantic_diff``, ``drill_down_section`` and ``review_dialogue_turn``.
+The structured result is the same object as the JSON text block, which stays
+for clients that predate the field, and the speech text stays the first block.
+``review_dialogue_turn`` links the ui:// review card through ``_meta.ui``.
 """
 from typing import Any
 
+from src.application.review_card import REVIEW_CARD_URI
 from src.domain.sonification import EarconType
 from src.interfaces.composition import (
     accessibility_use_case,
@@ -26,16 +40,21 @@ from src.interfaces.dto import (
     BrailleTranslateRequest,
     ConfirmActionRequest,
     DigestRequest,
+    DigestResult,
     DrillDownRequest,
+    DrillDownResult,
     HapticRequest,
     PlayEarconRequest,
     ReviewTurnRequest,
+    ReviewTurnResult,
     StageActionRequest,
     SwitchPulseRequest,
     VoiceTurnRequest,
 )
 from src.interfaces.mcp_protocol import (
+    ResourceRegistry,
     ToolDefinition,
+    ToolOutput,
     ToolRegistry,
     audio_block,
     json_block,
@@ -47,6 +66,7 @@ from src.interfaces.operations import (
     op_drill_down,
     op_stage_action,
 )
+from src.interfaces.review_card_view import review_card_resource
 
 
 def _spoken_and_detail(spoken: str, detail: dict[str, Any], wav: bytes | None) -> list[dict[str, Any]]:
@@ -58,18 +78,23 @@ def _spoken_and_detail(spoken: str, detail: dict[str, Any], wav: bytes | None) -
     return blocks
 
 
-async def tool_digest(req: DigestRequest) -> list[dict[str, Any]]:
+def _structured(spoken: str, detail: dict[str, Any], wav: bytes | None) -> ToolOutput:
+    """The same blocks as ``_spoken_and_detail``, plus ``detail`` as structuredContent."""
+    return ToolOutput(content=_spoken_and_detail(spoken, detail, wav), structured=detail)
+
+
+async def tool_digest(req: DigestRequest) -> ToolOutput:
     result = await op_digest(req)
     wav = result.pop("_wav")
     result.pop("earcon", None)
-    return _spoken_and_detail(result["voice_summary"], result, wav)
+    return _structured(result["voice_summary_for_speech"], result, wav)
 
 
-async def tool_drill_down(req: DrillDownRequest) -> list[dict[str, Any]]:
+async def tool_drill_down(req: DrillDownRequest) -> ToolOutput:
     result = await op_drill_down(req)
     wav = result.pop("_wav")
     result.pop("earcon", None)
-    return _spoken_and_detail(result["spoken_text"], result, wav)
+    return _structured(result["spoken_text_for_speech"], result, wav)
 
 
 async def tool_stage_action(req: StageActionRequest) -> list[dict[str, Any]]:
@@ -100,7 +125,7 @@ async def tool_voice_turn(req: VoiceTurnRequest) -> list[dict[str, Any]]:
     return [text_block(result.get("spoken_text", "")), json_block(result)]
 
 
-async def tool_review_turn(req: ReviewTurnRequest) -> list[dict[str, Any]]:
+async def tool_review_turn(req: ReviewTurnRequest) -> ToolOutput:
     """Readback first, then the answer, then the cue, then the detail.
 
     The readback precedes the answer in the text block for the same reason the
@@ -113,8 +138,8 @@ async def tool_review_turn(req: ReviewTurnRequest) -> list[dict[str, Any]]:
     )
     wav = result.pop("_wav", None)
     result.pop("earcon", None)
-    spoken = f"{result['readback']} {result['spoken']}".strip()
-    return _spoken_and_detail(spoken, result, wav)
+    spoken = f"{result['readback_for_speech']} {result['spoken_for_speech']}".strip()
+    return _structured(spoken, result, wav)
 
 
 async def tool_braille_translate(req: BrailleTranslateRequest) -> list[dict[str, Any]]:
@@ -168,7 +193,7 @@ def build_tool_registry() -> ToolRegistry:
             "encodes the verdict: the falling SECURITY_FINDING cue when the patch "
             "carries a security finding, the rising DIFF_READY cue when it does not."
         ),
-        input_model=DigestRequest, handler=tool_digest,
+        input_model=DigestRequest, handler=tool_digest, output_model=DigestResult,
     ))
     registry.register(ToolDefinition(
         name="drill_down_section",
@@ -177,7 +202,7 @@ def build_tool_registry() -> ToolRegistry:
             "Return a symbol-level spoken explanation of one section of a patch, with the "
             "falling SECURITY_FINDING earcon when that section is flagged."
         ),
-        input_model=DrillDownRequest, handler=tool_drill_down,
+        input_model=DrillDownRequest, handler=tool_drill_down, output_model=DrillDownResult,
     ))
     registry.register(ToolDefinition(
         name="stage_governed_action",
@@ -224,9 +249,11 @@ def build_tool_registry() -> ToolRegistry:
             "changes <comment>' followed by confirm or cancel. Every answer reads back what was "
             "understood before acting. A confirmed review is bound to the head commit by a "
             "single-use grant and re-checked live; it is recorded and not sent unless the server "
-            "runs with VOLCAN_GITHUB_WRITE=1 and a GITHUB_TOKEN, and the outcome says which."
+            "runs with VOLCAN_GITHUB_WRITE=1 and a GITHUB_TOKEN, and the outcome says which. "
+            "A host that supports MCP Apps can draw the result as the ui://volcan/review-card view."
         ),
-        input_model=ReviewTurnRequest, handler=tool_review_turn,
+        input_model=ReviewTurnRequest, handler=tool_review_turn, output_model=ReviewTurnResult,
+        meta={"ui": {"resourceUri": REVIEW_CARD_URI}},
     ))
     registry.register(ToolDefinition(
         name="translate_text_to_braille",
@@ -266,4 +293,10 @@ def build_tool_registry() -> ToolRegistry:
         description="Parse Python source and report node, function and class counts or the syntax error.",
         input_model=AstCheckRequest, handler=tool_ast_check,
     ))
+    return registry
+
+
+def build_resource_registry() -> ResourceRegistry:
+    registry = ResourceRegistry()
+    registry.register(review_card_resource())
     return registry

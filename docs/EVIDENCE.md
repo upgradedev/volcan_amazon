@@ -3,7 +3,8 @@
 The [README](../README.md) tells the story in one screen. This file is the full record behind
 it: every claim with the command that prints it, the audit history, the measurements and the
 limits. Nothing here is an estimate unless it says ESTIMATE, and a figure that changed keeps
-its history in [`FRICTION_LOG.md`](FRICTION_LOG.md).
+its history in [Figures the README used to quote](#figures-the-readme-used-to-quote-and-why-they-changed),
+at the end of this file.
 
 ## Contents
 
@@ -24,6 +25,7 @@ its history in [`FRICTION_LOG.md`](FRICTION_LOG.md).
 15. [Road to Alexa+](#road-to-alexa)
 16. [Known limitations](#known-limitations)
 17. [Who would buy this, and out of which budget](#who-would-buy-this-and-out-of-which-budget)
+18. [Figures the README used to quote, and why they changed](#figures-the-readme-used-to-quote-and-why-they-changed)
 
 ---
 
@@ -133,8 +135,8 @@ matched.` The same response carries
 code operator named (`user.role not equals 'admin'`), while the screen and the Braille keep
 the literal `!=`.
 
-**Time to first result, measured on the development machine on 2026-09-26.** Step 1 printed
-`737 passed, 1 warning` on 2026-09-30 (the count is the claim; the duration varies run to run; 725 on 2026-09-29;
+**Time to first result, measured on the development machine on 2026-09-26.** Step 1 collects
+826 tests on this branch (`python -m pytest tests/ --collect-only -q`); CI run 36804593070 at `fc10e7d` printed `751 passed` on 2026-10-01 (the count is the claim; the duration varies run to run; 737 on 2026-09-30; 725 on 2026-09-29;
 723 earlier that day, before the Lambda SSE-bridge disconnect fix; 707 on 2026-09-28, before the persona-review gates moved into this repository; 703 earlier that day, before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 646 earlier that day, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 on 2026-09-27 before the single review cursor and the local revision in /health; that
 day, before the version-header fix and the replay panel, it was 631, before the JavaScript and TypeScript rules and the Alexa+ package, it was 577, and before the audit fixes 623). The server in step 2 answered its first `GET /health` with HTTP 200 **1.7 seconds**
 after launch on 2026-09-26 (three runs that day read 1.7, 1.7 and 1.8 s), printed by [`scripts/measure_cold_start.py`](../scripts/measure_cold_start.py),
@@ -145,7 +147,8 @@ page's own meter, with the server started as in step 2 on port 8746 without AWS 
 three further presses read 38.9, 30.5 and 28.7 ms. The page measures the round trip itself
 with `performance.now()` on every run and takes no figure from this file. The `pip install`
 step depends on your network and is not measured here. Earlier rounds' figures, and why they
-changed, are in [`docs/FRICTION_LOG.md`](FRICTION_LOG.md), section 7.
+changed, are in [Figures the README used to quote, and why they changed](#figures-the-readme-used-to-quote-and-why-they-changed),
+at the end of this file.
 
 ### Step 5: Review a real pull request by voice or by keyboard
 
@@ -244,7 +247,9 @@ finding past the budget is still found locally. Every digest answers what the mo
 answer behind a disclosure, and the patch box warns before a press that the first 3000
 characters go to Amazon Bedrock when a model is available. Speech never hears Markdown:
 emphasis, ticks, links, headers and bullets are stripped, code-shaped stars kept, before the
-summary is cut and before operators are named. A model call has 25 seconds inside the
+summary is cut and before operators are named. A fenced code block keeps every character,
+its diff `-` and `+` and its `#` comment markers included, and its fence lines become
+"Code:" and "End of code."; the full-answer panel gets the same text. A model call has 25 seconds inside the
 30-second function budget, and patches past one million characters are refused with 422.
 Covered by `tests/unit/test_model_evidence_reaches_the_api.py`,
 `tests/e2e/test_model_coverage_display.py` and the spoken-form tests; added 2026-10-01 after a
@@ -539,6 +544,47 @@ each case above.
 tools array. That did not reproduce then, and it cannot happen now for a different reason: the
 request is served, and `test_missing_protocol_version_with_a_session_uses_the_negotiated_revision`
 asserts that it returns the real catalog, not an empty one.
+
+**Structured results and the review card.** Since 2026-10-06 three tools publish an
+`outputSchema` and return `structuredContent`, as the 2025-11-25 tools page describes ("Output
+Schema", "Structured Content"):
+
+* `digest_semantic_diff`, `drill_down_section` and `review_dialogue_turn`. Each schema comes
+  from a pydantic model in `src/interfaces/dto.py` that names every top-level key and forbids
+  others, so a key added to an operation and not to its model fails a test.
+* The structured object is the same object as the JSON text block, which stays for clients that
+  predate the field. The first block is still the sentence a listener hears.
+* `initialize` now advertises `resources: {listChanged: false}`. `resources/list` lists one
+  resource, `resources/read` returns it, and `resources/templates/list` returns an empty list.
+  An unknown URI gets `-32002` with the URI in `data`, as the resources page names it.
+  `resources/subscribe` stays `-32601`.
+* The resource is `ui://volcan/review-card`, served as `text/html;profile=mcp-app`, the format
+  of the MCP Apps extension (SEP-1865, marked stable 2026-01-26). `review_dialogue_turn` links
+  it through `_meta.ui.resourceUri`, which is where the extension puts the link: on the tool,
+  not in each result. The card shows the file in focus, the first finding a rule matched in it,
+  up to eight changed lines with each line in eight-dot code Braille, and Confirm and Cancel
+  while a review is staged. It loads nothing from the network and declares no `csp` domains, so
+  a host applies the extension's restrictive default policy.
+* The card's Confirm and Cancel send `tools/call review_dialogue_turn` with `confirm` or
+  `cancel`, only on a press. The server then runs the same confirm every surface uses: the
+  single-use grant, custody, the live head re-read and, in live mode, the reviewer credential.
+  `test_a_forged_grant_from_any_surface_is_refused` pins that a forged grant is still refused.
+
+What this does not show. The extension says a server SHOULD check the client's
+`io.modelcontextprotocol/ui` capability before publishing a UI link; this server publishes it
+always, because the stateless deployment keeps no per-client memory, and a client without the
+extension ignores `_meta`. The companion page is the only host that has drawn the card. It is a
+simplified host: the extension asks a web host to load a view through a sandbox proxy on a
+second origin, and the page uses one iframe sandboxed to scripts only, whose origin is opaque.
+It also keeps one view for the whole review session and sends each later turn as another
+`tool-result`, where the extension describes one view per tool call. No MCP Apps client, Echo
+Show or Alexa+ has rendered it.
+
+`python -m pytest tests/integration/test_mcp_structured_results.py -v` validates every
+structured result against its schema with a JSON Schema 2020-12 validator across the dialogue
+states, and checks the listing, the read and the errors. `python -m pytest
+tests/e2e/test_review_card.py -v` checks how the page hosts the card and drives Chromium to
+reach and press its Confirm by keyboard.
 
 The REST surface at `/api` is ordinary JSON over HTTP for the web companion. It is not MCP
 and is not described as MCP anywhere in this repository.
@@ -894,16 +940,16 @@ estimate unless it says ESTIMATE.
 | Security-flag detection, Python corpus | 0% recall, because a screen reader reading a raw patch surfaces no security categorisation at all | **86.4% recall over n=40 labelled patches (19/22)**, 22 that must flag and 18 that must not, with 0% false positives. It was 81.8% (18/22) until 2026-09-28, when the TLS rule written for the classic-family held-out set also closed `pos-21`, a miss known before that rule was written. Of the 40, 36 are Python files: 90.0% recall (18/20, 85.0% before) and 0.0% false positives (0/16) over those, printed on the "Python files only" line | `python scripts/benchmark_suite.py` |
 | Security-flag detection, JavaScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 25.0% recall (2/8), 0.0% false positives (0/8), the parser before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **62.5% recall (5/8), 0.0% false positives (0/8)** (50.0% before the SQL rule, 2026-09-28) | `python scripts/benchmark_js_ts_detection.py --split heldout` |
 | Security-flag detection, TypeScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 37.5% recall (3/8), 25.0% false positives (2/8), before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **75.0% recall (6/8), 25.0% false positives (2/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
-| Security-flag detection, JavaScript and TypeScript, eight probes written after the rules to find where they break (4 must flag, 4 must not; self-authored, synthetic; not part of the corpus or either half) | not applicable | **4 of 4 detected; 2 of 4 that must not flag are flagged (probe-01, probe-03, fail closed by design)**, 2026-09-30 (0 of 4 and 4 of 4 on 2026-09-27) | `python scripts/benchmark_js_ts_detection.py --probes` |
-| Security-flag detection, second-round probes, eight unseen shapes (4 must flag, 4 must not; self-authored, synthetic; not part of the corpus or either half) | not applicable | **4 of 4 detected; 1 of 4 over-flagged (probe2-01, the control-flow limit in a new shape)**, 2026-10-01 | `python scripts/benchmark_js_ts_detection.py --probes2` |
-| Documented Alexa+ client session, replayed locally, `tools/call` round trip | not applicable | Median of 15 sessions per client shape, against a local server on 127.0.0.1:8841 (`python -m src.interfaces.mcp_server --port 8841`) after three warm-up sessions, local engine, no AWS credentials, 2026-09-27, after the version-header fix: every one of the six shapes (asks for 2025-03-26 or 2025-11-25; follows the protocol, declares the revision it asked for, or never sends the header) answered in 15 of 15 sessions with the finding in the first sentence. Medians for the 2025-03-26 shapes: 32.0 ms (range 25.6 to 50.4) spec-following, 27.3 ms (24.1 to 36.9) declaring, 26.8 ms (21.5 to 33.8) no header; for the 2025-11-25 shapes: 29.1 ms (23.8 to 38.4), 27.3 ms (24.5 to 39.8), 27.8 ms (23.6 to 29.4). Amazon's documented limit is 500 ms. Earlier the same day, at `f3331d6`, the no-header shape was refused. Not the endpoint registered in the add-on manifest (which serves this commit since 2026-09-30; on 2026-09-27 it ran an older build that still refused that shape), and not Alexa+ | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8841/mcp --runs 15` |
+| Security-flag detection, JavaScript and TypeScript, eight probes written after the rules to find where they break (4 must flag, 4 must not; self-authored, synthetic; not part of the corpus or either half) | not applicable | **4 of 4 detected; 2 of 4 that must not flag are flagged (probe-01, probe-03).** Both are JavaScript, and they are the only JavaScript must-not-flag probes, so JavaScript false alarms are 2 of 2, 2026-09-30 and again 2026-10-05 (0 of 4 and 4 of 4 on 2026-09-27) | `python scripts/benchmark_js_ts_detection.py --probes` |
+| Security-flag detection, second-round probes (4 must flag, 4 must not; self-authored, synthetic; not part of the corpus or either half) | **2 of 4 over-flagged before the CORS test-file exemption** (probe2-01 and probe2-02), measured 2026-10-05 with `src/domain/js_security_rules.py` from the parent of `f1c35a1` | **4 of 4 detected; 1 of 4 over-flagged after it (probe2-01, the control-flow limit in a new shape)**, 2026-10-01 and again 2026-10-05. Commit `f1c35a1` added these probes and the exemption together, so 1 of 4 is not an untuned figure | `python scripts/benchmark_js_ts_detection.py --probes2`; for the before column, `git show f1c35a1^:src/domain/js_security_rules.py > src/domain/js_security_rules.py`, the same command, then `git checkout -- src/domain/js_security_rules.py` |
+| Documented Alexa+ client session, replayed locally, `tools/call` round trip | not applicable | Median of 15 sessions per client shape, against a local server on 127.0.0.1:8841 (`python -m src.interfaces.mcp_server --port 8841`) after three warm-up sessions, local engine, no AWS credentials, 2026-09-27, after the version-header fix: every one of the six shapes (asks for 2025-03-26 or 2025-11-25; follows the protocol, declares the revision it asked for, or never sends the header) answered in 15 of 15 sessions with the finding in the first sentence. Medians for the 2025-03-26 shapes: 32.0 ms (range 25.6 to 50.4) spec-following, 27.3 ms (24.1 to 36.9) declaring, 26.8 ms (21.5 to 33.8) no header; for the 2025-11-25 shapes: 29.1 ms (23.8 to 38.4), 27.3 ms (24.5 to 39.8), 27.8 ms (23.6 to 29.4). Amazon's documented limit is 500 ms. Earlier the same day, at `f3331d6`, the no-header shape was refused. Not the endpoint registered in the add-on manifest (which serves `9b2bcb9`, `source_revision` read 2026-10-01, older than this branch: the commits after it change the first MCP text block and add `outputSchema` and `structuredContent` on three tools, `resources/list` and `resources/read`, and the `ui://volcan/review-card` view, none of it deployed; on 2026-09-27 it ran an older build that still refused that shape), and not Alexa+ | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8841/mcp --runs 15` |
 | Digest earcon, benign patch vs security-sensitive patch | **byte-identical until 2026-09-08**: both returned `DIFF_READY`, 19448 WAV bytes, `sha256[:16] 08f48648388bff02` | 19448 bytes `08f48648388bff02` for the benign patch, 26504 bytes `22c91bec11e275d1` for the security-sensitive one | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
 | Patch parse latency, 1000 steady runs | not measured | mean 0.281 ms; p95 0.448 ms | `python scripts/benchmark_suite.py` |
 | Earcon synthesis latency, 1000 steady runs | not measured | mean 3.592 ms; p95 6.565 ms | `python scripts/benchmark_suite.py` |
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **23 of 23 conformance checks pass**, stateful on port 8841 and stateless (`VOLCAN_MCP_SESSION_MODE=stateless`, `--expect-mode stateless`) on port 8842, 2026-09-27 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 751 passing; 92.84% statement coverage (4734 statements, 339 missed), including a real Chromium judge journey and Lambda bridge, 2026-10-01 (737 and 92.89% on 2026-09-30; 725 and 92.74% on 2026-09-29; 723 and 92.67% earlier that day before the Lambda SSE-bridge disconnect fix; 707 and 92.67% on 2026-09-28 before the persona-review gates; 703 and 92.67% earlier that day before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 684 and 92.62% before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 826 collected on this branch (`python -m pytest tests/ --collect-only -q`); its coverage is measured by its own CI run. CI run 36804593070 at `fc10e7d`: 751 passing, 93.18% statement coverage (4734 statements, 323 missed), including a real Chromium judge journey and Lambda bridge, 2026-10-01 (751 and 92.84% with 339 missed on the development machine the same day; 737 and 92.89% on 2026-09-30; 725 and 92.74% on 2026-09-29; 723 and 92.67% earlier that day before the Lambda SSE-bridge disconnect fix; 707 and 92.67% on 2026-09-28 before the persona-review gates; 703 and 92.67% earlier that day before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 684 and 92.62% before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.7 s on 2026-09-26 (three runs: 1.7, 1.7, 1.8 s) | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 31.3 ms on the first press, then 38.9, 30.5 and 28.7 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credentials | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -997,8 +1043,9 @@ pass; after them, 7 of the 11 held-out detections come from a structural rule.
   comparable. No structural rule over-flags on either half of this corpus. That does not
   generalise: the rules read tokens, not control flow. Eight probes written after them first
   went 0 of 4 detected with 4 of 4 over-flagged (2026-09-27); the rule work since moved them
-  to 4 of 4 with 2 of 4 (2026-09-30), and a second round of eight unseen shapes went 4 of 4
-  with 1 of 4 (2026-10-01, `--probes2`).
+  to 4 of 4 with 2 of 4, and both of those false alarms are JavaScript, 2 of 2 (2026-09-30). A
+  second round of eight went 4 of 4 with 2 of 4 over-flagged before the CORS test-file exemption
+  and 1 of 4 after it (`--probes2`); commit `f1c35a1` shipped the exemption with those probes.
 * *A stricter authorization test.* A flipped comparison counts only when it names a principal
   (`user`, `session`, `account`, `member` ...) or a privileged value (`admin`, `owner` ...).
   The training case that forced this is a chat renderer flipping `message.role === 'assistant'`.
@@ -1008,9 +1055,10 @@ pass; after them, 7 of the 11 held-out detections come from a structural rule.
   change the Python rules fired on 0 of the 64 patches.
 
 Held-out misses: `js-pos-12` (a negated `includes`, not a flipped operator), `js-pos-13`
-(cookie flags), `js-pos-15` (`accessLevel`), `js-pos-16` (SQL interpolation), `ts-pos-08`
+(cookie flags), `js-pos-15` (`accessLevel`), `ts-pos-08`
 (`assertCanEdit` names no security object), `ts-pos-15` (CSRF middleware no longer mounted,
-which is not a removed call). Training misses: `js-pos-11` (`innerHTML`), `ts-pos-10`
+which is not a removed call). `js-pos-16` (SQL interpolation) was a held-out miss until the
+SQL rule of 2026-09-28 closed it. Training misses: `js-pos-11` (`innerHTML`), `ts-pos-10`
 (`new Function`), `ts-pos-11` (MD5).
 [`tests/unit/test_js_ts_detection_corpus.py`](../tests/unit/test_js_ts_detection_corpus.py)
 pins every miss and every over-flag by id.
@@ -1027,9 +1075,14 @@ form, a wildcard origin in a local development server, and `!(a === b)` rewritte
 `a !== b`. Must flag: a negated `isAdmin(user)` or `canEdit(...)` helper un-negated, an admin
 comparison flipped across two lines, and a CORS origin widened with the value on its own line.
 `python scripts/benchmark_js_ts_detection.py --probes` prints 4 of 4 detected and 2 of 4
-negatives flagged (probe-01, probe-03), each by a structural rule; on 2026-09-27 it printed
-0 of 4 and 4 of 4, before the logical-line, negation, test-scope and guard-call work. A second
-round (`--probes2`), eight shapes the rules never saw, prints 4 of 4 and 1 of 4. The corpus figures
+negatives flagged (probe-01, probe-03), each by a structural rule. Those two are the only
+JavaScript negatives, so every JavaScript must-not-flag probe is a false alarm: 2 of 2. On
+2026-09-27 it printed 0 of 4 and 4 of 4, before the logical-line, negation, test-scope and
+guard-call work. A second round (`--probes2`) prints 4 of 4 and 1 of 4, but commit `f1c35a1`
+added those eight probes together with a test-file exemption to the CORS rule, and `probe2-02`
+is a wildcard origin in a test fixture. With the rule as it was before that commit the round
+is 2 of 4 over-flagged (`probe2-01`, `probe2-02`); 1 of 4 is the figure after the exemption,
+not an untuned one. The corpus figures
 above hold for that corpus; the probes show what a reader should not assume beyond it. The
 next corpus should be written by someone other than the rule author, with refactor negatives
 of this kind in its held-out half.
@@ -1158,7 +1211,7 @@ git rev-list --count 2d0b8f8..HEAD
   This branch opens the spoken summary with the finding itself. The public build therefore
   does not speak the headline finding, and it does not show a Bedrock answer.
 
-**Checked on 2026-10-01, and current with this branch.** The endpoint was redeployed from HEAD `9b2bcb9` (PR #23: full model prose and coverage, markdown-stripped speech, CORS test-scope, detector probes round 2); the re-downloaded live zip is byte-identical to the pushed package, carries the `MODEL_DIFF_CHAR_BUDGET` and `strip_markdown_for_speech` markers, and `bedrock_model_path` is still `ready_to_attempt`. The `6e9ae4d` build (PR #22) stays as history: an independent 2026-10-01 review digested the auth-bypass patch live against it (HTTP 200, `synthesis_mode` bedrock, 19.67 s). The 2026-09-30 block below stays as the dated history of the earlier build, which recorded the first model answer:
+**Checked on 2026-10-01; `GET /health` still reported `9b2bcb9` on 2026-10-05.** This branch changes `src/` after that build (the first MCP text block, the model's full answer without Markdown outside code fences, the hedged clean findings turn, and `outputSchema` and `structuredContent` on three tools, `resources/list` and `resources/read`, and the `ui://volcan/review-card` view), so the live build is behind HEAD until the owner redeploys. The endpoint was redeployed from `9b2bcb9`, HEAD at the time (PR #23: full model prose and coverage, markdown-stripped speech, CORS test-scope, detector probes round 2); the re-downloaded live zip is byte-identical to the pushed package, carries the `MODEL_DIFF_CHAR_BUDGET` and `strip_markdown_for_speech` markers, and `bedrock_model_path` is still `ready_to_attempt`. The `6e9ae4d` build (PR #22) stays as history: an independent 2026-10-01 review digested the auth-bypass patch live against it (HTTP 200, `synthesis_mode` bedrock, 19.67 s). The 2026-09-30 block below stays as the dated history of the earlier build, which recorded the first model answer:
 
 ```bash
 curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health | python -m json.tool
@@ -1217,7 +1270,7 @@ sources fetched with `curl` on 2026-09-27; the date after each link is the page'
 
 | Piece | What it is | Check it |
 |---|---|---|
-| [`alexa_plus/addon-package/addon.json`](../alexa_plus/addon-package/addon.json) | The MCP Toolkit manifest: name, descriptions, four example phrases and the MCP endpoint, which is the public Lambda URL and serves this commit since 2026-09-30 ([The public deployment](#the-public-deployment)). Nine values are placeholders on the reserved `.invalid` domain: the privacy page, the terms page, six icons and a carousel image, which must be the owner's own hosted files | `python scripts/validate_alexa_addon.py` prints `schema: pass` and lists the nine; `--strict` fails on them |
+| [`alexa_plus/addon-package/addon.json`](../alexa_plus/addon-package/addon.json) | The MCP Toolkit manifest: name, descriptions, four example phrases and the MCP endpoint, which is the public Lambda URL and serves `9b2bcb9`, `source_revision` read 2026-10-01, older than this branch: the commits after it change the first MCP text block and add `outputSchema` and `structuredContent` on three tools, `resources/list` and `resources/read`, and the `ui://volcan/review-card` view, none of it deployed ([The public deployment](#the-public-deployment)). Nine values are placeholders on the reserved `.invalid` domain: the privacy page, the terms page, six icons and a carousel image, which must be the owner's own hosted files | `python scripts/validate_alexa_addon.py` prints `schema: pass` and lists the nine; `--strict` fails on them |
 | [`scripts/validate_alexa_addon.py`](../scripts/validate_alexa_addon.py) | Checks the constraints in Amazon's schema reference: name up to 30 characters, short description up to 123, 3 to 4 example phrases, HTTPS URIs, the six icon sizes, a 600x900 carousel image, an MCP integration over HTTPS. A local stand-in: Amazon's CLI, which really validates, was not run | `python -m pytest tests/integration/test_alexa_plus_client_replay.py -v` |
 | [`tests/fixtures/alexa_plus_envelopes.py`](../tests/fixtures/alexa_plus_envelopes.py) and [`scripts/replay_alexa_plus_envelopes.py`](../scripts/replay_alexa_plus_envelopes.py) | The initialize and `tools/call` bodies Amazon documents for its Alexa+ MCP client, copied from the [lifecycle page](https://developer.amazon.com/docs/alexaplus/add-ons/mcp-toolkit-client-lifecycle.html) (Jul 10, 2026), with Amazon's example hotel tool swapped for `digest_semantic_diff` and the inverted admin-check patch, sent to a running server | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp` |
 
@@ -1279,8 +1332,11 @@ this table, earlier on 2026-09-27, quoted single samples, 47.5 ms at `4e1e098` a
 `76f017c`, which read like a speedup. The audit measured 37.4 ms and 27.5 ms on the same two
 commits, so that gap was run-to-run noise, and the cross-commit latency column was dropped.
 
-The finding the tool call returned in each served case begins
+On 2026-09-27 the finding the tool call returned in each served case began
 `In p.py, an authorization comparison was inverted: user.role == 'admin' became user.role != 'admin'`.
+On this branch the first text block is the spoken form of that sentence, `... user.role equals equals
+'admin' became user.role not equals 'admin'`, because a voice client reads that block aloud; the literal
+code stays in the JSON detail block (`tests/unit/test_mcp_first_block_is_speech.py`).
 Those round trips are a warm local server built from this repository on 127.0.0.1. They are
 not the endpoint the add-on manifest registers, which is the public Lambda and runs an older
 build, and not Alexa+. With Amazon Bedrock
@@ -1314,9 +1370,12 @@ the untested part.
 * `review_dialogue_turn` asks for a `session_id`. Amazon's lifecycle page says Alexa+ keeps its
   own conversation context and names no session identifier it would send, so the model would
   have to supply one.
-* The tools answer with a text block, an audio block and a JSON text block, not the
-  `structuredContent` field Amazon's example response shows. Whether Alexa+ plays an MCP audio
-  block is not documented; PCM/WAVE in its codec list says nothing about tool results.
+* Since 2026-10-06 `digest_semantic_diff`, `drill_down_section` and `review_dialogue_turn`
+  also return the `structuredContent` field Amazon's example response shows, matching each
+  tool's published `outputSchema`; the text block, the audio block and the JSON text block stay.
+  Whether Alexa+ reads `structuredContent`, draws a `ui://` view or plays an MCP audio block is
+  not documented; PCM/WAVE in its codec list says nothing about tool results. The live endpoint
+  at `9b2bcb9` predates the field.
 * The endpoint has no OAuth. Amazon's authentication checklist applies to a private server.
 * Amazon's certification criteria include VoiceView, captions and screen magnifier support on
   Alexa devices. Nothing here was tried on a device.
@@ -1428,13 +1487,16 @@ simulator in isolation mode, and record which headers the real client sends.
   after the rules first showed the limit (0 of 4 detected, 4 of 4 over-flagged); the rules now
   join bracket- and colon-continued lines, cancel a negation the rewrite cancels, skip test
   sources, and catch an un-negated guard call, which moves the probes to 4 of 4 detected and
-  2 of 4 over-flagged. The two remaining false alarms fail closed by design: an early-return
-  refactor needs control-flow reasoning the token rules do not have, and a wildcard origin in
-  a development server still flags, because the patch shows no listen address and "local only"
-  is unproven from what the rule sees. A second round of eight unseen shapes (2026-10-01) went
-  4 of 4 detected with 1 of 4 over-flagged, the control-flow limit in a new shape. Until
-  2026-09-27 this entry said Python only.
-* **The public endpoint serves this commit since 2026-09-30, and Alexa hardware remains untested.** On
+  2 of 4 over-flagged. Both remaining false alarms are JavaScript, and they are the only
+  JavaScript must-not-flag probes, so the JavaScript false-alarm figure is 2 of 2. Why they stay:
+  an early-return refactor needs control-flow reasoning the token rules do not have, and a
+  wildcard origin in a development server still flags, because the patch shows no listen address
+  and "local only" is unproven from what the rule sees. A second round of eight (2026-10-01) went
+  4 of 4 detected with 2 of 4 over-flagged before the CORS test-file exemption and 1 of 4 after
+  it; commit `f1c35a1` added the exemption and those probes together. The one left is the
+  control-flow limit in a new shape. Until 2026-09-27 this entry said Python only.
+* **The public endpoint serves `9b2bcb9`, older than this branch, and Alexa hardware remains untested.**
+  `/health` reported `source_revision` `9b2bcb9` on 2026-10-01 and again on 2026-10-05; the commits after it change the first MCP text block, the model's full answer and the clean findings turn, and add `outputSchema` and `structuredContent` on three tools, `resources/list` and `resources/read`, and the `ui://volcan/review-card` view, none of it deployed. On
   2026-09-23 `GET /health`, `/`, the REST digest and the MCP initialize/tool path answered
   successfully. On 2026-09-27 the same endpoint reported `source_revision` `2d0b8f8`, an
   ancestor of this branch 43 commits behind `6d2e227`; see
@@ -1707,3 +1769,67 @@ mistakes real agents actually make. That is a process rather than a product loop
 been tried, and the four misses named in Measured numbers are what it would have to close
 first. A CI surface, where the digest runs on a pull request and posts the spoken summary as an
 artifact, is the obvious second distribution path and **has not been built**.
+
+---
+
+## Figures the README used to quote, and why they changed
+
+Moved here from `docs/FRICTION_LOG.md` on 2026-10-05. It is a history of the README rather
+than friction with a tool, and the friction log now holds only entries written in the six
+fields the hackathon rules name.
+
+The README's quickstart now quotes each number once, as measured on the day it was last
+edited. The history those paragraphs carried is kept here, word for word, so the reasons
+behind the changes are not lost.
+
+**The preset chips.** Until 2026-09-08 a chip label and its rule had separated: the first preset removed a hardcoded secret,
+which is a security *improvement*, and the other two produced no finding at all, so the first
+press showed the weakest output the product can give.
+
+**Time to first result, as the README stated it until 2026-09-26.**
+
+Step 1 reported
+`421 passed, 1 warning in 5.00s` on the run that closed this round; the run before it, with
+one more test still red, took 7.00 s, and earlier runs that day with a smaller suite took 8.77
+s, 5.06 s, 5.22 s and 4.74 s, so the count is the claim here and the duration is not. The
+server in step 2 answered its first `GET /health` with
+HTTP 200 **1.4 seconds** after launch, printed by
+[`scripts/measure_cold_start.py`](../scripts/measure_cold_start.py). That script launches its
+own server, so stop the one from step 2 before running it. It refuses to time a process that
+was already warm, and says so rather than printing a figure it cannot stand behind. Step 3
+printed
+`21/21 checks passed, 0 failed`. The first digest round trip in step 4 was **39.0 ms** in
+headless Chromium at 1440x900 on 2026-09-26, read from the page's own meter, with the server
+started as in step 2 on port 8743 and no AWS credential file present; three further presses
+of the same button on the same page read 30.2 ms, 28.8 ms and 31.9 ms. The first press is the
+one quoted, because that is the press a judge makes. Earlier rounds published 117.2 ms
+(2026-09-08) and 72.6 ms (2026-09-06). On a machine without AWS credentials those earlier
+builds walked the whole boto3 credential chain, ending in the instance-metadata probe, on
+every request: on 2026-09-26, before the fix, `curl` timed `GET /health` at 2.030, 2.024 and
+2.030 s on this machine with no credential file, and the chain alone took 2.054 s. The server
+now resolves the chain once at startup and caches the answer; the same `curl` then read
+0.039, 0.003 and 0.005 s. The page measures the
+round trip itself with `performance.now()` on every run and takes no figure from this file. The `pip install` step depends on your network
+and is not measured here.
+
+The figures that replaced these are in [Quickstart, in full](#quickstart-in-full), step 4,
+above, each with its date and the command or page meter that printed it.
+
+**Figures the README carried until round 4 on 2026-09-26, and the contradiction they made.**
+The quickstart said `552 passed` and a cold start of **2.0 seconds**, while the Measured numbers
+table in the same file said `515 passing; 91.26% statement coverage` (dated 2026-09-24) and a
+cold start of **1.4 s**, and the quickstart heading said "Four steps" above five. A scorer
+read the pairs as the README contradicting itself, which it was. On 2026-09-26 each was
+re-measured once and one value kept: `python -m pytest tests/ -q --cov=src --cov-fail-under=85`
+printed 552 passed and 91.52% coverage before the round's four new page tests, and 556
+collected after them; `python scripts/measure_cold_start.py` printed 1.7, 1.7 and 1.8 s on
+three runs. The README became a one-screen story and the full record moved to
+`docs/EVIDENCE.md`.
+
+**Figures and wording until 2026-09-27, before the JavaScript and TypeScript rules and the
+Alexa+ add-on package.** The README and `docs/EVIDENCE.md` said `577 passed` and 91.98%
+statement coverage; `python -m pytest tests/ -q --cov=src` printed 623 and 92.08% after the
+round. The README's security row said the rules read Python only, which was true; the Python
+corpus figure, 81.8% recall and 0% false positives over n=40, did not change. The README and
+the page said the road to Alexa+ was not built, which was true until the add-on package was
+committed.

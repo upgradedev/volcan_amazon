@@ -111,7 +111,9 @@ def test_the_blind_developer_journey_over_rest(fake_github):
     assert fake_github.posts == []
 
     audit = client.get("/api/audit_log").json()
-    record = next(r for r in audit["records"] if r["action_type"] == "GITHUB_REQUEST_CHANGES")
+    # This session's record: other modules in the same process confirm reviews too.
+    record = next(r for r in audit["records"] if r["action_type"] == "GITHUB_REQUEST_CHANGES"
+                  and r["action"].startswith(f"review-{session}-"))
     assert record["outcome"].startswith("DRY RUN recorded, not sent: POST")
     assert record["approved_by"] == "blind-developer"
     assert record["staged_by"] == "volcan-review-dialogue"

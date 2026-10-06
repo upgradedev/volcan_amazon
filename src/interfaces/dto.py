@@ -7,7 +7,7 @@ arguments can never disagree.
 """
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.domain.sonification import EarconType
 
@@ -143,3 +143,164 @@ class FireTvSyncRequest(BaseModel):
 class RingPresenceRequest(BaseModel):
     sensor_zone: str = Field("Front Door", description="Presence sensor zone label")
     active_lease_id: str | None = Field(None, description="Active release lease identifier")
+
+
+# --- structured results ------------------------------------------------------
+#
+# The tool catalog publishes these models' JSON Schemas as ``outputSchema``.
+# MCP revision 2025-11-25 (server/tools, "Output Schema") says a server that
+# provides an output schema MUST return structured results that conform to it.
+# Each model forbids unknown top-level keys, so a key added to an operation
+# without being added here fails tests/integration/test_mcp_structured_results.py
+# instead of quietly breaking the published contract.
+
+_STRICT = ConfigDict(extra="forbid")
+
+
+class DigestResult(BaseModel):
+    model_config = _STRICT
+
+    voice_summary: str = Field(..., description="The digest as displayed, with code operators literal")
+    voice_summary_for_speech: str = Field(..., description="The same digest with each code operator named for a speech engine")
+    synthesis_mode: str = Field(..., description="bedrock when a model answered, heuristic-local otherwise")
+    synthesis_fallback_reason: str | None = Field(..., description="Why the local engine answered; null when a model did")
+    model_prose_full: str | None = Field(..., description="The model's full answer; null unless a model answered")
+    model_input_truncated: bool = Field(..., description="True when the model was shown only a prefix of the patch")
+    model_input_chars_sent: int | None = Field(..., description="Patch characters the model was shown")
+    model_input_chars_total: int | None = Field(..., description="Patch characters in total")
+    total_files: int
+    insertions: int
+    deletions: int
+    category_breakdown: dict[str, int]
+    critical_findings: list[str] = Field(..., description="One sentence per rule that matched; empty when no rule matched")
+
+
+class DrillDownResult(BaseModel):
+    model_config = _STRICT
+
+    spoken_text: str
+    spoken_text_for_speech: str
+    file_path: str
+    category: str
+    significance: str
+    security_flags: list[str] = Field(..., description="Machine labels of the rules that matched in this section")
+    security_findings: list[str] = Field(..., description="One sentence per matched rule, in the same order")
+
+
+class ReviewFocus(BaseModel):
+    model_config = _STRICT
+
+    state: str
+    file_index: int | None
+    file_path: str | None
+    total_files: int
+    hunk_index: int | None
+    total_hunks: int
+    line_index: int | None
+    total_lines: int
+    pull_request: str | None
+    head_sha: str | None
+    pending_review: str | None
+
+
+class ReviewLine(BaseModel):
+    model_config = _STRICT
+
+    kind: Literal["context", "add", "remove"]
+    text: str
+    old_no: int | None
+    new_no: int | None
+    index: int
+    total: int
+    spelled: str
+
+
+class PullRequestSummary(BaseModel):
+    model_config = _STRICT
+
+    owner: str
+    repo: str
+    number: int
+    url: str
+    title: str
+    state: str | None
+    head_sha: str
+    head_ref: str | None
+    base_ref: str | None
+    author: str | None
+    diff_bytes: int
+
+
+class PendingReview(BaseModel):
+    model_config = _STRICT
+
+    action_id: str
+    payload_hash: str
+    expires_at_epoch: float
+    lease_sec: float
+    body: str
+    head_sha: str
+    pull_request: str
+
+
+class ReviewOutcome(BaseModel):
+    """How a confirm ended. The submission adds its own fields, so more are allowed."""
+
+    model_config = ConfigDict(extra="allow")
+
+    submitted: bool
+    dry_run: bool
+    refusal_code: str | None = None
+    spoken: str | None = None
+
+
+class ReviewCardLine(BaseModel):
+    model_config = _STRICT
+
+    kind: Literal["added", "removed"]
+    number: int | None = Field(..., description="New line number for an added line, old line number for a removed one")
+    text: str
+    braille: str = Field(..., description="The line in eight-dot code Braille, one cell per character")
+
+
+class ReviewCard(BaseModel):
+    """What the ui:// review card draws: one file, its finding, its changed lines."""
+
+    model_config = _STRICT
+
+    resource_uri: str
+    file_path: str
+    file_index: int
+    total_files: int
+    finding: str | None = Field(..., description="The first matched rule's sentence; null when no rule matched in this file")
+    finding_count: int
+    changed_lines: list[ReviewCardLine]
+    changed_lines_shown: int
+    changed_lines_total: int = Field(..., description="Added and removed lines in the hunk the card shows")
+    braille_fidelity: Literal["code"]
+    braille_lossless: bool = Field(..., description="False when a shown line holds a character the code table has no cell for")
+    can_submit: bool = Field(..., description="False for a pasted patch, which has no pull request to review")
+    awaiting_confirmation: bool
+
+
+class ReviewTurnResult(BaseModel):
+    model_config = _STRICT
+
+    state: Literal["IDLE", "OVERVIEW", "FILE", "LINES", "CONFIRM_REVIEW", "SUBMITTED", "RECORDED", "REFUSED"]
+    understood: str
+    readback: str
+    spoken: str
+    readback_for_speech: str
+    spoken_for_speech: str
+    speech_rate: float
+    silent: bool
+    error: bool
+    focus: ReviewFocus
+    line: ReviewLine | None
+    pull_request: PullRequestSummary | None
+    pending_review: PendingReview | None
+    approval_grant: str | None = Field(..., description="The single-use grant a confirm must present; set only by a request changes turn")
+    review_outcome: ReviewOutcome | None
+    review_path: dict[str, Any] = Field(..., description="The review write capability, as /health reports it")
+    awaiting_confirmation: bool
+    review_card: ReviewCard | None = Field(..., description="What the ui:// review card draws; null until a patch is open")

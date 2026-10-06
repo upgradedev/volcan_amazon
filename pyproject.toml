@@ -29,6 +29,9 @@ dev = [
     "pytest-cov>=4.1.0",
     "playwright>=1.55.0",
     "ruff>=0.2.0",
+    #: Validates structuredContent against each published outputSchema in the
+    #: JSON Schema 2020-12 dialect MCP defaults to.
+    "jsonschema>=4.18",
 ]
 
 [tool.setuptools.packages.find]

@@ -47,7 +47,7 @@ from src.interfaces.mcp_protocol import (
     JsonRpcError,
     McpDispatcher,
 )
-from src.interfaces.mcp_tools import build_tool_registry
+from src.interfaces.mcp_tools import build_resource_registry, build_tool_registry
 from src.interfaces.rest_api import router as rest_router
 from src.interfaces.review_authorization import authenticated_reviewer
 from src.interfaces.web_companion import load_companion_html
@@ -96,8 +96,10 @@ async def review_identity_context(request: Request, call_next):
 
 
 tool_registry = build_tool_registry()
+resource_registry = build_resource_registry()
 dispatcher = McpDispatcher(
     tool_registry,
+    resources=resource_registry,
     instructions=(
         "Volcan turns code review into sound and touch for blind and low-vision "
         "developers. Call digest_semantic_diff first; it returns spoken text and an audio "

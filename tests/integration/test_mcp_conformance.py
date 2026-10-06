@@ -63,7 +63,8 @@ def headers_for(session_id: str) -> dict[str, str]:
 def test_initialize_returns_protocol_version_capabilities_and_server_info():
     session_id, result = initialize()
     assert result["protocolVersion"] == PROTOCOL_VERSION
-    assert result["capabilities"] == {"tools": {"listChanged": False}}
+    # tools, and resources for the ui:// review card; neither announces changes.
+    assert result["capabilities"] == {"tools": {"listChanged": False}, "resources": {"listChanged": False}}
     assert result["serverInfo"]["name"]
     assert result["serverInfo"]["version"]
     assert len(session_id) >= 32, "session id must be cryptographically sized"
@@ -258,7 +259,7 @@ def test_method_not_found_minus_32601():
     session_id, _ = initialize()
     response = client.post(
         "/mcp", headers=headers_for(session_id),
-        json={"jsonrpc": "2.0", "id": 9, "method": "resources/list"},
+        json={"jsonrpc": "2.0", "id": 9, "method": "prompts/list"},
     )
     assert response.json()["error"]["code"] == METHOD_NOT_FOUND
 

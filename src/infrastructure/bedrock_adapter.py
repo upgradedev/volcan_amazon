@@ -366,7 +366,15 @@ class BedrockSynthesisAdapter:
             sections=sections,
             synthesis_mode=MODE_BEDROCK,
             fallback_reason=None,
-            model_prose_full=content_text,
+            # The panel under "The model's full answer" shows these words, so
+            # Markdown goes here too: stars and ticks are noise on screen and
+            # are read aloud by a screen reader. Nothing is cut. Outside code
+            # fences, emphasis, heading, bullet, quote and link markup is
+            # removed. Inside a fence every character stays, the diff '-' and
+            # '+' and the '#' comment markers included, and the fence lines
+            # become "Code:" and "End of code.". Inline code loses its ticks
+            # and is not otherwise protected.
+            model_prose_full=strip_markdown_for_speech(content_text),
             model_input_chars_sent=len(excerpt),
             model_input_chars_total=len(raw_diff),
         )
