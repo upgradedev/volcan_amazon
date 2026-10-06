@@ -174,9 +174,12 @@ was not recorded on the live build. It measured an edge mean of 1.98, a card to 
   is typed, and <kbd>Enter</kbd> sends it.
 * **Sound:** the page's readback, `Understood: line 26.`, then the line: `Line 6 of 9, added,
   new line 26: return user.role not equals Role.ADMIN`. That is the inverted comparison in
-  `is_admin`, and the review card on screen names the finding: `an authorization comparison
-  was inverted`. The turn reads the parsed patch and calls no model, so its words are the
-  same on the live build. The narrator is silent.
+  `is_admin`. The dialogue log prints the line with `!=` under the overview, which says `2
+  security findings`. The turn speaks the comparison, not the word "inverted": the review
+  card that names the finding (`an authorization comparison was inverted`) is not in this
+  frame, and the capture checks that the turn's answer carries it. The turn reads the parsed
+  patch and calls no model, so its words are the same on the live build. The narrator is
+  silent.
 * **Band:** `Live build at commit {sha7}. A demo pull request in
   upgradedev/volcan-demo-service, written for this walkthrough, opened before this shot.`
 * **Gate:** the first product sound by 2.0 s after the title card ends, and the first spoken
