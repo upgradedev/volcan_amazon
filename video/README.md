@@ -131,6 +131,9 @@ python video/build-video.py --rehearsal       # writes output-rehearsal/
   stub to `rehearsal/narration-stub/`, built from the ESTIMATE windows in `narration.json`.
   Nothing is sent to ElevenLabs. The build leaves the stub's silent narration uncaptioned, so
   on that video the gate's `web-beat-audible` check fails by construction.
+* **Only the stub composes.** With a measured `narration/timing.json`, `build-video.py
+  --rehearsal` refuses on a caption overlap, because the local engine answers the press while
+  beat 2's narration is still captioned. The capture's receipt is still complete.
 
 The gate calls `ffmpeg` and `ffprobe` by name, so put their folder on `PATH` for it.
 `python tests/video/verify_gate_selftest.py` proves the gate still fails on a mis-ordered
@@ -342,7 +345,8 @@ follows it, with these limits.
     start, and fails when the gap is over 1 s.
   * Beat 5 ends on the page's Confirm turn, after the narrator.
   * Before this change, `a_main` counted only narration. That gap was 0.65 s plus beat 5's
-    23.5 s product window: 24.15 s on the plan.
+    23.5 s product window: 24.15 s on the plan. This README then named only `order-pixels`
+    as failing; `content-seam` failed on the plan as well.
   * `a_main` now also counts the page's own sentences in the mix, because they are speech.
     In the rehearsal the gap was still 3.196 s:
     * the system voice rendered the Confirm answer in 16.212 s, where the browser took
@@ -391,8 +395,19 @@ One rehearsal, with no billed call and no ElevenLabs call:
     * The readback repeats the whole comment and took 9.5 s.
     * The page was still speaking the answer when beat 5 began, and Confirm interrupted it
       25.1 s after the click.
-    * The window needs the slowest rehearsal run plus 1 s, as the plan says, and a shorter
-      comment would shorten the readback.
+    * The window needs the slowest rehearsal run plus 1 s, as the plan says.
+  * **With this pull request and this comment, the take does not fit the budget.**
+    * The cold-open turn ran at least 32.75 s from the cold open's first frame. With the
+      plan's rule, the slowest run plus 1 s, the 12.0 s window becomes at least 33.75 s:
+      21.75 s more.
+    * Request changes ran at least 25.08 s from the click. Its 14.0 s window becomes at least
+      26.08 s: 12.08 s more.
+    * The video then runs at least 158.536 + 21.75 + 12.08 = 192.4 s. That is over the gate's
+      175 s publication budget, the build's own `duration < 175` check and the plan's
+      `max_allowed_seconds` of 180. It is a lower bound, because both turns were cut off.
+    * So the pull request and the length of `REVIEW_COMMENT` in `video/capture-local.py`
+      decide whether the take can be recorded at all. Choose a pull request whose Findings
+      answer fits the cold open, keep the comment short, and rehearse again.
 * **Not representative of the billed take**, from the receipt's `notRepresentative`:
   * the model path and durable state in `/health`;
   * the press answered by the local engine (`heuristic-local`, `no AWS credentials were

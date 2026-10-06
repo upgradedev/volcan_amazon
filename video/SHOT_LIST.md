@@ -95,7 +95,13 @@ and the owner is asked again.
   match ("text matching the auth_token keyword set appears in this change") is one too. In
   the free rehearsal of 2026-10-06 a pull request with 4 findings, 3 of them keyword-set
   matches, was still being spoken 27.7 s after its answer began, against a 12.0 s cold open.
-  Prefer one or two findings, or re-measure the window.
+* The take fits the 175 s budget only with the right pull request. In that rehearsal, the
+  cold-open turn and Request changes overran their windows by at least 21.75 s and 12.08 s
+  under the slowest-run-plus-1-s rule, which puts the video at 192.4 s or more. The pull
+  request's Findings answer and the length of the review comment (`REVIEW_COMMENT` in
+  `video/capture-local.py`, which the readback repeats) decide whether the take can be
+  recorded at all. Choose one or two findings, keep the comment short, and rehearse again
+  (`video/README.md`, section 4).
 * Record the URL, the head commit and the rehearsal's spoken answers in the take's receipt.
 
 ---
