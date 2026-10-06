@@ -153,6 +153,43 @@ def test_review_dialogue_pending_action_nonce_and_audit_survive_cold_starts():
     assert durable_audit.verify_integrity(scope).intact is True
 
 
+def test_the_page_sequence_stages_and_confirms_with_a_fresh_worker_every_turn():
+    """Open, a typed line number, then Request changes, as the page sends them.
+
+    On the live build of 2026-10-06 the third turn answered HTTP 503: the stage
+    transaction reached DynamoDB serialized twice and was refused, so the page
+    kept the line-reading outline and never offered Confirm. Each turn here
+    runs on a new use case over the same table, as stateless Lambda does.
+    """
+    table = FakeTable()
+    fake = FakeGitHub()
+
+    def page(transcript: str, grant: str | None = None):
+        return say(
+            review_use_case(table, fake), transcript,
+            pr_url=PR_URL, raw_diff=None, approval_grant=grant,
+        )
+
+    assert page("open")["state"] == "OVERVIEW"
+    line = page("line 14")
+    assert line["state"] == "LINES"
+    assert line["line"]["new_no"] == 14
+
+    staged = page("request changes: is_admin is inverted.")
+    assert staged["error"] is False
+    assert staged["state"] == "CONFIRM_REVIEW"
+    assert staged["awaiting_confirmation"] is True
+    assert staged["approval_grant"].startswith("v1.")
+    assert staged["pending_review"]["body"] == "is_admin is inverted"
+
+    confirmed = page("confirm", staged["approval_grant"])
+    assert confirmed["state"] == "RECORDED"
+    assert confirmed["review_outcome"]["dry_run"] is True
+    replayed = page("confirm", staged["approval_grant"])
+    assert replayed["error"] is True
+    assert replayed["review_outcome"] is None
+
+
 def test_grant_nonce_has_exactly_one_winner_across_workers():
     table = FakeTable()
     first = state(table)

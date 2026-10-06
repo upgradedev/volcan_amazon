@@ -16,8 +16,6 @@ from src.infrastructure.dynamodb_state import (
     DynamoStateStore,
     _decode,
     _json,
-    _serialize,
-    _serialize_item,
     _transaction_conflict,
 )
 from src.infrastructure.state_codec import action_to_dict, audit_from_dict, audit_to_dict
@@ -36,7 +34,9 @@ class DynamoAuditRepository:
 
     The partition key is a one-way digest of the authenticated reviewer and
     repository scope. Callers must name the scopes they are authorized to
-    read; there is no global audit listing.
+    read; there is no global audit listing. Like ``DynamoStateStore``, every
+    write passes plain Python values to the resource client, which serializes
+    them once.
     """
 
     is_durable = True
@@ -138,7 +138,7 @@ class DynamoAuditRepository:
         }
         operation: dict[str, Any] = {
             "TableName": self.table_name,
-            "Item": _serialize_item(head_item),
+            "Item": head_item,
         }
         if head is None:
             operation["ConditionExpression"] = "attribute_not_exists(pk)"
@@ -147,8 +147,8 @@ class DynamoAuditRepository:
                 ConditionExpression="#head = :expected AND #sequence = :previous",
                 ExpressionAttributeNames={"#head": "entry_hash", "#sequence": "sequence"},
                 ExpressionAttributeValues={
-                    ":expected": _serialize(str(head["entry_hash"])),
-                    ":previous": _serialize(int(head["sequence"])),
+                    ":expected": str(head["entry_hash"]),
+                    ":previous": int(head["sequence"]),
                 },
             )
         return operation
@@ -171,7 +171,7 @@ class DynamoAuditRepository:
                 {
                     "Put": {
                         "TableName": self.table_name,
-                        "Item": _serialize_item(self._record_item(record)),
+                        "Item": self._record_item(record),
                         "ConditionExpression": "attribute_not_exists(pk)",
                     }
                 },
@@ -218,14 +218,14 @@ class DynamoAuditRepository:
                 {
                     "Put": {
                         "TableName": self.table_name,
-                        "Item": _serialize_item(action_item),
+                        "Item": action_item,
                         "ConditionExpression": (
                             "#state = :expected AND payload_hash = :payload_hash"
                         ),
                         "ExpressionAttributeNames": {"#state": "state"},
                         "ExpressionAttributeValues": {
-                            ":expected": _serialize(expected_state.value),
-                            ":payload_hash": _serialize(action.payload_hash),
+                            ":expected": expected_state.value,
+                            ":payload_hash": action.payload_hash,
                         },
                     }
                 },
@@ -233,14 +233,14 @@ class DynamoAuditRepository:
                 {
                     "Put": {
                         "TableName": self.table_name,
-                        "Item": _serialize_item(self._record_item(record)),
+                        "Item": self._record_item(record),
                         "ConditionExpression": "attribute_not_exists(pk)",
                     }
                 },
                 {
                     "Put": {
                         "TableName": self.table_name,
-                        "Item": _serialize_item(marker),
+                        "Item": marker,
                         "ConditionExpression": "attribute_not_exists(pk)",
                     }
                 },

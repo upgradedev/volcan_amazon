@@ -4,7 +4,11 @@ No test in this repository calls AWS. ``FakeTable`` implements the subset of the
 boto3 Table and client API that ``src/infrastructure/dynamodb_state.py`` and
 ``src/infrastructure/dynamodb_audit_repository.py`` use, including conditional
 puts, all-or-nothing transactions, and queries that honour sort direction,
-``Limit`` and paging. ``install_fake_aws`` swaps boto3's constructors for these
+``Limit`` and paging. The transaction client stands in for ``Table.meta.client``,
+the client of a boto3 *resource*: like the real one it takes plain Python values
+and serializes them itself, so an item that arrives already serialized is
+serialized twice, its key becomes a map, and DynamoDB's ValidationException is
+raised, exactly as the live table answers. ``install_fake_aws`` swaps boto3's constructors for these
 fakes and refuses any other AWS service, so a code path the fakes do not cover
 fails loudly instead of reaching a real account.
 """
@@ -14,7 +18,7 @@ import threading
 import time
 from types import SimpleNamespace
 
-from boto3.dynamodb.types import TypeDeserializer
+from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
 
 
 class ConditionalFailure(Exception):
@@ -28,17 +32,37 @@ class TransactionFailure(Exception):
     }
 
 
+class ValidationFailure(Exception):
+    """What DynamoDB answers for a key attribute of the wrong type."""
+
+    response = {"Error": {"Code": "ValidationException"}}
+
+
 class FakeTransactionClient:
+    """The resource-level client: plain values in, serialized once, as boto3 does."""
+
     def __init__(self, table: "FakeTable") -> None:
         self.table = table
+        self.serializer = TypeSerializer()
         self.deserializer = TypeDeserializer()
 
-    def _plain(self, values):
-        return {key: self.deserializer.deserialize(value) for key, value in values.items()}
+    def _plain(self, values, *, keyed: bool = False):
+        # boto3's resource client runs TypeSerializer on every value (a float
+        # raises here as it does there). DynamoDB then checks the key schema:
+        # pk and sk are strings, and a map in their place is refused.
+        wire = {key: self.serializer.serialize(value) for key, value in values.items()}
+        if keyed:
+            for key in ("pk", "sk"):
+                if set(wire.get(key, {})) != {"S"}:
+                    raise ValidationFailure(
+                        "One or more parameter values were invalid: "
+                        f"Type mismatch for key {key} expected: S actual: {next(iter(wire.get(key) or {'NULL': 0}))}"
+                    )
+        return {key: self.deserializer.deserialize(value) for key, value in wire.items()}
 
     def transact_write_items(self, TransactItems):
         puts = [item["Put"] for item in TransactItems]
-        decoded = [self._plain(item["Item"]) for item in puts]
+        decoded = [self._plain(item["Item"], keyed=True) for item in puts]
         with self.table.lock:
             kinds = {str(item.get("kind", "")) for item in decoded}
             is_stage = bool(
