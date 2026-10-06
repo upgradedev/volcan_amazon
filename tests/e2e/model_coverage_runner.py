@@ -16,6 +16,7 @@ BEDROCK = {
     "model_prose_full": "Complete model prose retained at adapter boundary.",
     "model_input_chars_sent": 3000,
     "model_input_chars_total": 4107,
+    "model_answered": "anthropic.claude-sonnet-5",
 }
 
 HEURISTIC = {
@@ -24,6 +25,7 @@ HEURISTIC = {
     "model_prose_full": None,
     "model_input_chars_sent": None,
     "model_input_chars_total": None,
+    "model_answered": None,
 }
 
 
@@ -37,7 +39,8 @@ def main(base_url: str) -> None:
         )
         expect(page.locator("#modelCoverage")).to_have_text(
             "The model read the first 3000 of 4107 patch characters; "
-            "the local rules still read the whole patch."
+            "the local rules still read the whole patch. "
+            "Answered by anthropic.claude-sonnet-5."
         )
         expect(page.locator("#modelProseWrap")).to_be_visible()
         expect(page.locator("#modelProse")).to_have_text(

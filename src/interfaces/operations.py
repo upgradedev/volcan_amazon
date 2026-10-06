@@ -68,6 +68,9 @@ async def op_digest(req: DigestRequest, engine: str = "auto") -> dict[str, Any]:
         ),
         "model_input_chars_sent": report.model_input_chars_sent,
         "model_input_chars_total": report.model_input_chars_total,
+        # Which model wrote model_prose_full, so the page and the docs read
+        # the name from the answer instead of from a constant that can drift.
+        "model_answered": report.model_answered,
         "total_files": report.total_files_changed,
         "insertions": report.total_insertions,
         "deletions": report.total_deletions,

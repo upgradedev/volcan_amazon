@@ -23,7 +23,10 @@ is the per-request receipt: only ``bedrock`` means a model answered.
 """
 import asyncio
 import importlib.util
+import json
+import logging
 import os
+import re
 import threading
 import time
 
@@ -43,9 +46,56 @@ MODE_HEURISTIC = "heuristic-local"
 #: first-party model id. The id this file pinned before,
 #: ``anthropic.claude-3-5-sonnet-20241022-v2:0``, is a retired snapshot on the
 #: legacy InvokeModel integration and answers ResourceNotFoundException. Set
-#: AWS_BEDROCK_MODEL_ID to pin a different model or a region-scoped inference
-#: profile without editing this file.
-DEFAULT_MODEL_ID = "anthropic.claude-opus-5"
+#: AWS_BEDROCK_MODEL_ID to pin a different model, by an id the Mantle model
+#: list carries, without editing this file.
+#:
+#: Claude Sonnet 5, chosen on 2026-10-06 from calls to the Bedrock Mantle
+#: endpoint in eu-west-1 with SDK 1.8.0 (the version in the deployed 22c32ab
+#: package, now pinned in pyproject.toml), this request body unchanged, and two
+#: patches: the take-4 permissions.py patch (an inverted admin check) and the
+#: first 3000 characters of upgradedev/volcan-demo-service pull request 1 (an
+#: inverted admin check and CORS opened to "*"). One call per press:
+#:
+#: * ``anthropic.claude-sonnet-5``: 0 of 8 refused (4 of 4 on the take-4 body,
+#:   4 of 4 on pull request 1). Every full answer named the inverted admin
+#:   check, and every spoken cut did too; on pull request 1 the spoken cut
+#:   also named the CORS change in 3 of 4. 1.7 to 3.4 seconds per call.
+#: * ``anthropic.claude-haiku-4-5``: 0 of 8 refused; every full answer named
+#:   the risks, but on pull request 1 the spoken cut named neither in 4 of 4,
+#:   because the answer led with the new endpoint; 1.1 to 2.5 seconds.
+#: * ``anthropic.claude-opus-5``, the model this file pinned before: 2 of 4
+#:   refused the take-4 body in an earlier window (stop_reason "refusal",
+#:   category "cyber", no content), a window in which the next 12 calls, on
+#:   trial bodies, were all refused; on pull request 1, 0 of 2 refused, 4.1
+#:   and 6.6 seconds. It was not re-run on the take-4 body beside Sonnet 5.
+#: * ``anthropic.claude-sonnet-5-5`` answered 404: the Mantle model list for
+#:   eu-west-1 does not carry it. ``anthropic.claude-opus-4-8`` timed out at
+#:   25 seconds and then answered 403 for this account.
+#:
+#: This is not a controlled comparison. On the take-4 body, 2 of 4 against
+#: 0 of 4 is not a significant difference (Fisher two-sided p about 0.43). It
+#: shows that Sonnet 5 did not refuse in 8 calls, not that it refuses less
+#: than Opus 5. Sonnet 5 was preferred to Haiku 4.5 on the spoken cut, which
+#: was measured only on patches where a local rule already fired and was
+#: spoken first; its value when no local rule matches is extrapolated. Eight
+#: calls cannot show a refusal rate of zero; a refusal still reaches the
+#: listener as its own named reason with the local digest beside it.
+DEFAULT_MODEL_ID = "anthropic.claude-sonnet-5"
+
+#: A model id that is safe to show to anyone: a bare Bedrock model id such as
+#: ``anthropic.claude-haiku-4-5``. A short lowercase prefix such as ``eu.`` is
+#: tolerated for labelling only: the Mantle model list for eu-west-1 carries
+#: bare ids, and geographic inference profiles belong to the bedrock-runtime
+#: path this adapter does not use, so such an override would not be found.
+#: An ARN, which carries an account id, never matches, and is reported by a
+#: fixed label.
+_PUBLIC_MODEL_ID = re.compile(r"^(?:[a-z]{2,6}\.)?anthropic\.[a-z0-9][a-z0-9.:-]*$")
+CONFIGURED_MODEL_LABEL = "a configured inference profile"
+
+
+def public_model_label(model_id: str) -> str:
+    """The model id as it may be shown in an answer, a log line or a page."""
+    return model_id if _PUBLIC_MODEL_ID.match(model_id or "") else CONFIGURED_MODEL_LABEL
 
 #: Room for the model to think and still finish the sentence. Adaptive thinking
 #: is on by default on this model family and is billed against the same ceiling,
@@ -61,11 +111,110 @@ MODEL_DIFF_CHAR_BUDGET = 3000
 #: a word end otherwise, never mid-word, with an ellipsis marking the cut.
 SPOKEN_SUMMARY_CHAR_BUDGET = 180
 
-#: Seconds a model call may run before it is abandoned to the labelled
-#: local fallback. The production function budget is 30 seconds; a call
-#: that outlives this deadline degrades with the timeout reason instead of
-#: dying to a hard function timeout with no answer at all.
+#: Seconds each model call is given before it is abandoned to the labelled
+#: local fallback. The production function budget is 30 seconds. This is the
+#: SDK's ``timeout``, which httpx applies to each phase of one request on its
+#: own (connect, write, each read, pool), so it bounds every wait on the
+#: network rather than the wall-clock time of the call; SigV4 signing, which
+#: may look up credentials, and building the client run outside it. Every
+#: attempt of one press shares one ``MODEL_CALL_TIMEOUT_SEC`` budget for
+#: deciding whether a retry fits and how long it may wait, and the client is
+#: built with no SDK retries: the SDK retries a timed-out request by default,
+#: so a slow call could otherwise wait three times 25 seconds.
 MODEL_CALL_TIMEOUT_SEC = 25
+
+#: A press whose first answer carries no text, or whose first call fails
+#: with a transient error (HTTP 429 or 5xx, or a connection error), is tried
+#: once more, but only when at least this many seconds of the budget remain
+#: after any wait the service asked for in ``retry-after``. The second attempt
+#: gets the time that is left, never a fresh 25 seconds. This replaces the
+#: SDK's own retries, which ignored the budget.
+RETRY_MIN_REMAINING_SEC = 8.0
+
+#: Wait before retrying a transient error when the service names none, the
+#: SDK's own first backoff.
+RETRY_DEFAULT_WAIT_SEC = 0.5
+
+#: The request text, unchanged from the build that was live on 2026-10-06.
+#: Measured that day against anthropic.claude-opus-5, the model pinned then,
+#: in eu-west-1 with the take-4 permissions.py patch (16 calls, ledger outside
+#: the repository):
+#:
+#: * this prompt and request body (231 input tokens): 2 of 4 calls ended in
+#:   text; the other 2 were refused (stop_reason "refusal", stop_details
+#:   category "cyber", no content, 0 output tokens, 1.5 to 3.2 seconds).
+#:   Call 2 was refused and call 3, the same body one second later, answered;
+#: * two trial request bodies, run in the 4 minutes after, both at effort
+#:   "low" with adaptive thinking stated: 0 of 12 ended in text, every one the
+#:   same refusal. Body A (305 input tokens) added a system prompt with an
+#:   instruction to flag a weakened authorization or validation rule; its 4
+#:   presses each resent the same body once after the refusal, 8 calls in all.
+#:   Body B (220 input tokens) was this prompt without its last sentence.
+#:   The ledger's settings field does not record the system prompt or the
+#:   trim; the input token counts are what tell the two bodies apart.
+#:
+#: The trials fell in one window, so settings and time cannot be separated,
+#: and no trial setting ever produced an answer to measure. The request body
+#: therefore stays the one with live evidence behind it, and the refusals were
+#: answered by changing the model instead (see ``DEFAULT_MODEL_ID``).
+PROMPT_TEMPLATE = (
+    "You are Volcan, an accessibility agent assisting a visually impaired engineer. "
+    "Summarize the following code changes into a clear, concise (under 25 words) "
+    "executive spoken summary. Identify any high-risk changes.\n\n"
+    "Diff:\n{diff}"
+)
+
+#: Private operator telemetry: one structured line per model call, holding
+#: the shape of the answer and never its words, ids or ARNs. The logger has no
+#: handler of its own. In Lambda the runtime's root handler writes its records
+#: to CloudWatch Logs: the ``volcan-voice-ide`` logger, set up the same way,
+#: delivered 11 ``[INFO]`` lines to this function's log group between
+#: 2026-09-23 and 2026-09-29. A local process with no root handler drops them.
+_telemetry = logging.getLogger("volcan.bedrock")
+_telemetry.setLevel(logging.INFO)
+
+#: Why a model message carried no text a voice could say. Each cause has its
+#: own public sentence, because "the model declined it" and "it wrote
+#: nothing" call for different actions from the person reading the reason.
+NO_TEXT_REFUSAL = "refusal"
+NO_TEXT_MAX_TOKENS = "max_tokens"
+NO_TEXT_THINKING_ONLY = "thinking_only"
+NO_TEXT_EMPTY_TEXT = "empty_text"
+NO_TEXT_NO_CONTENT = "no_content"
+
+_FALLBACK_TAIL = "; the local deterministic digest answered instead"
+NO_TEXT_PUBLIC_REASONS = {
+    # The safety classifier that runs with the model, reported as stop_reason
+    # "refusal" with a stop_details category. Not Amazon Bedrock Guardrails,
+    # which this deployment does not configure.
+    NO_TEXT_REFUSAL: "The model's safety classifier declined to summarize this patch" + _FALLBACK_TAIL,
+    NO_TEXT_MAX_TOKENS: "Amazon Bedrock used its whole output allowance before writing an answer" + _FALLBACK_TAIL,
+    NO_TEXT_THINKING_ONLY: "Amazon Bedrock reasoned about the patch but wrote no answer" + _FALLBACK_TAIL,
+    NO_TEXT_EMPTY_TEXT: "Amazon Bedrock returned an empty answer" + _FALLBACK_TAIL,
+    NO_TEXT_NO_CONTENT: "Amazon Bedrock returned no usable text block" + _FALLBACK_TAIL,
+}
+
+#: Causes worth one more attempt within the budget. A refusal is not one, by
+#: design rather than by measurement: it is the model's safety decision on
+#: this input, and Volcan reports it instead of asking again until a request
+#: gets through. On the live request body a resend might well answer (call 2
+#: was refused and call 3, the same body, answered a second later); the
+#: 0 of 4 recovered by resends on 2026-10-06 were on trial body A, not this one.
+#: Running out of output room would only happen again with the same allowance.
+RETRYABLE_NO_TEXT = frozenset({NO_TEXT_THINKING_ONLY, NO_TEXT_EMPTY_TEXT, NO_TEXT_NO_CONTENT})
+
+
+class NoSpokenText(Exception):
+    """A model message arrived but carried no text a voice could say."""
+
+    def __init__(self, cause: str, stop_reason: str | None = None):
+        super().__init__(f"the Bedrock response carried no text block ({cause})")
+        self.cause = cause
+        self.stop_reason = stop_reason
+
+    @property
+    def public_reason(self) -> str:
+        return NO_TEXT_PUBLIC_REASONS.get(self.cause, NO_TEXT_PUBLIC_REASONS[NO_TEXT_NO_CONTENT])
 
 
 def shorten_for_speech(text: str, budget: int = SPOKEN_SUMMARY_CHAR_BUDGET) -> str:
@@ -206,7 +355,7 @@ class BedrockSynthesisAdapter:
             capability = CAPABILITY_READY
             detail = (
                 "Credentials resolved and the SDK is importable, so a Bedrock call will be "
-                f"attempted with model {self.model_id}. Whether one answers is reported per "
+                f"attempted with model {public_model_label(self.model_id)}. Whether one answers is reported per "
                 "digest as synthesis_mode, with the reason beside it when none did."
             )
         elif credentials:
@@ -233,7 +382,9 @@ class BedrockSynthesisAdapter:
             "detail": detail,
             "credentials_present": credentials,
             "sdk_installed": sdk,
-            "model_id": self.model_id,
+            # The same label as the answers and the log line: an override that
+            # is an inference-profile ARN carries an account id.
+            "model_id": public_model_label(self.model_id),
             "region": self.region_name,
         }
 
@@ -242,51 +393,177 @@ class BedrockSynthesisAdapter:
             return self._client_factory(self.region_name)
         from anthropic import AnthropicBedrockMantle
 
-        return AnthropicBedrockMantle(aws_region=self.region_name)
+        # No SDK retries: MODEL_CALL_TIMEOUT_SEC is the deadline for the whole
+        # press, and this adapter decides itself whether a second attempt fits.
+        return AnthropicBedrockMantle(aws_region=self.region_name, max_retries=0)
 
     @staticmethod
-    def _first_text_block(message) -> str:
-        """The first text block of a Bedrock response.
+    def _field(obj, name):
+        """Read a field from an SDK object or from a stub's plain dictionary."""
+        if isinstance(obj, dict):
+            return obj.get(name)
+        return getattr(obj, name, None)
+
+    @classmethod
+    def _first_text_block(cls, message) -> str:
+        """The first non-empty text block of a Bedrock response.
 
         Indexing ``content[0]`` is wrong on a model that thinks: the first block
         is then a thinking block and the digest raises instead of speaking. The
         blocks arrive as SDK objects, and as plain dictionaries from a stub, so
-        both shapes are read the same way.
-        """
-        blocks = getattr(message, "content", None)
-        if blocks is None and isinstance(message, dict):
-            blocks = message.get("content")
+        both shapes are read the same way. A message with no such block raises
+        ``NoSpokenText`` naming why, read from ``stop_reason`` and the blocks.
 
-        for block in blocks or []:
-            if isinstance(block, dict):
-                block_type, text = block.get("type"), block.get("text")
-            else:
-                block_type, text = getattr(block, "type", None), getattr(block, "text", None)
+        A refusal raises even when text came first: a classifier can stop a
+        message after partial output, and a sentence it cut off is not an
+        answer to speak as if a model had finished it.
+        """
+        stop_reason = cls._field(message, "stop_reason")
+        if stop_reason == "refusal":
+            raise NoSpokenText(NO_TEXT_REFUSAL, stop_reason)
+        blocks = cls._field(message, "content") or []
+        types = []
+        for block in blocks:
+            block_type, text = cls._field(block, "type"), cls._field(block, "text")
+            types.append(block_type)
             if block_type == "text" and text and text.strip():
                 return text.strip()
 
-        raise ValueError("the Bedrock response carried no text block")
+        if stop_reason == "max_tokens":
+            cause = NO_TEXT_MAX_TOKENS
+        elif "text" in types:
+            cause = NO_TEXT_EMPTY_TEXT
+        elif any(t in ("thinking", "redacted_thinking") for t in types):
+            cause = NO_TEXT_THINKING_ONLY
+        else:
+            cause = NO_TEXT_NO_CONTENT
+        raise NoSpokenText(cause, stop_reason)
+
+    @classmethod
+    def _log_model_call(cls, attempt: int, latency_ms: int, message=None, error=None,
+                        model: str | None = None) -> dict:
+        """Emit one private telemetry line for one model call and return it.
+
+        Only the shape of the answer is recorded: the model asked, stop
+        reason, the refusal category (a fixed enum), each block's type and
+        character count, and token usage. The model is recorded by
+        ``public_model_label``, so a configured inference-profile ARN is never
+        written. The answer's words, the refusal explanation, message and
+        request ids, and exception messages (which can carry account ids and
+        ARNs) never are.
+        """
+        line: dict = {"event": "bedrock_model_call", "attempt": attempt, "latency_ms": latency_ms}
+        if model is not None:
+            line["model"] = public_model_label(model)
+        if error is not None:
+            line["outcome"] = "error"
+            line["error_type"] = type(error).__name__
+        else:
+            blocks = []
+            for block in cls._field(message, "content") or []:
+                block_type = cls._field(block, "type")
+                body = cls._field(block, "text") if block_type == "text" else cls._field(block, "thinking")
+                blocks.append({"type": block_type, "chars": len(body) if isinstance(body, str) else None})
+            stop_details = cls._field(message, "stop_details")
+            usage = cls._field(message, "usage")
+            details = cls._field(usage, "output_tokens_details") if usage is not None else None
+            line.update({
+                "outcome": "message",
+                "stop_reason": cls._field(message, "stop_reason"),
+                "refusal_category": cls._field(stop_details, "category") if stop_details is not None else None,
+                "blocks": blocks,
+                "usage": None if usage is None else {
+                    "input_tokens": cls._field(usage, "input_tokens"),
+                    "output_tokens": cls._field(usage, "output_tokens"),
+                    "thinking_tokens": cls._field(details, "thinking_tokens") if details is not None else None,
+                    "cache_read_input_tokens": cls._field(usage, "cache_read_input_tokens"),
+                    "cache_creation_input_tokens": cls._field(usage, "cache_creation_input_tokens"),
+                },
+            })
+        _telemetry.info(json.dumps(line, default=str))
+        return line
+
+    @staticmethod
+    def _is_transient(exc: Exception) -> bool:
+        """An error the SDK would have retried: HTTP 429 or 5xx, or a dropped
+        connection. A timeout is not one here; it has used up the budget."""
+        status = getattr(exc, "status_code", None)
+        if isinstance(status, int):
+            return status == 429 or status >= 500
+        return type(exc).__name__ == "APIConnectionError"
+
+    @staticmethod
+    def _retry_wait(exc: Exception) -> float:
+        """Seconds to wait before retrying ``exc``: the service's
+        ``retry-after-ms`` or ``retry-after`` (in seconds) when it sends one,
+        as the SDK honours them, and ``RETRY_DEFAULT_WAIT_SEC`` otherwise."""
+        response = getattr(exc, "response", None)
+        headers = getattr(response, "headers", None)
+        if headers is not None:
+            for name, scale in (("retry-after-ms", 0.001), ("retry-after", 1.0)):
+                try:
+                    value = float(headers.get(name)) * scale
+                except (TypeError, ValueError):
+                    continue
+                if value >= 0:
+                    return value
+        return RETRY_DEFAULT_WAIT_SEC
 
     def _invoke(self, diff_excerpt: str) -> str:
         """The blocking client call, run off the event loop by the caller.
 
         ``diff_excerpt`` is already cut to ``MODEL_DIFF_CHAR_BUDGET`` by the
         caller, which records what the model saw; this method sends it whole.
+
+        All attempts share one budget of ``MODEL_CALL_TIMEOUT_SEC``, counted
+        from the first call. A first answer with no text (other than a refusal
+        or a spent output allowance), or a first call that fails transiently,
+        is tried once more when at least ``RETRY_MIN_REMAINING_SEC`` remain
+        after the wait, with the remaining time as its timeout; otherwise the
+        ``NoSpokenText`` or the error reaches the caller. When a first answer
+        had no text and the second call then fails, the first cause is what
+        reaches the caller, chained to the second error; telemetry has both.
         """
         client = self._build_client()
-        prompt = (
-            "You are Volcan, an accessibility agent assisting a visually impaired engineer. "
-            "Summarize the following code changes into a clear, concise (under 25 words) "
-            "executive spoken summary. Identify any high-risk changes.\n\n"
-            f"Diff:\n{diff_excerpt}"
-        )
-        message = client.messages.create(
-            model=self.model_id,
-            max_tokens=DEFAULT_MAX_TOKENS,
-            timeout=MODEL_CALL_TIMEOUT_SEC,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return self._first_text_block(message)
+        prompt = PROMPT_TEMPLATE.format(diff=diff_excerpt)
+        deadline = time.monotonic() + MODEL_CALL_TIMEOUT_SEC
+        attempt = 0
+        first_no_text: NoSpokenText | None = None
+        while True:
+            attempt += 1
+            remaining = deadline - time.monotonic()
+            started = time.monotonic()
+            try:
+                message = client.messages.create(
+                    model=self.model_id,
+                    max_tokens=DEFAULT_MAX_TOKENS,
+                    timeout=MODEL_CALL_TIMEOUT_SEC if attempt == 1 else remaining,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+            except Exception as exc:
+                self._log_model_call(attempt, round((time.monotonic() - started) * 1000), error=exc,
+                                     model=self.model_id)
+                if first_no_text is not None:
+                    raise first_no_text from exc
+                if attempt >= 2 or not self._is_transient(exc):
+                    raise
+                wait = self._retry_wait(exc)
+                if deadline - time.monotonic() - wait < RETRY_MIN_REMAINING_SEC:
+                    raise
+                time.sleep(wait)
+                continue
+            self._log_model_call(attempt, round((time.monotonic() - started) * 1000), message=message,
+                                 model=self.model_id)
+            try:
+                return self._first_text_block(message)
+            except NoSpokenText as no_text:
+                if (
+                    attempt >= 2
+                    or no_text.cause not in RETRYABLE_NO_TEXT
+                    or deadline - time.monotonic() < RETRY_MIN_REMAINING_SEC
+                ):
+                    raise
+                first_no_text = no_text
 
     @staticmethod
     def _public_failure_reason(exc: Exception) -> str:
@@ -298,6 +575,18 @@ class BedrockSynthesisAdapter:
         announcement. Classification therefore uses the exception type and
         message internally but returns only fixed product-owned sentences.
         """
+        # A message that arrived without text is classified by its own cause,
+        # before any substring matching could misread its wording.
+        if isinstance(exc, NoSpokenText):
+            return exc.public_reason
+        throttled = (
+            "Amazon Bedrock temporarily throttled this request; "
+            "the local deterministic digest answered instead"
+        )
+        # The SDK's RateLimitError reads "ratelimiterror error code: 429 ...
+        # rate_limit_error", which no wording rule below matched.
+        if getattr(exc, "status_code", None) == 429:
+            return throttled
         category = f"{type(exc).__name__} {exc}".lower()
         if "permission" in category or "accessdenied" in category or "unauthorized" in category:
             return (
@@ -309,19 +598,11 @@ class BedrockSynthesisAdapter:
                 "The configured Amazon Bedrock model is unavailable in this deployment; "
                 "the local deterministic digest answered instead"
             )
-        if "throttl" in category or "rate limit" in category:
-            return (
-                "Amazon Bedrock temporarily throttled this request; "
-                "the local deterministic digest answered instead"
-            )
+        if any(word in category for word in ("throttl", "rate limit", "ratelimit", "rate_limit")):
+            return throttled
         if "timeout" in category or "timed out" in category:
             return (
                 "Amazon Bedrock did not answer before the request deadline; "
-                "the local deterministic digest answered instead"
-            )
-        if isinstance(exc, ValueError) and "no text block" in category:
-            return (
-                "Amazon Bedrock returned no usable text block; "
                 "the local deterministic digest answered instead"
             )
         return (
@@ -377,6 +658,7 @@ class BedrockSynthesisAdapter:
             model_prose_full=strip_markdown_for_speech(content_text),
             model_input_chars_sent=len(excerpt),
             model_input_chars_total=len(raw_diff),
+            model_answered=public_model_label(self.model_id),
         )
 
     def summarize_locally(

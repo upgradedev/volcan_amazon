@@ -136,7 +136,7 @@ code operator named (`user.role not equals 'admin'`), while the screen and the B
 the literal `!=`.
 
 **Time to first result, measured on the development machine on 2026-09-26.** Step 1 collects
-858 tests (`python -m pytest tests/ --collect-only -q`); CI run 37432272539 on master at `f9e5135` printed `854 passed` on 2026-10-06 (the count is the claim; the duration varies run to run; CI run 36804593070 at `fc10e7d` printed 751 on 2026-10-01; 737 on 2026-09-30; 725 on 2026-09-29;
+889 tests (`python -m pytest tests/ --collect-only -q`, 2026-10-06); CI run 37508504877 on PR #35 at `bceecb0` printed `884 passed` and CI run 37432272539 on master at `f9e5135` printed `854 passed` on 2026-10-06 (the count is the claim; the duration varies run to run; CI run 36804593070 at `fc10e7d` printed 751 on 2026-10-01; 737 on 2026-09-30; 725 on 2026-09-29;
 723 earlier that day, before the Lambda SSE-bridge disconnect fix; 707 on 2026-09-28, before the persona-review gates moved into this repository; 703 earlier that day, before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 646 earlier that day, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 on 2026-09-27 before the single review cursor and the local revision in /health; that
 day, before the version-header fix and the replay panel, it was 631, before the JavaScript and TypeScript rules and the Alexa+ package, it was 577, and before the audit fixes 623). The server in step 2 answered its first `GET /health` with HTTP 200 **1.7 seconds**
 after launch on 2026-09-26 (three runs that day read 1.7, 1.7 and 1.8 s), printed by [`scripts/measure_cold_start.py`](../scripts/measure_cold_start.py),
@@ -230,14 +230,50 @@ line by line, and on `confirm` printed `Dry run. Nothing was sent to GitHub. The
 is still 02a87ce, and the exact request Volcan would send has been recorded.`
 
 **Real code with a labelled fallback, and a stated reason.** The Amazon Bedrock adapter calls
-Claude on Amazon Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client, pinned to
-`anthropic.claude-opus-5`. When the call cannot be made or fails, the deterministic local path
+Claude on Amazon Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client. The default
+model is `anthropic.claude-sonnet-5` from 2026-10-06 (before that, `anthropic.claude-opus-5`; see
+[Model choice](#model-choice-2026-10-06)), and `AWS_BEDROCK_MODEL_ID` overrides it. A model answer
+names the model its request asked for in `model_answered`, which the companion prints after the
+coverage line, so neither the page nor these documents need to name the model from a constant.
+The field is the configured id; it is not read back from the response, so it records the model
+requested rather than one the response confirmed. An override that is not a bare model id, such
+as an inference-profile ARN, is reported as "a configured inference profile" in
+`model_answered`, in the `volcan.bedrock` log line and in `GET /health` (its `model_id` and its
+`detail` sentence), never verbatim; `tests/unit/test_health_reports_the_resolved_model_path.py`
+sets an ARN and reads `/health`. When the call cannot be made or fails, the deterministic local path
 runs instead. Every response carries `synthesis_mode`, which is `"bedrock"` when a model
 answered and `"heuristic-local"` when none did, **and `synthesis_fallback_reason`, which says
 why without returning the provider's raw payload**. The companion prints both beside the
 synthesis meter. An unexplained fallback is indistinguishable from a design decision, while a
 verbatim cloud error can expose account, role and request identifiers. Volcan returns a fixed
 category for permission, unavailable-model, throttling, timeout and malformed-response cases.
+A message that arrives with no text to speak gets its own sentence for each cause: the model's
+safety classifier declined the patch (`stop_reason` `refusal`, even after partial text; this is
+the classifier that runs with the model, not Amazon Bedrock Guardrails, which this deployment
+does not configure), the model reasoned but wrote nothing, it wrote only whitespace, or it used
+its whole output allowance. On 2026-10-06 the live "Hear this code review" press fell back in
+2 of 4 takes with the generic "no usable text block". What was observed live: in each failed
+take the press made one model call, with 231 input and 0 output tokens (`AWS/BedrockMantle`
+`Inferences`, `InputTokens` and `OutputTokens` for `anthropic.claude-opus-5` in eu-west-1, per
+minute, matched to the press by time and input size); the presses took 16.6 s (take 1) and
+1.6 s (take 4) of Lambda time. Thinking tokens count as output, so 0 output tokens rules out
+a thinking-only answer and a spent output allowance. The stop reason was not logged live.
+Reproduced with SDK 1.8.0, the version in the deployed package (the `22c32ab` package carries
+`anthropic-1.8.0.dist-info`, and its SHA-256 matched the live function's code hash at the
+2026-10-06 deploy; that deploy reused the live dependencies rather than resolving them, so
+`pyproject.toml` now pins `anthropic[bedrock]==1.8.0` for any build that does), and the same request body, the only shape
+with 0 output tokens was a refusal (`stop_reason` `refusal`, category `cyber`, no content, 1.5
+to 3.2 s), in 2 of 4 calls; the other 2 answered. So a refusal is the likely cause of the live
+fallbacks, inferred from their token shape rather than seen. The request body is unchanged: two
+trial bodies (a system prompt, with one resend per press; a trimmed prompt) were refused in
+all 12 calls and were not kept. Each model call now writes one private log line on the
+`volcan.bedrock` logger with latency, stop reason, refusal category, block types with character
+counts and token usage, and never the model's words, the refusal explanation, ids or ARNs. The
+logger has no handler of its own and relies on the Lambda runtime's root handler; the
+`volcan-voice-ide` logger, set up the same way, delivered 11 `[INFO]` lines to the function's
+log group between 2026-09-23 and 2026-09-29 (`aws logs filter-log-events --log-group-name
+/aws/lambda/volcan-mcp-euw1-prod --filter-pattern '"[INFO]"'`). The `volcan.bedrock` lines
+themselves are unproven until this build is deployed.
 
 **The model reads a prefix; the rules read the patch.** The model is shown the first 3000
 characters of the diff (`MODEL_DIFF_CHAR_BUDGET`); the local rules parse the whole patch, so a
@@ -249,16 +285,85 @@ characters go to Amazon Bedrock when a model is available. Speech never hears Ma
 emphasis, ticks, links, headers and bullets are stripped, code-shaped stars kept, before the
 summary is cut and before operators are named. A fenced code block keeps every character,
 its diff `-` and `+` and its `#` comment markers included, and its fence lines become
-"Code:" and "End of code."; the full-answer panel gets the same text. A model call has 25 seconds inside the
-30-second function budget, and patches past one million characters are refused with 422.
+"Code:" and "End of code."; the full-answer panel gets the same text. A model call is given a
+25-second timeout inside the 30-second function budget, and every attempt of one press shares
+that 25-second budget. The timeout is httpx's, applied to each network phase (connect, write,
+each read) on its own, and SigV4 signing and building the client run outside it, so it bounds
+the waits on the network rather than the wall-clock time of the press. The client makes no
+retries of its own, because the SDK's default two retries of a timed-out call could wait 75
+seconds. Instead, a thinking-only, empty or contentless answer, or a 429, 5xx or connection
+error, is tried once more only when at least 8 seconds remain after any `retry-after` wait,
+and gets only the time left. A 429 is reported as throttling, matched on its status code. A
+refusal is reported and not resent. That is a choice, not a measurement: on the live request
+body one call was refused and the next, identical, answered a second later, so a resend might
+well work; the 0 of 4 recovered by resends were on a trial body. When a first answer had no
+text and the retry then fails, the first cause is the one reported. Patches past one million
+characters are refused with 422.
 Covered by `tests/unit/test_model_evidence_reaches_the_api.py`,
 `tests/e2e/test_model_coverage_display.py` and the spoken-form tests; added 2026-10-01 after a
 review found the evidence fields dropped in the use case and `**Spoken summary:**` read aloud.
+
+<a id="model-choice-2026-10-06"></a>
+**Model choice, 2026-10-06.** The refusals above come from the model's safety classifier, so the
+model was measured, not the prompt. Every call went to the Bedrock Mantle endpoint in eu-west-1
+through this adapter with SDK 1.8.0 (the deployed version, now pinned in `pyproject.toml`), the request body unchanged and one
+call per press, on two patches: the take-4 `permissions.py` patch, and the first 3000 characters
+of `gh pr diff 1 -R upgradedev/volcan-demo-service` (an inverted `is_admin` and CORS origins set
+to `"*"`). Whether an answer named the risk was judged from its text in memory, by keyword, and
+the text was then discarded; the ledger, outside this repository, keeps only the shape of each
+call.
+
+| Model | Refused | Full answer names the risk | Spoken cut names the risk | Seconds per call |
+|---|---|---|---|---|
+| `anthropic.claude-sonnet-5` (new default) | 0 of 8 | 8 of 8 | 8 of 8 | 1.7 to 3.4 |
+| `anthropic.claude-haiku-4-5` | 0 of 8 | 8 of 8 | 4 of 8 (0 of 4 on pull request 1) | 1.1 to 2.5 |
+| `anthropic.claude-opus-5` (old default), take-4 patch | 2 of 4 | not judged | not judged | 1.5 to 5.8 |
+| `anthropic.claude-opus-5`, pull request 1 | 0 of 2 | 2 of 2 | 2 of 2 | 4.1 and 6.6 |
+
+The Opus 5 take-4 row is the earlier reproduction above, made before the risk was judged, in a
+window in which the next 12 calls, on two trial bodies, were all refused; Opus 5 was not re-run on
+the take-4 body beside Sonnet 5. Earlier the same day three more Opus 5 calls with the same 231
+input tokens, two local and one through the live function, were not empty refusals: their output
+tokens were 114, 160 and 273 (reconstructed from CloudWatch `AWS/BedrockMantle` metrics, with no
+stop reason recorded). So this is not a controlled comparison. On the take-4 body, 2 of 4
+refused against 0 of 4 is not a significant difference (Fisher two-sided p about 0.43), and
+across both patches 2 of 6 against 0 of 8 is not either (p about 0.17). The table supports "Sonnet
+5 did not refuse in 8 calls"; it does not show that Sonnet 5 refuses less often than Opus 5.
+`anthropic.claude-sonnet-5-5` answered 404 on its first call: the Mantle model list for eu-west-1
+(`GET /v1/models` on the Mantle endpoint) carries `anthropic.claude-opus-5`,
+`anthropic.claude-opus-4-8`, `anthropic.claude-opus-4-7`, `anthropic.claude-sonnet-5` and
+`anthropic.claude-haiku-4-5`, and no Sonnet 5.5. `anthropic.claude-opus-4-8` timed out at 25 s on
+its first call and answered 403 on its second, so it was not measured. Haiku 4.5 was faster, but
+on pull request 1 it led with the new endpoint, and the spoken cut, the first 180 characters,
+named no risk in 4 of 4. Sonnet 5 named the inverted check in all 8 spoken cuts, and CORS as well
+in 3 of the 4 on pull request 1. The spoken cut is not the first thing a listener hears when a
+local rule matched: level 0 speaks the local finding first and the model's cut after it, so on
+both patches measured the risk was heard with either model. The cut carries the risk alone only
+when no local rule matched, and that is why it decided between two models that tied on refusals
+and on the full answer; by latency alone, Haiku 4.5 (median 1.6 s against 2.2 s) would have won.
+No patch without a local finding was measured, so the cut's value in that case is extrapolated
+from these two patches, not measured.
+Sonnet 5 is the default, with one call per press. Eight calls
+cannot show a refusal rate of zero, and Sonnet 5 runs a cyber classifier too; a refusal still
+reaches the listener as its own named reason with the local digest beside it. 21 calls in all,
+24 allowed, the 404, the timeout and the 403 among them, made from a local machine and not by the
+live function, which keeps the model it was deployed with until it is redeployed.
 
 The client uses the account-scoped Bedrock Mantle project. The checked-in infrastructure
 defines that permission as a separate policy behind `enable_bedrock_mantle=false`; the
 durable-state plan does not add model authority by default. Enabling it is a separate owner
 decision. A deployment without the grant falls back with the bounded permission category.
+On 2026-10-06 the live role `volcan-lambda-role-euw1-prod` had the managed policy
+`volcan-bedrock-mantle-euw1-prod` attached beside `AWSLambdaBasicExecutionRole` and one inline
+policy (`aws iam list-attached-role-policies` and `aws iam list-role-policies`, names only), and
+the live function's environment did not set `AWS_BEDROCK_MODEL_ID` (`aws lambda
+get-function-configuration`, keys only). The policy's document was not read, and a role that may
+call one model may still need per-model access for another: `anthropic.claude-opus-4-8` answered
+403 to the same local credentials that `anthropic.claude-sonnet-5` answered. Whether the function
+role can call `anthropic.claude-sonnet-5` is unverified until a deployed press answers. Before a
+`terraform apply` against this account, pass `-var enable_bedrock_mantle=true`, or first confirm
+with `terraform state list` that the Mantle policy is not in state: if it is, the default plan
+destroys it, and every press then falls back with the permission category.
 `/health` reports readiness to attempt; only the digest's `synthesis_mode` reports whether
 the model answered.
 
@@ -952,7 +1057,7 @@ estimate unless it says ESTIMATE.
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **23 of 23 conformance checks pass**, stateful on port 8841 and stateless (`VOLCAN_MCP_SESSION_MODE=stateless`, `--expect-mode stateless`) on port 8842, 2026-09-27 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 858 collected (`python -m pytest tests/ --collect-only -q`). CI run 37432272539 on master at `f9e5135`: `854 passed`, 93.52% statement coverage (5029 statements, 326 missed), including a real Chromium judge journey and Lambda bridge, and the readiness step printed `46/53 passed, 0 blocking failures, 7 externally blocked`, 2026-10-06 (CI run 36804593070 at `fc10e7d`: 751 passing, 93.18% with 4734 statements and 323 missed, 2026-10-01; 751 and 92.84% with 339 missed on the development machine the same day; 737 and 92.89% on 2026-09-30; 725 and 92.74% on 2026-09-29; 723 and 92.67% earlier that day before the Lambda SSE-bridge disconnect fix; 707 and 92.67% on 2026-09-28 before the persona-review gates; 703 and 92.67% earlier that day before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 684 and 92.62% before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 889 collected (`python -m pytest tests/ --collect-only -q`, 2026-10-06, on PR #35 after `bceecb0`). CI run 37508504877 on PR #35 at `bceecb0`, 2026-10-06: `884 passed`, 93.67% statement coverage (5099 statements, 323 missed), readiness `46/53 passed, 0 blocking failures, 7 externally blocked`. The five tests added after that run are not in it. Before it, CI run 37432272539 on master at `f9e5135`: `854 passed`, 93.52% statement coverage (5029 statements, 326 missed), including a real Chromium judge journey and Lambda bridge, and the readiness step printed `46/53 passed, 0 blocking failures, 7 externally blocked`, 2026-10-06 (CI run 36804593070 at `fc10e7d`: 751 passing, 93.18% with 4734 statements and 323 missed, 2026-10-01; 751 and 92.84% with 339 missed on the development machine the same day; 737 and 92.89% on 2026-09-30; 725 and 92.74% on 2026-09-29; 723 and 92.67% earlier that day before the Lambda SSE-bridge disconnect fix; 707 and 92.67% on 2026-09-28 before the persona-review gates; 703 and 92.67% earlier that day before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 684 and 92.62% before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.7 s on 2026-09-26 (three runs: 1.7, 1.7, 1.8 s) | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 31.3 ms on the first press, then 38.9, 30.5 and 28.7 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credentials | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -1501,6 +1606,9 @@ simulator in isolation mode, and record which headers the real client sends.
     "region": "us-east-1"
   }
   ```
+
+  That reading is from 2026-09-08. The default `model_id` became `anthropic.claude-sonnet-5`
+  on 2026-10-06 ([Model choice](#model-choice-2026-10-06)).
 
   Even `ready_to_attempt` promises an attempt and not an answer; only `synthesis_mode` on a
   digest reports what happened, and

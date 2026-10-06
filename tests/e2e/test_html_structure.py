@@ -1010,6 +1010,8 @@ def test_the_speech_pane_reports_what_the_model_read():
     assert "data.model_input_chars_sent" in provenance and "data.model_input_chars_total" in provenance
     assert "The model read the first " in provenance and "the local rules still read the whole patch" in provenance
     assert "model_prose_full === null" in provenance or "model_prose_full == null" in provenance
+    # The model is named from the answer, so the page cannot misname it.
+    assert "data.model_answered" in provenance and '" Answered by "' in provenance
 
 
 def test_the_patch_help_names_the_model_data_flow():

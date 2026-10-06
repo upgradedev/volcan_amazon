@@ -20,8 +20,12 @@ dependencies = [
 [project.optional-dependencies]
 #: Only the Amazon Bedrock synthesis path needs this. Everything else, the MCP
 #: server included, runs without it and says so when the path is unavailable.
+#: Pinned to the version the 2026-10-06 model measurements used (see
+#: DEFAULT_MODEL_ID in src/infrastructure/bedrock_adapter.py). The Lambda
+#: package is built outside this repository, so the pin binds only builds
+#: that resolve from this file.
 bedrock = [
-    "anthropic[bedrock]",
+    "anthropic[bedrock]==1.8.0",
 ]
 dev = [
     "pytest>=8.0.0",
