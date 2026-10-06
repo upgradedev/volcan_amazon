@@ -68,6 +68,7 @@ Environment:
 
 from __future__ import annotations
 
+import array
 import hashlib
 import json
 import os
@@ -76,6 +77,7 @@ import re
 import subprocess
 import sys
 import urllib.parse
+import wave
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 SPEC = pathlib.Path(__file__).with_name("narration.json")
@@ -95,6 +97,9 @@ PAGE_WIDTH, PAGE_HEIGHT, PAGE_X = 1632, 918, 144
 # the programme to -16 LUFS. The earcon sits a little under the voices because a
 # pure tone reads louder than speech at the same integrated level.
 SOURCE_TARGET_LUFS = {"narration": -20.0, "speech": -21.0, "earcon": -22.0}
+# The silence floor of scripts/verify_video_sync.py (silencedetect noise=-40dB). A rendered
+# sentence counts toward a_main only while it is louder than this in the mix.
+AUDIBLE_FLOOR_DB = -40.0
 PRODUCT_SPEAKER = "Volcan (product voice)"
 PRODUCT_COLOUR = "#ffc857"
 PRODUCT_CUE_CHARACTERS = 72
@@ -310,17 +315,50 @@ def video_graph(*, cold_open: bool, cold_seconds: float, total: float, trim_lead
             "[title][content][outro]concat=n=3:v=1:a=0[v]"]
 
 
-def screencast_sound_end(scenes: list[dict[str, object]], speech: list[dict[str, object]]) -> float:
+def audible_seconds(path: pathlib.Path, gain_db: float, floor_db: float = AUDIBLE_FLOOR_DB) -> float:
+    """Seconds from the start of a 16-bit PCM WAV to the end of its last audible sample.
+
+    A sample is audible when, after the gain the mix gives this file, it is louder than
+    floor_db below full scale: the sync gate's own silence floor. A rendered sentence's
+    trailing silence is therefore not counted as sound. A gain that attenuates the file
+    can only move this end earlier."""
+    with wave.open(str(path), "rb") as source:
+        if source.getsampwidth() != 2:
+            raise SystemExit(f"{path.name} is not 16-bit PCM; its audible end cannot be measured")
+        channels = source.getnchannels()
+        rate = source.getframerate()
+        samples = array.array("h", source.readframes(source.getnframes()))
+    if sys.byteorder == "big":
+        samples.byteswap()
+    threshold = 32768.0 * 10 ** ((floor_db - gain_db) / 20)
+    for index in range(len(samples) - 1, -1, -1):
+        if abs(samples[index]) > threshold:
+            return (index // channels + 1) / rate
+    return 0.0
+
+
+def screencast_sound_end(scenes: list[dict[str, object]], speech: list[dict[str, object]],
+                         audible: dict[str, float]) -> float:
     """Timeline second where the last sound before the web beat ends.
 
     That is the end of the last screencast beat's narration, or of a sentence the page
-    spoke in the screencast beats if one ends later: the product voice is speech in the
-    mix too. The sync gate's content-seam check compares this with the web beat's start."""
+    spoke in the screencast beats if one is still audible later: the product voice is
+    speech in the mix too. A sentence counts only up to its audible end (audible maps its
+    file to audible_seconds), and never past the moment the page itself stopped speaking
+    it, so a render's trailing silence is never counted as sound. The sync gate's
+    content-seam check compares this with the web beat's start."""
     web_start = float(scenes[-1]["startSeconds"])
     before_web = scenes[-2]
     ends = [float(before_web["startSeconds"]) + float(before_web["durationSeconds"])]
-    ends += [float(item["timelineSeconds"]) + float(item["seconds"]) for item in speech
-             if float(item["timelineSeconds"]) < web_start]
+    for item in speech:
+        begins = float(item["timelineSeconds"])
+        if begins >= web_start:
+            continue
+        heard = min(float(audible[str(item["file"])]), float(item["seconds"]))
+        page_ended = item.get("pageEndedTimelineSeconds")
+        if page_ended is not None:
+            heard = min(heard, float(page_ended) - begins)
+        ends.append(begins + max(heard, 0.0))
     return max(ends)
 
 
@@ -622,7 +660,11 @@ def main() -> None:
         )
 
     # The sync gate's inputs, computed from timing.json and the receipt's product speech.
-    # The screencast segment is the cold open, when there is one, and beats 1 to 5.
+    # The screencast segment is the cold open, when there is one, and beats 1 to 5. A
+    # sentence the page spoke counts toward a_main only up to its audible end in the mix.
+    audible = {str(item["file"]): round(audible_seconds(CAPTURE / str(item["file"]),
+                                                        gains[pathlib.Path(str(item["file"])).name]), 3)
+               for item in speech}
     web = scenes[-1]
     screencast_seconds = cold_seconds + float(web["startSeconds"])
     manifest = {
@@ -631,15 +673,15 @@ def main() -> None:
         "screencast_dur": round(screencast_seconds, 3),
         "web_dur": float(web["holdSeconds"]),
         "outro_dur": outro_seconds,
-        "a_main": round(cold_seconds + screencast_sound_end(scenes, speech), 3),
+        "a_main": round(cold_seconds + screencast_sound_end(scenes, speech, audible), 3),
         "vo_delay": title_seconds,
         "have_vo": True,
         "segments": ["title", "screencast", "web", "outro"],
         "title_slot": TITLE_SLOT_CARD_THEN_COLD_OPEN if cold_open else TITLE_SLOT_CARD,
         "_note": ("title is the title card; screencast is the cold open, when there is one, and beats 1 "
                   "to 5 of the browser capture; web is beat 6. a_main is where the last sound of the "
-                  "screencast ends: the last screencast beat's narration, or a sentence the page spoke "
-                  "if one ends later. vo_delay is the end of the title card, where the sound may start"),
+                  "screencast ends: the last screencast beat's narration, or the audible end of a sentence "
+                  "the page spoke, at the gate's -40 dB silence floor, if one ends later. vo_delay is the end of the title card, where the sound may start"),
     }
     if rehearsal:
         manifest["_rehearsal"] = "a free rehearsal, not shippable; see the capture receipt"
@@ -694,6 +736,7 @@ def main() -> None:
         "charactersInFinalBeats": sum(int(scene["speechCharacters"]) for scene in scenes),
         "charactersSentToElevenLabsTotal": billed,
         "sourceGainsDb": gains,
+        "speechAudibleSeconds": audible,
         "captureSha256": receipt_in["sha256"],
         "captureVideoPerPageSecond": video_per_page,
         "serverHealth": receipt_in["serverHealth"],

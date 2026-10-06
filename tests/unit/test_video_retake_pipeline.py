@@ -327,16 +327,61 @@ def test_the_composer_and_the_capture_must_agree_on_the_cold_open():
     assert build.check_cold_open(False, 0.0, 6.0, 1.0, {}) is None
 
 
-def test_the_seam_counts_the_page_s_own_speech_before_the_web_beat():
-    scenes = [
-        {"startSeconds": 0.0, "durationSeconds": 8.0, "holdSeconds": 30.0},
-        {"startSeconds": 30.0, "durationSeconds": 10.0, "holdSeconds": 30.0},
-        {"startSeconds": 60.0, "durationSeconds": 10.0, "holdSeconds": 12.0},
-    ]
-    assert build.screencast_sound_end(scenes, []) == 40.0
-    speech = [{"timelineSeconds": 42.0, "seconds": 14.5}, {"timelineSeconds": -10.0, "seconds": 3.0},
-              {"timelineSeconds": 61.0, "seconds": 9.0}]
-    assert build.screencast_sound_end(scenes, speech) == 56.5
+SEAM_SCENES = [
+    {"startSeconds": 0.0, "durationSeconds": 8.0, "holdSeconds": 30.0},
+    {"startSeconds": 30.0, "durationSeconds": 10.0, "holdSeconds": 30.0},
+    {"startSeconds": 60.0, "durationSeconds": 10.0, "holdSeconds": 12.0},
+]
+
+
+def test_the_seam_counts_the_page_s_own_speech_before_the_web_beat_up_to_its_audible_end():
+    assert build.screencast_sound_end(SEAM_SCENES, [], {}) == 40.0
+    speech = [{"file": "a.wav", "timelineSeconds": 42.0, "seconds": 14.5},
+              {"file": "b.wav", "timelineSeconds": -10.0, "seconds": 3.0},
+              {"file": "c.wav", "timelineSeconds": 61.0, "seconds": 9.0}]
+    fully_audible = {"a.wav": 14.5, "b.wav": 3.0, "c.wav": 9.0}
+    assert build.screencast_sound_end(SEAM_SCENES, speech, fully_audible) == 56.5
+    # The last 0.8 s of a.wav is silence: it does not count as sound.
+    assert build.screencast_sound_end(SEAM_SCENES, speech, {**fully_audible, "a.wav": 13.7}) == 55.7
+    # The page stopped speaking a.wav at 54.0 s: the render is not counted past that.
+    cut = [{**speech[0], "pageEndedTimelineSeconds": 54.0}] + speech[1:]
+    assert build.screencast_sound_end(SEAM_SCENES, cut, fully_audible) == 54.0
+    # An audible length can never exceed the rendered length.
+    assert build.screencast_sound_end(SEAM_SCENES, speech, {**fully_audible, "a.wav": 99.0}) == 56.5
+
+
+def write_tone_then_silence(path: pathlib.Path, tone: float, silence: float, amplitude: int) -> None:
+    rate = 22050
+    frames = bytearray()
+    for index in range(int(tone * rate)):
+        value = amplitude if index % 20 < 10 else -amplitude
+        frames += int(value).to_bytes(2, "little", signed=True)
+    frames += bytes(2 * int(silence * rate))
+    with wave.open(str(path), "wb") as out:
+        out.setnchannels(1)
+        out.setsampwidth(2)
+        out.setframerate(rate)
+        out.writeframes(bytes(frames))
+
+
+def test_a_rendered_sentence_s_trailing_silence_does_not_extend_a_main(tmp_path):
+    wav = tmp_path / "speech-4-2-confirm.wav"
+    write_tone_then_silence(wav, tone=2.0, silence=1.0, amplitude=16000)
+    heard = build.audible_seconds(wav, 0.0)
+    assert heard == pytest.approx(2.0, abs=0.001)
+    speech = [{"file": wav.name, "timelineSeconds": 42.0, "seconds": 3.0}]
+    assert build.screencast_sound_end(SEAM_SCENES, speech, {wav.name: heard}) == pytest.approx(44.0, abs=0.001)
+    assert build.screencast_sound_end(SEAM_SCENES, speech, {wav.name: heard}) < 42.0 + 3.0
+
+
+def test_the_audible_end_is_measured_at_the_gate_s_floor_in_the_mix(tmp_path):
+    assert build.AUDIBLE_FLOOR_DB == -40.0
+    wav = tmp_path / "quiet.wav"
+    # A tone at about -46 dBFS: under the floor as rendered, over it with 10 dB of gain.
+    write_tone_then_silence(wav, tone=1.0, silence=0.5, amplitude=160)
+    assert build.audible_seconds(wav, 0.0) == 0.0
+    assert build.audible_seconds(wav, 10.0) == pytest.approx(1.0, abs=0.001)
+    assert build.audible_seconds(wav, -20.0) == 0.0
 
 
 def test_the_band_tag_names_the_build_the_capture_recorded():
