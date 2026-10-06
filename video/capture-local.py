@@ -19,6 +19,20 @@ makes that press, and aborts any other request that would reach a model, so the 
 fails rather than bills more. Replay the documented Alexa+ requests (three calls) is
 never pressed.
 
+Free rehearsal. With --rehearsal the script runs the same journey against a local
+server whose /health says it cannot reach Amazon Bedrock, so the two presses are
+answered by the local heuristic engine and nothing is billed. It refuses a URL that is
+not a loopback address, a server that reports bedrock_model_path ready_to_attempt,
+and --allow-billed-presses beside it. The request guard is armed exactly as for the
+take, so an unplanned request still fails the rehearsal. It writes rehearsal/, never
+capture/, and its receipt says "mode": "rehearsal" and "shippable": false; the build
+refuses that receipt unless it too is run with --rehearsal. Each check that needs
+Amazon Bedrock is listed under notRepresentative with what the local engine did,
+instead of failing. Every other check that would fail the take after the journey is
+collected under failures, so one run reports all of them, and the script exits 1 if
+there are any. Without a measured narration/timing.json it uses a silent timing stub
+built from the plan's ESTIMATE windows in narration.json, in rehearsal/narration-stub/.
+
 What it records and what it refuses to do:
 
 * Every state on screen is the page reacting to a real response from the running
@@ -28,12 +42,13 @@ What it records and what it refuses to do:
 * An init script observes, and only observes, when the page starts each earcon and
   each utterance it hands to the browser's speech engine, and when it cancels speech.
   Those timestamps place the product's own sound in the mix.
-* The cold open fills the title slot: cards.title_seconds of narration.json, before the
+* The cold open follows the title card: cold_open.seconds of narration.json, before the
   first beat, on timeline seconds from minus that length to 0. The pull request was
   opened before it, and its spoken answer has ended before the first frame. Within
   0.5 s the cold-open command (Findings, or File by file with VOLCAN_COLD_OPEN=files)
-  is pressed, and the turn must make its first sound by 2.0 s and speak its first word
-  by 5.0 s.
+  is pressed. The turn must make its first sound by 2.0 s after the title card ends,
+  and speak its first word by 5.0 s from the start of the video, so by 3.0 s into the
+  cold open with the plan's 2.0 s card.
 * Four turns are voiced: the cold-open command, the press of Hear this code review,
   Request changes and Confirm. For each, the earcon mixed into the video is the WAV the
   server returned for that turn, byte for byte, and every sentence is the exact text
@@ -48,7 +63,7 @@ What it records and what it refuses to do:
   or a GitHub review path other than a dry run without a token; if the beats differ
   from this journey; if the press is not answered by Amazon Bedrock, carries a fallback
   reason, or makes its first sound while the narrator is still speaking; if Findings
-  answers that there is no finding; if a voiced turn's speech has not ended inside its
+  answers that no security rule matched; if a voiced turn's speech has not ended inside its
   window or was interrupted; if the page logs an error; if the review dialogue refuses
   a turn; if a request would bill a model call the take did not plan; if the picture
   goes flat for 0.75 s; or if the recording is shorter than the cold open and the
@@ -66,6 +81,7 @@ Environment:
 Usage:
   python video/capture-local.py                          checks only, presses nothing billed
   python video/capture-local.py --allow-billed-presses   records the take: two Bedrock calls
+  python video/capture-local.py --rehearsal              a free rehearsal on a local server
 """
 
 from __future__ import annotations
@@ -95,6 +111,10 @@ EXPECTED_BEATS = [
 VIEWPORT = {"width": 1280, "height": 720}
 REVIEW_COMMENT = "Volcan demo: a dry-run request changes review, recorded and not sent."
 BILLED_FLAG = "--allow-billed-presses"
+REHEARSAL_FLAG = "--rehearsal"
+# A rehearsal drives only a server on this machine.
+REHEARSAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
+TITLE_SLOT = "card_then_cold_open"
 # The presses this take is allowed to bill, in order, one model call each.
 BILLED_PRESSES = (
     ("open_pull_request", "opening the pull request, before the cold open, off camera"),
@@ -104,9 +124,14 @@ COLD_OPEN_COMMANDS = {
     "findings": ("#cmdFindings", "Findings", "cmdFindings"),
     "files": ("#cmdFiles", "File by file", "cmdFiles"),
 }
-NO_FINDING = "No security finding in this change."
+# The start of the page's answer when no rule matched (CLEAN_FINDINGS_TEXT in
+# src/domain/review_dialogue.py). The plan keeps that turn off camera.
+NO_FINDING_PREFIX = "No security rule matched this change."
+# The cold open's first product sound, in seconds after the title card ends, and its
+# first spoken word, in seconds from the start of the video.
 COLD_OPEN_FIRST_SOUND_SECONDS = 2.0
-COLD_OPEN_FIRST_WORD_SECONDS = 5.0
+VIDEO_FIRST_WORD_SECONDS = 5.0
+NARRATION_TAIL_SECONDS = 0.65
 # A Bedrock call can take up to its 25 s timeout before the server falls back, and
 # one live digest took 19.67 s on 2026-10-01; the page waits longer than both.
 BILLED_TURN_TIMEOUT_SECONDS = 60.0
@@ -120,21 +145,147 @@ def check_beats(scene_ids: list[str]) -> None:
             f"narration: {list(scene_ids)}; journey: {EXPECTED_BEATS}")
 
 
-def check_title_slot(cards: dict[str, object]) -> float:
-    """This journey records the cold open into the title slot, so the spec must say so."""
+def check_title_slot(spec: dict[str, object]) -> tuple[float, float]:
+    """This journey records a cold open that plays after a title card, so the plan must
+    say so. Returns the title card's length and the cold open's."""
+    cards = spec.get("cards") or {}
     slot = str(cards.get("title_slot", ""))
-    if not slot.startswith("cold_open"):
-        raise SystemExit("narration.json cards.title_slot does not name the cold open; "
-                         "this journey records the cold open into the title slot")
-    seconds = float(cards.get("title_seconds", 0))
-    if not 3.0 <= seconds <= 20.0:
-        raise SystemExit(f"cards.title_seconds is {seconds}; the cold open needs 3 to 20 s")
-    return seconds
+    if not slot.startswith(TITLE_SLOT):
+        raise SystemExit(f"narration.json cards.title_slot does not start with {TITLE_SLOT!r}; "
+                         "this journey records a cold open after a title card")
+    title = float(cards.get("title_seconds", 0))
+    if not 1.5 <= title <= 3.0:
+        raise SystemExit(f"cards.title_seconds is {title}; the title card before the cold open needs 1.5 to 3 s")
+    cold = float((spec.get("cold_open") or {}).get("seconds", 0))
+    if not 3.0 <= cold <= 20.0:
+        raise SystemExit(f"cold_open.seconds is {cold}; the cold open needs 3 to 20 s")
+    return title, cold
 
 
 def billed_presses_allowed(argv: list[str]) -> bool:
     """Billed presses happen only when the owner passes the flag. The default is off."""
     return BILLED_FLAG in argv
+
+
+def rehearsal_requested(argv: list[str]) -> bool:
+    """A free rehearsal, never together with the flag that allows billed presses."""
+    if REHEARSAL_FLAG in argv and BILLED_FLAG in argv:
+        raise SystemExit(f"{REHEARSAL_FLAG} and {BILLED_FLAG} cannot be used together: "
+                         "a rehearsal bills nothing")
+    return REHEARSAL_FLAG in argv
+
+
+def check_local_url(url: str) -> None:
+    """A rehearsal drives only a server on this machine, reached over plain loopback."""
+    parsed = urllib.parse.urlparse(url.strip())
+    try:
+        host = (parsed.hostname or "").lower()
+    except ValueError:
+        host = ""
+    if parsed.scheme not in ("http", "https") or parsed.username or parsed.password \
+            or host not in REHEARSAL_HOSTS:
+        raise SystemExit(f"{REHEARSAL_FLAG} runs only against a local server, such as "
+                         f"http://127.0.0.1:8801/; VOLCAN_APP_URL names {host or url!r}")
+
+
+def check_rehearsal_health(health: dict[str, object], release_sha: str) -> list[dict[str, object]]:
+    """Refuse a server that could bill a model call or post a review; list what differs
+    from the live build, because those beats are not representative of the take."""
+    if health.get("source_revision") != release_sha:
+        raise SystemExit("the server reports a different commit than VOLCAN_RELEASE_SHA; restart it")
+    model = (health.get("bedrock_model_path") or {}).get("resolved_capability")
+    if model == "ready_to_attempt":
+        raise SystemExit("/health reports bedrock_model_path ready_to_attempt, so a press could bill an "
+                         "Amazon Bedrock call. Start the rehearsal server without cloud credentials")
+    review = (health.get("github_review_path") or {}).get("resolved_capability")
+    if review != "dry_run_no_token":
+        raise SystemExit(f"/health reports github_review_path {review!r}; a rehearsal needs "
+                         "dry_run_no_token, so Confirm cannot post a review. Start it without a token")
+    notes = [{"check": "bedrock_model_path", "take": "ready_to_attempt", "rehearsal": model,
+              "why": "the local server has no cloud credentials, so the local heuristic engine answers"}]
+    durable = (health.get("durable_state") or {}).get("resolved_capability")
+    if durable != "configured_reachable":
+        notes.append({"check": "durable_state", "take": "configured_reachable", "rehearsal": durable,
+                      "why": "beat 2 says the review state is in Amazon DynamoDB; the local server keeps it in memory"})
+    return notes
+
+
+def silent_timing_stub(spec: dict[str, object]) -> dict[str, object]:
+    """A timing.json built from the plan's ESTIMATE windows, for a rehearsal only.
+
+    Each beat holds for its planned window. Its narration is the window less the
+    generator's tail and the product window, and its caption sentences share that time
+    by character count, the generator's rule. No audio was synthesized: the stub's
+    narration is silence of that length."""
+    lead = float((spec.get("cards") or {}).get("title_seconds", 0)) + float(
+        (spec.get("cold_open") or {}).get("seconds", 0))
+    scenes: list[dict[str, object]] = []
+    offset = 0.0
+    for index, beat in enumerate(spec["beats"], start=1):
+        hold = float(beat["timestamp_end"]) - float(beat["timestamp_start"])
+        extra = float(beat.get("product_sound_seconds") or 0.0)
+        seconds = hold - NARRATION_TAIL_SECONDS - extra
+        if seconds < 3:
+            raise SystemExit(f"{beat['beat_id']}: the planned window leaves {seconds:.3f} s of narration")
+        if abs(float(beat["timestamp_start"]) - lead - offset) > 0.01:
+            raise SystemExit(f"{beat['beat_id']}: the planned timestamps do not follow the title card, "
+                             "the cold open and the beat before")
+        caption = str(beat["narration_text"])
+        sentences = [part.strip() for part in re.split(r"(?<=[.!?])\s+", caption) if part.strip()]
+        weight = sum(len(part) for part in sentences) or 1
+        cursor = 0.0
+        windows = []
+        for sentence in sentences:
+            share = seconds * len(sentence) / weight
+            windows.append({"start": round(cursor, 3), "end": round(cursor + share, 3), "text": sentence})
+            cursor += share
+        scenes.append({
+            "id": beat["beat_id"], "audio": f"{index:02d}-{beat['beat_id']}.wav",
+            "durationSeconds": round(seconds, 3), "productSoundSeconds": round(extra, 3),
+            "holdSeconds": round(hold, 3), "startSeconds": round(offset, 3),
+            "speechCharacters": len(str(beat.get("speech_text") or caption)), "sentences": windows,
+        })
+        offset += hold
+    return {
+        "schemaVersion": "volcan.video-timing/v1",
+        "stub": True,
+        "basis": ("ESTIMATE: a silent timing stub for a rehearsal, built from the planned windows in "
+                  "video/narration.json. No narration was synthesized and nothing was sent to ElevenLabs."),
+        "voice": dict((spec.get("tts") or {}).get("elevenLabs") or {}),
+        "tailSeconds": NARRATION_TAIL_SECONDS,
+        "totalSeconds": round(offset, 3),
+        "charactersSentThisRun": 0,
+        "scenes": scenes,
+    }
+
+
+def write_silent_stub(timing: dict[str, object], folder: pathlib.Path) -> None:
+    """The stub's timing.json, its captions and one silent WAV per beat."""
+    import wave
+
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "timing.json").write_text(json.dumps(timing, indent=2) + "\n", encoding="utf-8")
+    cues = []
+    for scene in timing["scenes"]:
+        for window in scene["sentences"]:
+            start = float(scene["startSeconds"]) + float(window["start"])
+            cues.append((start, float(scene["startSeconds"]) + float(window["end"]), window["text"]))
+        with wave.open(str(folder / scene["audio"]), "wb") as out:
+            out.setnchannels(1)
+            out.setsampwidth(2)
+            out.setframerate(16000)
+            out.writeframes(b"\x00\x00" * round(16000 * float(scene["durationSeconds"])))
+    (folder / "captions.en.srt").write_text("\n".join(
+        f"{number}\n{srt_stamp(start)} --> {srt_stamp(end)}\n{text}\n"
+        for number, (start, end, text) in enumerate(cues, start=1)), encoding="utf-8")
+
+
+def srt_stamp(value: float) -> str:
+    millis = round(max(0.0, value) * 1000)
+    hours, millis = divmod(millis, 3_600_000)
+    minutes, millis = divmod(millis, 60_000)
+    seconds, millis = divmod(millis, 1_000)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d},{millis:03d}"
 
 
 def billed_plan() -> str:
@@ -204,14 +355,22 @@ def billed_kind(url: str, method: str, body: str | None) -> str | None:
     return None
 
 
-def cold_open_gate(first_sound: float | None, first_word: float | None) -> None:
-    """Seconds from the cold open's first frame to its first sound and first word."""
+def cold_open_gate(first_sound: float | None, first_word: float | None, title_seconds: float) -> None:
+    """first_sound and first_word are seconds from the cold open's first frame, which
+    comes title_seconds into the video, after the title card."""
     if first_sound is None or first_sound > COLD_OPEN_FIRST_SOUND_SECONDS:
-        raise SystemExit(f"the cold open made its first sound at {first_sound} s; "
+        raise SystemExit(f"the cold open made its first sound {first_sound} s after the title card; "
                          f"the plan needs it by {COLD_OPEN_FIRST_SOUND_SECONDS} s. Record again")
-    if first_word is None or first_word > COLD_OPEN_FIRST_WORD_SECONDS:
-        raise SystemExit(f"the cold open spoke its first word at {first_word} s; "
-                         f"the plan needs it by {COLD_OPEN_FIRST_WORD_SECONDS} s. Record again")
+    video_word = None if first_word is None else round(title_seconds + first_word, 3)
+    if video_word is None or video_word > VIDEO_FIRST_WORD_SECONDS:
+        raise SystemExit(f"the cold open spoke its first word {video_word} s into the video, after the "
+                         f"{title_seconds} s title card; the plan needs it by {VIDEO_FIRST_WORD_SECONDS} s. "
+                         "Record again")
+
+
+def no_finding(spoken: str) -> bool:
+    """Whether a Findings answer says that no rule matched."""
+    return str(spoken or "").strip().startswith(NO_FINDING_PREFIX)
 
 
 OBSERVER = r"""
@@ -366,19 +525,28 @@ def blank_stretches(video: pathlib.Path, work: pathlib.Path, start: float, end: 
 
 
 def main() -> None:
+    rehearsal = rehearsal_requested(sys.argv[1:])
     allow_billed = billed_presses_allowed(sys.argv[1:])
     root = pathlib.Path(env("VOLCAN_VIDEO_ROOT"))
     release_sha = env("VOLCAN_RELEASE_SHA")
     if not re.fullmatch(r"[0-9a-f]{40}", release_sha):
         raise SystemExit("VOLCAN_RELEASE_SHA must be a full 40 character commit")
     app_url = os.environ.get("VOLCAN_APP_URL", "http://127.0.0.1:8801/").strip()
+    if rehearsal:
+        check_local_url(app_url)
     pr_url = env("VOLCAN_PR_URL")
     pr_label = pull_request_label(pr_url)
     cold_selector, cold_label, cold_id = cold_open_command(os.environ.get("VOLCAN_COLD_OPEN"))
     voice = os.environ.get("VOLCAN_SPEECH_VOICE", "Microsoft David Desktop").strip()
     spec = json.loads(SPEC.read_text(encoding="utf-8"))
-    cold_seconds = check_title_slot(spec.get("cards") or {})
-    timing = json.loads((root / "narration" / "timing.json").read_text(encoding="utf-8"))
+    title_seconds, cold_seconds = check_title_slot(spec)
+    measured = root / "narration" / "timing.json"
+    narration_dir = "narration"
+    if rehearsal and not measured.is_file():
+        timing = silent_timing_stub(spec)
+        narration_dir = "rehearsal/narration-stub"
+    else:
+        timing = json.loads(measured.read_text(encoding="utf-8"))
     scenes = timing["scenes"]
     check_beats([scene["id"] for scene in scenes])
     by_id = {scene["id"]: scene for scene in scenes}
@@ -386,16 +554,38 @@ def main() -> None:
 
     with urllib.request.urlopen(app_url.rstrip("/") + "/health", timeout=10) as response:
         health = json.load(response)
-    check_health(health, release_sha)
-    if not allow_billed:
-        raise SystemExit(billed_plan())
+    # What a rehearsal cannot show as the take would, and what would fail the take.
+    not_representative: list[dict[str, object]] = []
+    failures: list[str] = []
+    if rehearsal:
+        not_representative.extend(check_rehearsal_health(health, release_sha))
+    else:
+        check_health(health, release_sha)
+        if not allow_billed:
+            raise SystemExit(billed_plan())
 
+    def fail(message: str) -> None:
+        """A take stops at the first failure; a rehearsal records it and goes on."""
+        if not rehearsal:
+            raise SystemExit(message)
+        failures.append(message)
+
+    def differs(check: str, take: object, observed: object, why: str) -> None:
+        """A check that needs Amazon Bedrock: it fails the take, and a rehearsal notes it."""
+        if not rehearsal:
+            raise SystemExit(f"{check}: {why}; record again")
+        not_representative.append({"check": check, "take": take, "rehearsal": observed,
+                                   "why": "answered by the local heuristic engine in a rehearsal"})
+
+    from playwright.sync_api import TimeoutError as PlaywrightTimeout
     from playwright.sync_api import sync_playwright
 
-    capture = root / "capture"
+    capture = root / ("rehearsal" if rehearsal else "capture")
     if capture.exists():
         shutil.rmtree(capture)
     (capture / "raw").mkdir(parents=True)
+    if narration_dir != "narration":
+        write_silent_stub(timing, capture / "narration-stub")
 
     actions: list[dict[str, object]] = []
     errors: list[str] = []
@@ -533,9 +723,18 @@ def main() -> None:
                     "timelineAction": actions[-1]["at"] if timeline else None}
 
         def finish_voiced(turn: dict[str, object], deadline: float) -> None:
-            """Wait for the last sentence of a voiced turn to end, inside its window."""
-            wait_speech_end(int(turn["firstSpeech"]) + int(turn["utterances"]) - 1, deadline - now())
-            actions.append({"at": round(now(), 3), "action": f"{turn['label']}: speech ended"})
+            """Wait for the last sentence of a voiced turn to end, inside its window. A
+            rehearsal records a turn that overruns its window and goes on, so the rest of
+            the journey is still measured; the speech checks after it name the overrun."""
+            try:
+                wait_speech_end(int(turn["firstSpeech"]) + int(turn["utterances"]) - 1, deadline - now())
+                actions.append({"at": round(now(), 3), "action": f"{turn['label']}: speech ended"})
+            except PlaywrightTimeout:
+                if not rehearsal:
+                    raise
+                failures.append(f"{turn['label']}: the page was still speaking when its window closed "
+                                f"at {round(deadline, 3)} s")
+                actions.append({"at": round(now(), 3), "action": f"{turn['label']}: window closed, still speaking"})
             voiced.append(turn)
 
         def settled(timeout_seconds: float = 20.0) -> None:
@@ -588,7 +787,7 @@ def main() -> None:
         scroll_to("#reviewConvo", 12, "instant")
         page.wait_for_timeout(1500)
 
-        # Cold open, in the title slot: the first frame is the opened overview.
+        # Cold open, after the title card: the first frame is the opened overview.
         clock["origin"] = time.monotonic()
         cold_epoch = page_epoch()
         timeline_epoch = cold_epoch + cold_seconds * 1000
@@ -596,9 +795,9 @@ def main() -> None:
         before = turns()
         cold = start_turn(cold_label, lambda: page.click(cold_selector), "/api/review/turn", 2)
         answered(before)
-        if cold_label == "Findings" and str(cold["data"].get("spoken") or "").strip() == NO_FINDING:
-            raise SystemExit("Findings answered that there is no finding; the plan keeps that turn off "
-                             "camera. Choose another pull request or set VOLCAN_COLD_OPEN=files")
+        if cold_label == "Findings" and no_finding(str(cold["data"].get("spoken") or "")):
+            fail("Findings answered that no security rule matched; the plan wants a finding in the cold "
+                 "open. Choose another pull request or set VOLCAN_COLD_OPEN=files")
         finish_voiced(cold, 0.0)
 
         # Beat 1: the Alexa+ value over the top of the page, then the focus ring.
@@ -616,10 +815,16 @@ def main() -> None:
                            lambda: press_key("Enter", "runReview", "Hear this code review"),
                            "/api/digest_semantic_diff", 1, is_press,
                            timeout_seconds=BILLED_TURN_TIMEOUT_SECONDS)
-        if press["data"].get("synthesis_mode") != "bedrock" or press["data"].get("synthesis_fallback_reason"):
-            raise SystemExit("the press was not answered by Amazon Bedrock: synthesis_mode "
-                             f"{press['data'].get('synthesis_mode')!r}, fallback reason "
-                             f"{press['data'].get('synthesis_fallback_reason')!r}; record again")
+        mode = press["data"].get("synthesis_mode")
+        reason = press["data"].get("synthesis_fallback_reason")
+        if rehearsal and mode == "bedrock":
+            raise SystemExit("a rehearsal press was answered by Amazon Bedrock, which bills; stop the "
+                             "server and start it without cloud credentials")
+        if mode != "bedrock" or reason:
+            differs("the press is answered by Amazon Bedrock", "synthesis_mode bedrock, no fallback reason",
+                    {"synthesis_mode": mode, "fallback_reason": reason},
+                    f"the press was not answered by Amazon Bedrock: synthesis_mode {mode!r}, "
+                    f"fallback reason {reason!r}")
         page.wait_for_function(
             "(from) => window.__volcanCaptureLog.slice(from).some(e => e.kind === 'speech.start')",
             arg=press["logFrom"], timeout=max(0.5, beat_start(b3) - now()) * 1000)
@@ -629,16 +834,24 @@ def main() -> None:
 
         # Beat 3: the meter, the coverage line as printed, and the model's full answer.
         until(beat_start(b3))
-        if not page.inner_text("#meterEngine").strip().startswith("Amazon Bedrock"):
-            raise SystemExit("the engine meter does not read Amazon Bedrock")
-        if not page.inner_text("#modelCoverage").strip().startswith("The model read"):
-            raise SystemExit("the page printed no model coverage line")
+        meter = page.inner_text("#meterEngine").strip()
+        if not meter.startswith("Amazon Bedrock"):
+            differs("the engine meter reads Amazon Bedrock", "Amazon Bedrock", meter[:80],
+                    "the engine meter does not read Amazon Bedrock")
+        coverage = page.inner_text("#modelCoverage").strip()
+        if not coverage.startswith("The model read"):
+            differs("the page prints a model coverage line", "The model read ...", coverage[:120] or None,
+                    "the page printed no model coverage line")
         act("scroll to the engine meter", lambda: scroll_to("#meters", 120))
         until(sentence(b3, 0, 0.35))
         act("scroll to the coverage line", lambda: scroll_to("#modelCoverage", 260))
         until(sentence(b3, 0, 0.7))
-        act("open The model's full answer", lambda: page.click("#modelProseWrap summary"))
-        act("scroll to the model's full answer", lambda: scroll_to("#modelProseWrap", 80))
+        if page.is_visible("#modelProseWrap summary"):
+            act("open The model's full answer", lambda: page.click("#modelProseWrap summary"))
+            act("scroll to the model's full answer", lambda: scroll_to("#modelProseWrap", 80))
+        else:
+            differs("The model's full answer can be opened", "a model answer to open", "hidden",
+                    "the page shows no model answer to open")
 
         # Beat 4: back on the pull request; Request changes after the narrator, voiced.
         until(beat_start(b4))
@@ -696,11 +909,11 @@ def main() -> None:
     raw_path.replace(final)
     shutil.rmtree(capture / "raw", ignore_errors=True)
     if refused:
-        raise SystemExit(f"the page asked for model calls the take did not plan, and they were aborted: {refused}")
+        fail(f"the page asked for model calls the take did not plan, and they were aborted: {refused}")
     if [item["kind"] for item in billed] != [kind for kind, _ in BILLED_PRESSES]:
-        raise SystemExit(f"the billed calls were {billed}, not the planned {[kind for kind, _ in BILLED_PRESSES]}")
+        fail(f"the model-path calls were {billed}, not the planned {[kind for kind, _ in BILLED_PRESSES]}")
     if errors:
-        raise SystemExit("the page logged errors during the take: " + "; ".join(errors[:5]))
+        fail("the page logged errors during the take: " + "; ".join(errors[:5]))
 
     flips = marker_times(final, capture)
     if len(flips) != 2:
@@ -767,13 +980,17 @@ def main() -> None:
         return (min(candidates) if candidates else None), word_epoch
 
     cold_sound, cold_word = first_sound(cold)
-    cold_open_gate(
-        None if cold_sound is None else round((cold_sound - cold_epoch) / 1000, 3),
-        None if cold_word is None else round((cold_word - cold_epoch) / 1000, 3),
-    )
+    cold_sound_seconds = None if cold_sound is None else round((cold_sound - cold_epoch) / 1000, 3)
+    cold_word_seconds = None if cold_word is None else round((cold_word - cold_epoch) / 1000, 3)
+    try:
+        cold_open_gate(cold_sound_seconds, cold_word_seconds, title_seconds)
+    except SystemExit as exc:
+        fail(str(exc))
     press_sound, _ = first_sound(press)
     if press_sound is None or timeline_time(press_sound) < narrator_stops(b2):
-        raise SystemExit("the model's answer began while the narrator was still speaking; record again")
+        differs("the answer starts after beat 2's narration", f"after {round(narrator_stops(b2), 3)} s",
+                None if press_sound is None else timeline_time(press_sound),
+                "the model's answer began while the narrator was still speaking")
 
     def expected_sentences(turn: dict[str, object]) -> list[str]:
         data = turn["data"]
@@ -808,7 +1025,8 @@ def main() -> None:
             closes = beat_end(beat)
         sentences = expected_sentences(turn)
         if len(sentences) != int(turn["utterances"]):
-            raise SystemExit(f"{turn['label']}: expected {turn['utterances']} sentences, the server returned {len(sentences)}")
+            fail(f"{turn['label']}: expected {turn['utterances']} sentences, the server returned {len(sentences)}")
+            continue
         earcon = turn_earcon(turn)
         data = turn["data"]
         if earcon is not None:
@@ -829,16 +1047,19 @@ def main() -> None:
             index = int(turn["firstSpeech"]) + offset
             events = speech_events(index)
             if "speech.error" in events:
-                raise SystemExit(f"{turn['label']}: sentence {offset + 1} was interrupted "
-                                 f"({events['speech.error']['detail'].get('error')}); record again")
+                fail(f"{turn['label']}: sentence {offset + 1} was interrupted "
+                     f"({events['speech.error']['detail'].get('error')}); record again")
+                continue
             if not {"speech.speak", "speech.start", "speech.end"} <= set(events):
-                raise SystemExit(f"{turn['label']}: sentence {offset + 1} has no start and end events")
+                fail(f"{turn['label']}: sentence {offset + 1} has no start and end events")
+                continue
             text = events["speech.speak"]["detail"]["text"]
             if text != expected:
-                raise SystemExit(f"{turn['label']}: the page spoke a sentence other than the one the server returned")
+                fail(f"{turn['label']}: the page spoke a sentence other than the one the server returned")
             ended_at = timeline_time(events["speech.end"]["epoch"])
             if ended_at > closes:
-                raise SystemExit(f"{turn['label']}: the browser was still speaking when the next segment began")
+                fail(f"{turn['label']}: the browser was still speaking {round(ended_at - closes, 3)} s after "
+                     f"the next segment began at {round(closes, 3)} s")
             wav = render_voice(text, f"speech-{number}-{offset + 1}-{slug}")
             product_audio.append({
                 "kind": "speech", "turn": turn["label"], "beat": beat, "file": wav.name,
@@ -854,15 +1075,19 @@ def main() -> None:
 
     blanks = blank_stretches(final, capture, cold_trim_lead, trim_lead + total * scale)
     if blanks:
-        raise SystemExit(f"the recording shows a blank page at video seconds {blanks}; record again")
+        fail(f"the recording shows a blank page at video seconds {blanks}; record again")
 
     recorded = probe_duration(final)
     if recorded < trim_lead + total * scale:
-        raise SystemExit(f"the recording is {recorded:.3f}s, shorter than {trim_lead + total * scale:.3f}s")
+        fail(f"the recording is {recorded:.3f}s, shorter than {trim_lead + total * scale:.3f}s")
     receipt = {
         "schemaVersion": "volcan.video-capture/v3",
+        "mode": "rehearsal" if rehearsal else "take",
+        "shippable": not rehearsal,
         "releaseSha": release_sha,
         "appUrl": app_url,
+        "narrationDir": narration_dir,
+        "timingBasis": timing.get("basis") or "measured by video/generate-narration.py",
         "viewport": VIEWPORT,
         "serverHealth": {
             "service": health.get("service"),
@@ -877,17 +1102,20 @@ def main() -> None:
             "label": pr_label,
             "opened": opened["data"].get("pull_request"),
             "openedSpoken": opened["data"].get("spoken"),
-            "note": "opened before the cold open, off camera; this was a billed model call",
+            "note": ("opened before the cold open, off camera; in a rehearsal the local engine digested it"
+                 if rehearsal else "opened before the cold open, off camera; this was a billed model call"),
         },
-        "billedCalls": billed,
+        "billedCalls": [] if rehearsal else billed,
         "coldOpen": {
             "seconds": cold_seconds,
             "command": cold_label,
             "trimLeadSeconds": round(cold_trim_lead, 3),
-            "firstSoundSeconds": round((cold_sound - cold_epoch) / 1000, 3),
-            "firstWordSeconds": round((cold_word - cold_epoch) / 1000, 3),
+            "firstSoundSeconds": cold_sound_seconds,
+            "firstWordSeconds": cold_word_seconds,
+            "titleCardSeconds": title_seconds,
+            "firstWordVideoSeconds": None if cold_word_seconds is None else round(title_seconds + cold_word_seconds, 3),
             "spoken": cold["data"].get("spoken"),
-            "note": "timeline seconds from -seconds to 0; the build places this footage in the title slot",
+            "note": "timeline seconds from -seconds to 0; the build plays this footage after the title card",
         },
         "trimLeadSeconds": round(trim_lead, 3),
         "timelineSeconds": total,
@@ -904,7 +1132,7 @@ def main() -> None:
             "fallbackReason": press["data"].get("synthesis_fallback_reason"),
             "earconType": (press["data"].get("earcon") or {}).get("type"),
             "sentenceOnScreen": press["data"].get("voice_summary"),
-            "firstSoundTimelineSeconds": timeline_time(press_sound),
+            "firstSoundTimelineSeconds": None if press_sound is None else timeline_time(press_sound),
             "narratorStopsTimelineSeconds": round(narrator_stops(b2), 3),
         },
         "productAudio": product_audio,
@@ -914,11 +1142,27 @@ def main() -> None:
         "bytes": final.stat().st_size,
         "sha256": sha256(final),
     }
+    if rehearsal:
+        receipt["rehearsal"] = {
+            "note": ("A free rehearsal against a local server, answered by the local heuristic engine. "
+                     "Nothing was billed. It is not shippable, and the checks under notRepresentative "
+                     "say what the billed take does differently."),
+            "modelPathRequests": billed,
+            "notRepresentative": not_representative,
+            "failures": failures,
+        }
     (capture / "capture-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({key: receipt[key] for key in ("trimLeadSeconds", "recordedSeconds", "markers", "coldOpen")}))
     for item in product_audio:
         print(item["kind"], item["turn"], item["timelineSeconds"], "to", item["pageEndedTimelineSeconds"],
               "rendered", item["seconds"])
+    if rehearsal:
+        for item in not_representative:
+            print("not representative:", item["check"], "->", item["rehearsal"])
+        for message in failures:
+            print("FAIL:", message)
+        if failures:
+            raise SystemExit(f"the rehearsal found {len(failures)} failures; see {capture / 'capture-receipt.json'}")
 
 
 if __name__ == "__main__":

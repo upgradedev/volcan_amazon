@@ -11,24 +11,25 @@ or the length against the narration are wrong.
 
 What this copy adds, so the video carries its own honesty and the product's sound:
 
-  1. A title slot and an outro card, whose lines come from video/narration.json with
-     {sha7} replaced by the recorded commit. What fills the title slot depends on
+  1. A title card and an outro card, whose lines come from video/narration.json with
+     {sha7} replaced by the recorded commit. What follows the title card depends on
      cards.title_slot:
-       * absent (the 2026-09-29 take at fc10e7d): a text card with the title lines.
-       * starting with "cold_open" (the re-take in video/SHOT_LIST.md): the cold-open
-         footage the capture recorded before beat 1, on timeline seconds from minus
-         title_seconds to 0, with the title lines in the band under the page and no
-         card. The capture receipt's coldOpen block must match title_seconds.
+       * absent (the 2026-09-29 take at fc10e7d): beat 1.
+       * starting with "card_then_cold_open" (the re-take in video/SHOT_LIST.md): the
+         cold-open footage the capture recorded before beat 1, on timeline seconds
+         from minus cold_open.seconds to 0, with the cold open's band lines under the
+         page. The capture receipt's coldOpen block must match cold_open.seconds.
+       * starting with "cold_open" (footage in the title slot, with no card) is
+         refused: scripts/verify_video_sync.py samples the middle of the title segment
+         and expects a card, so that shape fails its order-pixels check.
      The outro repeats the provenance. Long card lines are wrapped so none runs off
      the frame. The build writes the video_manifest.json and caption_windows.json that
      scripts/verify_video_sync.py reads, computed from timing.json and the capture
-     receipt and nothing else. That gate samples the middle of the title slot and of
-     the outro and expects a card in both. With cold-open footage in the title slot the
-     unchanged gate fails its order-pixels check there. The plan's outro fails it too,
-     whatever the title slot holds: it is 9 rows and measured an edge mean of 7.59
-     against the gate's 4.5. A closing card with more rows than
-     OUTRO_ROWS_MEASURED_AS_CARD can read as content, so the build notes it and the
-     card has to be measured with the command in video/README.md, section 4.
+     receipt and nothing else. That gate samples the middle of the title card and of
+     the outro and expects a card in both. A closing card with more rows than
+     OUTRO_ROWS_MEASURED_AS_CARD is refused before anything is encoded: the plan's
+     earlier 9-row outro measured an edge mean of 7.59 against the gate's 4.5, and
+     the 5-row cards measured under it (video/README.md, section 4).
   2. A caption band. The page is scaled to 1632x918 at the top of the frame, and
      everything the build adds sits in the 162 pixel band under it: the captions, a
      small tag naming the build and the commit (a local run, or the live build when
@@ -51,6 +52,14 @@ What this copy adds, so the video carries its own honesty and the product's soun
      between that commit and the commit that built the video, the voice, and the
      characters sent to the text to speech provider.
 
+Rehearsal. With --rehearsal the build reads the free rehearsal that
+video/capture-local.py --rehearsal wrote under rehearsal/, and writes
+output-rehearsal/ instead of output/. It refuses a capture receipt that is not
+marked as a rehearsal, and without the flag it refuses one that is, so a rehearsal
+can never become the shipped video. When the rehearsal ran on the silent timing
+stub, the narration is the stub's silent audio, so the gate's web-beat-audible
+check fails on that video by construction.
+
 Environment:
   VOLCAN_VIDEO_ROOT   media root (reads narration/ and capture/, writes output/)
   VOLCAN_RELEASE_SHA  the 40 character commit the capture was recorded from
@@ -59,13 +68,16 @@ Environment:
 
 from __future__ import annotations
 
+import array
 import hashlib
 import json
 import os
 import pathlib
 import re
 import subprocess
+import sys
 import urllib.parse
+import wave
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 SPEC = pathlib.Path(__file__).with_name("narration.json")
@@ -85,6 +97,9 @@ PAGE_WIDTH, PAGE_HEIGHT, PAGE_X = 1632, 918, 144
 # the programme to -16 LUFS. The earcon sits a little under the voices because a
 # pure tone reads louder than speech at the same integrated level.
 SOURCE_TARGET_LUFS = {"narration": -20.0, "speech": -21.0, "earcon": -22.0}
+# The silence floor of scripts/verify_video_sync.py (silencedetect noise=-40dB). A rendered
+# sentence counts toward a_main only while it is louder than this in the mix.
+AUDIBLE_FLOOR_DB = -40.0
 PRODUCT_SPEAKER = "Volcan (product voice)"
 PRODUCT_COLOUR = "#ffc857"
 PRODUCT_CUE_CHARACTERS = 72
@@ -94,12 +109,19 @@ CARD_HEADLINE_CHARACTERS = 30
 CARD_LINE_CHARACTERS = 90
 PAGE_OWN_SPEECH = "Product voice: the page's own speech."
 # The 2026-09-29 outro was 5 rows and measured an edge mean of 3.70; the re-take plan's
-# outro is 9 rows and measured 7.59 (video/README.md, section 4). The sync gate reads a
-# frame above 4.5 as content, so a longer card is reported before the gate is run.
+# earlier outro was 9 rows and measured 7.59, and its 5-row outro measured 3.98 with the
+# system-voice line (video/README.md, section 4). The sync gate reads a frame above 4.5
+# as content, so the build refuses a closing card longer than this.
 OUTRO_ROWS_MEASURED_AS_CARD = 5
+TITLE_SLOT_CARD = "card"
+TITLE_SLOT_CARD_THEN_COLD_OPEN = "card_then_cold_open"
 MAX_TRIM_LEAD_SECONDS = 30.0
 MAX_COLD_OPEN_LEAD_SECONDS = 180.0
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1", "0.0.0.0"}
+REHEARSAL_FLAG = "--rehearsal"
+# Where a rehearsal's narration may come from, relative to the media root: the measured
+# narration, or the silent timing stub the rehearsal capture wrote.
+REHEARSAL_NARRATION_DIRS = ("narration", "rehearsal/narration-stub")
 
 
 def run(args: list[str], cwd: pathlib.Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -176,17 +198,54 @@ def card(lines: list[str], seconds: float, name: str) -> str:
     return ",".join(parts)
 
 
-def title_slot_is_cold_open(cards: dict[str, object]) -> bool:
-    """The re-take puts the cold-open footage in the title slot instead of a card."""
-    return str(cards.get("title_slot", "")).startswith("cold_open")
+def title_slot_shape(cards: dict[str, object]) -> str:
+    """What follows the title card: beat 1, or the cold open and then beat 1.
+
+    A title slot that holds the cold-open footage instead of a card is refused, because
+    the sync gate samples the middle of the title segment and expects a card there."""
+    slot = str(cards.get("title_slot", "")).strip()
+    if not slot:
+        return TITLE_SLOT_CARD
+    if slot.startswith(TITLE_SLOT_CARD_THEN_COLD_OPEN):
+        return TITLE_SLOT_CARD_THEN_COLD_OPEN
+    if slot.startswith("cold_open"):
+        raise SystemExit("narration.json puts the cold-open footage in the title slot. "
+                         "scripts/verify_video_sync.py samples the middle of the title segment as a "
+                         "card, so that video fails its order-pixels check. Use a title card and then "
+                         f"the cold open: cards.title_slot starting with {TITLE_SLOT_CARD_THEN_COLD_OPEN!r}")
+    raise SystemExit(f"narration.json cards.title_slot {slot[:40]!r} is not a shape this build knows")
+
+
+def check_outro_rows(lines: list[str]) -> int:
+    """The closing card must stay a card for the gate: at most OUTRO_ROWS_MEASURED_AS_CARD rows."""
+    rows = len(card_rows(lines))
+    if rows > OUTRO_ROWS_MEASURED_AS_CARD:
+        raise SystemExit(
+            f"the closing card is {rows} rows. Cards of {OUTRO_ROWS_MEASURED_AS_CARD} rows measured "
+            "under the sync gate's 4.5 edge mean and the 9-row card measured 7.59, which reads as "
+            "content. Shorten cards.outro_lines and measure the card with the command in "
+            "video/README.md, section 4")
+    return rows
+
+
+def is_local(app_url: str) -> bool:
+    host = (urllib.parse.urlparse(app_url).hostname or "").lower()
+    return host in LOCAL_HOSTS or host.endswith(".localhost")
 
 
 def band_tag(app_url: str, sha7: str) -> str:
     """The grey tag in the band: which build the capture recorded, and its commit."""
-    host = (urllib.parse.urlparse(app_url).hostname or "").lower()
-    if host in LOCAL_HOSTS or host.endswith(".localhost"):
+    if is_local(app_url):
         return f"Local run of commit {sha7}. Not the public deployment."
+    host = (urllib.parse.urlparse(app_url).hostname or "").lower()
     return f"Live build at {host}, commit {sha7}."
+
+
+def filled(lines: list[str], sha7: str, app_url: str) -> list[str]:
+    """Card and band lines with {sha7} and {build} filled in. {build} says which build the
+    capture recorded, so a local run is never labelled the live build."""
+    build = "Local run" if is_local(app_url) else "Live build"
+    return [line.replace("{sha7}", sha7).replace("{build}", build) for line in lines]
 
 
 def system_voice(product_audio: list[dict[str, object]]) -> str | None:
@@ -206,8 +265,9 @@ def outro_lines_for(lines: list[str], sha7: str, product_audio: list[dict[str, o
     voice = system_voice(product_audio)
     if voice is None:
         return filled
-    named = (f"Product voice: the page's own sentences, re-rendered in the {voice} system voice "
-             "because the capture records no audio.")
+    # Short enough that the plan's closing line stays one row, so the card stays at
+    # five rows with it: the receipt and video/README.md say why it was re-rendered.
+    named = f"Product voice: the page's sentences in {voice}."
     if any(PAGE_OWN_SPEECH in line for line in filled):
         return [line.replace(PAGE_OWN_SPEECH, named) for line in filled]
     if any("system voice" in line or "System.Speech" in line for line in filled):
@@ -215,27 +275,25 @@ def outro_lines_for(lines: list[str], sha7: str, product_audio: list[dict[str, o
     return [*filled, named]
 
 
-def video_graph(*, cold_open: bool, title_seconds: float, total: float, trim_lead: float,
+def video_graph(*, cold_open: bool, cold_seconds: float, total: float, trim_lead: float,
                 cold_trim_lead: float | None, video_per_page: float, captions: str, style: str,
-                tag: str, unrecorded_label: str, muted: str, title_band: str | None,
-                title_card: str | None, outro_card: str) -> list[str]:
-    """The video filters: the page with its band, the title slot and the outro, in order.
+                tag: str, unrecorded_label: str, muted: str, cold_band: str | None,
+                title_card: str, outro_card: str) -> list[str]:
+    """The video filters: the title card, the page with its band, and the outro, in order.
 
-    With a title card, the content is the narration's timeline from trim_lead and the
-    card goes before it. With the cold open, the content starts title_seconds earlier,
-    at cold_trim_lead, so the footage of the cold open fills the title slot; the title
-    lines sit in the band while it plays, and the commit tag takes their place after."""
+    Without a cold open, the content is the narration's timeline from trim_lead. With
+    one, the content starts cold_seconds earlier, at cold_trim_lead, so the cold-open
+    footage plays after the title card and before beat 1; its band lines sit in the
+    band while it plays, and the commit tag takes their place after."""
     if cold_open:
-        if cold_trim_lead is None or title_band is None:
-            raise SystemExit("the cold open needs its trim lead and the title lines for the band")
+        if cold_trim_lead is None or cold_band is None:
+            raise SystemExit("the cold open needs its trim lead and its band lines")
         start = cold_trim_lead
-        length = title_seconds + total
-        tag_enable = f":enable='gte(t,{title_seconds:.3f})'"
-        band = (f"drawtext=fontfile='{FONT}':textfile='{title_band}':fontcolor=0xe6eaf0:fontsize=22:"
-                f"x=24:y=h-text_h-10:enable='lt(t,{title_seconds:.3f})',")
+        length = cold_seconds + total
+        tag_enable = f":enable='gte(t,{cold_seconds:.3f})'"
+        band = (f"drawtext=fontfile='{FONT}':textfile='{cold_band}':fontcolor=0xe6eaf0:fontsize=22:"
+                f"x=24:y=h-text_h-10:enable='lt(t,{cold_seconds:.3f})',")
     else:
-        if title_card is None:
-            raise SystemExit("the title slot needs a card")
         start = trim_lead
         length = total
         tag_enable = ""
@@ -253,11 +311,56 @@ def video_graph(*, cold_open: bool, title_seconds: float, total: float, trim_lea
         f"x=24:y=h-text_h-10:enable='{muted}',"
         f"format=yuv420p[content]"
     )
-    outro = outro_card + ",format=yuv420p[outro]"
-    if cold_open:
-        return [content, outro, "[content][outro]concat=n=2:v=1:a=0[v]"]
-    return [content, title_card + ",format=yuv420p[title]", outro,
+    return [content, title_card + ",format=yuv420p[title]", outro_card + ",format=yuv420p[outro]",
             "[title][content][outro]concat=n=3:v=1:a=0[v]"]
+
+
+def audible_seconds(path: pathlib.Path, gain_db: float, floor_db: float = AUDIBLE_FLOOR_DB) -> float:
+    """Seconds from the start of a 16-bit PCM WAV to the end of its last audible sample.
+
+    A sample is audible when, after the gain the mix gives this file, it is louder than
+    floor_db below full scale: the sync gate's own silence floor. A rendered sentence's
+    trailing silence is therefore not counted as sound. A gain that attenuates the file
+    can only move this end earlier."""
+    with wave.open(str(path), "rb") as source:
+        if source.getsampwidth() != 2:
+            raise SystemExit(f"{path.name} is not 16-bit PCM; its audible end cannot be measured")
+        channels = source.getnchannels()
+        rate = source.getframerate()
+        samples = array.array("h", source.readframes(source.getnframes()))
+    if sys.byteorder == "big":
+        samples.byteswap()
+    threshold = 32768.0 * 10 ** ((floor_db - gain_db) / 20)
+    for index in range(len(samples) - 1, -1, -1):
+        if abs(samples[index]) > threshold:
+            return (index // channels + 1) / rate
+    return 0.0
+
+
+def screencast_sound_end(scenes: list[dict[str, object]], speech: list[dict[str, object]],
+                         audible: dict[str, float]) -> float:
+    """Timeline second where the last sound before the web beat ends.
+
+    That is the end of the last screencast beat's narration, or of a sentence the page
+    spoke in the screencast beats if one is still audible later: the product voice is
+    speech in the mix too. A sentence counts only up to its audible end (audible maps its
+    file to audible_seconds), and never past the moment the page itself stopped speaking
+    it, so a render's trailing silence is never counted as sound. The sync gate's
+    content-seam check compares this with the web beat's start."""
+    web_start = float(scenes[-1]["startSeconds"])
+    before_web = scenes[-2]
+    ends = [float(before_web["startSeconds"]) + float(before_web["durationSeconds"])]
+    for item in speech:
+        begins = float(item["timelineSeconds"])
+        if begins >= web_start:
+            continue
+        heard = min(float(audible[str(item["file"])]), float(item["seconds"]))
+        page_ended = item.get("pageEndedTimelineSeconds")
+        if page_ended is not None:
+            heard = min(heard, float(page_ended) - begins)
+        if heard > 0:
+            ends.append(begins + heard)
+    return max(ends)
 
 
 def srt_windows(path: pathlib.Path) -> list[tuple[float, float, str]]:
@@ -326,10 +429,28 @@ def product_code_unchanged(sha: str) -> bool:
     return result.returncode == 0
 
 
-def check_cold_open(cold_open: bool, title_seconds: float, trim_lead: float, video_per_page: float,
+def check_rehearsal_receipt(receipt_in: dict[str, object], rehearsal: bool) -> pathlib.Path:
+    """A rehearsal is never shipped: it is built only with --rehearsal, and only a
+    rehearsal is built with it. Returns the narration folder the build reads."""
+    marked = receipt_in.get("mode") == "rehearsal"
+    if rehearsal and not marked:
+        raise SystemExit("--rehearsal builds only a capture receipt marked as a rehearsal")
+    if not rehearsal and (marked or receipt_in.get("shippable") is False):
+        raise SystemExit("this capture is a rehearsal and is not shippable; build it with --rehearsal, "
+                         "which writes output-rehearsal/")
+    if not rehearsal:
+        return NARRATION
+    folder = str(receipt_in.get("narrationDir") or "")
+    if folder not in REHEARSAL_NARRATION_DIRS:
+        raise SystemExit(f"the rehearsal receipt names narration folder {folder!r}; "
+                         f"expected one of {REHEARSAL_NARRATION_DIRS}")
+    return ROOT / folder
+
+
+def check_cold_open(cold_open: bool, cold_seconds: float, trim_lead: float, video_per_page: float,
                     receipt_in: dict[str, object]) -> float | None:
-    """The title slot and the capture must agree: a cold open needs one recorded at the
-    same length, and a card slot must not drop a cold open the capture recorded.
+    """The plan and the capture must agree: a cold open needs one recorded at the same
+    length, and a plan without one must not drop a cold open the capture recorded.
 
     Returns where the cold open starts in the recording, or None for a card slot. The
     lead before beat 1 is bounded: 30 s for a take that starts on its first beat, and
@@ -341,26 +462,31 @@ def check_cold_open(cold_open: bool, title_seconds: float, trim_lead: float, vid
             raise SystemExit("capture trim lead is outside the bounded contract")
         if recorded:
             raise SystemExit("the capture recorded a cold open, but narration.json cards.title_slot "
-                             "asks for a title card; the footage would be dropped")
+                             "asks for beat 1 after the title card; the footage would be dropped")
         return None
     if not isinstance(recorded, dict):
-        raise SystemExit("narration.json puts the cold open in the title slot, but the capture "
+        raise SystemExit("narration.json plays a cold open after the title card, but the capture "
                          "receipt has no coldOpen block; capture the re-take journey first")
-    if abs(float(recorded["seconds"]) - title_seconds) > FRAME_SECONDS:
+    if abs(float(recorded["seconds"]) - cold_seconds) > FRAME_SECONDS:
         raise SystemExit(f"the capture recorded a {recorded['seconds']} s cold open, and "
-                         f"cards.title_seconds is {title_seconds} s; they must match")
+                         f"cold_open.seconds is {cold_seconds} s; they must match")
     lead = float(recorded["trimLeadSeconds"])
     if not 0 <= lead <= MAX_COLD_OPEN_LEAD_SECONDS:
         raise SystemExit("the cold open's trim lead is outside the bounded contract")
-    if abs(trim_lead - lead - title_seconds * video_per_page) > 0.5:
+    if abs(trim_lead - lead - cold_seconds * video_per_page) > 0.5:
         raise SystemExit(f"the cold open starts at {lead} s and beat 1 at {trim_lead} s of the recording, "
-                         f"which is not {title_seconds} s of page time apart")
+                         f"which is not {cold_seconds} s of page time apart")
     return lead
 
 
 def main() -> None:
+    global CAPTURE, OUTPUT, NARRATION
     if not os.environ.get("VOLCAN_VIDEO_ROOT", "").strip():
         raise SystemExit("set VOLCAN_VIDEO_ROOT to the media root the capture wrote")
+    rehearsal = REHEARSAL_FLAG in sys.argv[1:]
+    if rehearsal:
+        CAPTURE = ROOT / "rehearsal"
+        OUTPUT = ROOT / "output-rehearsal"
     release_sha = os.environ["VOLCAN_RELEASE_SHA"].strip()
     if not re.fullmatch(r"[0-9a-f]{40}", release_sha):
         raise SystemExit("VOLCAN_RELEASE_SHA must be a full 40 character commit")
@@ -369,15 +495,18 @@ def main() -> None:
     title_seconds = float(cards["title_seconds"])
     outro_seconds = float(cards["outro_seconds"])
     sha7 = release_sha[:7]
-    timing = json.loads((NARRATION / "timing.json").read_text(encoding="utf-8"))
+    cold_open = title_slot_shape(cards) == TITLE_SLOT_CARD_THEN_COLD_OPEN
+    cold_seconds = float(spec["cold_open"]["seconds"]) if cold_open else 0.0
     receipt_in = json.loads((CAPTURE / "capture-receipt.json").read_text(encoding="utf-8"))
+    NARRATION = check_rehearsal_receipt(receipt_in, rehearsal)
+    timing = json.loads((NARRATION / "timing.json").read_text(encoding="utf-8"))
     if receipt_in["releaseSha"] != release_sha:
         raise SystemExit("the capture was recorded from a different commit than VOLCAN_RELEASE_SHA")
     if receipt_in["serverHealth"].get("sourceRevision") != release_sha:
         raise SystemExit("the server in the capture reported a different commit than VOLCAN_RELEASE_SHA")
     scenes = timing["scenes"]
     total = float(timing["totalSeconds"])
-    whole = title_seconds + total + outro_seconds
+    whole = title_seconds + cold_seconds + total + outro_seconds
     trim_lead = float(receipt_in["trimLeadSeconds"])
     # The capture measures how many recorded seconds pass per page-clock second
     # between its two marker flips; the picture is retimed by it so an action the
@@ -385,11 +514,16 @@ def main() -> None:
     video_per_page = float(receipt_in["markers"].get("videoPerPageSecond", 1.0))
     if not 0.95 <= video_per_page <= 1.05:
         raise SystemExit(f"the recording drifted {video_per_page:.6f}x against the page clock; record again")
-    cold_open = title_slot_is_cold_open(cards)
-    cold_trim_lead = check_cold_open(cold_open, title_seconds, trim_lead, video_per_page, receipt_in)
+    cold_trim_lead = check_cold_open(cold_open, cold_seconds, trim_lead, video_per_page, receipt_in)
     # Timeline seconds become seconds of the content stream: with the cold open the
-    # stream starts title_seconds before beat 1, so every time moves by that much.
-    content_offset = title_seconds if cold_open else 0.0
+    # stream starts cold_seconds before beat 1, so every time moves by that much. In
+    # the video, the title card comes before the content stream.
+    content_offset = cold_seconds
+    video_offset = title_seconds + cold_seconds
+    app_url = str(receipt_in.get("appUrl") or "")
+    title_lines = filled(list(cards["title_lines"]), sha7, app_url)
+    outro_lines = outro_lines_for(list(cards["outro_lines"]), sha7, receipt_in["productAudio"])
+    check_outro_rows(outro_lines)
     OUTPUT.mkdir(parents=True, exist_ok=True)
     (OUTPUT / "overlays").mkdir(exist_ok=True)
 
@@ -416,7 +550,7 @@ def main() -> None:
         args.extend(["-i", str(path)])
         gain = earcon_gain if kind == "earcon" else SOURCE_TARGET_LUFS[kind] - loudness(path)
         gains[path.name] = round(gain, 2)
-        delay = round((title_seconds + start) * 1000)
+        delay = round((video_offset + start) * 1000)
         label = f"a{index}"
         filters.append(
             f"[{index}:a]aresample=48000,aformat=channel_layouts=stereo,volume={gain:.2f}dB,"
@@ -441,7 +575,10 @@ def main() -> None:
         if following and ends > min(following):
             raise SystemExit(f"{item['file']} runs into the next sentence the page spoke")
 
-    narration_cues = srt_windows(NARRATION / "captions.en.srt")
+    # A rehearsal on the silent timing stub has no narration to caption: its narration
+    # is silence, so its captions would describe a voice the video does not have.
+    silent_stub = rehearsal and bool(timing.get("stub"))
+    narration_cues = [] if silent_stub else srt_windows(NARRATION / "captions.en.srt")
     product_cues: list[tuple[float, float, str]] = []
     for item in speech:
         begins = float(item["timelineSeconds"])
@@ -470,7 +607,7 @@ def main() -> None:
         "FontName=Segoe UI,FontSize=11,PrimaryColour=&H00FFFFFF,"
         "BorderStyle=1,Outline=0,Shadow=0,MarginV=12,Alignment=2"
     )
-    tag = text_file("tag.txt", band_tag(str(receipt_in.get("appUrl") or ""), sha7))
+    tag = text_file("tag.txt", band_tag(app_url, sha7))
     unrecorded_label = text_file(
         "unrecorded.txt",
         "Not in this recording: the page's own cue and voice for this turn",
@@ -481,14 +618,13 @@ def main() -> None:
         f"{content_offset + float(item['toTimelineSeconds']):.3f})"
         for item in unrecorded
     ) or "0"
-    title_lines = [line.replace("{sha7}", sha7) for line in cards["title_lines"]]
-    outro_lines = outro_lines_for(list(cards["outro_lines"]), sha7, receipt_in["productAudio"])
+    cold_band_lines = filled(list(spec["cold_open"].get("band_lines", [])), sha7, app_url) if cold_open else []
     filters.extend(video_graph(
-        cold_open=cold_open, title_seconds=title_seconds, total=total, trim_lead=trim_lead,
+        cold_open=cold_open, cold_seconds=cold_seconds, total=total, trim_lead=trim_lead,
         cold_trim_lead=cold_trim_lead, video_per_page=video_per_page, captions=captions,
         style=style, tag=tag, unrecorded_label=unrecorded_label, muted=muted,
-        title_band=text_file("title-band.txt", "   ".join(title_lines)) if cold_open else None,
-        title_card=None if cold_open else card(title_lines, title_seconds, "title"),
+        cold_band=text_file("cold-open-band.txt", "   ".join(cold_band_lines)) if cold_open else None,
+        title_card=card(title_lines, title_seconds, "title"),
         outro_card=card(outro_lines, outro_seconds, "outro"),
     ))
     filters.append(
@@ -520,44 +656,42 @@ def main() -> None:
         raise SystemExit("final video dimensions are not 1920x1080")
     if abs(duration - whole) > FRAME_SECONDS:
         raise SystemExit(
-            f"composed {duration:.3f}s but title + narration + outro measure {whole:.3f}s. "
+            f"composed {duration:.3f}s but title + cold open + narration + outro measure {whole:.3f}s. "
             "Record a longer capture. Do not widen this tolerance."
         )
 
-    # The sync gate's inputs, computed from timing.json only.
+    # The sync gate's inputs, computed from timing.json and the receipt's product speech.
+    # The screencast segment is the cold open, when there is one, and beats 1 to 5. A
+    # sentence the page spoke counts toward a_main only up to its audible end in the mix.
+    audible = {str(item["file"]): round(audible_seconds(CAPTURE / str(item["file"]),
+                                                        gains[pathlib.Path(str(item["file"])).name]), 3)
+               for item in speech}
     web = scenes[-1]
-    screencast_seconds = float(web["startSeconds"])
-    before_web = scenes[-2]
+    screencast_seconds = cold_seconds + float(web["startSeconds"])
     manifest = {
         "fps": FPS,
         "title_dur": title_seconds,
         "screencast_dur": round(screencast_seconds, 3),
         "web_dur": float(web["holdSeconds"]),
         "outro_dur": outro_seconds,
-        "a_main": round(float(before_web["startSeconds"]) + float(before_web["durationSeconds"]), 3),
+        "a_main": round(cold_seconds + screencast_sound_end(scenes, speech, audible), 3),
         "vo_delay": title_seconds,
         "have_vo": True,
         "segments": ["title", "screencast", "web", "outro"],
-        "title_slot": "cold_open_footage" if cold_open else "card",
-        "_note": "screencast is beats 1 to 5 of the browser capture, web is beat 6; a_main is where the last screencast beat's speech ends",
+        "title_slot": TITLE_SLOT_CARD_THEN_COLD_OPEN if cold_open else TITLE_SLOT_CARD,
+        "_note": ("title is the title card; screencast is the cold open, when there is one, and beats 1 "
+                  "to 5 of the browser capture; web is beat 6. a_main is where the last sound of the "
+                  "screencast ends: the last screencast beat's narration, or the audible end of a sentence "
+                  "the page spoke, at the gate's -40 dB silence floor, if one ends later. vo_delay is the end of the title card, where the sound may start"),
     }
-    if cold_open:
-        manifest["_title_note"] = (
-            "the title segment holds the cold-open footage, not a card. "
-            "scripts/verify_video_sync.py samples the middle of the title segment as a card, "
-            "so its order-pixels check fails on this video until the gate learns the cold open")
-    outro_rows = len(card_rows(outro_lines))
-    if outro_rows > OUTRO_ROWS_MEASURED_AS_CARD:
-        manifest["_outro_note"] = (
-            f"the outro card is {outro_rows} rows. The 2026-09-29 outro was "
-            f"{OUTRO_ROWS_MEASURED_AS_CARD} rows and measured an edge mean of 3.70; the re-take "
-            "plan's 9-row outro measured 7.59. scripts/verify_video_sync.py reads a frame above 4.5 "
-            "as content, so this card can fail its order-pixels check at the outro probe too, "
-            "with a title card or with the cold open. Measure it with the command in "
-            "video/README.md, section 4")
+    if rehearsal:
+        manifest["_rehearsal"] = "a free rehearsal, not shippable; see the capture receipt"
+        if silent_stub:
+            manifest["_rehearsal"] += ("; the narration is the silent timing stub, uncaptioned, so the "
+                                       "gate's web-beat-audible check cannot pass on this video")
     (OUTPUT / "video_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     windows = [
-        [round(title_seconds + start, 3), round(title_seconds + end, 3), text]
+        [round(video_offset + start, 3), round(video_offset + end, 3), text]
         for start, end, text in all_cues
     ]
     (OUTPUT / "caption_windows.json").write_text(json.dumps(windows, indent=2) + "\n", encoding="utf-8")
@@ -589,7 +723,10 @@ def main() -> None:
         "voicedTurns": sorted({str(item["turn"]) for item in product}),
         "unrecordedProductVoice": unrecorded,
         "titleSeconds": title_seconds,
-        "titleSlot": "cold_open_footage" if cold_open else "card",
+        "titleSlot": TITLE_SLOT_CARD_THEN_COLD_OPEN if cold_open else TITLE_SLOT_CARD,
+        "coldOpenSeconds": cold_seconds,
+        "mode": "rehearsal" if rehearsal else "take",
+        "shippable": not rehearsal,
         "coldOpen": receipt_in.get("coldOpen"),
         "outroLines": outro_lines,
         "narrationSeconds": total,
@@ -600,6 +737,7 @@ def main() -> None:
         "charactersInFinalBeats": sum(int(scene["speechCharacters"]) for scene in scenes),
         "charactersSentToElevenLabsTotal": billed,
         "sourceGainsDb": gains,
+        "speechAudibleSeconds": audible,
         "captureSha256": receipt_in["sha256"],
         "captureVideoPerPageSecond": video_per_page,
         "serverHealth": receipt_in["serverHealth"],
@@ -608,11 +746,8 @@ def main() -> None:
     (OUTPUT / "video-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({key: receipt[key] for key in
                       ("file", "recordedSha", "durationSeconds", "sha256", "productCodeUnchangedSinceRecordedSha")}))
-    if cold_open:
-        print("note: the title slot holds the cold-open footage; the unchanged sync gate samples it "
-              "as a card and fails order-pixels on this video")
-    if "_outro_note" in manifest:
-        print("note: " + str(manifest["_outro_note"]))
+    if rehearsal:
+        print("note: a free rehearsal in output-rehearsal/, not shippable")
 
 
 def stamp(value: float) -> str:
