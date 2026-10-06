@@ -347,11 +347,22 @@ follows it, with these limits.
   * Before this change, `a_main` counted only narration. That gap was 0.65 s plus beat 5's
     23.5 s product window: 24.15 s on the plan. This README then named only `order-pixels`
     as failing; `content-seam` failed on the plan as well.
-  * `a_main` now also counts the page's own sentences in the mix, because they are speech.
-    In the rehearsal the gap was still 3.196 s:
-    * the system voice rendered the Confirm answer in 16.212 s, where the browser took
-      18.195 s;
-    * the window kept 1.213 s after the browser's speech ended.
+  * `a_main` now also counts the page's own sentences in the mix, because they are speech,
+    but only up to each one's audible end: its last sample louder than the gate's own
+    -40 dB silence floor after the mix's gain, and never past the moment the page stopped
+    speaking it. A render's trailing silence is not counted as sound.
+  * This still makes the check easier than on master wherever an audible sentence outlasts
+    the narration: `a_main` can only move later. Reverting it is one line in
+    `screencast_sound_end`, and the check fails either way.
+  * In the rehearsal the gate printed a gap of 4.000 s
+    (`screencast_dur-a_main = 139.568-135.568`). It adds up as:
+    * 1.983 s: the system voice rendered the Confirm answer in 16.212 s, where the browser
+      took 18.195 s;
+    * 1.213 s: the window kept after the browser's speech ended;
+    * 0.804 s: the render's trailing silence, which is no longer counted. Its audible end is
+      15.408 s.
+  * Cross-check: the title card's 2.0 s plus that `a_main` is 137.568 s of video, and
+    ffmpeg `silencedetect` (-40 dB, d=0.5) puts the final silence's start at 137.569 s.
   * What closes it is the owner's choice: a headed capture with the browser's own audio,
     which the shot list prefers, or a beat 5 window sized to what is heard.
 * **The optional consented clip has no place in the pipeline.** It goes in during the edit,
@@ -370,7 +381,9 @@ One rehearsal, with no billed call and no ElevenLabs call:
     unchanged gate.
 * **Where the outputs are.** The capture, the composed video, the gate's output in
   `sync-gate.txt` and six frames are outside the repository, in
-  `reviews/volcan_rehearsal_20261006/` in the owner's workspace.
+  `reviews/volcan_rehearsal_20261006/` in the owner's workspace. The composed video and
+  the gate's output were rebuilt at `c981187`, ffmpeg only, from the same capture, after
+  `a_main` stopped counting the render's trailing silence.
 * **The pull request** was https://github.com/alex-pimentel/agenteresolve-services/pull/8,
   head `b255f62`, read from GitHub by the local server without a token.
   * It is a public, merged pull request that changes code in 3 files (+32, -0).
@@ -382,7 +395,7 @@ One rehearsal, with no billed call and no ElevenLabs call:
   1.000942). No page error, and no blank stretch.
 * **The gate on the composed rehearsal.** `order-pixels` passed at all four probes: title
   card 1.9, screencast 11.7, web 10.5 and closing card 4.0. `content-seam<=1s` failed at
-  3.196 s, as above. `web-beat-audible` failed because the stub's narration is silent.
+  4.000 s, as above. `web-beat-audible` failed because the stub's narration is silent.
   Every other check passed.
 * **Failures it found**, two causes behind four failure lines:
   * **The cold open's Findings turn does not fit 12.0 s.**

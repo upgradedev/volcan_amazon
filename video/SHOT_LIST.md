@@ -303,8 +303,8 @@ open.
   change. The rules can miss a risk"), but the cold open is for a finding, so the capture
   refuses it there. The pull request rule above keeps it off camera.
 * **The sync gate's seam check.** `content-seam<=1s` still fails on this plan: in the free
-  rehearsal the last sound before beat 6 ended 3.196 s before it, because the system voice
-  speaks the Confirm answer faster than the browser did. `video/README.md`, section 4, has the
-  figures and the choices.
+  rehearsal the last audible sound before beat 6 ended 4.000 s before it. The system voice
+  speaks the Confirm answer faster than the browser did, and its render ends in silence that
+  does not count as sound. `video/README.md`, section 4, has the figures and the choices.
 * **Latency.** The only live Bedrock figure on record is one digest of 19.67 s on 2026-10-01.
   The rehearsal measures it again, and beat 2's window follows the measurement.
