@@ -251,6 +251,56 @@ def test_every_product_window_fits_the_generator_s_cap():
     assert PLAN["target_duration_seconds"] <= 170.0
 
 
+BASIS = "Measured on the rehearsal server, slowest run plus 1 s, rounded up to the half second."
+
+
+def test_the_generator_s_cap_is_45_s_and_refuses_more():
+    # The cap is a plan constraint, not a gate: it was raised from 30 s so beat 2 can hold
+    # the whole Bedrock answer without a narration long enough for the answer to interrupt.
+    assert narration.MAX_PRODUCT_SOUND_SECONDS == 45.0
+    assert narration.product_sound({"product_sound_seconds": 45.0, "product_sound_basis": BASIS}, "b") == 45.0
+    assert narration.product_sound({}, "b") == 0.0
+    for value in (45.5, 0, -1.0, "42"):
+        with pytest.raises(SystemExit, match="product_sound_seconds must be in"):
+            narration.product_sound({"product_sound_seconds": value, "product_sound_basis": BASIS}, "b")
+    with pytest.raises(SystemExit, match="product_sound_basis"):
+        narration.product_sound({"product_sound_seconds": 42.5, "product_sound_basis": "short"}, "b")
+
+
+# One live Bedrock digest on record (docs/EVIDENCE.md, 2026-10-01), and the call's timeout.
+LIVE_BEDROCK_SECONDS = 19.67
+MODEL_TIMEOUT_SECONDS = 25.0
+
+
+def test_beat_2_holds_the_billed_answer_from_the_press():
+    beat = next(b for b in PLAN["beats"] if b["beat_id"] == "beat_02_bedrock_press")
+    window = round(beat["timestamp_end"] - beat["timestamp_start"], 3)
+    # The press is at the first frame. 19.67 s of model call, 0.6 s of earcon, 16.7 s for the
+    # finding and the counts, and up to about 14 s of model headline: at least 56 s.
+    assert window >= 56.0
+    narration_seconds = window - narration.TAIL_SECONDS - beat["product_sound_seconds"]
+    # The narration must end well before the one live answer arrived, so a faster call
+    # does not start its answer under the narrator.
+    assert narration_seconds <= LIVE_BEDROCK_SECONDS - 5.0
+    basis = beat["product_sound_basis"]
+    assert basis.startswith("ESTIMATE")
+    for part in ("47 to 51 s", "19.67 s", "0.6 s", "16.7 s", "180 characters", "to_voice_summary"):
+        assert part in basis
+    assert "Amazon Bedrock" in beat["narration_text"] and "AWS Lambda" in beat["narration_text"]
+    assert "DynamoDB" in beat["narration_text"]
+    # The narration speaks of the stage patch, never of the pull request.
+    assert "pull request" not in beat["narration_text"]
+
+
+def test_the_shot_list_and_readme_state_the_beat_2_estimate_and_the_cold_open():
+    shot_list = (VIDEO / "SHOT_LIST.md").read_text(encoding="utf-8")
+    assert "about 47 to 51 s" in shot_list and "about 40 s" not in shot_list
+    assert "| Cold open band only." in shot_list
+    readme = (VIDEO / "README.md").read_text(encoding="utf-8")
+    assert "export VOLCAN_COLD_OPEN=" not in readme
+    assert PLAN["cold_open"]["command"] == "line 26"
+
+
 def test_the_screencast_ends_on_narration_so_the_content_seam_closes():
     # The beat before the web beat has no product window: its narration is the last sound
     # of the screencast, and the web beat starts one generator tail after it ends.
@@ -340,7 +390,7 @@ def test_the_silent_timing_stub_follows_the_plan_windows(tmp_path):
         assert audio.getnframes() / audio.getframerate() == pytest.approx(first["durationSeconds"], abs=0.001)
         assert set(audio.readframes(1600)) == {0}
     assert json.loads((tmp_path / "timing.json").read_text(encoding="utf-8")) == timing
-    assert "That was Volcan, live" in (tmp_path / "captions.en.srt").read_text(encoding="utf-8")
+    assert "That was Volcan." in (tmp_path / "captions.en.srt").read_text(encoding="utf-8")
 
 
 # --- the composer ------------------------------------------------------------

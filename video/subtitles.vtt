@@ -1,29 +1,29 @@
 WEBVTT
 
 1
-00:00:15.500 --> 00:00:33.658
-That was Volcan, live, answering in its own voice. It is a Model Context Protocol server built to be called by Alexa+, so a blind or low-vision developer can review an AI agent's pull request by voice, and hear the verdict first.
+00:00:15.500 --> 00:00:24.416
+That was Volcan. Built for Alexa+, it lets a blind or low-vision developer review an AI agent's pull request by voice.
 
 2
-00:00:33.658 --> 00:01:14.245
-This patch, an inverted admin check, goes to Claude on Amazon Bedrock. Volcan runs on AWS Lambda, with its review state in Amazon DynamoDB.
+00:00:24.416 --> 00:01:21.451
+This patch, an inverted admin check, goes to Claude on Amazon Bedrock. Volcan runs on AWS Lambda, with its review state in Amazon DynamoDB. Then a line says how much of the patch the model read.
 
 3
-00:01:14.245 --> 00:01:22.465
-The meter names Amazon Bedrock, this line says how much of the patch the model read, and this panel opens its full answer.
+00:01:21.451 --> 00:01:26.885
+Amazon Bedrock on the meter, that coverage line, and the model's full answer.
 
 4
-00:01:22.465 --> 00:01:56.024
+00:01:26.885 --> 00:02:00.444
 Back on the pull request, request changes stages a review, bound to the head commit Volcan read. Listen.
 
 5
-00:01:56.024 --> 00:02:25.307
+00:02:00.444 --> 00:02:29.727
 Nothing leaves Volcan until you confirm. Confirm, and listen.
 
 6
-00:02:25.307 --> 00:02:32.227
+00:02:29.727 --> 00:02:36.645
 This build has no GitHub token: the pane shows the exact request, recorded and not sent.
 
 7
-00:02:32.227 --> 00:02:43.557
-This handshake is a real one with the server under the page, at protocol revision 2025-11-25. Alexa+ itself has never called Volcan.
+00:02:36.645 --> 00:02:45.145
+This MCP handshake is a real one with the server under the page. Alexa+ itself has never called Volcan.
