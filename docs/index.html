@@ -251,6 +251,10 @@
     .wordmark .tagline { font-weight: 400; color: var(--ink-soft); font-size: var(--t-sm); }
 
     .bar-right { display: flex; align-items: center; gap: 10px; }
+    /* Both header buttons carry their name as visible text, the start of the
+       aria-label word for word, so a magnifier user reads what a voice-control
+       user says to press. */
+    .btn-text { white-space: nowrap; }
 
     .pill {
       display: inline-flex; align-items: center; gap: 8px; margin: 0;
@@ -266,13 +270,14 @@
 
     .keys-btn { min-height: 36px; padding: 5px 12px; font-size: var(--t-xs); background: transparent; border-color: var(--line); }
     .voice-btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      min-height: 36px; min-width: 44px; padding: 5px 10px; background: transparent; border-color: var(--line);
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      min-height: 36px; min-width: 44px; padding: 5px 12px 5px 10px; background: transparent; border-color: var(--line);
+      font-size: var(--t-xs);
     }
-    .voice-btn svg { width: 20px; height: 20px; }
+    .voice-btn svg { width: 20px; height: 20px; flex: none; }
     .voice-btn[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
-    .keys-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; }
-    .keys-btn svg { width: 22px; height: 22px; }
+    .keys-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-width: 44px; padding: 5px 12px 5px 10px; }
+    .keys-btn svg { width: 22px; height: 22px; flex: none; }
 
     .intro {
       display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
@@ -290,17 +295,29 @@
       color: var(--ember-hot);
     }
 
-    /* The disclosure is a card pinned to the header grid's right edge and to
-       the audience line's baseline, so it reads as part of the heading rather
-       than a rule floating in the space beside it. */
+    /* The track fit, said positively, right under who it is for. */
+    .track-fit {
+      margin: 10px 0 0; font-size: var(--t-sm); line-height: 1.45; color: var(--ink);
+      max-width: 52ch;
+    }
+
+    /* One example Alexa+ turn, then its qualification. The card is pinned to
+       the header grid's right edge and to the lead's baseline, so it reads as
+       part of the heading. It is static markup, labelled as an example, and a
+       test compares it with what the server says for the shipped patch. */
     .boundary {
-      margin: 0; font-size: var(--t-xs); line-height: 1.5; color: var(--ink-soft);
-      max-width: 48ch; justify-self: end; align-self: end;
+      margin: 0; font-size: var(--t-xs); line-height: 1.45; color: var(--ink-soft);
+      max-width: 52ch; justify-self: end; align-self: end;
       padding: 12px 16px; background: var(--surface); border: 1px solid var(--line);
       border-left: 4px solid var(--simulated); border-radius: var(--r-m);
     }
     .boundary > span { display: block; }
-    .boundary .sim { color: var(--simulated); font-weight: 700; font-size: var(--t-sm); margin-bottom: 2px; }
+    .boundary .sim { display: block; color: var(--simulated); font-weight: 700; font-size: var(--t-sm); margin-bottom: 6px; }
+    .turn { margin: 0; display: grid; gap: 4px; }
+    .turn > div { display: grid; grid-template-columns: 8.5em minmax(0, 1fr); gap: 2px 10px; }
+    .turn dt { font-weight: 700; color: var(--ink-soft); }
+    .turn dd { margin: 0; color: var(--ink); }
+    .turn-note { margin: 8px 0 0; }
     .boundary b { color: var(--ink); }
     .boundary code { color: var(--ink); }
 
@@ -882,12 +899,29 @@
     @media (max-width: 620px) {
       body { font-size: var(--t-sm); }
       .shell { padding: 0 16px 56px; }
-      .bar { padding: 12px 0 6px; }
+      /* The header gains a track-fit line and an example turn, and the button
+         still has to sit inside a 375 by 720 first screen, so the phone
+         header is set tighter. The bar wraps rather than scroll sideways. */
+      .bar { padding: 12px 0 6px; flex-wrap: wrap; row-gap: 8px; }
+      .voice-btn svg { display: none; }
+      .voice-btn { padding: 4px 9px; }
+      .voice-btn .btn-text { white-space: normal; max-width: 5.6em; line-height: 1.1; text-align: left; }
+      .wordmark { gap: 8px; }
+      .bar { gap: 8px; }
+      .bar-right { gap: 8px; }
+      .intro { gap: 10px; }
+      .audience { font-size: var(--t-md); margin-top: 6px; }
+      .track-fit { font-size: var(--t-xs); margin-top: 6px; }
+      .boundary { padding: 8px 12px; }
+      .boundary .sim { font-size: var(--t-xs); margin-bottom: 4px; }
+      .turn, .turn > div, .turn dt, .turn dd { display: inline; }
+      .turn > div + div, .turn dd { margin-left: 0.35em; }
+      .turn-note { margin-top: 4px; }
       .wordmark .tagline { display: none; }
       .wordmark svg { width: 56px; height: 13px; }
       .keys-btn { display: none; }
-      h1 { font-size: 2.05rem; max-width: none; }
-      .intro { padding: 8px 0 18px; }
+      h1 { font-size: 1.65rem; max-width: none; }
+      .intro { padding: 4px 0 12px; }
       .hero { padding: 14px 14px 16px; border-radius: var(--r-m); }
       .patch-view .fn { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--t-xs); }
       .cta { font-size: var(--t-md); min-height: 64px; padding: 12px 16px; gap: 10px; }
@@ -966,10 +1000,11 @@
                   aria-label="My screen reader speaks the answers"
                   title="Off, the default: this page speaks each answer in the browser's voice. On: this page stays silent and puts each whole answer in a status line for your own screen reader. Remembered in this browser only.">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z"></path><path d="M8 9.5h8M8 12.5h5"></path></svg>
+            <span class="btn-text">My screen reader</span>
           </button>
           <p class="pill" id="connPill" data-state="checking"><span class="led" aria-hidden="true"></span><span class="visually-hidden">Volcan server: </span><span id="connPillText">Checking</span></p>
           <button type="button" class="keys-btn" id="keymapOpen" aria-haspopup="dialog" aria-label="Keyboard map"
-                  title="Open the keyboard map. The question mark key opens it from anywhere on the page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2.5" y="6" width="19" height="12" rx="2"></rect><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M8 14h8"></path></svg></button>
+                  title="Open the keyboard map. The question mark key opens it from anywhere on the page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2.5" y="6" width="19" height="12" rx="2"></rect><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M8 14h8"></path></svg><span class="btn-text">Keyboard map</span></button>
         </div>
       </div>
 
@@ -977,11 +1012,17 @@
         <div class="lead">
           <h1>Hear your code review <em>instead of scrubbing a diff.</em></h1>
           <p class="audience">For blind and low-vision developers.</p>
+          <p class="track-fit" id="trackFit">A live MCP server (spec 2025-11-25) answering a simulated
+            Alexa+ front end, per the <a href="https://amazonappdev2026.devpost.com/details/faqs">hackathon FAQ</a>.</p>
         </div>
-        <p class="boundary" id="notASkill">
-          <span class="sim">Live MCP server, simulated Alexa+ front end</span>
-          <span>Not an Alexa skill. GitHub: <span id="writeMode">dry-run.</span></span>
-        </p>
+        <figure class="boundary" id="alexaTurn" aria-labelledby="alexaTurnLabel">
+          <figcaption class="sim" id="alexaTurnLabel">Static example, simulated Alexa+ turn</figcaption>
+          <dl class="turn">
+            <div><dt>You say</dt><dd id="alexaTurnAsk">&ldquo;Summary.&rdquo;</dd></div>
+            <div><dt>Volcan&rsquo;s first sentence</dt><dd id="alexaTurnAnswer">&ldquo;In src/auth/permissions.py, an authorization comparison was inverted: <code>user.role == 'admin'</code> became <code>user.role != 'admin'</code>.&rdquo;</dd></div>
+          </dl>
+          <p class="turn-note" id="notASkill">Not an Alexa skill. GitHub: <span id="writeMode">dry-run.</span></p>
+        </figure>
       </div>
     </header>
 
