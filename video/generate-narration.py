@@ -24,7 +24,8 @@ What this copy changes, so it reads Volcan's own video/narration.json:
      paid call is also appended to narration/tts-ledger.jsonl in the media root,
      so re-rolls are counted too.
   5. --write-timestamps copies the measured beat windows back into
-     video/narration.json, offset by the title card, so the repository's own
+     video/narration.json, offset by the title card and, when cards.title_slot
+     plays a cold open after the card, by cold_open.seconds too, so the repository's own
      scripts/synthesize_video_assets.py regenerates the cue sheet and subtitles
      from measured numbers instead of authored ones.
 
@@ -217,6 +218,15 @@ def product_sound(beat: dict[str, object], identifier: str) -> float:
     return float(value)
 
 
+def lead_seconds(spec: dict[str, object]) -> float:
+    """Video seconds before beat 1: the title card, and the cold open when one follows it."""
+    cards = spec.get("cards") or {}
+    lead = float(cards.get("title_seconds", 0.0))
+    if str(cards.get("title_slot", "")).startswith("card_then_cold_open"):
+        lead += float((spec.get("cold_open") or {}).get("seconds", 0.0))
+    return lead
+
+
 def main() -> None:
     write_back = "--write-timestamps" in sys.argv[1:]
     spec = json.loads(SPEC.read_text(encoding="utf-8"))
@@ -323,7 +333,7 @@ def main() -> None:
     (out / "captions.en.srt").write_text("\n".join(srt), encoding="utf-8")
     if write_back:
         cards = spec.get("cards") or {}
-        title = float(cards.get("title_seconds", 0.0))
+        title = lead_seconds(spec)
         outro = float(cards.get("outro_seconds", 0.0))
         for beat, scene in zip(beats, timing):
             beat["timestamp_start"] = round(title + float(scene["startSeconds"]), 3)
