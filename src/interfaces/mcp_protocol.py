@@ -12,9 +12,21 @@ Scope and limits, stated plainly:
 
 * Transport: Streamable HTTP only. Neither stdio nor the deprecated
   HTTP+SSE transport of revision 2024-11-05 is implemented.
-* Capabilities: ``tools`` only. This server advertises no ``resources``,
-  ``prompts``, ``logging``, ``completions`` or ``elicitation`` capability and
-  answers those methods with -32601, because it does not implement them.
+* Capabilities: ``tools`` and ``resources``. Three tools declare an
+  ``outputSchema`` and return ``structuredContent`` beside their text blocks
+  (2025-11-25, server/tools, "Structured Content" and "Output Schema"). The
+  resource methods are ``resources/list``, ``resources/read`` and an empty
+  ``resources/templates/list``; there is no ``subscribe`` and no
+  ``listChanged``. This server advertises no ``prompts``, ``logging``,
+  ``completions`` or ``elicitation`` capability and answers those methods, and
+  ``resources/subscribe``, with -32601, because it does not implement them.
+* MCP Apps: the one resource is a ``ui://`` view in the format of the MCP Apps
+  extension (SEP-1865, stable 2026-01-26), linked from a tool through
+  ``_meta.ui.resourceUri``. The extension says a server SHOULD check the
+  client's ``io.modelcontextprotocol/ui`` capability first. This server does
+  not: a stateless deployment keeps no per-client memory between requests, so
+  the link is always published, and a client without the extension ignores
+  ``_meta`` and reads the text blocks.
 * Batching: a top-level JSON array is rejected with -32600. JSON-RPC batching
   was removed from MCP after revision 2025-03-26.
 """
@@ -57,6 +69,9 @@ INVALID_REQUEST = -32600
 METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 INTERNAL_ERROR = -32603
+#: The resources page of revision 2025-11-25 ("Error Handling") names -32002
+#: for a resource that does not exist.
+RESOURCE_NOT_FOUND = -32002
 
 
 class JsonRpcError(Exception):
@@ -100,7 +115,27 @@ def audio_block(raw_audio: bytes, mime_type: str = "audio/wav") -> dict[str, Any
     }
 
 
-ToolHandler = Callable[[BaseModel], Awaitable[list[dict[str, Any]]]]
+@dataclass(frozen=True)
+class ToolOutput:
+    """What a tool with an ``outputSchema`` returns: its blocks and its data.
+
+    ``structured`` becomes ``structuredContent``. The specification asks a
+    tool that returns structured content to return the same JSON in a text
+    block as well, for clients that predate the field; the handlers keep that
+    block, and the speech text stays the first block.
+    """
+
+    content: list[dict[str, Any]]
+    structured: dict[str, Any]
+
+
+ToolHandler = Callable[[BaseModel], Awaitable["list[dict[str, Any]] | ToolOutput"]]
+
+
+def _published_schema(model: type[BaseModel], mode: str = "validation") -> dict[str, Any]:
+    schema = model.model_json_schema(mode=mode)
+    schema.pop("title", None)
+    return schema
 
 
 @dataclass(frozen=True)
@@ -117,16 +152,30 @@ class ToolDefinition:
     description: str
     input_model: type[BaseModel]
     handler: ToolHandler
+    #: The model whose JSON Schema is published as ``outputSchema``. A tool
+    #: that sets it returns ``ToolOutput`` from every successful call.
+    output_model: type[BaseModel] | None = None
+    #: Published as the tool's ``_meta``; MCP Apps reads ``_meta.ui`` here.
+    meta: dict[str, Any] | None = None
+
+    def output_schema(self) -> dict[str, Any] | None:
+        if self.output_model is None:
+            return None
+        return _published_schema(self.output_model, mode="serialization")
 
     def to_catalog_entry(self) -> dict[str, Any]:
-        schema = self.input_model.model_json_schema()
-        schema.pop("title", None)
-        return {
+        entry: dict[str, Any] = {
             "name": self.name,
             "title": self.title,
             "description": self.description,
-            "inputSchema": schema,
+            "inputSchema": _published_schema(self.input_model),
         }
+        output_schema = self.output_schema()
+        if output_schema is not None:
+            entry["outputSchema"] = output_schema
+        if self.meta:
+            entry["_meta"] = self.meta
+        return entry
 
 
 class ToolRegistry:
@@ -146,6 +195,56 @@ class ToolRegistry:
 
     def names(self) -> list[str]:
         return sorted(self._tools)
+
+
+@dataclass(frozen=True)
+class ResourceDefinition:
+    """One entry of ``resources/list`` and what ``resources/read`` returns for it."""
+
+    uri: str
+    name: str
+    title: str
+    description: str
+    mime_type: str
+    read_text: Callable[[], str]
+    #: Published as ``_meta`` on the read contents, where MCP Apps puts ``ui``.
+    contents_meta: dict[str, Any] | None = None
+
+    def to_listing(self) -> dict[str, Any]:
+        return {
+            "uri": self.uri,
+            "name": self.name,
+            "title": self.title,
+            "description": self.description,
+            "mimeType": self.mime_type,
+        }
+
+    def to_contents(self) -> dict[str, Any]:
+        contents: dict[str, Any] = {
+            "uri": self.uri, "mimeType": self.mime_type, "text": self.read_text(),
+        }
+        if self.contents_meta:
+            contents["_meta"] = self.contents_meta
+        return contents
+
+
+class ResourceRegistry:
+    def __init__(self) -> None:
+        self._resources: dict[str, ResourceDefinition] = {}
+
+    def register(self, resource: ResourceDefinition) -> None:
+        if resource.uri in self._resources:
+            raise ValueError(f"Duplicate MCP resource URI: {resource.uri}")
+        self._resources[resource.uri] = resource
+
+    def get(self, uri: str) -> ResourceDefinition | None:
+        return self._resources.get(uri)
+
+    def listing(self) -> list[dict[str, Any]]:
+        return [self._resources[uri].to_listing() for uri in sorted(self._resources)]
+
+    def __len__(self) -> int:
+        return len(self._resources)
 
 
 class SessionRegistry:
@@ -202,8 +301,10 @@ class McpDispatcher:
         server_name: str = SERVER_NAME,
         server_version: str = SERVER_VERSION,
         instructions: str | None = None,
+        resources: ResourceRegistry | None = None,
     ) -> None:
         self._registry = registry
+        self._resources = resources if resources is not None else ResourceRegistry()
         self._server_name = server_name
         self._server_version = server_version
         self._instructions = instructions
@@ -271,11 +372,35 @@ class McpDispatcher:
             result = await self._handle_tools_call(params)
             return DispatchOutcome(body=self.result_response(request_id, result))
 
+        if self._resources_enabled:
+            if method == "resources/list":
+                return DispatchOutcome(
+                    body=self.result_response(request_id, {"resources": self._resources.listing()})
+                )
+            if method == "resources/templates/list":
+                return DispatchOutcome(
+                    body=self.result_response(request_id, {"resourceTemplates": []})
+                )
+            if method == "resources/read":
+                return DispatchOutcome(
+                    body=self.result_response(request_id, self._handle_resources_read(params))
+                )
+
         raise JsonRpcError(
             METHOD_NOT_FOUND,
             f"Method '{method}' is not implemented by this server.",
-            {"implemented": ["initialize", "ping", "tools/list", "tools/call"]},
+            {"implemented": self.implemented_methods()},
         )
+
+    @property
+    def _resources_enabled(self) -> bool:
+        return len(self._resources) > 0
+
+    def implemented_methods(self) -> list[str]:
+        methods = ["initialize", "ping", "tools/list", "tools/call"]
+        if self._resources_enabled:
+            methods += ["resources/list", "resources/read", "resources/templates/list"]
+        return methods
 
     # -- methods -----------------------------------------------------------
 
@@ -290,9 +415,14 @@ class McpDispatcher:
         # speaks 2025-11-25 then sends that revision's header and is served.
         negotiated = requested if requested in SUPPORTED_PROTOCOL_VERSIONS else PROTOCOL_VERSION
 
+        capabilities: dict[str, Any] = {"tools": {"listChanged": False}}
+        if self._resources_enabled:
+            # Neither optional feature is offered: the one resource is fixed
+            # when the server starts, so there is no change to announce.
+            capabilities["resources"] = {"listChanged": False}
         result: dict[str, Any] = {
             "protocolVersion": negotiated,
-            "capabilities": {"tools": {"listChanged": False}},
+            "capabilities": capabilities,
             "serverInfo": {"name": self._server_name, "version": self._server_version},
         }
         if self._instructions:
@@ -337,4 +467,19 @@ class McpDispatcher:
                 "isError": True,
             }
 
+        if isinstance(content, ToolOutput):
+            return {
+                "content": content.content,
+                "structuredContent": content.structured,
+                "isError": False,
+            }
         return {"content": content, "isError": False}
+
+    def _handle_resources_read(self, params: dict[str, Any]) -> dict[str, Any]:
+        uri = params.get("uri")
+        if not isinstance(uri, str) or not uri:
+            raise JsonRpcError(INVALID_PARAMS, "'uri' must be a non-empty resource URI.")
+        resource = self._resources.get(uri)
+        if resource is None:
+            raise JsonRpcError(RESOURCE_NOT_FOUND, "Resource not found", {"uri": uri})
+        return {"contents": [resource.to_contents()]}

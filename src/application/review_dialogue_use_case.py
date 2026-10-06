@@ -42,6 +42,7 @@ from src.application.review_authorization import (
     current_review_principal,
     require_review_principal,
 )
+from src.application.review_card import build_review_card
 from src.application.sonify_event_use_case import SonifyEventUseCase
 from src.domain.approval_grant import ApprovalGrantIssuer
 from src.domain.governed_action import ActionState, GovernedAction, Principal
@@ -583,6 +584,10 @@ class ReviewDialogueUseCase:
             "review_outcome": extra.get("review_outcome"),
             "review_path": self._github.capability(),
             "awaiting_confirmation": dialogue.state is DialogueState.CONFIRM_REVIEW,
+            # What the ui:// review card draws, from this same dialogue.
+            "review_card": build_review_card(
+                dialogue, awaiting_confirmation=dialogue.state is DialogueState.CONFIRM_REVIEW,
+            ),
             "_wav": wav,
         }
         return payload

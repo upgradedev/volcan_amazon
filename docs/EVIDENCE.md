@@ -545,6 +545,47 @@ tools array. That did not reproduce then, and it cannot happen now for a differe
 request is served, and `test_missing_protocol_version_with_a_session_uses_the_negotiated_revision`
 asserts that it returns the real catalog, not an empty one.
 
+**Structured results and the review card.** Since 2026-10-06 three tools publish an
+`outputSchema` and return `structuredContent`, as the 2025-11-25 tools page describes ("Output
+Schema", "Structured Content"):
+
+* `digest_semantic_diff`, `drill_down_section` and `review_dialogue_turn`. Each schema comes
+  from a pydantic model in `src/interfaces/dto.py` that names every top-level key and forbids
+  others, so a key added to an operation and not to its model fails a test.
+* The structured object is the same object as the JSON text block, which stays for clients that
+  predate the field. The first block is still the sentence a listener hears.
+* `initialize` now advertises `resources: {listChanged: false}`. `resources/list` lists one
+  resource, `resources/read` returns it, and `resources/templates/list` returns an empty list.
+  An unknown URI gets `-32002` with the URI in `data`, as the resources page names it.
+  `resources/subscribe` stays `-32601`.
+* The resource is `ui://volcan/review-card`, served as `text/html;profile=mcp-app`, the format
+  of the MCP Apps extension (SEP-1865, marked stable 2026-01-26). `review_dialogue_turn` links
+  it through `_meta.ui.resourceUri`, which is where the extension puts the link: on the tool,
+  not in each result. The card shows the file in focus, the first finding a rule matched in it,
+  up to eight changed lines with each line in eight-dot code Braille, and Confirm and Cancel
+  while a review is staged. It loads nothing from the network and declares no `csp` domains, so
+  a host applies the extension's restrictive default policy.
+* The card's Confirm and Cancel send `tools/call review_dialogue_turn` with `confirm` or
+  `cancel`, only on a press. The server then runs the same confirm every surface uses: the
+  single-use grant, custody, the live head re-read and, in live mode, the reviewer credential.
+  `test_a_forged_grant_from_any_surface_is_refused` pins that a forged grant is still refused.
+
+What this does not show. The extension says a server SHOULD check the client's
+`io.modelcontextprotocol/ui` capability before publishing a UI link; this server publishes it
+always, because the stateless deployment keeps no per-client memory, and a client without the
+extension ignores `_meta`. The companion page is the only host that has drawn the card. It is a
+simplified host: the extension asks a web host to load a view through a sandbox proxy on a
+second origin, and the page uses one iframe sandboxed to scripts only, whose origin is opaque.
+It also keeps one view for the whole review session and sends each later turn as another
+`tool-result`, where the extension describes one view per tool call. No MCP Apps client, Echo
+Show or Alexa+ has rendered it.
+
+`python -m pytest tests/integration/test_mcp_structured_results.py -v` validates every
+structured result against its schema with a JSON Schema 2020-12 validator across the dialogue
+states, and checks the listing, the read and the errors. `python -m pytest
+tests/e2e/test_review_card.py -v` checks how the page hosts the card and drives Chromium to
+reach and press its Confirm by keyboard.
+
 The REST surface at `/api` is ordinary JSON over HTTP for the web companion. It is not MCP
 and is not described as MCP anywhere in this repository.
 
@@ -901,7 +942,7 @@ estimate unless it says ESTIMATE.
 | Security-flag detection, TypeScript, held-out half (8 must flag, 8 must not; self-authored, synthetic) | 37.5% recall (3/8), 25.0% false positives (2/8), before the JS/TS rules, 2026-09-27; reproduce with the same command on commit `aedccbf` | **75.0% recall (6/8), 25.0% false positives (2/8)** | `python scripts/benchmark_js_ts_detection.py --split heldout` |
 | Security-flag detection, JavaScript and TypeScript, eight probes written after the rules to find where they break (4 must flag, 4 must not; self-authored, synthetic; not part of the corpus or either half) | not applicable | **4 of 4 detected; 2 of 4 that must not flag are flagged (probe-01, probe-03).** Both are JavaScript, and they are the only JavaScript must-not-flag probes, so JavaScript false alarms are 2 of 2, 2026-09-30 and again 2026-10-05 (0 of 4 and 4 of 4 on 2026-09-27) | `python scripts/benchmark_js_ts_detection.py --probes` |
 | Security-flag detection, second-round probes (4 must flag, 4 must not; self-authored, synthetic; not part of the corpus or either half) | **2 of 4 over-flagged before the CORS test-file exemption** (probe2-01 and probe2-02), measured 2026-10-05 with `src/domain/js_security_rules.py` from the parent of `f1c35a1` | **4 of 4 detected; 1 of 4 over-flagged after it (probe2-01, the control-flow limit in a new shape)**, 2026-10-01 and again 2026-10-05. Commit `f1c35a1` added these probes and the exemption together, so 1 of 4 is not an untuned figure | `python scripts/benchmark_js_ts_detection.py --probes2`; for the before column, `git show f1c35a1^:src/domain/js_security_rules.py > src/domain/js_security_rules.py`, the same command, then `git checkout -- src/domain/js_security_rules.py` |
-| Documented Alexa+ client session, replayed locally, `tools/call` round trip | not applicable | Median of 15 sessions per client shape, against a local server on 127.0.0.1:8841 (`python -m src.interfaces.mcp_server --port 8841`) after three warm-up sessions, local engine, no AWS credentials, 2026-09-27, after the version-header fix: every one of the six shapes (asks for 2025-03-26 or 2025-11-25; follows the protocol, declares the revision it asked for, or never sends the header) answered in 15 of 15 sessions with the finding in the first sentence. Medians for the 2025-03-26 shapes: 32.0 ms (range 25.6 to 50.4) spec-following, 27.3 ms (24.1 to 36.9) declaring, 26.8 ms (21.5 to 33.8) no header; for the 2025-11-25 shapes: 29.1 ms (23.8 to 38.4), 27.3 ms (24.5 to 39.8), 27.8 ms (23.6 to 29.4). Amazon's documented limit is 500 ms. Earlier the same day, at `f3331d6`, the no-header shape was refused. Not the endpoint registered in the add-on manifest (which serves `9b2bcb9`, older than this branch; on 2026-09-27 it ran an older build that still refused that shape), and not Alexa+ | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8841/mcp --runs 15` |
+| Documented Alexa+ client session, replayed locally, `tools/call` round trip | not applicable | Median of 15 sessions per client shape, against a local server on 127.0.0.1:8841 (`python -m src.interfaces.mcp_server --port 8841`) after three warm-up sessions, local engine, no AWS credentials, 2026-09-27, after the version-header fix: every one of the six shapes (asks for 2025-03-26 or 2025-11-25; follows the protocol, declares the revision it asked for, or never sends the header) answered in 15 of 15 sessions with the finding in the first sentence. Medians for the 2025-03-26 shapes: 32.0 ms (range 25.6 to 50.4) spec-following, 27.3 ms (24.1 to 36.9) declaring, 26.8 ms (21.5 to 33.8) no header; for the 2025-11-25 shapes: 29.1 ms (23.8 to 38.4), 27.3 ms (24.5 to 39.8), 27.8 ms (23.6 to 29.4). Amazon's documented limit is 500 ms. Earlier the same day, at `f3331d6`, the no-header shape was refused. Not the endpoint registered in the add-on manifest (which serves `9b2bcb9`, `source_revision` read 2026-10-01, older than this branch: the commits after it change the first MCP text block and add `outputSchema` and `structuredContent` on three tools, `resources/list` and `resources/read`, and the `ui://volcan/review-card` view, none of it deployed; on 2026-09-27 it ran an older build that still refused that shape), and not Alexa+ | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8841/mcp --runs 15` |
 | Digest earcon, benign patch vs security-sensitive patch | **byte-identical until 2026-09-08**: both returned `DIFF_READY`, 19448 WAV bytes, `sha256[:16] 08f48648388bff02` | 19448 bytes `08f48648388bff02` for the benign patch, 26504 bytes `22c91bec11e275d1` for the security-sensitive one | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
 | Patch parse latency, 1000 steady runs | not measured | mean 0.281 ms; p95 0.448 ms | `python scripts/benchmark_suite.py` |
 | Earcon synthesis latency, 1000 steady runs | not measured | mean 3.592 ms; p95 6.565 ms | `python scripts/benchmark_suite.py` |
@@ -1170,7 +1211,7 @@ git rev-list --count 2d0b8f8..HEAD
   This branch opens the spoken summary with the finding itself. The public build therefore
   does not speak the headline finding, and it does not show a Bedrock answer.
 
-**Checked on 2026-10-01; `GET /health` still reported `9b2bcb9` on 2026-10-05.** This branch changes `src/` after that build (the first MCP text block, the model's full answer without Markdown outside code fences, the hedged clean findings turn), so the live build is behind HEAD until the owner redeploys. The endpoint was redeployed from HEAD `9b2bcb9` (PR #23: full model prose and coverage, markdown-stripped speech, CORS test-scope, detector probes round 2); the re-downloaded live zip is byte-identical to the pushed package, carries the `MODEL_DIFF_CHAR_BUDGET` and `strip_markdown_for_speech` markers, and `bedrock_model_path` is still `ready_to_attempt`. The `6e9ae4d` build (PR #22) stays as history: an independent 2026-10-01 review digested the auth-bypass patch live against it (HTTP 200, `synthesis_mode` bedrock, 19.67 s). The 2026-09-30 block below stays as the dated history of the earlier build, which recorded the first model answer:
+**Checked on 2026-10-01; `GET /health` still reported `9b2bcb9` on 2026-10-05.** This branch changes `src/` after that build (the first MCP text block, the model's full answer without Markdown outside code fences, the hedged clean findings turn, and `outputSchema` and `structuredContent` on three tools, `resources/list` and `resources/read`, and the `ui://volcan/review-card` view), so the live build is behind HEAD until the owner redeploys. The endpoint was redeployed from `9b2bcb9`, HEAD at the time (PR #23: full model prose and coverage, markdown-stripped speech, CORS test-scope, detector probes round 2); the re-downloaded live zip is byte-identical to the pushed package, carries the `MODEL_DIFF_CHAR_BUDGET` and `strip_markdown_for_speech` markers, and `bedrock_model_path` is still `ready_to_attempt`. The `6e9ae4d` build (PR #22) stays as history: an independent 2026-10-01 review digested the auth-bypass patch live against it (HTTP 200, `synthesis_mode` bedrock, 19.67 s). The 2026-09-30 block below stays as the dated history of the earlier build, which recorded the first model answer:
 
 ```bash
 curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health | python -m json.tool
@@ -1229,7 +1270,7 @@ sources fetched with `curl` on 2026-09-27; the date after each link is the page'
 
 | Piece | What it is | Check it |
 |---|---|---|
-| [`alexa_plus/addon-package/addon.json`](../alexa_plus/addon-package/addon.json) | The MCP Toolkit manifest: name, descriptions, four example phrases and the MCP endpoint, which is the public Lambda URL and serves `9b2bcb9`, older than this branch ([The public deployment](#the-public-deployment)). Nine values are placeholders on the reserved `.invalid` domain: the privacy page, the terms page, six icons and a carousel image, which must be the owner's own hosted files | `python scripts/validate_alexa_addon.py` prints `schema: pass` and lists the nine; `--strict` fails on them |
+| [`alexa_plus/addon-package/addon.json`](../alexa_plus/addon-package/addon.json) | The MCP Toolkit manifest: name, descriptions, four example phrases and the MCP endpoint, which is the public Lambda URL and serves `9b2bcb9`, `source_revision` read 2026-10-01, older than this branch: the commits after it change the first MCP text block and add `outputSchema` and `structuredContent` on three tools, `resources/list` and `resources/read`, and the `ui://volcan/review-card` view, none of it deployed ([The public deployment](#the-public-deployment)). Nine values are placeholders on the reserved `.invalid` domain: the privacy page, the terms page, six icons and a carousel image, which must be the owner's own hosted files | `python scripts/validate_alexa_addon.py` prints `schema: pass` and lists the nine; `--strict` fails on them |
 | [`scripts/validate_alexa_addon.py`](../scripts/validate_alexa_addon.py) | Checks the constraints in Amazon's schema reference: name up to 30 characters, short description up to 123, 3 to 4 example phrases, HTTPS URIs, the six icon sizes, a 600x900 carousel image, an MCP integration over HTTPS. A local stand-in: Amazon's CLI, which really validates, was not run | `python -m pytest tests/integration/test_alexa_plus_client_replay.py -v` |
 | [`tests/fixtures/alexa_plus_envelopes.py`](../tests/fixtures/alexa_plus_envelopes.py) and [`scripts/replay_alexa_plus_envelopes.py`](../scripts/replay_alexa_plus_envelopes.py) | The initialize and `tools/call` bodies Amazon documents for its Alexa+ MCP client, copied from the [lifecycle page](https://developer.amazon.com/docs/alexaplus/add-ons/mcp-toolkit-client-lifecycle.html) (Jul 10, 2026), with Amazon's example hotel tool swapped for `digest_semantic_diff` and the inverted admin-check patch, sent to a running server | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp` |
 
@@ -1329,9 +1370,12 @@ the untested part.
 * `review_dialogue_turn` asks for a `session_id`. Amazon's lifecycle page says Alexa+ keeps its
   own conversation context and names no session identifier it would send, so the model would
   have to supply one.
-* The tools answer with a text block, an audio block and a JSON text block, not the
-  `structuredContent` field Amazon's example response shows. Whether Alexa+ plays an MCP audio
-  block is not documented; PCM/WAVE in its codec list says nothing about tool results.
+* Since 2026-10-06 `digest_semantic_diff`, `drill_down_section` and `review_dialogue_turn`
+  also return the `structuredContent` field Amazon's example response shows, matching each
+  tool's published `outputSchema`; the text block, the audio block and the JSON text block stay.
+  Whether Alexa+ reads `structuredContent`, draws a `ui://` view or plays an MCP audio block is
+  not documented; PCM/WAVE in its codec list says nothing about tool results. The live endpoint
+  at `9b2bcb9` predates the field.
 * The endpoint has no OAuth. Amazon's authentication checklist applies to a private server.
 * Amazon's certification criteria include VoiceView, captions and screen magnifier support on
   Alexa devices. Nothing here was tried on a device.
@@ -1451,7 +1495,8 @@ simulator in isolation mode, and record which headers the real client sends.
   4 of 4 detected with 2 of 4 over-flagged before the CORS test-file exemption and 1 of 4 after
   it; commit `f1c35a1` added the exemption and those probes together. The one left is the
   control-flow limit in a new shape. Until 2026-09-27 this entry said Python only.
-* **The public endpoint serves `9b2bcb9`, older than this branch, and Alexa hardware remains untested.** On
+* **The public endpoint serves `9b2bcb9`, older than this branch, and Alexa hardware remains untested.**
+  `/health` reported `source_revision` `9b2bcb9` on 2026-10-01 and again on 2026-10-05; the commits after it change the first MCP text block, the model's full answer and the clean findings turn, and add `outputSchema` and `structuredContent` on three tools, `resources/list` and `resources/read`, and the `ui://volcan/review-card` view, none of it deployed. On
   2026-09-23 `GET /health`, `/`, the REST digest and the MCP initialize/tool path answered
   successfully. On 2026-09-27 the same endpoint reported `source_revision` `2d0b8f8`, an
   ancestor of this branch 43 commits behind `6d2e227`; see

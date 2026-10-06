@@ -7,6 +7,10 @@ with each operator named sat only inside the JSON detail block. A voice that
 drops or slurs "!=" turns that finding into its opposite. The first block now
 carries the ``*_for_speech`` form; the literal code stays in the detail block,
 so a client that shows code loses nothing.
+
+These three tools also return ``structuredContent`` (a ``ToolOutput``); the
+speech block stays first in its ``content`` and the structured object is the
+same object as the JSON detail block.
 """
 import asyncio
 import json
@@ -27,8 +31,15 @@ INVERTED = """diff --git a/src/auth/permissions.py b/src/auth/permissions.py
 BARE_OPERATORS = re.compile(r"!==|===|!=|==|<=|>=|&&|\|\|")
 
 
+def _blocks(output):
+    """The content blocks of a tool's ``ToolOutput``, after checking its structured half."""
+    assert output.structured == json.loads(output.content[-1]["text"])
+    return output.content
+
+
 def _first_text(blocks):
-    return next(block["text"] for block in blocks if block["type"] == "text")
+    assert blocks[0]["type"] == "text", "the speech block must be the very first block"
+    return blocks[0]["text"]
 
 
 def _detail(blocks):
@@ -41,7 +52,7 @@ def _assert_no_bare_operator(text):
 
 
 def test_the_digest_tool_speaks_named_operators_first():
-    blocks = asyncio.run(tool_digest(DigestRequest(raw_diff=INVERTED, level=0)))
+    blocks = _blocks(asyncio.run(tool_digest(DigestRequest(raw_diff=INVERTED, level=0))))
     first = _first_text(blocks)
     _assert_no_bare_operator(first)
     assert "user.role not equals 'admin'" in first, first
@@ -53,7 +64,7 @@ def test_the_digest_tool_speaks_named_operators_first():
 
 
 def test_the_drill_down_tool_speaks_named_operators_first():
-    blocks = asyncio.run(tool_drill_down(DrillDownRequest(raw_diff=INVERTED, section_index=0)))
+    blocks = _blocks(asyncio.run(tool_drill_down(DrillDownRequest(raw_diff=INVERTED, section_index=0))))
     first = _first_text(blocks)
     _assert_no_bare_operator(first)
     detail = _detail(blocks)
@@ -63,7 +74,7 @@ def test_the_drill_down_tool_speaks_named_operators_first():
 def test_the_review_turn_tool_speaks_named_operators_first():
     payload = {"session_id": "first-block-is-speech", "user_id": "dev", "raw_diff": INVERTED}
     asyncio.run(tool_review_turn(ReviewTurnRequest(**payload, transcript="open")))
-    blocks = asyncio.run(tool_review_turn(ReviewTurnRequest(**payload, transcript="summary")))
+    blocks = _blocks(asyncio.run(tool_review_turn(ReviewTurnRequest(**payload, transcript="summary"))))
     first = _first_text(blocks)
     _assert_no_bare_operator(first)
     assert "not equals" in first, first
