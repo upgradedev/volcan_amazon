@@ -63,34 +63,46 @@ MODEL_DIFF_CHAR_BUDGET = 3000
 #: a word end otherwise, never mid-word, with an ellipsis marking the cut.
 SPOKEN_SUMMARY_CHAR_BUDGET = 180
 
-#: Seconds a model call may run before it is abandoned to the labelled
-#: local fallback. The production function budget is 30 seconds; a call
-#: that outlives this deadline degrades with the timeout reason instead of
-#: dying to a hard function timeout with no answer at all. The deadline
-#: covers every attempt of one press together, and the client is built with
-#: no SDK retries: the SDK retries a timed-out request by default, so a slow
-#: call could otherwise run three times 25 seconds, past the function budget.
+#: Seconds each model call is given before it is abandoned to the labelled
+#: local fallback. The production function budget is 30 seconds. This is the
+#: SDK's ``timeout``, which httpx applies to each phase of one request on its
+#: own (connect, write, each read, pool), so it bounds every wait on the
+#: network rather than the wall-clock time of the call; SigV4 signing, which
+#: may look up credentials, and building the client run outside it. Every
+#: attempt of one press shares one ``MODEL_CALL_TIMEOUT_SEC`` budget for
+#: deciding whether a retry fits and how long it may wait, and the client is
+#: built with no SDK retries: the SDK retries a timed-out request by default,
+#: so a slow call could otherwise wait three times 25 seconds.
 MODEL_CALL_TIMEOUT_SEC = 25
 
 #: A press whose first answer carries no text, or whose first call fails
 #: with a transient error (HTTP 429 or 5xx, or a connection error), is tried
-#: once more, but only when at least this many seconds of the deadline remain.
-#: The second attempt gets exactly the time that is left, never a fresh 25
-#: seconds. This replaces the SDK's own retries, which ignored the deadline.
+#: once more, but only when at least this many seconds of the budget remain
+#: after any wait the service asked for in ``retry-after``. The second attempt
+#: gets the time that is left, never a fresh 25 seconds. This replaces the
+#: SDK's own retries, which ignored the budget.
 RETRY_MIN_REMAINING_SEC = 8.0
+
+#: Wait before retrying a transient error when the service names none, the
+#: SDK's own first backoff.
+RETRY_DEFAULT_WAIT_SEC = 0.5
 
 #: The request text, unchanged from the build that was live on 2026-10-06.
 #: Measured that day against anthropic.claude-opus-5 in eu-west-1 with the
 #: take-4 permissions.py patch (16 calls, ledger outside the repository):
 #:
-#: * this prompt and request body: 2 of 4 calls ended in text; the other 2
-#:   were refused (stop_reason "refusal", stop_details category "cyber",
-#:   no content, 0 output tokens, 1.5 to 3.2 seconds);
-#: * three trial variants, run in the 4 minutes after: 0 of 12 ended in
-#:   text, every one the same input-side refusal. They were a system prompt
-#:   with an instruction to flag a weakened authorization or validation rule,
-#:   an identical resend after a refusal, and this prompt without its last
-#:   sentence at effort "low" with adaptive thinking stated.
+#: * this prompt and request body (231 input tokens): 2 of 4 calls ended in
+#:   text; the other 2 were refused (stop_reason "refusal", stop_details
+#:   category "cyber", no content, 0 output tokens, 1.5 to 3.2 seconds).
+#:   Call 2 was refused and call 3, the same body one second later, answered;
+#: * two trial request bodies, run in the 4 minutes after, both at effort
+#:   "low" with adaptive thinking stated: 0 of 12 ended in text, every one the
+#:   same refusal. Body A (305 input tokens) added a system prompt with an
+#:   instruction to flag a weakened authorization or validation rule; its 4
+#:   presses each resent the same body once after the refusal, 8 calls in all.
+#:   Body B (220 input tokens) was this prompt without its last sentence.
+#:   The ledger's settings field does not record the system prompt or the
+#:   trim; the input token counts are what tell the two bodies apart.
 #:
 #: The trials fell in one window, so settings and time cannot be separated,
 #: and no trial setting ever produced an answer to measure. The request body
@@ -103,12 +115,16 @@ PROMPT_TEMPLATE = (
 )
 
 #: Private operator telemetry: one structured line per model call, holding
-#: the shape of the answer and never its words, ids or ARNs.
+#: the shape of the answer and never its words, ids or ARNs. The logger has no
+#: handler of its own. In Lambda the runtime's root handler writes its records
+#: to CloudWatch Logs: the ``volcan-voice-ide`` logger, set up the same way,
+#: delivered 11 ``[INFO]`` lines to this function's log group between
+#: 2026-09-23 and 2026-09-29. A local process with no root handler drops them.
 _telemetry = logging.getLogger("volcan.bedrock")
 _telemetry.setLevel(logging.INFO)
 
 #: Why a model message carried no text a voice could say. Each cause has its
-#: own public sentence, because "a safety filter declined it" and "it wrote
+#: own public sentence, because "the model declined it" and "it wrote
 #: nothing" call for different actions from the person reading the reason.
 NO_TEXT_REFUSAL = "refusal"
 NO_TEXT_MAX_TOKENS = "max_tokens"
@@ -118,16 +134,22 @@ NO_TEXT_NO_CONTENT = "no_content"
 
 _FALLBACK_TAIL = "; the local deterministic digest answered instead"
 NO_TEXT_PUBLIC_REASONS = {
-    NO_TEXT_REFUSAL: "Amazon Bedrock's safety filter declined to summarize this patch" + _FALLBACK_TAIL,
+    # The safety classifier that runs with the model, reported as stop_reason
+    # "refusal" with a stop_details category. Not Amazon Bedrock Guardrails,
+    # which this deployment does not configure.
+    NO_TEXT_REFUSAL: "The model's safety classifier declined to summarize this patch" + _FALLBACK_TAIL,
     NO_TEXT_MAX_TOKENS: "Amazon Bedrock used its whole output allowance before writing an answer" + _FALLBACK_TAIL,
     NO_TEXT_THINKING_ONLY: "Amazon Bedrock reasoned about the patch but wrote no answer" + _FALLBACK_TAIL,
     NO_TEXT_EMPTY_TEXT: "Amazon Bedrock returned an empty answer" + _FALLBACK_TAIL,
     NO_TEXT_NO_CONTENT: "Amazon Bedrock returned no usable text block" + _FALLBACK_TAIL,
 }
 
-#: Causes worth one more attempt within the deadline. A refusal is not one:
-#: it is the classifier's decision on this input, an identical resend
-#: recovered 0 of 4 when measured, and it is reported as a refusal instead.
+#: Causes worth one more attempt within the budget. A refusal is not one, by
+#: design rather than by measurement: it is the model's safety decision on
+#: this input, and Volcan reports it instead of asking again until a request
+#: gets through. On the live request body a resend might well answer (call 2
+#: was refused and call 3, the same body, answered a second later); the
+#: 0 of 4 recovered by resends on 2026-10-06 were on trial body A, not this one.
 #: Running out of output room would only happen again with the same allowance.
 RETRYABLE_NO_TEXT = frozenset({NO_TEXT_THINKING_ONLY, NO_TEXT_EMPTY_TEXT, NO_TEXT_NO_CONTENT})
 
@@ -407,11 +429,28 @@ class BedrockSynthesisAdapter:
     @staticmethod
     def _is_transient(exc: Exception) -> bool:
         """An error the SDK would have retried: HTTP 429 or 5xx, or a dropped
-        connection. A timeout is not one here; it has used up the deadline."""
+        connection. A timeout is not one here; it has used up the budget."""
         status = getattr(exc, "status_code", None)
         if isinstance(status, int):
             return status == 429 or status >= 500
         return type(exc).__name__ == "APIConnectionError"
+
+    @staticmethod
+    def _retry_wait(exc: Exception) -> float:
+        """Seconds to wait before retrying ``exc``: the service's
+        ``retry-after-ms`` or ``retry-after`` (in seconds) when it sends one,
+        as the SDK honours them, and ``RETRY_DEFAULT_WAIT_SEC`` otherwise."""
+        response = getattr(exc, "response", None)
+        headers = getattr(response, "headers", None)
+        if headers is not None:
+            for name, scale in (("retry-after-ms", 0.001), ("retry-after", 1.0)):
+                try:
+                    value = float(headers.get(name)) * scale
+                except (TypeError, ValueError):
+                    continue
+                if value >= 0:
+                    return value
+        return RETRY_DEFAULT_WAIT_SEC
 
     def _invoke(self, diff_excerpt: str) -> str:
         """The blocking client call, run off the event loop by the caller.
@@ -419,16 +458,20 @@ class BedrockSynthesisAdapter:
         ``diff_excerpt`` is already cut to ``MODEL_DIFF_CHAR_BUDGET`` by the
         caller, which records what the model saw; this method sends it whole.
 
-        All attempts share one deadline of ``MODEL_CALL_TIMEOUT_SEC``. A first
-        answer with no text (other than a refusal or a spent output allowance),
-        or a first call that fails transiently, is tried once more when at least
-        ``RETRY_MIN_REMAINING_SEC`` remain, with the remaining time as its
-        timeout; otherwise the ``NoSpokenText`` or the error reaches the caller.
+        All attempts share one budget of ``MODEL_CALL_TIMEOUT_SEC``, counted
+        from the first call. A first answer with no text (other than a refusal
+        or a spent output allowance), or a first call that fails transiently,
+        is tried once more when at least ``RETRY_MIN_REMAINING_SEC`` remain
+        after the wait, with the remaining time as its timeout; otherwise the
+        ``NoSpokenText`` or the error reaches the caller. When a first answer
+        had no text and the second call then fails, the first cause is what
+        reaches the caller, chained to the second error; telemetry has both.
         """
         client = self._build_client()
         prompt = PROMPT_TEMPLATE.format(diff=diff_excerpt)
         deadline = time.monotonic() + MODEL_CALL_TIMEOUT_SEC
         attempt = 0
+        first_no_text: NoSpokenText | None = None
         while True:
             attempt += 1
             remaining = deadline - time.monotonic()
@@ -442,12 +485,14 @@ class BedrockSynthesisAdapter:
                 )
             except Exception as exc:
                 self._log_model_call(attempt, round((time.monotonic() - started) * 1000), error=exc)
-                if (
-                    attempt >= 2
-                    or not self._is_transient(exc)
-                    or deadline - time.monotonic() < RETRY_MIN_REMAINING_SEC
-                ):
+                if first_no_text is not None:
+                    raise first_no_text from exc
+                if attempt >= 2 or not self._is_transient(exc):
                     raise
+                wait = self._retry_wait(exc)
+                if deadline - time.monotonic() - wait < RETRY_MIN_REMAINING_SEC:
+                    raise
+                time.sleep(wait)
                 continue
             self._log_model_call(attempt, round((time.monotonic() - started) * 1000), message=message)
             try:
@@ -459,6 +504,7 @@ class BedrockSynthesisAdapter:
                     or deadline - time.monotonic() < RETRY_MIN_REMAINING_SEC
                 ):
                     raise
+                first_no_text = no_text
 
     @staticmethod
     def _public_failure_reason(exc: Exception) -> str:
@@ -474,6 +520,14 @@ class BedrockSynthesisAdapter:
         # before any substring matching could misread its wording.
         if isinstance(exc, NoSpokenText):
             return exc.public_reason
+        throttled = (
+            "Amazon Bedrock temporarily throttled this request; "
+            "the local deterministic digest answered instead"
+        )
+        # The SDK's RateLimitError reads "ratelimiterror error code: 429 ...
+        # rate_limit_error", which no wording rule below matched.
+        if getattr(exc, "status_code", None) == 429:
+            return throttled
         category = f"{type(exc).__name__} {exc}".lower()
         if "permission" in category or "accessdenied" in category or "unauthorized" in category:
             return (
@@ -485,11 +539,8 @@ class BedrockSynthesisAdapter:
                 "The configured Amazon Bedrock model is unavailable in this deployment; "
                 "the local deterministic digest answered instead"
             )
-        if "throttl" in category or "rate limit" in category:
-            return (
-                "Amazon Bedrock temporarily throttled this request; "
-                "the local deterministic digest answered instead"
-            )
+        if any(word in category for word in ("throttl", "rate limit", "ratelimit", "rate_limit")):
+            return throttled
         if "timeout" in category or "timed out" in category:
             return (
                 "Amazon Bedrock did not answer before the request deadline; "

@@ -1,14 +1,17 @@
 """A Bedrock message that arrives with no text, and what Volcan does with it.
 
 On 2026-10-06 the live 'Hear this code review' press fell back in 2 of 4
-takes with "Amazon Bedrock returned no usable text block". Reproduced against
-anthropic.claude-opus-5 in eu-west-1, the message was a refusal:
-stop_reason "refusal", stop_details category "cyber", content [] and 0 output
-tokens. These tests pin each no-text shape to its own public reason, the
-bounded retry and its shared deadline, the request body, and the private
-telemetry line, which must carry the answer's shape and never its words.
+takes with "Amazon Bedrock returned no usable text block". In both, the one
+model call had 231 input and 0 output tokens (AWS/BedrockMantle metrics); the
+stop reason was not logged live. Reproduced against anthropic.claude-opus-5
+in eu-west-1, the only shape with 0 output tokens was a refusal: stop_reason
+"refusal", stop_details category "cyber", content []. These tests pin each
+no-text shape to its own public reason, the bounded retry and its shared
+budget, the request body, and the private telemetry line, which must carry
+the answer's shape and never its words.
 """
 import asyncio
+import importlib
 import json
 import logging
 import sys
@@ -113,9 +116,14 @@ class _Client:
 class _Clock:
     def __init__(self):
         self.now = 1000.0
+        self.slept: list[float] = []
 
     def monotonic(self):
         return self.now
+
+    def sleep(self, seconds):
+        self.slept.append(seconds)
+        self.now += seconds
 
 
 @pytest.fixture
@@ -127,7 +135,7 @@ def with_credentials(monkeypatch):
 def clock(monkeypatch):
     """A fake clock for the adapter module only; asyncio keeps the real one."""
     fake = _Clock()
-    monkeypatch.setattr(ba, "time", SimpleNamespace(monotonic=fake.monotonic))
+    monkeypatch.setattr(ba, "time", SimpleNamespace(monotonic=fake.monotonic, sleep=fake.sleep))
     return fake
 
 
@@ -144,24 +152,27 @@ def _invoke(client):
 # --- Each no-text shape has its own public reason. ---
 
 
-def test_the_observed_refusal_says_a_safety_filter_declined(with_credentials):
-    """The live shape: stop_reason refusal, category cyber, no content."""
+def test_the_observed_refusal_says_the_model_safety_classifier_declined(with_credentials):
+    """The reproduced shape: stop_reason refusal, category cyber, no content.
+    The sentence names the model's classifier, not Amazon Bedrock Guardrails,
+    which this deployment does not use."""
     client = _Client([(REFUSAL, 1.4)])
 
     report = _press(client)
 
     assert report.synthesis_mode == ba.MODE_HEURISTIC
     assert report.fallback_reason == (
-        "Amazon Bedrock's safety filter declined to summarize this patch; "
+        "The model's safety classifier declined to summarize this patch; "
         "the local deterministic digest answered instead"
     )
     assert SECRET_EXPLANATION not in report.fallback_reason
+    assert "Guardrail" not in report.fallback_reason
 
 
 def test_a_refusal_after_thinking_is_still_a_refusal(with_credentials):
     report = _press(_Client([(REFUSAL_AFTER_THINKING, 3.0)]))
 
-    assert report.fallback_reason.startswith("Amazon Bedrock's safety filter declined")
+    assert report.fallback_reason.startswith("The model's safety classifier declined")
 
 
 def test_a_refusal_after_partial_text_is_not_spoken_as_an_answer(with_credentials):
@@ -173,7 +184,7 @@ def test_a_refusal_after_partial_text_is_not_spoken_as_an_answer(with_credential
     report = _press(_Client([(partial, 9.0)]))
 
     assert report.synthesis_mode == ba.MODE_HEURISTIC
-    assert report.fallback_reason.startswith("Amazon Bedrock's safety filter declined")
+    assert report.fallback_reason.startswith("The model's safety classifier declined")
     assert report.model_prose_full is None
 
 
@@ -213,11 +224,13 @@ def test_the_no_text_cause_wins_over_wording_in_the_exception():
         assert ba.BedrockSynthesisAdapter._public_failure_reason(exc) == reason
 
 
-# --- One bounded retry, inside one deadline. ---
+# --- One bounded retry, inside one budget. ---
 
 
 def test_a_refusal_is_not_resent(clock):
-    """An identical resend after a refusal recovered 0 of 4 when measured live."""
+    """A design choice, not a measured one: the refusal is reported rather than
+    asked again. On the live body a resend might answer (ledger call 2 was
+    refused, call 3 answered); the 0 of 4 resends were on trial body A."""
     client = _Client([(REFUSAL, 1.4), (ANSWER, 3.0)], clock)
 
     with pytest.raises(ba.NoSpokenText) as raised:
@@ -248,8 +261,10 @@ def test_there_is_never_a_third_attempt(clock):
 
 
 def test_no_retry_when_too_little_of_the_deadline_remains(clock):
-    """A first answer at 18 s leaves 7 s, under the 8 s floor: no second call,
-    so the press can never outlive the 30-second function budget."""
+    """A first answer at 18 s leaves 7 s, under the 8 s floor: no second call.
+    The timeout bounds each network wait, not signing or the client build, so
+    this keeps a press well inside the 30-second function budget rather than
+    guaranteeing a wall-clock limit."""
     assert ba.RETRY_MIN_REMAINING_SEC == 8.0
     client = _Client([(THINKING_ONLY, 18.0), (ANSWER, 3.0)], clock)
 
@@ -288,7 +303,10 @@ def test_a_transient_failure_is_tried_once_more_within_the_deadline(clock, error
     client = _Client([(error, 1.0), (ANSWER, 3.0)], clock)
 
     assert _invoke(client).endswith("Admin check inverted.")
-    assert client.messages.calls[1]["timeout"] == pytest.approx(ba.MODEL_CALL_TIMEOUT_SEC - 1.0)
+    assert clock.slept == [ba.RETRY_DEFAULT_WAIT_SEC]
+    assert client.messages.calls[1]["timeout"] == pytest.approx(
+        ba.MODEL_CALL_TIMEOUT_SEC - 1.0 - ba.RETRY_DEFAULT_WAIT_SEC
+    )
 
 
 @pytest.mark.parametrize("error", [_StatusError(400), _StatusError(403), APITimeoutError("timed out")])
@@ -310,13 +328,101 @@ def test_a_transient_failure_late_in_the_deadline_is_not_tried_again(clock):
     assert len(client.messages.calls) == 1
 
 
+def test_a_no_text_answer_keeps_its_cause_when_the_retry_then_fails(with_credentials, clock):
+    """The first answer had no text and the second call timed out: the press
+    reports the first cause, the one that started the retry, chained to the
+    timeout, instead of only 'did not answer before the request deadline'."""
+    timeout = APITimeoutError("timed out")
+    client = _Client([(THINKING_ONLY, 6.0), (timeout, 19.0)], clock)
+
+    with pytest.raises(ba.NoSpokenText) as raised:
+        _invoke(client)
+    assert raised.value.cause == ba.NO_TEXT_THINKING_ONLY
+    assert raised.value.__cause__ is timeout
+
+    report = _press(_Client([(THINKING_ONLY, 6.0), (APITimeoutError("timed out"), 19.0)], clock))
+    assert report.fallback_reason == ba.NO_TEXT_PUBLIC_REASONS[ba.NO_TEXT_THINKING_ONLY]
+
+
+# --- The SDK's own exception types, as the deployed anthropic raises them. ---
+
+
+def _sdk():
+    """anthropic and the HTTP module its exceptions are built on (httpx2 in
+    1.8.0 and 1.11.0). Skipped where the optional SDK is not installed."""
+    anthropic = pytest.importorskip("anthropic")
+    exceptions = importlib.import_module("anthropic._exceptions")
+    http = getattr(exceptions, "httpx2", None) or getattr(exceptions, "httpx")
+    return anthropic, http
+
+
+def _sdk_status_error(name, status, headers=None):
+    anthropic, http = _sdk()
+    request = http.Request("POST", "https://bedrock-mantle.eu-west-1.api.aws/v1/messages")
+    response = http.Response(status, headers=headers or {}, request=request)
+    kind = {429: "rate_limit_error", 503: "overloaded_error"}.get(status, "api_error")
+    body = {"type": "error", "error": {"type": kind, "message": "account 123456789012"}}
+    return getattr(anthropic, name)(f"Error code: {status} - {body}", response=response, body=body)
+
+
+def test_the_sdk_rate_limit_error_is_named_as_throttling():
+    """Its text reads 'ratelimiterror error code: 429 ... rate_limit_error',
+    which the wording rules used to miss, ending in the generic sentence."""
+    error = _sdk_status_error("RateLimitError", 429)
+
+    reason = ba.BedrockSynthesisAdapter._public_failure_reason(error)
+
+    assert reason == (
+        "Amazon Bedrock temporarily throttled this request; "
+        "the local deterministic digest answered instead"
+    )
+    assert "123456789012" not in reason
+
+
+@pytest.mark.parametrize("retry_after, retried", [("2", True), ("20", False)])
+def test_the_sdk_rate_limit_retry_waits_as_long_as_bedrock_asks(clock, retry_after, retried):
+    """retry-after is honoured, and the retry is dropped when waiting would
+    leave less than the 8 s floor."""
+    error = _sdk_status_error("RateLimitError", 429, {"retry-after": retry_after})
+    client = _Client([(error, 1.0), (ANSWER, 3.0)], clock)
+
+    if retried:
+        assert _invoke(client).endswith("Admin check inverted.")
+        assert clock.slept == [2.0]
+        assert client.messages.calls[1]["timeout"] == pytest.approx(ba.MODEL_CALL_TIMEOUT_SEC - 1.0 - 2.0)
+    else:
+        with pytest.raises(type(error)):
+            _invoke(client)
+        assert len(client.messages.calls) == 1
+        assert clock.slept == []
+
+
+def test_the_sdk_connection_and_server_errors_are_retried_and_its_timeout_is_not(clock):
+    anthropic, http = _sdk()
+    request = http.Request("POST", "https://bedrock-mantle.eu-west-1.api.aws/v1/messages")
+    for error in (anthropic.APIConnectionError(request=request),
+                  _sdk_status_error("InternalServerError", 503)):
+        client = _Client([(error, 1.0), (ANSWER, 3.0)], clock)
+        assert _invoke(client).endswith("Admin check inverted.")
+
+    timeout = anthropic.APITimeoutError(request=request)
+    client = _Client([(timeout, 25.0), (ANSWER, 3.0)], clock)
+    with pytest.raises(anthropic.APITimeoutError):
+        _invoke(client)
+    assert len(client.messages.calls) == 1
+    assert ba.BedrockSynthesisAdapter._public_failure_reason(timeout).startswith(
+        "Amazon Bedrock did not answer before the request deadline"
+    )
+
+
 # --- The request the adapter sends. ---
 
 
 def test_the_request_body_is_the_one_with_live_evidence(with_credentials):
-    """The live body answered 2 of 4 calls on 2026-10-06; three trial variants
-    (a system prompt, a trimmed prompt at effort low with adaptive thinking
-    stated, a resend) answered 0 of 12. Nothing is added to the request."""
+    """The live body answered 2 of 4 calls on 2026-10-06; two trial bodies
+    (A: a system prompt, with one resend per press; B: a trimmed prompt; both
+    at effort low with adaptive thinking stated) answered 0 of 12. Nothing is
+    added to the request."""
     client = _Client([(ANSWER, 3.0)])
 
     _press(client)

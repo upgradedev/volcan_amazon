@@ -136,7 +136,7 @@ code operator named (`user.role not equals 'admin'`), while the screen and the B
 the literal `!=`.
 
 **Time to first result, measured on the development machine on 2026-09-26.** Step 1 collects
-884 tests (`python -m pytest tests/ --collect-only -q`, 2026-10-06); CI run 37432272539 on master at `f9e5135` printed `854 passed` on 2026-10-06 (the count is the claim; the duration varies run to run; CI run 36804593070 at `fc10e7d` printed 751 on 2026-10-01; 737 on 2026-09-30; 725 on 2026-09-29;
+889 tests (`python -m pytest tests/ --collect-only -q`, 2026-10-06); CI run 37508504877 on PR #35 at `bceecb0` printed `884 passed` and CI run 37432272539 on master at `f9e5135` printed `854 passed` on 2026-10-06 (the count is the claim; the duration varies run to run; CI run 36804593070 at `fc10e7d` printed 751 on 2026-10-01; 737 on 2026-09-30; 725 on 2026-09-29;
 723 earlier that day, before the Lambda SSE-bridge disconnect fix; 707 on 2026-09-28, before the persona-review gates moved into this repository; 703 earlier that day, before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 646 earlier that day, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 on 2026-09-27 before the single review cursor and the local revision in /health; that
 day, before the version-header fix and the replay panel, it was 631, before the JavaScript and TypeScript rules and the Alexa+ package, it was 577, and before the audit fixes 623). The server in step 2 answered its first `GET /health` with HTTP 200 **1.7 seconds**
 after launch on 2026-09-26 (three runs that day read 1.7, 1.7 and 1.8 s), printed by [`scripts/measure_cold_start.py`](../scripts/measure_cold_start.py),
@@ -238,16 +238,30 @@ why without returning the provider's raw payload**. The companion prints both be
 synthesis meter. An unexplained fallback is indistinguishable from a design decision, while a
 verbatim cloud error can expose account, role and request identifiers. Volcan returns a fixed
 category for permission, unavailable-model, throttling, timeout and malformed-response cases.
-A message that arrives with no text to speak gets its own sentence for each cause: Bedrock's
-safety filter declined the patch (`stop_reason` `refusal`, even after partial text), the model
-reasoned but wrote nothing, it wrote only whitespace, or it used its whole output allowance.
-On 2026-10-06 the live "Hear this code review" press fell back in 2 of 4 takes with the generic
-"no usable text block". Reproduced against `anthropic.claude-opus-5` in eu-west-1 with the
-deployed SDK (anthropic 1.8.0), the empty messages were cyber-classifier refusals of the input:
-no content, 0 output tokens. The request body is unchanged; three trial variants were refused
-in all 12 calls and were not kept. Each model call now writes one private log line on the
+A message that arrives with no text to speak gets its own sentence for each cause: the model's
+safety classifier declined the patch (`stop_reason` `refusal`, even after partial text; this is
+the classifier that runs with the model, not Amazon Bedrock Guardrails, which this deployment
+does not configure), the model reasoned but wrote nothing, it wrote only whitespace, or it used
+its whole output allowance. On 2026-10-06 the live "Hear this code review" press fell back in
+2 of 4 takes with the generic "no usable text block". What was observed live: in each failed
+take the press made one model call, with 231 input and 0 output tokens (`AWS/BedrockMantle`
+`Inferences`, `InputTokens` and `OutputTokens` for `anthropic.claude-opus-5` in eu-west-1, per
+minute, matched to the press by time and input size); the presses took 16.6 s (take 1) and
+1.6 s (take 4) of Lambda time. Thinking tokens count as output, so 0 output tokens rules out
+a thinking-only answer and a spent output allowance. The stop reason was not logged live.
+Reproduced with the deployed SDK (anthropic 1.8.0) and the same request body, the only shape
+with 0 output tokens was a refusal (`stop_reason` `refusal`, category `cyber`, no content, 1.5
+to 3.2 s), in 2 of 4 calls; the other 2 answered. So a refusal is the likely cause of the live
+fallbacks, inferred from their token shape rather than seen. The request body is unchanged: two
+trial bodies (a system prompt, with one resend per press; a trimmed prompt) were refused in
+all 12 calls and were not kept. Each model call now writes one private log line on the
 `volcan.bedrock` logger with latency, stop reason, refusal category, block types with character
-counts and token usage, and never the model's words, the refusal explanation, ids or ARNs.
+counts and token usage, and never the model's words, the refusal explanation, ids or ARNs. The
+logger has no handler of its own and relies on the Lambda runtime's root handler; the
+`volcan-voice-ide` logger, set up the same way, delivered 11 `[INFO]` lines to the function's
+log group between 2026-09-23 and 2026-09-29 (`aws logs filter-log-events --log-group-name
+/aws/lambda/volcan-mcp-euw1-prod --filter-pattern '"[INFO]"'`). The `volcan.bedrock` lines
+themselves are unproven until this build is deployed.
 
 **The model reads a prefix; the rules read the patch.** The model is shown the first 3000
 characters of the diff (`MODEL_DIFF_CHAR_BUDGET`); the local rules parse the whole patch, so a
@@ -259,12 +273,20 @@ characters go to Amazon Bedrock when a model is available. Speech never hears Ma
 emphasis, ticks, links, headers and bullets are stripped, code-shaped stars kept, before the
 summary is cut and before operators are named. A fenced code block keeps every character,
 its diff `-` and `+` and its `#` comment markers included, and its fence lines become
-"Code:" and "End of code."; the full-answer panel gets the same text. A model call has 25 seconds inside the
-30-second function budget, shared by every attempt of one press. The client makes no retries of
-its own, because the SDK's default two retries of a timed-out call could run 75 seconds. Instead,
-a thinking-only, empty or contentless answer, or a 429, 5xx or connection error, is tried once more
-only when at least 8 seconds remain, and gets only the time left. A refusal is reported, never
-resent. Patches past one million characters are refused with 422.
+"Code:" and "End of code."; the full-answer panel gets the same text. A model call is given a
+25-second timeout inside the 30-second function budget, and every attempt of one press shares
+that 25-second budget. The timeout is httpx's, applied to each network phase (connect, write,
+each read) on its own, and SigV4 signing and building the client run outside it, so it bounds
+the waits on the network rather than the wall-clock time of the press. The client makes no
+retries of its own, because the SDK's default two retries of a timed-out call could wait 75
+seconds. Instead, a thinking-only, empty or contentless answer, or a 429, 5xx or connection
+error, is tried once more only when at least 8 seconds remain after any `retry-after` wait,
+and gets only the time left. A 429 is reported as throttling, matched on its status code. A
+refusal is reported and not resent. That is a choice, not a measurement: on the live request
+body one call was refused and the next, identical, answered a second later, so a resend might
+well work; the 0 of 4 recovered by resends were on a trial body. When a first answer had no
+text and the retry then fails, the first cause is the one reported. Patches past one million
+characters are refused with 422.
 Covered by `tests/unit/test_model_evidence_reaches_the_api.py`,
 `tests/e2e/test_model_coverage_display.py` and the spoken-form tests; added 2026-10-01 after a
 review found the evidence fields dropped in the use case and `**Spoken summary:**` read aloud.
@@ -966,7 +988,7 @@ estimate unless it says ESTIMATE.
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **23 of 23 conformance checks pass**, stateful on port 8841 and stateless (`VOLCAN_MCP_SESSION_MODE=stateless`, `--expect-mode stateless`) on port 8842, 2026-09-27 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 884 collected (`python -m pytest tests/ --collect-only -q`, 2026-10-06). CI run 37432272539 on master at `f9e5135`: `854 passed`, 93.52% statement coverage (5029 statements, 326 missed), including a real Chromium judge journey and Lambda bridge, and the readiness step printed `46/53 passed, 0 blocking failures, 7 externally blocked`, 2026-10-06 (CI run 36804593070 at `fc10e7d`: 751 passing, 93.18% with 4734 statements and 323 missed, 2026-10-01; 751 and 92.84% with 339 missed on the development machine the same day; 737 and 92.89% on 2026-09-30; 725 and 92.74% on 2026-09-29; 723 and 92.67% earlier that day before the Lambda SSE-bridge disconnect fix; 707 and 92.67% on 2026-09-28 before the persona-review gates; 703 and 92.67% earlier that day before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 684 and 92.62% before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 889 collected (`python -m pytest tests/ --collect-only -q`, 2026-10-06, on PR #35 after `bceecb0`). CI run 37508504877 on PR #35 at `bceecb0`, 2026-10-06: `884 passed`, 93.67% statement coverage (5099 statements, 323 missed), readiness `46/53 passed, 0 blocking failures, 7 externally blocked`. The five tests added after that run are not in it. Before it, CI run 37432272539 on master at `f9e5135`: `854 passed`, 93.52% statement coverage (5029 statements, 326 missed), including a real Chromium judge journey and Lambda bridge, and the readiness step printed `46/53 passed, 0 blocking failures, 7 externally blocked`, 2026-10-06 (CI run 36804593070 at `fc10e7d`: 751 passing, 93.18% with 4734 statements and 323 missed, 2026-10-01; 751 and 92.84% with 339 missed on the development machine the same day; 737 and 92.89% on 2026-09-30; 725 and 92.74% on 2026-09-29; 723 and 92.67% earlier that day before the Lambda SSE-bridge disconnect fix; 707 and 92.67% on 2026-09-28 before the persona-review gates; 703 and 92.67% earlier that day before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 684 and 92.62% before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.7 s on 2026-09-26 (three runs: 1.7, 1.7, 1.8 s) | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 31.3 ms on the first press, then 38.9, 30.5 and 28.7 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credentials | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
