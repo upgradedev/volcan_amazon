@@ -359,9 +359,9 @@ follows it, with these limits.
   On 2026-10-06 it printed `outro 5 rows 3.98`, `outro-no-voice 5 rows 3.63` and
   `title 3 rows 1.98`. Re-measure after any change to the card lines.
 * **The 5 s rule, measured.** The plan's timeline is the 2.0 s title card, the cold open's
-  first frame at 2.0 s, `line 26` typed 0.1 s later and sent with Enter. In both rehearsals
-  of 2026-10-06 below, the cold open's first sound and first word came 0.55 s into the cold
-  open, 2.55 s into the video, inside 5.0 s. (The earlier rehearsal's Findings press put its
+  first frame at 2.0 s, `line 26` typed 0.1 s later and sent with Enter. In the rehearsals
+  of 2026-10-06 below, the cold open's first sound and first word came 0.52 to 0.55 s into the
+  cold open, 2.52 to 2.55 s into the video, inside 5.0 s. (The earlier rehearsal's Findings press put its
   first word at 3.744 s.) The capture fails a take whose first word lands later than 5.0 s.
 * **`content-seam<=1s`: the screencast now ends on narration.** The check compares the end
   of the last sound before the web beat (`a_main`) with the web beat's start, and fails when
@@ -401,47 +401,48 @@ follows it, with these limits.
 ### The free rehearsal of the press-after-narration plan, 2026-10-06
 
 After take 3 on the live build failed only because Amazon Bedrock answered under beat 2's
-narration, a free rehearsal ran the plan in this folder at `469f1f4`, on the chosen pull
+narration, a free rehearsal ran the plan in this folder at `e9137e4`, on the chosen pull
 request, with the real ElevenLabs narration. No Bedrock call was billed. ElevenLabs was called
 for beats 1, 2, 3, 4, 6 and 7, 988 characters over four generator runs (`SHOT_LIST.md`, time
 budget, has the runs; `narration/tts-ledger.jsonl` in the media root has every call). Beat 5
-reused its cached audio.
+reused its cached audio, and widening beat 2's window from 58.0 to 58.5 s sent nothing.
 
 * **Setup.** `video/capture-local.py --rehearsal`, `video/build-video.py --rehearsal` and the
   unchanged gate, against a local server on port 8813 started with the commands in section 1
-  and reporting `source_revision` `469f1f4`, `bedrock_model_path`
+  and reporting `source_revision` `e9137e4`, `bedrock_model_path`
   `unavailable_no_sdk_and_no_credentials`, `durable_state` `process_memory` and
   `github_review_path` `dry_run_no_token`. `VOLCAN_PR_URL` was
   https://github.com/upgradedev/volcan-demo-service/pull/1 and `VOLCAN_COLD_OPEN` was unset,
   so the cold open was `line 26`. The capture, the composed video and the gate's output in
   `output-rehearsal/sync-gate.txt` are in `reviews/videos_20261006/volcan_amazon/` in the
-  owner's workspace, with the capture's log in `rehearsal4-capture.log`.
+  owner's workspace, with the capture's log in `rehearsal5-capture.log`.
 * **The capture** exited 0 with an empty `failures` list: no page error, no blank stretch, the
-  recording drifting 0.0066% from the page clock (`videoPerPageSecond` 1.000066).
-  * Cold open, `line 26`: first sound and first word 0.55 s into the cold open, 2.55 s into the
-    video. Its speech ended 1.05 s before beat 1.
+  recording drifting 0.0119% from the page clock (`videoPerPageSecond` 0.999881).
+  * Cold open, `line 26`: first sound and first word 0.52 s into the cold open, 2.52 s into the
+    video. Its speech ended 1.16 s before beat 1.
   * Beat 2: the narrator stopped at 11.145 s of timeline and the press was made at 11.828 s,
-    after the 0.65 s tail. The local answer's earcon started at 12.23 s, after the narration,
+    after the 0.65 s tail. The local answer's earcon started at 12.237 s, after the narration,
     so the check that the answer starts after beat 2's narration passed, in the rehearsal
-    this time. Its speech ended at 29.606 s; the window closes at 69.795 s, 57.967 s after the
-    press.
-  * Beat 3: the scroll to the coverage line came at 75.25 s, on the sentence about it.
-  * Request changes, with `is_admin is inverted.`: its speech ended 1.01 s before beat 5.
-  * Confirm: its speech ended 2.08 s before beat 6.
-* **The build** composed 169.32 s, with 25 caption windows, and refused nothing.
+    this time. Its speech ended at 29.611 s; the window closes at 70.295 s, 58.467 s after the
+    press, against the 57.87 s a full answer needs after a 25 s call.
+  * Beat 3: the scroll to the coverage line came at 75.75 s, on the sentence about it.
+  * Request changes, with `is_admin is inverted.`: its speech ended 1.12 s before beat 5.
+  * Confirm: its speech ended 2.20 s before beat 6.
+* **The build** composed 169.84 s, with 25 caption windows, and refused nothing.
 * **The gate passed every check:** `order-manifest`, `order-pixels` (title card 1.9,
-  screencast 11.7, web 12.0, closing card 4.0), `durations>0`, `duration-reconstruct`,
-  `publication-budget<175s` (169.32 s), `content-seam<=1s` (0.650 s), `av-duration`,
+  screencast 11.7, web 11.9, closing card 3.9), `durations>0`, `duration-reconstruct`,
+  `publication-budget<175s` (169.84 s), `content-seam<=1s` (0.650 s), `av-duration`,
   `captions-in-bounds`, `captions-monotonic-nonoverlap`, `captions-no-outro-bleed` and
   `web-beat-audible` (-1.5 dB).
   * Cross-check: ffmpeg `silencedetect` (-40 dB, d=0.5) puts beat 2's rehearsal silence, after
-    the local answer, from 42.75 to 85.33 s of video, 42.6 s. In the take, the model wait and
+    the local answer, from 42.76 to 85.83 s of video, 43.1 s. In the take, the model wait and
     the model's headline fill up to about 40 s of it.
-* **Not representative of the billed take**, from the receipt's `notRepresentative`, all
-  about Amazon Bedrock or the cloud: the model path and durable state in `/health`; the press
-  answered by the local engine; the meter reading `local heuristic`; no coverage line and no
-  model answer to open. The press time and the answer-after-narration check are no longer on
-  the list: the take presses at the same moment.
+* **Not representative of the billed take**, from the receipt's `notRepresentative`: the
+  Amazon Bedrock items (the model path in `/health`, the press answered by the local engine,
+  the meter reading `local heuristic`, no coverage line and no model answer to open) and the
+  DynamoDB item (`durable_state` `process_memory`, because a local server keeps its review
+  state in memory). The press time and the answer-after-narration check are no longer on the
+  list: the take presses at the same moment.
 
 ### The free rehearsal of the fitted plan, 2026-10-06, before take 3
 
