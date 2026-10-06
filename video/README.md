@@ -2,6 +2,8 @@
 
 **Next take: planned, not recorded.** [`SHOT_LIST.md`](SHOT_LIST.md) and `narration.json` in
 this folder now hold the plan for a re-take on the live build, with Amazon Bedrock answering.
+The take records against `22c32ab` (PR #34), the build the live endpoint serves since its
+second redeploy on 2026-10-06.
 Section 1 gives the commands for that take and for a free rehearsal. Section 4 says what the
 pipeline does for the take, what the rehearsal of 2026-10-06 found and what is still open.
 Sections 2 and 3 describe the render that exists. Its script and its capture are in history:
@@ -45,12 +47,13 @@ so any one beat can be re-rendered later.
 | Compose | `video/build-video.py` | `output/volcan-demo.mp4`, `video-receipt.json`, `video_manifest.json`, `caption_windows.json`, `captions.en.srt` |
 | Gate | `scripts/verify_video_sync.py` | pass or fail, from the mp4 itself |
 
-For the re-take on the live build:
+For the re-take on the live build, which serves `22c32ab` since 2026-10-06
+(`curl -s $VOLCAN_APP_URL/health` reports it as `source_revision`; the capture refuses any other):
 
 ```bash
 export VOLCAN_VIDEO_ROOT=/a/folder/outside/the/repo
 export VOLCAN_APP_URL=https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/
-export VOLCAN_RELEASE_SHA=<the 40 character source_revision that GET $VOLCAN_APP_URL/health reports>
+export VOLCAN_RELEASE_SHA=22c32ab56cc45155c4544ce658ef399aeb5d55c1   # the source_revision /health reports
 export VOLCAN_PR_URL=https://github.com/<owner>/<repo>/pull/<number>   # chosen in rehearsal
 # Leave VOLCAN_COLD_OPEN unset: the cold open is cold_open.command in narration.json, `line 26`.
 # When set, VOLCAN_COLD_OPEN overrides it (findings, files, summary or "line N"); when neither
@@ -400,7 +403,9 @@ characters, 507 in all (`narration/tts-ledger.jsonl` in the media root).
 
 * **Setup.** `video/capture-local.py --rehearsal`, `video/build-video.py --rehearsal` and the
   unchanged gate, against a local server on port 8813 started with the commands in section 1
-  and reporting `source_revision` `099fc28` (its `src/` is this commit's), `bedrock_model_path`
+  and reporting `source_revision` `099fc28` (its `src/` was this branch's then; `22c32ab`, merged
+  since, changes only the two DynamoDB stores, which a local run without `VOLCAN_STATE_TABLE`
+  does not use), `bedrock_model_path`
   `unavailable_no_sdk_and_no_credentials` and `github_review_path` `dry_run_no_token`.
   `VOLCAN_PR_URL` was https://github.com/upgradedev/volcan-demo-service/pull/1, head `74dd0b1`,
   and `VOLCAN_COLD_OPEN` was unset, so the cold open was `line 26`. The capture, the composed

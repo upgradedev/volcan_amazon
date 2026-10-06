@@ -287,10 +287,16 @@ perform today, and readiness gates E2 and E4 report red until footage is in `vid
 **Deployed.** On 2026-09-23 the public endpoint served `GET /health`, the current companion,
 the REST digest and MCP initialize/tool calls. Health exposes the immutable source revision.
 A governed action remained a dry-run and its bounded EMF records were read back from
-CloudWatch. On 2026-10-06, after a redeploy, `GET /health` reported `source_revision`
-`aa3364a`; the later commits on master change no file under `src/` and not `docs/index.html`
-(`git diff --name-only aa3364a HEAD -- src docs/index.html` prints nothing), so the endpoint
-serves the current runtime. A live GitHub write remains absent. An Alexa+ add-on deployment is absent because
+CloudWatch. On 2026-10-06, after a second redeploy that day, `GET /health` reported
+`source_revision` `22c32ab` (PR #34); the later commits on this branch change no file under
+`src/` and not `docs/index.html` (`git diff --name-only 22c32ab HEAD -- src docs/index.html`
+prints nothing), so the endpoint serves the current runtime. Known issue, fixed: from the
+first DynamoDB build, `e500731` (2026-09-29), until `22c32ab`, every durable stage (Request
+changes, Confirm, the audit append and finalization) answered HTTP 503 on live, because the
+transactional writes serialized their DynamoDB items twice and DynamoDB refused them. After the
+fix, Request changes answered `CONFIRM_REVIEW` on live; the other stages share the corrected
+code and are checked offline (`docs/EVIDENCE.md`, "Known issue: durable stages answered HTTP
+503 on live"). A live GitHub write remains absent. An Alexa+ add-on deployment is absent because
 the add-on tools are partner-only ([hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs)). No Alexa skill has been
 certified and nothing has run on an Echo device; for this track the FAQ says "no physical
 device needed".
@@ -378,7 +384,8 @@ does and does not compound, is in `docs/EVIDENCE.md`.
    or motor-impaired developer, and every design decision about cue ordering, readback
    wording and digest length is currently a hypothesis.
 6. **Deploy and fault-test the durable-state candidate.** The cold-start and concurrent-worker
-   suite proves the conditional DynamoDB model with an in-process double. The remaining proof
+   suite proves the conditional DynamoDB model with an in-process double, which until PR #34
+   accepted the double serialization that broke every live durable stage. The remaining proof
    is an exact-SHA deployment and a cross-container dialogue/approval run. Local tests already
    inject stage/finalization failures and response loss; a post-claim external-write crash still
    requires the documented operator-reconciliation state.
