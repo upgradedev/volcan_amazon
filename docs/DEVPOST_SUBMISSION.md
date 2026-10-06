@@ -383,7 +383,10 @@ does and does not compound, is in `docs/EVIDENCE.md`.
 
 ## Feedback for the Amazon teams
 
-`docs/FRICTION_LOG.md` holds the detail. In short: publish MCP conformance vectors so two
+The friction log is [docs/FRICTION_LOG.md](https://github.com/upgradedev/volcan_amazon/blob/master/docs/FRICTION_LOG.md)
+in the repository. It has eight entries, and each one gives the task attempted, the steps
+taken, the expected and actual result, a severity rating, the workaround used and an
+actionable suggestion. In short: publish MCP conformance vectors so two
 implementers agree on status codes; state that a server may close the `GET` stream
 immediately; add an ordering hint to content blocks so an accessibility cue can be declared
 to precede its text; ship a local Bedrock emulator so an integration can be tested rather

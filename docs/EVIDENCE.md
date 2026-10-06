@@ -3,7 +3,8 @@
 The [README](../README.md) tells the story in one screen. This file is the full record behind
 it: every claim with the command that prints it, the audit history, the measurements and the
 limits. Nothing here is an estimate unless it says ESTIMATE, and a figure that changed keeps
-its history in [`FRICTION_LOG.md`](FRICTION_LOG.md).
+its history in [Figures the README used to quote](#figures-the-readme-used-to-quote-and-why-they-changed),
+at the end of this file.
 
 ## Contents
 
@@ -24,6 +25,7 @@ its history in [`FRICTION_LOG.md`](FRICTION_LOG.md).
 15. [Road to Alexa+](#road-to-alexa)
 16. [Known limitations](#known-limitations)
 17. [Who would buy this, and out of which budget](#who-would-buy-this-and-out-of-which-budget)
+18. [Figures the README used to quote, and why they changed](#figures-the-readme-used-to-quote-and-why-they-changed)
 
 ---
 
@@ -145,7 +147,8 @@ page's own meter, with the server started as in step 2 on port 8746 without AWS 
 three further presses read 38.9, 30.5 and 28.7 ms. The page measures the round trip itself
 with `performance.now()` on every run and takes no figure from this file. The `pip install`
 step depends on your network and is not measured here. Earlier rounds' figures, and why they
-changed, are in [`docs/FRICTION_LOG.md`](FRICTION_LOG.md), section 7.
+changed, are in [Figures the README used to quote, and why they changed](#figures-the-readme-used-to-quote-and-why-they-changed),
+at the end of this file.
 
 ### Step 5: Review a real pull request by voice or by keyboard
 
@@ -1707,3 +1710,67 @@ mistakes real agents actually make. That is a process rather than a product loop
 been tried, and the four misses named in Measured numbers are what it would have to close
 first. A CI surface, where the digest runs on a pull request and posts the spoken summary as an
 artifact, is the obvious second distribution path and **has not been built**.
+
+---
+
+## Figures the README used to quote, and why they changed
+
+Moved here from `docs/FRICTION_LOG.md` on 2026-10-05. It is a history of the README rather
+than friction with a tool, and the friction log now holds only entries written in the six
+fields the hackathon rules name.
+
+The README's quickstart now quotes each number once, as measured on the day it was last
+edited. The history those paragraphs carried is kept here, word for word, so the reasons
+behind the changes are not lost.
+
+**The preset chips.** Until 2026-09-08 a chip label and its rule had separated: the first preset removed a hardcoded secret,
+which is a security *improvement*, and the other two produced no finding at all, so the first
+press showed the weakest output the product can give.
+
+**Time to first result, as the README stated it until 2026-09-26.**
+
+Step 1 reported
+`421 passed, 1 warning in 5.00s` on the run that closed this round; the run before it, with
+one more test still red, took 7.00 s, and earlier runs that day with a smaller suite took 8.77
+s, 5.06 s, 5.22 s and 4.74 s, so the count is the claim here and the duration is not. The
+server in step 2 answered its first `GET /health` with
+HTTP 200 **1.4 seconds** after launch, printed by
+[`scripts/measure_cold_start.py`](../scripts/measure_cold_start.py). That script launches its
+own server, so stop the one from step 2 before running it. It refuses to time a process that
+was already warm, and says so rather than printing a figure it cannot stand behind. Step 3
+printed
+`21/21 checks passed, 0 failed`. The first digest round trip in step 4 was **39.0 ms** in
+headless Chromium at 1440x900 on 2026-09-26, read from the page's own meter, with the server
+started as in step 2 on port 8743 and no AWS credential file present; three further presses
+of the same button on the same page read 30.2 ms, 28.8 ms and 31.9 ms. The first press is the
+one quoted, because that is the press a judge makes. Earlier rounds published 117.2 ms
+(2026-09-08) and 72.6 ms (2026-09-06). On a machine without AWS credentials those earlier
+builds walked the whole boto3 credential chain, ending in the instance-metadata probe, on
+every request: on 2026-09-26, before the fix, `curl` timed `GET /health` at 2.030, 2.024 and
+2.030 s on this machine with no credential file, and the chain alone took 2.054 s. The server
+now resolves the chain once at startup and caches the answer; the same `curl` then read
+0.039, 0.003 and 0.005 s. The page measures the
+round trip itself with `performance.now()` on every run and takes no figure from this file. The `pip install` step depends on your network
+and is not measured here.
+
+The figures that replaced these are in [Quickstart, in full](#quickstart-in-full), step 4,
+above, each with its date and the command or page meter that printed it.
+
+**Figures the README carried until round 4 on 2026-09-26, and the contradiction they made.**
+The quickstart said `552 passed` and a cold start of **2.0 seconds**, while the Measured numbers
+table in the same file said `515 passing; 91.26% statement coverage` (dated 2026-09-24) and a
+cold start of **1.4 s**, and the quickstart heading said "Four steps" above five. A scorer
+read the pairs as the README contradicting itself, which it was. On 2026-09-26 each was
+re-measured once and one value kept: `python -m pytest tests/ -q --cov=src --cov-fail-under=85`
+printed 552 passed and 91.52% coverage before the round's four new page tests, and 556
+collected after them; `python scripts/measure_cold_start.py` printed 1.7, 1.7 and 1.8 s on
+three runs. The README became a one-screen story and the full record moved to
+`docs/EVIDENCE.md`.
+
+**Figures and wording until 2026-09-27, before the JavaScript and TypeScript rules and the
+Alexa+ add-on package.** The README and `docs/EVIDENCE.md` said `577 passed` and 91.98%
+statement coverage; `python -m pytest tests/ -q --cov=src` printed 623 and 92.08% after the
+round. The README's security row said the rules read Python only, which was true; the Python
+corpus figure, 81.8% recall and 0% false positives over n=40, did not change. The README and
+the page said the road to Alexa+ was not built, which was true until the add-on package was
+committed.
