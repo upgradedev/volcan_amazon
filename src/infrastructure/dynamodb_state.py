@@ -73,22 +73,12 @@ def _decode(item: dict[str, Any] | None) -> dict[str, Any] | None:
     return value
 
 
-def _serialize(value: Any) -> dict[str, Any]:
-    from boto3.dynamodb.types import TypeSerializer
-
-    return TypeSerializer().serialize(value)
-
-
-def _serialize_item(value: dict[str, Any]) -> dict[str, Any]:
-    return {key: _serialize(raw) for key, raw in value.items()}
-
-
 def _session_put(
     *, table_name: str, item: dict[str, Any], expected_revision: int, owner: str
 ) -> dict[str, Any]:
     operation: dict[str, Any] = {
         "TableName": table_name,
-        "Item": _serialize_item(item),
+        "Item": item,
     }
     if expected_revision == 0:
         operation["ConditionExpression"] = "attribute_not_exists(pk)"
@@ -96,16 +86,20 @@ def _session_put(
         operation.update(
             ConditionExpression="#revision = :expected AND #owner = :owner",
             ExpressionAttributeNames={"#revision": "revision", "#owner": "owner"},
-            ExpressionAttributeValues={
-                ":expected": _serialize(expected_revision),
-                ":owner": _serialize(owner),
-            },
+            ExpressionAttributeValues={":expected": expected_revision, ":owner": owner},
         )
     return operation
 
 
 class DynamoStateStore:
-    """Conditional session, action and nonce state in one DynamoDB table."""
+    """Conditional session, action and nonce state in one DynamoDB table.
+
+    Every write, single or transactional, passes plain Python values (str and
+    int, never float). ``client`` defaults to ``table.meta.client``, the boto3
+    *resource* client, which serializes those values itself. Handing it values
+    already turned into AttributeValues serializes them twice: the key reaches
+    DynamoDB as a map and the write is refused with a ValidationException.
+    """
 
     is_durable = True
 
@@ -357,7 +351,7 @@ class DynamoStateStore:
                     {
                         "Put": {
                             "TableName": self.table_name,
-                            "Item": _serialize_item(action_item),
+                            "Item": action_item,
                             "ConditionExpression": "attribute_not_exists(pk)",
                         }
                     },
@@ -439,21 +433,21 @@ class DynamoStateStore:
                     {
                         "Put": {
                             "TableName": self.table_name,
-                            "Item": _serialize_item(self._action_item(namespace, action)),
+                            "Item": self._action_item(namespace, action),
                             "ConditionExpression": (
                                 "#state = :expected AND payload_hash = :payload_hash"
                             ),
                             "ExpressionAttributeNames": {"#state": "state"},
                             "ExpressionAttributeValues": {
-                                ":expected": _serialize(expected_state.value),
-                                ":payload_hash": _serialize(action.payload_hash),
+                                ":expected": expected_state.value,
+                                ":payload_hash": action.payload_hash,
                             },
                         }
                     },
                     {
                         "Put": {
                             "TableName": self.table_name,
-                            "Item": _serialize_item(nonce_item),
+                            "Item": nonce_item,
                             "ConditionExpression": "attribute_not_exists(pk)",
                         }
                     },
