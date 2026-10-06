@@ -31,7 +31,7 @@ It is not an Alexa skill, the Alexa+ front end is simulated, and GitHub reviews 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-892%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-894%20passing-brightgreen.svg)](tests/)
 
 ## Table of Contents
 
@@ -109,8 +109,8 @@ or deployed: the [hackathon FAQ](https://amazonappdev2026.devpost.com/details/fa
 "available to select partners only". With AWS credentials and the `bedrock` extra,
 Volcan sends the digest request to Claude on Amazon Bedrock; otherwise, or when the call fails,
 a local deterministic engine answers and the response says why. The default model is Claude
-Sonnet 5 (`anthropic.claude-sonnet-5`) from 2026-10-06, and each answer names the model that
-wrote it in `model_answered`; the live function keeps the model it was deployed with until it is redeployed. A Bedrock answer was recorded on 2026-09-30: one live digest answered `synthesis_mode: bedrock` with a null reason. The public endpoint is an AWS Lambda in eu-west-1; its `GET /health` on 2026-10-06 read
+Sonnet 5 (`anthropic.claude-sonnet-5`) from 2026-10-06, and each answer names the model its
+request asked for in `model_answered` (the configured id, not read back from the response); the live function keeps the model it was deployed with until it is redeployed. A Bedrock answer was recorded on 2026-09-30: one live digest answered `synthesis_mode: bedrock` with a null reason. The public endpoint is an AWS Lambda in eu-west-1; its `GET /health` on 2026-10-06 read
 `bedrock_model_path` `ready_to_attempt` and `durable_state` `configured_reachable`, and
 [`infra/`](infra/) declares a Lambda with a function URL and a DynamoDB table in Terraform.
 
@@ -125,9 +125,10 @@ python -m pip install -e ".[dev,bedrock]"
 python -m pytest tests/ -q
 ```
 
-CI run 37512533048 on PR #35 at `a81be1c` printed `889 passed` on 2026-10-06, and
-`python -m pytest tests/ --collect-only -q` collects 892 on this branch, three of them tests for the model an answer names, added after that run. The `bedrock` extra installs
-`anthropic[bedrock]`. With AWS credentials as well, a Bedrock call is ready to attempt.
+CI run 37516718286 on PR #35 at `745358f` printed `892 passed` on 2026-10-06, and
+`python -m pytest tests/ --collect-only -q` collects 894 on this branch, two of them tests of
+`GET /health` with a model override, added after that run. The `bedrock` extra installs
+`anthropic[bedrock]==1.8.0`. With AWS credentials as well, a Bedrock call is ready to attempt.
 Credentials and an importable SDK do not prove a model answered: the receipt is the digest
 response's `synthesis_mode: bedrock`. Without them the local engine answers, and the page says
 which engine answered and why.
@@ -194,12 +195,12 @@ master; the table below gives the commands.
 | Earcon that encodes the verdict | Real: different WAV bytes for a finding and a clean patch | `python -m pytest tests/unit/test_earcon_encodes_the_verdict.py -q -s` |
 | Eight-dot code Braille | Real and lossless over 95 ASCII characters. Not reviewed by a Braille transcriber, not read on a physical display | `python -m pytest tests/unit/test_braille_code_fidelity.py -v` |
 | Governed review | Real: HMAC single-use grants, self-approval refused, head commit re-read, dry run by default. No live GitHub review has ever been sent | `python -m pytest tests/unit/test_governance.py -v` |
-| Digest by Claude on Amazon Bedrock | Real code with a stated fallback. A provider failure returns a fixed public category; raw account, role and request identifiers never enter the anonymous response. One Bedrock answer recorded 2026-09-30 (live digest, `synthesis_mode: bedrock`, null reason); where the SDK is absent the local engine answers with the reason stated. Default model `anthropic.claude-sonnet-5` from 2026-10-06, after `anthropic.claude-opus-5` refused 2 of 4 reviews of an inverted admin check; Sonnet 5 refused 0 of 8 with the same prompt ([evidence](docs/EVIDENCE.md#model-choice-2026-10-06)). Each answer names its model in `model_answered` | `python -m pytest tests/unit/test_bedrock_synthesis_path.py -v` |
+| Digest by Claude on Amazon Bedrock | Real code with a stated fallback. A provider failure returns a fixed public category; raw account, role and request identifiers never enter the anonymous response. One Bedrock answer recorded 2026-09-30 (live digest, `synthesis_mode: bedrock`, null reason); where the SDK is absent the local engine answers with the reason stated. Default model `anthropic.claude-sonnet-5` from 2026-10-06. `anthropic.claude-opus-5` had refused 2 of 4 reviews of an inverted admin check; Sonnet 5 did not refuse in 8 calls (4 on that patch, 4 on a second). Not a controlled comparison: the Opus 5 calls came from an earlier window, and 2 of 4 against 0 of 4 is not a significant difference ([evidence](docs/EVIDENCE.md#model-choice-2026-10-06)). Each answer names the model its request asked for in `model_answered` | `python -m pytest tests/unit/test_bedrock_synthesis_path.py -v` |
 | Voice loop | Simulated: the browser's speech, not an Alexa skill, and no test drives a microphone | [Evidence](docs/EVIDENCE.md#what-is-true-and-what-is-simulated) |
 | Shared durable state | Deployed: DynamoDB `volcan-state-euw1-prod` plus a Secrets Manager approval secret; a local run keeps state in memory | The `durable_state` field of `GET /health` says which |
 | Alexa+ MCP add-on package | Built and tested locally, not certified or deployed: the hackathon FAQ says the add-on tools are "available to select partners only", so participants cannot deploy it. A replay of Amazon's documented Alexa+ client requests, against a local build (the registered endpoint serves `aa3364a`, `source_revision` read 2026-10-06, whose `src/` is the current one; the replay was not re-run against that endpoint), gets the finding back from all three client shapes: one that follows the protocol's version rules, one that declares the revision it asked for, and one that never sends the version header. The page's Evidence tab, Server and MCP, runs the same three clients from the browser on a press. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
 | Demo video | Rendered locally: 163.68 s at 1920x1080 (ffprobe) from a local run of `09d4862`, whose `src/` and `docs/` it shows (earlier 164.52 s render from `7a3de49` superseded). The review-dialogue fixes after `09d4862` are not on camera, including README and other extensionless file names, next from the overview, help examples taken from the open change, next steps outlined only where they work, plain words when a pull request cannot be opened, and README spoken as documentation. Pending upload by the owner; no public link yet | [video/README.md](video/README.md) |
-| Test suite | 892 collected (`python -m pytest tests/ --collect-only -q`, 2026-10-06 on this branch). CI run 37512533048 on PR #35 at `a81be1c`, 2026-10-06: `889 passed`, 93.70% statement coverage (5124 statements, 323 missed), readiness `46/53 passed, 0 blocking failures, 7 externally blocked`. The three tests added after that run are not in it. Earlier: CI run 37508504877 on PR #35 at `bceecb0` passed 884 with 93.67% (5099 statements, 323 missed) on 2026-10-06; CI run 37432272539 on master at `f9e5135` passed 854 with 93.52% (5029 statements, 326 missed) on 2026-10-06; CI run 36804593070 at `fc10e7d` passed 751 with 93.18% (4734 statements, 323 missed) on 2026-10-01 | `python -m pytest tests/ -q --cov=src` |
+| Test suite | 894 collected (`python -m pytest tests/ --collect-only -q`, 2026-10-06 on this branch). CI run 37516718286 on PR #35 at `745358f`, 2026-10-06: `892 passed`, 93.71% statement coverage (5133 statements, 323 missed), readiness `46/53 passed, 0 blocking failures, 7 externally blocked`. The two tests added after that run are not in it. Earlier: CI run 37512533048 on PR #35 at `a81be1c` passed 889 with 93.70% (5124 statements, 323 missed) on 2026-10-06; CI run 37508504877 on PR #35 at `bceecb0` passed 884 with 93.67% (5099 statements, 323 missed) on 2026-10-06; CI run 37432272539 on master at `f9e5135` passed 854 with 93.52% (5029 statements, 326 missed) on 2026-10-06; CI run 36804593070 at `fc10e7d` passed 751 with 93.18% (4734 statements, 323 missed) on 2026-10-01 | `python -m pytest tests/ -q --cov=src` |
 
 ## Who it is for and who pays
 

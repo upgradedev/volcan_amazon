@@ -125,3 +125,31 @@ def test_the_ready_state_is_reachable_only_when_both_facts_hold():
     path = client.get("/health").json()["bedrock_model_path"]
     ready = path["resolved_capability"] == CAPABILITY_READY
     assert ready == (path["credentials_present"] and path["sdk_installed"])
+
+
+def test_health_names_an_arn_override_only_by_its_label(monkeypatch):
+    """AWS_BEDROCK_MODEL_ID may be an inference-profile ARN, which carries an
+    account id. ``/health`` is public, so neither its ``model_id`` nor its
+    ``detail`` sentence may repeat it; both use the label the answers use."""
+    from src.interfaces.composition import bedrock_adapter as served
+
+    arn = "arn:aws:bedrock:eu-west-1:123456789012:application-inference-profile/abc123"
+    monkeypatch.setattr(served, "model_id", arn)
+    monkeypatch.setattr(BedrockSynthesisAdapter, "credentials_present", lambda self, refresh=False: True)
+    monkeypatch.setattr(BedrockSynthesisAdapter, "sdk_present", staticmethod(lambda: True))
+
+    raw = client.get("/health").text
+    path = client.get("/health").json()["bedrock_model_path"]
+
+    assert path["resolved_capability"] == CAPABILITY_READY
+    assert path["model_id"] == adapter_module.CONFIGURED_MODEL_LABEL
+    assert adapter_module.CONFIGURED_MODEL_LABEL in path["detail"]
+    for secret in ("arn:aws", "123456789012", "abc123"):
+        assert secret not in raw
+
+
+def test_health_shows_a_bare_model_id_as_is(monkeypatch):
+    from src.interfaces.composition import bedrock_adapter as served
+
+    monkeypatch.setattr(served, "model_id", "anthropic.claude-haiku-4-5")
+    assert client.get("/health").json()["bedrock_model_path"]["model_id"] == "anthropic.claude-haiku-4-5"

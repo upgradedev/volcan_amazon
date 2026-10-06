@@ -46,36 +46,49 @@ MODE_HEURISTIC = "heuristic-local"
 #: first-party model id. The id this file pinned before,
 #: ``anthropic.claude-3-5-sonnet-20241022-v2:0``, is a retired snapshot on the
 #: legacy InvokeModel integration and answers ResourceNotFoundException. Set
-#: AWS_BEDROCK_MODEL_ID to pin a different model or a region-scoped inference
-#: profile without editing this file.
+#: AWS_BEDROCK_MODEL_ID to pin a different model, by an id the Mantle model
+#: list carries, without editing this file.
 #:
-#: Claude Sonnet 5, chosen on 2026-10-06 by measurement on the Bedrock Mantle
-#: endpoint in eu-west-1 with SDK 1.8.0, this request body unchanged, and two
+#: Claude Sonnet 5, chosen on 2026-10-06 from calls to the Bedrock Mantle
+#: endpoint in eu-west-1 with SDK 1.8.0 (the version in the deployed 22c32ab
+#: package, now pinned in pyproject.toml), this request body unchanged, and two
 #: patches: the take-4 permissions.py patch (an inverted admin check) and the
 #: first 3000 characters of upgradedev/volcan-demo-service pull request 1 (an
 #: inverted admin check and CORS opened to "*"). One call per press:
 #:
-#: * ``anthropic.claude-sonnet-5``: 0 of 8 refused; every answer named the
-#:   inverted admin check, and on pull request 1 also the CORS change, and so
-#:   did the spoken cut of all 8; 1.7 to 3.4 seconds per call.
+#: * ``anthropic.claude-sonnet-5``: 0 of 8 refused (4 of 4 on the take-4 body,
+#:   4 of 4 on pull request 1). Every full answer named the inverted admin
+#:   check, and every spoken cut did too; on pull request 1 the spoken cut
+#:   also named the CORS change in 3 of 4. 1.7 to 3.4 seconds per call.
 #: * ``anthropic.claude-haiku-4-5``: 0 of 8 refused; every full answer named
 #:   the risks, but on pull request 1 the spoken cut named neither in 4 of 4,
 #:   because the answer led with the new endpoint; 1.1 to 2.5 seconds.
 #: * ``anthropic.claude-opus-5``, the model this file pinned before: 2 of 4
-#:   refused the take-4 patch earlier that day (stop_reason "refusal",
-#:   category "cyber", no content); on pull request 1, 0 of 2 refused, 4.1 and
-#:   6.6 seconds.
+#:   refused the take-4 body in an earlier window (stop_reason "refusal",
+#:   category "cyber", no content), a window in which the next 12 calls, on
+#:   trial bodies, were all refused; on pull request 1, 0 of 2 refused, 4.1
+#:   and 6.6 seconds. It was not re-run on the take-4 body beside Sonnet 5.
 #: * ``anthropic.claude-sonnet-5-5`` answered 404: the Mantle model list for
 #:   eu-west-1 does not carry it. ``anthropic.claude-opus-4-8`` timed out at
 #:   25 seconds and then answered 403 for this account.
 #:
-#: Eight calls cannot show a refusal rate of zero; a refusal still reaches
-#: the listener as its own named reason with the local digest beside it.
+#: This is not a controlled comparison. On the take-4 body, 2 of 4 against
+#: 0 of 4 is not a significant difference (Fisher two-sided p about 0.43). It
+#: shows that Sonnet 5 did not refuse in 8 calls, not that it refuses less
+#: than Opus 5. Sonnet 5 was preferred to Haiku 4.5 on the spoken cut, which
+#: was measured only on patches where a local rule already fired and was
+#: spoken first; its value when no local rule matches is extrapolated. Eight
+#: calls cannot show a refusal rate of zero; a refusal still reaches the
+#: listener as its own named reason with the local digest beside it.
 DEFAULT_MODEL_ID = "anthropic.claude-sonnet-5"
 
-#: A model id that is safe to show to anyone: a bare Bedrock model id, with or
-#: without a geographic inference-profile prefix such as ``eu.``. An ARN, which
-#: carries an account id, never matches, and is reported by a fixed label.
+#: A model id that is safe to show to anyone: a bare Bedrock model id such as
+#: ``anthropic.claude-haiku-4-5``. A short lowercase prefix such as ``eu.`` is
+#: tolerated for labelling only: the Mantle model list for eu-west-1 carries
+#: bare ids, and geographic inference profiles belong to the bedrock-runtime
+#: path this adapter does not use, so such an override would not be found.
+#: An ARN, which carries an account id, never matches, and is reported by a
+#: fixed label.
 _PUBLIC_MODEL_ID = re.compile(r"^(?:[a-z]{2,6}\.)?anthropic\.[a-z0-9][a-z0-9.:-]*$")
 CONFIGURED_MODEL_LABEL = "a configured inference profile"
 
@@ -342,7 +355,7 @@ class BedrockSynthesisAdapter:
             capability = CAPABILITY_READY
             detail = (
                 "Credentials resolved and the SDK is importable, so a Bedrock call will be "
-                f"attempted with model {self.model_id}. Whether one answers is reported per "
+                f"attempted with model {public_model_label(self.model_id)}. Whether one answers is reported per "
                 "digest as synthesis_mode, with the reason beside it when none did."
             )
         elif credentials:
@@ -369,7 +382,9 @@ class BedrockSynthesisAdapter:
             "detail": detail,
             "credentials_present": credentials,
             "sdk_installed": sdk,
-            "model_id": self.model_id,
+            # The same label as the answers and the log line: an override that
+            # is an inference-profile ARN carries an account id.
+            "model_id": public_model_label(self.model_id),
             "region": self.region_name,
         }
 

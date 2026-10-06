@@ -59,6 +59,11 @@ terraform destroy -auto-approve
 
 The default plan reads that exact ARN with `secretsmanager:GetSecretValue` and gives the
 Lambda no Bedrock Mantle authority. `enable_bedrock_mantle=true` is a separate owner decision.
+The live role already has a `volcan-bedrock-mantle-euw1-prod` policy attached (read 2026-10-06
+with `aws iam list-attached-role-policies`). If that policy is in this Terraform state, a plan
+with the default `enable_bedrock_mantle=false` destroys it and every press falls back with the
+permission category, so plan with `-var enable_bedrock_mantle=true`, or first confirm with
+`terraform state list` that it is not in state.
 At cold start the runtime refuses a missing/unreachable SecretString, a value shorter than 32
 bytes, or any direct `VOLCAN_APPROVAL_SECRET` value in durable mode. Local runs without
 `VOLCAN_STATE_TABLE` still use process memory and say so in `/health`; they never pretend to be

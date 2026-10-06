@@ -233,10 +233,14 @@ is still 02a87ce, and the exact request Volcan would send has been recorded.`
 Claude on Amazon Bedrock through the Anthropic SDK's `AnthropicBedrockMantle` client. The default
 model is `anthropic.claude-sonnet-5` from 2026-10-06 (before that, `anthropic.claude-opus-5`; see
 [Model choice](#model-choice-2026-10-06)), and `AWS_BEDROCK_MODEL_ID` overrides it. A model answer
-names the model that wrote it in `model_answered`, which the companion prints after the coverage
-line, so neither the page nor these documents need to name the model from a constant. An
-override that is not a bare model id, such as an inference-profile ARN, is reported and logged
-as "a configured inference profile", never verbatim. When the call cannot be made or fails, the deterministic local path
+names the model its request asked for in `model_answered`, which the companion prints after the
+coverage line, so neither the page nor these documents need to name the model from a constant.
+The field is the configured id; it is not read back from the response, so it records the model
+requested rather than one the response confirmed. An override that is not a bare model id, such
+as an inference-profile ARN, is reported as "a configured inference profile" in
+`model_answered`, in the `volcan.bedrock` log line and in `GET /health` (its `model_id` and its
+`detail` sentence), never verbatim; `tests/unit/test_health_reports_the_resolved_model_path.py`
+sets an ARN and reads `/health`. When the call cannot be made or fails, the deterministic local path
 runs instead. Every response carries `synthesis_mode`, which is `"bedrock"` when a model
 answered and `"heuristic-local"` when none did, **and `synthesis_fallback_reason`, which says
 why without returning the provider's raw payload**. The companion prints both beside the
@@ -254,7 +258,10 @@ take the press made one model call, with 231 input and 0 output tokens (`AWS/Bed
 minute, matched to the press by time and input size); the presses took 16.6 s (take 1) and
 1.6 s (take 4) of Lambda time. Thinking tokens count as output, so 0 output tokens rules out
 a thinking-only answer and a spent output allowance. The stop reason was not logged live.
-Reproduced with the deployed SDK (anthropic 1.8.0) and the same request body, the only shape
+Reproduced with SDK 1.8.0, the version in the deployed package (the `22c32ab` package carries
+`anthropic-1.8.0.dist-info`, and its SHA-256 matched the live function's code hash at the
+2026-10-06 deploy; that deploy reused the live dependencies rather than resolving them, so
+`pyproject.toml` now pins `anthropic[bedrock]==1.8.0` for any build that does), and the same request body, the only shape
 with 0 output tokens was a refusal (`stop_reason` `refusal`, category `cyber`, no content, 1.5
 to 3.2 s), in 2 of 4 calls; the other 2 answered. So a refusal is the likely cause of the live
 fallbacks, inferred from their token shape rather than seen. The request body is unchanged: two
@@ -299,7 +306,7 @@ review found the evidence fields dropped in the use case and `**Spoken summary:*
 <a id="model-choice-2026-10-06"></a>
 **Model choice, 2026-10-06.** The refusals above come from the model's safety classifier, so the
 model was measured, not the prompt. Every call went to the Bedrock Mantle endpoint in eu-west-1
-through this adapter with the deployed SDK (anthropic 1.8.0), the request body unchanged and one
+through this adapter with SDK 1.8.0 (the deployed version, now pinned in `pyproject.toml`), the request body unchanged and one
 call per press, on two patches: the take-4 `permissions.py` patch, and the first 3000 characters
 of `gh pr diff 1 -R upgradedev/volcan-demo-service` (an inverted `is_admin` and CORS origins set
 to `"*"`). Whether an answer named the risk was judged from its text in memory, by keyword, and
@@ -313,7 +320,15 @@ call.
 | `anthropic.claude-opus-5` (old default), take-4 patch | 2 of 4 | not judged | not judged | 1.5 to 5.8 |
 | `anthropic.claude-opus-5`, pull request 1 | 0 of 2 | 2 of 2 | 2 of 2 | 4.1 and 6.6 |
 
-The Opus 5 take-4 row is the earlier reproduction above, made before the risk was judged.
+The Opus 5 take-4 row is the earlier reproduction above, made before the risk was judged, in a
+window in which the next 12 calls, on two trial bodies, were all refused; Opus 5 was not re-run on
+the take-4 body beside Sonnet 5. Earlier the same day three more Opus 5 calls with the same 231
+input tokens, two local and one through the live function, were not empty refusals: their output
+tokens were 114, 160 and 273 (reconstructed from CloudWatch `AWS/BedrockMantle` metrics, with no
+stop reason recorded). So this is not a controlled comparison. On the take-4 body, 2 of 4
+refused against 0 of 4 is not a significant difference (Fisher two-sided p about 0.43), and
+across both patches 2 of 6 against 0 of 8 is not either (p about 0.17). The table supports "Sonnet
+5 did not refuse in 8 calls"; it does not show that Sonnet 5 refuses less often than Opus 5.
 `anthropic.claude-sonnet-5-5` answered 404 on its first call: the Mantle model list for eu-west-1
 (`GET /v1/models` on the Mantle endpoint) carries `anthropic.claude-opus-5`,
 `anthropic.claude-opus-4-8`, `anthropic.claude-opus-4-7`, `anthropic.claude-sonnet-5` and
@@ -326,6 +341,8 @@ local rule matched: level 0 speaks the local finding first and the model's cut a
 both patches measured the risk was heard with either model. The cut carries the risk alone only
 when no local rule matched, and that is why it decided between two models that tied on refusals
 and on the full answer; by latency alone, Haiku 4.5 (median 1.6 s against 2.2 s) would have won.
+No patch without a local finding was measured, so the cut's value in that case is extrapolated
+from these two patches, not measured.
 Sonnet 5 is the default, with one call per press. Eight calls
 cannot show a refusal rate of zero, and Sonnet 5 runs a cyber classifier too; a refusal still
 reaches the listener as its own named reason with the local digest beside it. 21 calls in all,
@@ -336,6 +353,17 @@ The client uses the account-scoped Bedrock Mantle project. The checked-in infras
 defines that permission as a separate policy behind `enable_bedrock_mantle=false`; the
 durable-state plan does not add model authority by default. Enabling it is a separate owner
 decision. A deployment without the grant falls back with the bounded permission category.
+On 2026-10-06 the live role `volcan-lambda-role-euw1-prod` had the managed policy
+`volcan-bedrock-mantle-euw1-prod` attached beside `AWSLambdaBasicExecutionRole` and one inline
+policy (`aws iam list-attached-role-policies` and `aws iam list-role-policies`, names only), and
+the live function's environment did not set `AWS_BEDROCK_MODEL_ID` (`aws lambda
+get-function-configuration`, keys only). The policy's document was not read, and a role that may
+call one model may still need per-model access for another: `anthropic.claude-opus-4-8` answered
+403 to the same local credentials that `anthropic.claude-sonnet-5` answered. Whether the function
+role can call `anthropic.claude-sonnet-5` is unverified until a deployed press answers. Before a
+`terraform apply` against this account, pass `-var enable_bedrock_mantle=true`, or first confirm
+with `terraform state list` that the Mantle policy is not in state: if it is, the default plan
+destroys it, and every press then falls back with the permission category.
 `/health` reports readiness to attempt; only the digest's `synthesis_mode` reports whether
 the model answered.
 

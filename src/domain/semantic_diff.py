@@ -115,10 +115,11 @@ class SemanticDiffReport:
     #: is smaller than total, the model answered from a prefix of the patch.
     model_input_chars_sent: int | None = None
     model_input_chars_total: int | None = None
-    #: The model that answered, as a public id such as
-    #: ``anthropic.claude-sonnet-5``. None on the heuristic path. A configured
-    #: id that is not a bare public id (an inference-profile ARN carries an
-    #: account id) is reported by a fixed label instead of verbatim.
+    #: The model the answered request named, as a public id such as
+    #: ``anthropic.claude-sonnet-5``: the configured id, not read back from
+    #: the response. None on the heuristic path. A configured id that is not a
+    #: bare public id (an inference-profile ARN carries an account id) is
+    #: reported by a fixed label instead of verbatim.
     model_answered: str | None = None
 
     def to_voice_summary(self, level: int = 0) -> str:

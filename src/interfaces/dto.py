@@ -168,7 +168,7 @@ class DigestResult(BaseModel):
     model_input_truncated: bool = Field(..., description="True when the model was shown only a prefix of the patch")
     model_input_chars_sent: int | None = Field(..., description="Patch characters the model was shown")
     model_input_chars_total: int | None = Field(..., description="Patch characters in total")
-    model_answered: str | None = Field(..., description="The Bedrock model id that answered; null unless a model answered")
+    model_answered: str | None = Field(..., description="The Bedrock model id the answered request named (the configured id, not read back from the response); null unless a model answered")
     total_files: int
     insertions: int
     deletions: int

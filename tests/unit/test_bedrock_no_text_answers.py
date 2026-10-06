@@ -424,8 +424,10 @@ def test_the_request_body_is_the_one_with_live_evidence(with_credentials, monkey
     """The live body answered 2 of 4 calls on anthropic.claude-opus-5 on
     2026-10-06; two trial bodies (A: a system prompt, with one resend per
     press; B: a trimmed prompt; both at effort low with adaptive thinking
-    stated) answered 0 of 12. The same body answered 8 of 8 on
-    anthropic.claude-sonnet-5. Only the model changed; nothing is added."""
+    stated) answered 0 of 12. On anthropic.claude-sonnet-5 the same body
+    answered 4 of 4, and 8 of 8 across two patches (the second is pull
+    request 1 of volcan-demo-service). Only the model changed; nothing is
+    added."""
     monkeypatch.delenv("AWS_BEDROCK_MODEL_ID", raising=False)
     client = _Client([(ANSWER, 3.0)])
 
@@ -527,9 +529,9 @@ def test_a_model_configured_by_arn_is_logged_and_reported_by_a_label(with_creden
 def test_the_answer_names_the_model_that_answered(with_credentials, monkeypatch):
     monkeypatch.delenv("AWS_BEDROCK_MODEL_ID", raising=False)
     assert _press(_Client([(ANSWER, 3.0)])).model_answered == "anthropic.claude-sonnet-5"
-    # A geographic inference-profile id holds no account id and is shown as is.
-    monkeypatch.setenv("AWS_BEDROCK_MODEL_ID", "eu.anthropic.claude-sonnet-5")
-    assert _press(_Client([(ANSWER, 3.0)])).model_answered == "eu.anthropic.claude-sonnet-5"
+    # Another bare Mantle model id holds no account id and is shown as is.
+    monkeypatch.setenv("AWS_BEDROCK_MODEL_ID", "anthropic.claude-haiku-4-5")
+    assert _press(_Client([(ANSWER, 3.0)])).model_answered == "anthropic.claude-haiku-4-5"
 
 
 def test_no_model_is_named_when_none_answered(with_credentials):

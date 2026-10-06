@@ -14,6 +14,7 @@ from src.infrastructure.bedrock_adapter import (
     MODEL_CALL_TIMEOUT_SEC,
     MODEL_DIFF_CHAR_BUDGET,
     BedrockSynthesisAdapter,
+    public_model_label,
 )
 
 BENIGN_FILE = """diff --git a/src/utils/text.py b/src/utils/text.py
@@ -72,7 +73,7 @@ def test_the_use_case_carries_model_prose_and_coverage(monkeypatch):
     assert report.model_prose_full == prose
     assert report.model_input_chars_sent == len(LATE_INVERSION)
     assert report.model_input_chars_total == len(LATE_INVERSION)
-    assert report.model_answered == BedrockSynthesisAdapter().model_id
+    assert report.model_answered == public_model_label(BedrockSynthesisAdapter().model_id)
 
 
 def test_over_budget_multifile_patch_reports_truncation_and_keeps_late_findings(monkeypatch):
@@ -111,7 +112,7 @@ def test_the_api_dict_reports_truncation_from_the_use_case(monkeypatch):
     assert body["model_input_chars_total"] > 3000
     assert body["model_prose_full"] == "Two files changed."
     # The page names the model from this field, never from a constant.
-    assert body["model_answered"] == BedrockSynthesisAdapter().model_id
+    assert body["model_answered"] == public_model_label(BedrockSynthesisAdapter().model_id)
 
 
 def test_the_heuristic_path_claims_no_model_coverage():
