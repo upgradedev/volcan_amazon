@@ -1484,8 +1484,8 @@ that refused a client.
   it asked for, as a stated deviation from the specification. The specification's own rule is
   to use the revision negotiated for the session and otherwise assume 2025-03-26, and Volcan
   now follows it ([The MCP surface](#the-mcp-surface)). Because the fallback does not depend on
-  a session, it also reaches the stateless public Lambda: the build it serves, `aa3364a`, carries
-  the fallback (`git grep -n ASSUMED_VERSION_WITHOUT_HEADER aa3364a -- src/interfaces`), though
+  a session, it also reaches the stateless public Lambda: the build it serves, `716b0f3`, carries
+  the fallback (`git grep -n ASSUMED_VERSION_WITHOUT_HEADER 716b0f3 -- src/interfaces`), though
   the replay was not run against that endpoint. The replay against a stateless local server
   (`VOLCAN_MCP_SESSION_MODE=stateless`, port 8842, `--runs 5`) served all six shapes in 5 of 5
   sessions.
@@ -1518,7 +1518,7 @@ Since `aa3364a` the first text block is the spoken form of that sentence, `... u
 code stays in the JSON detail block (`tests/unit/test_mcp_first_block_is_speech.py`).
 Those round trips are a warm local server built from this repository on 127.0.0.1. They are
 not the endpoint the add-on manifest registers, which is the public Lambda (it ran an older
-build on 2026-09-27 and serves `aa3364a` since 2026-10-06), and not Alexa+. With Amazon Bedrock
+build on 2026-09-27, served `aa3364a` from 2026-10-06 and serves `716b0f3` since 2026-10-07), and not Alexa+. With Amazon Bedrock
 answering, the digest call would add a model round trip that has never been measured here, so
 whether that path meets the 500 ms limit is unknown.
 
@@ -1555,7 +1555,7 @@ the untested part.
   Whether Alexa+ reads `structuredContent`, draws a `ui://` view or plays an MCP audio block is
   not documented; PCM/WAVE in its codec list says nothing about tool results. The live endpoint
   at `aa3364a` lists the three `outputSchema` fields and the card link in `tools/list` (deploy
-  probe, 2026-10-06).
+  probe, 2026-10-06). The 2026-10-07 build, `716b0f3`, was not re-probed for them.
 * The endpoint has no OAuth. Amazon's authentication checklist applies to a private server.
 * Amazon's certification criteria include VoiceView, captions and screen magnifier support on
   Alexa devices. Nothing here was tried on a device.
@@ -1678,11 +1678,10 @@ simulator in isolation mode, and record which headers the real client sends.
   4 of 4 detected with 2 of 4 over-flagged before the CORS test-file exemption and 1 of 4 after
   it; commit `f1c35a1` added the exemption and those probes together. The one left is the
   control-flow limit in a new shape. Until 2026-09-27 this entry said Python only.
-* **The public endpoint serves `aa3364a`, and Alexa hardware remains untested.**
-  `/health` reported `source_revision` `aa3364a` on 2026-10-06; the commits on master after it
-  (PR #31 through `f9e5135`) change no file under `src/` and not `docs/index.html`, so the live
-  runtime is the current one, though a live `tools/call` of the structured results was not made.
-  Before that redeploy it reported `9b2bcb9` on 2026-10-01 and again on 2026-10-05, a build
+* **The public endpoint serves `716b0f3`, and Alexa hardware remains untested.**
+  `/health` reported `source_revision` `716b0f3` on 2026-10-07, at 1769 MB of Lambda memory
+  ([The public deployment](#the-public-deployment)); a live `tools/call` of the structured
+  results was not made. On 2026-10-06 it reported `aa3364a`. Before that redeploy it reported `9b2bcb9` on 2026-10-01 and again on 2026-10-05, a build
   without the speech-first MCP text block, the Markdown-free full answer, the hedged clean
   findings turn, `outputSchema`, `structuredContent`, `resources/list`, `resources/read` and the
   `ui://volcan/review-card` view. On
