@@ -2,8 +2,14 @@
 
 **Next take: planned, not recorded.** [`SHOT_LIST.md`](SHOT_LIST.md) and `narration.json` in
 this folder now hold the plan for a re-take on the live build, with Amazon Bedrock answering.
-The take records against `22c32ab` (PR #34), the build the live endpoint serves since its
-second redeploy on 2026-10-06.
+The take records against `716b0f3` (PR #35), the build the live endpoint serves since
+2026-10-07: default model `anthropic.claude-sonnet-5`, a `volcan.bedrock` shape log line, named
+causes when a model answer carries no text, and `max_retries=0`, on a Lambda function raised
+from 256 to 1769 MB the same day. On that build one press of the take-4 patch answered in
+3.44 s at the client (Lambda 3071 ms, model 1266 ms) at 1769 MB, against 17.88 s (Lambda
+17562 ms, model 2959 ms) at 256 MB. Each figure is one press, recorded in the deploy receipt
+`reviews/deploy_20261006/volcan/volcan_deploy_receipt_716b0f3.json` in the owner's workspace,
+outside the repository.
 Section 1 gives the commands for that take and for a free rehearsal. Section 4 says what the
 pipeline does for the take, what the rehearsal of 2026-10-06 found and what is still open.
 Sections 2 and 3 describe the render that exists. Its script and its capture are in history:
@@ -47,13 +53,13 @@ so any one beat can be re-rendered later.
 | Compose | `video/build-video.py` | `output/volcan-demo.mp4`, `video-receipt.json`, `video_manifest.json`, `caption_windows.json`, `captions.en.srt` |
 | Gate | `scripts/verify_video_sync.py` | pass or fail, from the mp4 itself |
 
-For the re-take on the live build, which serves `22c32ab` since 2026-10-06
+For the re-take on the live build, which serves `716b0f3` since 2026-10-07
 (`curl -s $VOLCAN_APP_URL/health` reports it as `source_revision`; the capture refuses any other):
 
 ```bash
 export VOLCAN_VIDEO_ROOT=/a/folder/outside/the/repo
 export VOLCAN_APP_URL=https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/
-export VOLCAN_RELEASE_SHA=22c32ab56cc45155c4544ce658ef399aeb5d55c1   # the source_revision /health reports
+export VOLCAN_RELEASE_SHA=716b0f3a00aa0577925d6fbd00d74b7dc29f0151   # the source_revision /health reports
 export VOLCAN_PR_URL=https://github.com/<owner>/<repo>/pull/<number>   # chosen in rehearsal
 # Leave VOLCAN_COLD_OPEN unset: the cold open is cold_open.command in narration.json, `line 26`.
 # When set, VOLCAN_COLD_OPEN overrides it (findings, files, summary or "line N"); when neither
@@ -171,7 +177,8 @@ Before it opens a browser, the capture refuses:
 * a `cards.title_slot` that does not start with `card_then_cold_open`, a title card outside
   1.5 to 3 s, or a cold open outside 3 to 20 s;
 * a `/health` that reports a different commit than `VOLCAN_RELEASE_SHA`, a
-  `bedrock_model_path` other than `ready_to_attempt`, a `durable_state` other than
+  `bedrock_model_path` other than `ready_to_attempt`, a `model_id` that is not a Claude model
+  (beat 3 says Claude on Amazon Bedrock answered), a `durable_state` other than
   `configured_reachable` (beat 3 names DynamoDB), or a `github_review_path` other than
   `dry_run_no_token` (beat 6 says the build has no GitHub token);
 * a run without `--allow-billed-presses`, unless it is a rehearsal (see above).
@@ -183,8 +190,14 @@ During or after the take, it fails, and the take has to be recorded again:
   Hear this code review before Enter, and the comment box before typing.
 * **The model call.** A request would bill a model call the take did not plan. The press is
   not answered by Amazon Bedrock or carries a fallback reason. The engine meter does not read
-  Amazon Bedrock, or the page prints no coverage line. The answer's first sound comes before
-  beat 2's narration ends (a rehearsal fails on this too).
+  Amazon Bedrock. The coverage line is not exactly the one the page prints for the press's own
+  response: `The model read the whole N-character patch.` (or the `first N of M` form) followed
+  by `Answered by` and the response's `model_answered`, which must be a Claude model and the
+  `model_id` `/health` reports. Before PR #35 this check only asked that the line start with
+  `The model read`; the expected text now follows the page's new line, and the check is
+  stricter, not weaker. The answer's first sound comes before beat 2's narration ends, or more
+  than 10 s after the planned press (`ANSWER_LATENCY_ALLOWANCE_SECONDS`); a rehearsal fails on
+  both too. The late answer is also named as soon as its response arrives.
 * **The cold open.** Its first sound comes later than 2.0 s after the title card ends, or its
   first word later than 5.0 s into the video, which is 3.0 s into the cold open after the
   2.0 s card. Findings answers that no security rule matched (`No security rule matched this
@@ -279,10 +292,11 @@ follows it, with these limits.
   * `cards.title_slot` starts with `card_then_cold_open`.
   * `cards.title_seconds` is the 2.0 s title card.
   * `cold_open.seconds` is the 13.5 s cold open, measured on the chosen pull request.
-  * Beat 1 starts at 15.5 s, and the closing card ends at 169.809 s, measured. Beat 2 says
-    one 3.39 s line, then presses, and holds 58.5 s from the press: a call up to the 25 s
-    timeout, then the Amazon Bedrock answer take 3 measured on the live build, with 0.8 s
-    (ESTIMATE) for a full 180-character headline. `SHOT_LIST.md` gives the parts.
+  * Beat 1 starts at 15.5 s, and the closing card ends at 155.412 s, measured. Beat 2 says
+    one 3.39 s line, then presses, and holds 43.5 s from the press: a 10 s latency allowance
+    (ESTIMATE) to the answer's first sound, the earcon's 0.65 s lead, and the longest sentence
+    the page can speak for the stage patch, 370 characters, 32.38 s at take 3's measured rate.
+    `SHOT_LIST.md` gives the parts.
 * **`video/capture-local.py` drives the re-take journey.**
   * It accepts the seven beat ids in `narration.json` and refuses any other list.
   * It opens `VOLCAN_PR_URL` off camera and waits for that turn's speech to end.
@@ -292,8 +306,9 @@ follows it, with these limits.
     `summary` or another `line N`.
   * It presses Hear this code review in beat 2 when the narrator stops, in a take and in a
     rehearsal.
-  * It holds on the meter while beat 3 names Amazon Bedrock, AWS Lambda and DynamoDB, then on
-    the coverage line on the sentence about it, then on the model's full answer.
+  * It holds on the meter while beat 3 says Claude on Amazon Bedrock answered, on AWS Lambda
+    with DynamoDB, then on the coverage line, which ends `Answered by` and the model, on the
+    sentence about it, then on the model's full answer.
   * It voices Request changes in beat 4, with the comment `is_admin is inverted.`, and
     Confirm in beat 5.
   * Beat 6 is narration over the recorded request, after the page has stopped speaking.
@@ -560,20 +575,25 @@ and the 90 to 174 s narration range. `--write-timestamps` offsets the beats by
 the card, 15.5 s in this plan.
 
 `tests/unit/test_video_retake_pipeline.py` covers the scripts without a browser, ffmpeg or a
-request. Its 81 cases (`python -m pytest tests/unit/test_video_retake_pipeline.py -q`) check:
+request. Its 97 cases (`python -m pytest tests/unit/test_video_retake_pipeline.py -q`) check:
 
 * the plan's title card, cold open and timestamps, and its total of 170 s or less;
 * the beat ids;
 * the cold-open commands, a typed `line N` and the checks on its answer;
 * the demo label in the cold-open band and the shot list, and the review comment;
-* that every product window fits the generator's 60 s cap, which refuses 60.5 s; that beat 2
-  says 3 to 4.5 s before the press, presses when its narrator stops, and holds a call up to
-  the 25 s timeout plus the answer take 3 measured; that an answer after a 2, 5, 19.67 or
-  25 s call starts after the narration and ends inside the beat; that beat 3 names Amazon
-  Bedrock, AWS Lambda and DynamoDB; and that the screencast ends on narration, so the seam
-  is the generator's tail;
+* that every product window fits the generator's 45 s cap, which refuses 45.5 s; that beat 2
+  says 3 to 4.5 s before the press, presses when its narrator stops, and holds the 10 s
+  latency allowance, the earcon's lead and the longest answer, rounded up to the half second
+  and no more; that the spoken cut never passes 180 characters plus its ellipsis; that an
+  answer after 1, 3.44, 5 or 10 s starts after the narration and ends inside the beat, and
+  that one after 10.001, 12, 17.88 or 25 s, or one with no sound, fails the take; that the
+  coverage line must be exactly the page's line ending `Answered by` and a Claude model, the
+  one `/health` reports, and that the line before PR #35, another model or a missing count
+  fails; that beat 3 names Claude on Amazon Bedrock, AWS Lambda and DynamoDB; and that the
+  screencast ends on narration, so the seam is the generator's tail;
 * the billed-press flag and the request guard;
-* the `/health` refusals, the cold-open timing gate and the clean Findings answer;
+* the `/health` refusals, including a `model_id` that is not Claude, the cold-open timing gate
+  and the clean Findings answer;
 * the rehearsal flag, the loopback-only URL check, its `/health` refusals and the silent
   timing stub;
 * the title slot shapes, the refused footage slot and the build label;

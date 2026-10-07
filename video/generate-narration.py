@@ -17,7 +17,7 @@ What this copy changes, so it reads Volcan's own video/narration.json:
      after the beat's speech, in which the page itself makes its sound (the
      earcon and the browser's speech). It is added to the beat's hold, never to
      its captions, and must be backed by a "product_sound_basis" that says how it
-     was measured. It is at most MAX_PRODUCT_SOUND_SECONDS, 60 s.
+     was measured. It is at most MAX_PRODUCT_SOUND_SECONDS, 45 s.
   4. timing.json also records each caption sentence's window inside the beat, so
      the capture can press a button on the sentence that talks about it, and the
      number of characters sent to the text to speech provider on this run. Every
@@ -59,14 +59,14 @@ SPEC = pathlib.Path(__file__).with_name("narration.json")
 TAIL_SECONDS = 0.65
 # The longest product window one beat may hold. It is a plan constraint, not a gate:
 # scripts/verify_video_sync.py never reads it, and every window still needs a basis.
-# It was 30 s, then 45 s. Beat 2 now presses Hear this code review when its narrator
-# stops, so the answer can never start under the narration, and its window must hold
-# the whole Amazon Bedrock answer after the press: a call that may run to its timeout
-# (MODEL_CALL_TIMEOUT_SEC = 25 in src/infrastructure/bedrock_adapter.py, past which the
-# server falls back to the local engine), then the earcon and the sentence, which took
-# about 32 s in the take of 2026-10-06 with a 171-character headline. That is about
-# 58.5 s, so the cap is 60 s.
-MAX_PRODUCT_SOUND_SECONDS = 60.0
+# It was 30 s, then 45 s, then 60 s while beat 2's window held a call that ran to its
+# 25 s timeout. Beat 2 presses Hear this code review when its narrator stops, and its
+# window now holds an answer whose first sound comes within the capture's 10 s latency
+# allowance (ANSWER_LATENCY_ALLOWANCE_SECONDS in video/capture-local.py), then the
+# earcon's 0.65 s lead and the longest sentence the page can speak, about 32.4 s at take
+# 3's measured rate: 43.5 s, rounded up. A later answer fails the take, so the cap is
+# 45 s again.
+MAX_PRODUCT_SOUND_SECONDS = 45.0
 
 ELEVENLABS_KEY_ENV_NAMES = ("ELEVENLABS_API_KEY", "XI_API_KEY", "ELEVEN_LABS_KEY")
 

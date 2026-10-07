@@ -131,7 +131,7 @@ def test_the_request_guard_knows_which_requests_bill_a_model_call(url, method, b
 def healthy() -> dict[str, object]:
     return {
         "source_revision": SHA,
-        "bedrock_model_path": {"resolved_capability": "ready_to_attempt"},
+        "bedrock_model_path": {"resolved_capability": "ready_to_attempt", "model_id": "anthropic.claude-sonnet-5"},
         "durable_state": {"resolved_capability": "configured_reachable"},
         "github_review_path": {"resolved_capability": "dry_run_no_token"},
     }
@@ -149,6 +149,10 @@ def test_the_capture_accepts_the_live_build_it_was_told_about():
         ({"source_revision": "0" * 40}, "different commit"),
         ({"bedrock_model_path": {"resolved_capability": "no_credentials"}}, "ready_to_attempt"),
         ({"github_review_path": {"resolved_capability": "dry_run_with_token"}}, "dry_run_no_token"),
+        # Beat 3 says Claude on Amazon Bedrock answered.
+        ({"bedrock_model_path": {"resolved_capability": "ready_to_attempt", "model_id": "amazon.nova-pro"}},
+         "Claude"),
+        ({"bedrock_model_path": {"resolved_capability": "ready_to_attempt"}}, "Claude"),
     ],
 )
 def test_the_capture_refuses_a_server_the_beats_would_misdescribe(change, message):
@@ -254,34 +258,51 @@ def test_every_product_window_fits_the_generator_s_cap():
 BASIS = "Measured on the rehearsal server, slowest run plus 1 s, rounded up to the half second."
 
 
-def test_the_generator_s_cap_is_60_s_and_refuses_more():
-    # The cap is a plan constraint, not a gate: it was raised from 30 s to 45 s, then to 60 s,
-    # so beat 2 can hold a call up to the 25 s timeout and the whole Bedrock answer after the
-    # press, which waits for the narrator.
-    assert narration.MAX_PRODUCT_SOUND_SECONDS == 60.0
-    assert narration.product_sound({"product_sound_seconds": 60.0, "product_sound_basis": BASIS}, "b") == 60.0
+def test_the_generator_s_cap_is_45_s_and_refuses_more():
+    # The cap is a plan constraint, not a gate: it was 30 s, then 45 s, then 60 s while beat 2
+    # held a call up to the 25 s timeout. Beat 2 now holds an answer that starts within the
+    # capture's 10 s latency allowance, 43.5 s in all, so the cap is 45 s again.
+    assert narration.MAX_PRODUCT_SOUND_SECONDS == 45.0
+    assert narration.product_sound({"product_sound_seconds": 45.0, "product_sound_basis": BASIS}, "b") == 45.0
     assert narration.product_sound({}, "b") == 0.0
-    for value in (60.5, 0, -1.0, "42"):
+    for value in (45.5, 0, -1.0, "42"):
         with pytest.raises(SystemExit, match="product_sound_seconds must be in"):
             narration.product_sound({"product_sound_seconds": value, "product_sound_basis": BASIS}, "b")
     with pytest.raises(SystemExit, match="product_sound_basis"):
         narration.product_sound({"product_sound_seconds": 42.5, "product_sound_basis": "short"}, "b")
 
 
-# The call's timeout (MODEL_CALL_TIMEOUT_SEC in src/infrastructure/bedrock_adapter.py), and
-# the Bedrock answer take 3 measured on the live build on 2026-10-06: the earcon's lead on the
-# first word, and the sentence (finding, a 171-character headline, counts), plus about 0.8 s
-# for the 9 more characters a 180-character headline may hold, at take 3's 0.086 s a character.
-MODEL_TIMEOUT_SECONDS = 25.0
+# The Bedrock answer take 3 measured on the live build on 2026-10-06: its for-speech sentence
+# was 359 characters (139 of finding with its trailing space, a 171-character headline and its
+# full stop, 48 of counts) and spoke for 31.42 s, after the earcon's 0.65 s lead.
 EARCON_LEAD_SECONDS = 0.65
-TAKE_3_ANSWER_SPEECH_SECONDS = 31.42
-HEADLINE_ALLOWANCE_SECONDS = 0.8
+TAKE_3_SENTENCE_CHARACTERS = 359
+TAKE_3_SENTENCE_SECONDS = 31.42
+LOCAL_FINDING_CHARACTERS = 139
+COUNTS_CHARACTERS = 48
 
 
-def test_beat_2_presses_when_the_narrator_stops_and_holds_a_25_s_call():
-    from src.infrastructure.bedrock_adapter import MODEL_CALL_TIMEOUT_SEC, SPOKEN_SUMMARY_CHAR_BUDGET
+def longest_answer_seconds() -> float:
+    """The longest sentence the page can speak for the stage patch, at take 3's rate: the
+    finding, the headline cut to the spoken budget and closed with a space and an ellipsis,
+    its full stop, and the counts."""
+    from src.infrastructure.bedrock_adapter import SPOKEN_SUMMARY_CHAR_BUDGET
 
-    assert MODEL_CALL_TIMEOUT_SEC == MODEL_TIMEOUT_SECONDS and SPOKEN_SUMMARY_CHAR_BUDGET == 180
+    headline = SPOKEN_SUMMARY_CHAR_BUDGET + len(" \u2026")
+    characters = LOCAL_FINDING_CHARACTERS + headline + len(".") + COUNTS_CHARACTERS
+    assert characters == 370
+    return characters * TAKE_3_SENTENCE_SECONDS / TAKE_3_SENTENCE_CHARACTERS
+
+
+def test_the_spoken_cut_never_passes_the_budget_plus_its_ellipsis():
+    from src.infrastructure.bedrock_adapter import SPOKEN_SUMMARY_CHAR_BUDGET, shorten_for_speech
+
+    assert SPOKEN_SUMMARY_CHAR_BUDGET == 180
+    for text in ("word " * 100, "A sentence ends here. " * 20, "x" * 400):
+        assert len(shorten_for_speech(text)) <= SPOKEN_SUMMARY_CHAR_BUDGET + len(" \u2026")
+
+
+def test_beat_2_presses_when_the_narrator_stops_and_holds_a_late_but_allowed_answer():
     beat = next(b for b in PLAN["beats"] if b["beat_id"] == "beat_02_bedrock_press")
     hold = round(beat["timestamp_end"] - beat["timestamp_start"], 3)
     window = beat["product_sound_seconds"]
@@ -293,34 +314,101 @@ def test_beat_2_presses_when_the_narrator_stops_and_holds_a_25_s_call():
     press = capture.press_timeline_seconds(0.0, narration_seconds, narration.TAIL_SECONDS)
     assert press > narration_seconds
     assert round(hold - press, 3) == window
-    need = MODEL_TIMEOUT_SECONDS + EARCON_LEAD_SECONDS + TAKE_3_ANSWER_SPEECH_SECONDS + HEADLINE_ALLOWANCE_SECONDS
-    assert window >= need
+    # The latency allowance, the earcon's lead and the longest answer, rounded up to the half
+    # second and no more: the window is not padded.
+    need = capture.ANSWER_LATENCY_ALLOWANCE_SECONDS + EARCON_LEAD_SECONDS + longest_answer_seconds()
+    assert capture.ANSWER_LATENCY_ALLOWANCE_SECONDS == 10.0
+    assert need <= window < need + 0.5
+    assert window == 43.5
     basis = beat["product_sound_basis"]
-    for part in ("25 s timeout", "31.42 s", "171-character", "180 characters", "to_voice_summary",
-                 "16.75 s", "ESTIMATE", "58.5 s"):
+    for part in ("10 s latency allowance", "31.42 s", "359-character", "171-character", "370 characters",
+                 "180 characters", "to_voice_summary", "16.75 s", "ESTIMATE", "43.5 s", "3.44 s",
+                 "17.88 s", "retake"):
         assert part in basis
+    assert "25 s timeout" not in basis
     assert "Amazon Bedrock" in beat["narration_text"]
     # The narration speaks of the stage patch, never of the pull request.
     assert "pull request" not in beat["narration_text"]
 
 
-@pytest.mark.parametrize("latency", [2.0, 5.0, 19.67, 25.0])
+# 3.44 s is the press measured on 716b0f3 at 1769 MB; 10 s is the allowance itself.
+@pytest.mark.parametrize("latency", [1.0, 3.44, 5.0, 10.0])
 def test_beat_2_s_answer_starts_after_the_narration_and_ends_inside_the_beat(latency):
     beat = next(b for b in PLAN["beats"] if b["beat_id"] == "beat_02_bedrock_press")
     hold = beat["timestamp_end"] - beat["timestamp_start"]
     narration_seconds = hold - narration.TAIL_SECONDS - beat["product_sound_seconds"]
     press = capture.press_timeline_seconds(0.0, narration_seconds, narration.TAIL_SECONDS)
     answer_starts = press + latency
-    answer_ends = answer_starts + EARCON_LEAD_SECONDS + TAKE_3_ANSWER_SPEECH_SECONDS + HEADLINE_ALLOWANCE_SECONDS
+    answer_ends = answer_starts + EARCON_LEAD_SECONDS + longest_answer_seconds()
     assert answer_starts > narration_seconds
     assert answer_ends <= hold
+    assert capture.answer_latency_problem(answer_starts, press) is None
+
+
+# 17.88 s is the same press measured at 256 MB; 25 s is the model call's timeout.
+@pytest.mark.parametrize("latency", [10.001, 12.0, 17.88, 25.0])
+def test_beat_2_s_answer_after_the_allowance_fails_the_take(latency):
+    problem = capture.answer_latency_problem(30.0 + latency, 30.0)
+    assert problem is not None and "record again" in problem and "10.0 s latency allowance" in problem
+
+
+def test_beat_2_s_answer_that_makes_no_sound_fails_the_take():
+    assert "made no sound" in capture.answer_latency_problem(None, 30.0)
+
+
+# --- the coverage line beat 3 talks about -----------------------------------------
+
+def bedrock_answer(**change) -> dict[str, object]:
+    return {"model_answered": "anthropic.claude-sonnet-5", "model_input_chars_sent": 328,
+            "model_input_chars_total": 328, **change}
+
+
+def test_the_capture_expects_the_page_s_coverage_line_with_the_model_that_answered():
+    whole = "The model read the whole 328-character patch. Answered by anthropic.claude-sonnet-5."
+    assert capture.expected_coverage_line(bedrock_answer()) == whole
+    assert capture.coverage_line_problem(whole, bedrock_answer(), "anthropic.claude-sonnet-5") is None
+    first = ("The model read the first 3000 of 4100 patch characters; the local rules still read the "
+             "whole patch. Answered by anthropic.claude-sonnet-5.")
+    cut = bedrock_answer(model_input_chars_sent=3000, model_input_chars_total=4100)
+    assert capture.expected_coverage_line(cut) == first
+    assert capture.coverage_line_problem(first, cut, "anthropic.claude-sonnet-5") is None
+    # The page builds the same two lines from the same fields.
+    page = (pathlib.Path(__file__).resolve().parents[2] / "docs" / "index.html").read_text(encoding="utf-8")
+    for part in ('"The model read the first "', '" patch characters; the local rules still read the whole patch."',
+                 '"The model read the whole "', '"-character patch."', '" Answered by "'):
+        assert part in page
+
+
+@pytest.mark.parametrize(
+    ("coverage", "data", "health_model", "message"),
+    [
+        # The line before PR #35, without the model, no longer passes.
+        ("The model read the whole 328-character patch.", bedrock_answer(), "anthropic.claude-sonnet-5",
+         "coverage line reads"),
+        ("The model read the whole 328-character patch. Answered by anthropic.claude-opus-5.", bedrock_answer(),
+         "anthropic.claude-sonnet-5", "coverage line reads"),
+        ("", bedrock_answer(), "anthropic.claude-sonnet-5", "coverage line reads"),
+        ("The model read the whole 328-character patch. Answered by amazon.nova-pro.",
+         bedrock_answer(model_answered="amazon.nova-pro"), "amazon.nova-pro", "not a Claude model"),
+        ("", bedrock_answer(model_answered=None), "anthropic.claude-sonnet-5", "not a Claude model"),
+        ("The model read the whole 328-character patch. Answered by anthropic.claude-sonnet-5.", bedrock_answer(),
+         "anthropic.claude-opus-5", "/health reports model_id"),
+        ("A model answered; what it was shown was not reported. Answered by anthropic.claude-sonnet-5.",
+         bedrock_answer(model_input_chars_total=None, model_input_chars_sent=None), "anthropic.claude-sonnet-5",
+         "how much of the patch"),
+    ],
+)
+def test_the_capture_refuses_any_other_coverage_line(coverage, data, health_model, message):
+    problem = capture.coverage_line_problem(coverage, data, health_model)
+    assert problem is not None and message in problem
 
 
 def test_beat_3_names_the_aws_services_and_the_coverage_line_after_the_answer():
     beat = next(b for b in PLAN["beats"] if b["beat_id"] == "beat_03_model_coverage")
     text = beat["narration_text"]
-    for name in ("Amazon Bedrock", "AWS Lambda", "DynamoDB"):
+    for name in ("Claude on Amazon Bedrock", "AWS Lambda", "DynamoDB"):
         assert name in text
+    assert "Answered by anthropic.claude-sonnet-5." in beat["visual_action"]
     assert "A W S Lambda" in beat["speech_text"] and "Dynamo D B" in beat["speech_text"]
     # The capture scrolls to the coverage line on the last sentence, the one about it.
     assert "how much it read" in text.split(". ")[-1]
@@ -328,11 +416,14 @@ def test_beat_3_names_the_aws_services_and_the_coverage_line_after_the_answer():
 
 def test_the_shot_list_and_readme_state_the_beat_2_window_and_the_cold_open():
     shot_list = (VIDEO / "SHOT_LIST.md").read_text(encoding="utf-8")
-    assert "58.5 s" in shot_list and "58.0 s" not in shot_list and "about 47 to 51 s" not in shot_list
+    assert "**Beat 2's window, 43.5 s from the press" in shot_list
+    assert "0.65 + 10 + 32.38 = 43.03 s" in shot_list and "716b0f3" in shot_list
+    assert "Beat 2's window, 58.5 s from the press" not in shot_list and "about 47 to 51 s" not in shot_list
     assert "Beat 2 presses when its narrator stops" in shot_list
     assert "| Cold open band only." in shot_list
     readme = (VIDEO / "README.md").read_text(encoding="utf-8")
     assert "export VOLCAN_COLD_OPEN=" not in readme
+    assert "VOLCAN_RELEASE_SHA=716b0f3a00aa0577925d6fbd00d74b7dc29f0151" in readme
     assert PLAN["cold_open"]["command"] == "line 26"
 
 

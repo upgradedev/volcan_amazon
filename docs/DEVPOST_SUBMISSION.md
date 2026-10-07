@@ -286,15 +286,21 @@ rest.
 **Not published.** A 163.68 second render at 1920x1080 (ffprobe) of a local run of `09d4862`
 exists outside the repository, pending upload by the owner; there is no public link yet.
 `video/SHOT_LIST.md` is a beat sheet in which every beat is an action this repository can
-perform today, and readiness gates E2 and E4 report red until footage is in `video/`.
+perform today, and readiness gates E2 and E4 report red until footage is in `video/`. Its
+re-take records against the live build `716b0f3`, where Claude Sonnet 5
+(`anthropic.claude-sonnet-5`) answers on AWS Lambda with DynamoDB. One press of the take-4 patch
+there answered in 3.44 s at the client (Lambda 3071 ms, model 1266 ms) at 1769 MB, and in
+17.88 s at 256 MB. The plan gives that press 10 s before its answer must start, then the
+longest answer the page can speak, and measures 155.4 s; it is not recorded yet.
 
 **Deployed.** On 2026-09-23 the public endpoint served `GET /health`, the current companion,
 the REST digest and MCP initialize/tool calls. Health exposes the immutable source revision.
 A governed action remained a dry-run and its bounded EMF records were read back from
-CloudWatch. On 2026-10-06, after a second redeploy that day, `GET /health` reported
-`source_revision` `22c32ab` (PR #34); the later commits change no file under
-`src/` and not `docs/index.html` (`git diff --name-only 22c32ab HEAD -- src docs/index.html`
-prints nothing), so the endpoint serves the current runtime. Known issue, fixed: the
+CloudWatch. On 2026-10-07, after the redeploy of PR #35, `GET /health` reported
+`source_revision` `716b0f3` and `model_id` `anthropic.claude-sonnet-5`; the later commits change
+no file under `src/` and not `docs/index.html` (`git diff --name-only 716b0f3 HEAD -- src
+docs/index.html` prints nothing), so the endpoint serves the current runtime. On 2026-10-06 it
+served `22c32ab` (PR #34). Known issue, fixed: the
 transactional writes serialized their DynamoDB items twice and DynamoDB refused them, so every
 durable stage (Request changes, Confirm, the audit append and finalization) failed on live. The
 deployed builds from `e500731` (2026-09-29), the first with the DynamoDB store, until `22c32ab`

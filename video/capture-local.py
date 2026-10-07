@@ -34,8 +34,10 @@ there are any. Without a measured narration/timing.json it uses a silent timing 
 built from the plan's ESTIMATE windows in narration.json, in rehearsal/narration-stub/.
 The take and the rehearsal both press Hear this code review when beat 2's narrator
 stops, after the generator's tail, so the answer can only start after the narration
-whether the model answers in 2 s or at its 25 s timeout; the check that it did runs
-in both modes.
+however fast the model answers; the check that it did runs in both modes. Beat 2's
+window holds an answer whose first sound comes within ANSWER_LATENCY_ALLOWANCE_SECONDS,
+10 s, of the press; a later answer fails the take in both modes, so a slow answer means
+a retake, never an answer that runs past the window.
 
 What it records and what it refuses to do:
 
@@ -67,7 +69,9 @@ What it records and what it refuses to do:
 * The take fails if /health reports another commit, a model path that is not ready,
   or a GitHub review path other than a dry run without a token; if the beats differ
   from this journey; if the press is not answered by Amazon Bedrock, carries a fallback
-  reason, or makes its first sound while the narrator is still speaking; if Findings
+  reason, makes its first sound while the narrator is still speaking, or makes it more
+  than 10 s after the press; if the coverage line is not the one the page prints for
+  that answer, ending "Answered by <model_answered>."; if Findings
   answers that no security rule matched; if a voiced turn's speech has not ended inside its
   window or was interrupted; if the page logs an error; if the review dialogue refuses
   a turn; if a request would bill a model call the take did not plan; if the picture
@@ -154,17 +158,81 @@ NO_FINDING_PREFIX = "No security rule matched this change."
 COLD_OPEN_FIRST_SOUND_SECONDS = 2.0
 VIDEO_FIRST_WORD_SECONDS = 5.0
 NARRATION_TAIL_SECONDS = 0.65
-# A Bedrock call can take up to its 25 s timeout before the server falls back, and
-# one live digest took 19.67 s on 2026-10-01; the page waits longer than both.
+# How long the script waits for a billed turn's response. It is not the beat 2 budget:
+# a Bedrock call can run to its 25 s timeout before the server falls back, and the script
+# waits longer than that so a slow answer is named as one instead of timing out.
 BILLED_TURN_TIMEOUT_SECONDS = 60.0
+# Beat 2's latency allowance: the answer's first sound, its earcon, must come within this
+# many seconds of the planned press, where the window opens. On the live build of
+# 716b0f3 at 1769 MB one press answered in 3.44 s at the client (Lambda 3071 ms, model
+# 1266 ms); at 256 MB the same press took 17.88 s. The window is this allowance, the
+# earcon's 0.65 s lead and the longest answer the page can speak (video/SHOT_LIST.md), so
+# an answer that starts later could overrun it, and the take is recorded again.
+ANSWER_LATENCY_ALLOWANCE_SECONDS = 10.0
+# The model the narration names: beat 3 says Claude on Amazon Bedrock answered.
+CLAUDE_MODEL_PREFIX = "anthropic.claude"
 
 
 def press_timeline_seconds(beat_start: float, narration_seconds: float, tail_seconds: float) -> float:
     """When beat 2 presses Hear this code review: once the narrator has stopped and the
     generator's tail has passed, in a take and in a rehearsal alike. The model call
     starts only then, so its answer, however fast, starts after the narration; the
-    beat's product window, which starts here, holds a call up to the 25 s timeout."""
+    beat's product window, which starts here, holds an answer that starts within
+    ANSWER_LATENCY_ALLOWANCE_SECONDS of it."""
     return beat_start + narration_seconds + tail_seconds
+
+
+def answer_latency_problem(first_sound: float | None, window_opens: float,
+                           allowance: float = ANSWER_LATENCY_ALLOWANCE_SECONDS) -> str | None:
+    """Why beat 2's answer started too late for its window, or None.
+
+    first_sound and window_opens are timeline seconds. The window is sized for an answer
+    whose first sound comes within the allowance of the planned press; one that comes later
+    may still be speaking when beat 3 begins, so the take is recorded again."""
+    if first_sound is None:
+        return "beat 2's answer made no sound; record again"
+    late = round(first_sound - window_opens, 3)
+    if late > allowance:
+        return (f"beat 2's answer made its first sound {late} s after the press, past the "
+                f"{allowance} s latency allowance its window is sized for; record again")
+    return None
+
+
+def expected_coverage_line(data: dict[str, object]) -> str | None:
+    """The coverage line the page prints for this answer (renderModelProvenance in
+    docs/index.html), or None when the answer names no model or not what it read."""
+    model = data.get("model_answered")
+    sent = data.get("model_input_chars_sent")
+    total = data.get("model_input_chars_total")
+
+    def number(value: object) -> bool:
+        return isinstance(value, int) and not isinstance(value, bool)
+
+    if not isinstance(model, str) or not model or not number(total):
+        return None
+    if number(sent) and total > sent:
+        read = (f"The model read the first {sent} of {total} patch characters; "
+                "the local rules still read the whole patch.")
+    else:
+        read = f"The model read the whole {total}-character patch."
+    return f"{read} Answered by {model}."
+
+
+def coverage_line_problem(coverage: str, data: dict[str, object], health_model: object) -> str | None:
+    """Why the coverage line on screen is not the one beat 3 talks about, or None. It must
+    be exactly the line the page prints for this answer, naming a Claude model, the one
+    /health reports."""
+    model = data.get("model_answered")
+    if not isinstance(model, str) or not model.startswith(CLAUDE_MODEL_PREFIX):
+        return f"the answer names model_answered {model!r}, not a Claude model; beat 3 says Claude answered"
+    if model != health_model:
+        return f"the answer names {model!r}, but /health reports model_id {health_model!r}"
+    expected = expected_coverage_line(data)
+    if expected is None:
+        return "the answer does not report how much of the patch the model read"
+    if coverage != expected:
+        return f"the coverage line reads {coverage[:200]!r}, not {expected!r}"
+    return None
 
 
 def check_beats(scene_ids: list[str]) -> None:
@@ -340,6 +408,10 @@ def check_health(health: dict[str, object], release_sha: str) -> None:
     if review != "dry_run_no_token":
         raise SystemExit(f"/health reports github_review_path {review!r}; beat 5 says the build has "
                          "no GitHub token, so it needs dry_run_no_token")
+    model_id = (health.get("bedrock_model_path") or {}).get("model_id")
+    if not str(model_id or "").startswith(CLAUDE_MODEL_PREFIX):
+        raise SystemExit(f"/health reports model_id {model_id!r}; beat 3 says Claude on Amazon Bedrock "
+                         "answered, so it needs a Claude model")
 
 
 def pull_request_label(url: str) -> str:
@@ -885,7 +957,8 @@ def main() -> None:
         # press waits for the narrator to stop, in a take as in a rehearsal, so the answer
         # starts after the narration whatever the model's latency: take 3 pressed at the
         # first frame and Amazon Bedrock answered in about 5 s, under the narration. The
-        # product window that opens here holds a call up to the 25 s timeout and the answer.
+        # product window that opens here holds an answer that starts within the latency
+        # allowance; a later one fails the take.
         until(window_opens(b2))
         armed["digest"] = 1
         press = start_turn("Enter presses Hear this code review",
@@ -902,6 +975,13 @@ def main() -> None:
                     {"synthesis_mode": mode, "fallback_reason": reason},
                     f"the press was not answered by Amazon Bedrock: synthesis_mode {mode!r}, "
                     f"fallback reason {reason!r}")
+        # An answer that arrives after the allowance cannot start inside the window's
+        # budget. It is named here, at once, rather than as a timeout later; the precise
+        # check on the first sound runs after the journey, in both modes.
+        if now() > window_opens(b2) + ANSWER_LATENCY_ALLOWANCE_SECONDS:
+            fail(f"beat 2's answer arrived {round(now() - window_opens(b2), 3)} s after the press, past "
+                 f"the {ANSWER_LATENCY_ALLOWANCE_SECONDS} s latency allowance its window is sized for; "
+                 "record again")
         page.wait_for_function(
             "(from) => window.__volcanCaptureLog.slice(from).some(e => e.kind === 'speech.start')",
             arg=press["logFrom"], timeout=max(0.5, beat_start(b3) - now()) * 1000)
@@ -917,9 +997,12 @@ def main() -> None:
             differs("the engine meter reads Amazon Bedrock", "Amazon Bedrock", meter[:80],
                     "the engine meter does not read Amazon Bedrock")
         coverage = page.inner_text("#modelCoverage").strip()
-        if not coverage.startswith("The model read"):
-            differs("the page prints a model coverage line", "The model read ...", coverage[:120] or None,
-                    "the page printed no model coverage line")
+        health_model = (health.get("bedrock_model_path") or {}).get("model_id")
+        coverage_problem = coverage_line_problem(coverage, press["data"], health_model)
+        if coverage_problem:
+            differs("the page prints the answer's coverage line, ending Answered by <model_answered>.",
+                    expected_coverage_line(press["data"]) or "The model read ... Answered by anthropic.claude-...",
+                    coverage[:200] or None, coverage_problem)
         act("scroll to the engine meter", lambda: scroll_to("#meters", 120))
         coverage_sentence = len(by_id[b3]["sentences"]) - 1
         until(sentence(b3, coverage_sentence))
@@ -1091,6 +1174,12 @@ def main() -> None:
         differs("the answer starts after beat 2's narration", f"after {round(narrator_stops(b2), 3)} s",
                 None if press_sound is None else timeline_time(press_sound),
                 "the model's answer began while the narrator was still speaking")
+    # The window is sized for an answer that starts within the latency allowance, so a
+    # later one fails the take, and a rehearsal, rather than run past the window.
+    latency_problem = answer_latency_problem(
+        None if press_sound is None else timeline_time(press_sound), window_opens(b2))
+    if latency_problem:
+        fail(latency_problem)
 
     def expected_sentences(turn: dict[str, object]) -> list[str]:
         data = turn["data"]
@@ -1235,7 +1324,14 @@ def main() -> None:
             "firstSoundTimelineSeconds": None if press_sound is None else timeline_time(press_sound),
             "narratorStopsTimelineSeconds": round(narrator_stops(b2), 3),
             "pressTimelineSeconds": press["timelineAction"],
+            "windowOpensTimelineSeconds": round(window_opens(b2), 3),
+            "latencyAllowanceSeconds": ANSWER_LATENCY_ALLOWANCE_SECONDS,
+            "firstSoundAfterWindowOpensSeconds": None if press_sound is None
+            else round(timeline_time(press_sound) - window_opens(b2), 3),
             "windowClosesTimelineSeconds": round(beat_end(b2), 3),
+            "modelAnswered": press["data"].get("model_answered"),
+            "coverageLine": coverage,
+            "expectedCoverageLine": expected_coverage_line(press["data"]),
         },
         "productAudio": product_audio,
         "unrecordedProductVoice": [],

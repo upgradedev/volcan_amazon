@@ -136,7 +136,7 @@ code operator named (`user.role not equals 'admin'`), while the screen and the B
 the literal `!=`.
 
 **Time to first result, measured on the development machine on 2026-09-26.** Step 1 collects
-889 tests (`python -m pytest tests/ --collect-only -q`, 2026-10-06); CI run 37508504877 on PR #35 at `bceecb0` printed `884 passed` and CI run 37432272539 on master at `f9e5135` printed `854 passed` on 2026-10-06 (the count is the claim; the duration varies run to run; CI run 36804593070 at `fc10e7d` printed 751 on 2026-10-01; 737 on 2026-09-30; 725 on 2026-09-29;
+931 tests (`python -m pytest tests/ --collect-only -q`, 2026-10-07); CI run 37508504877 on PR #35 at `bceecb0` printed `884 passed` and CI run 37432272539 on master at `f9e5135` printed `854 passed` on 2026-10-06 (the count is the claim; the duration varies run to run; CI run 36804593070 at `fc10e7d` printed 751 on 2026-10-01; 737 on 2026-09-30; 725 on 2026-09-29;
 723 earlier that day, before the Lambda SSE-bridge disconnect fix; 707 on 2026-09-28, before the persona-review gates moved into this repository; 703 earlier that day, before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 646 earlier that day, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 on 2026-09-27 before the single review cursor and the local revision in /health; that
 day, before the version-header fix and the replay panel, it was 631, before the JavaScript and TypeScript rules and the Alexa+ package, it was 577, and before the audit fixes 623). The server in step 2 answered its first `GET /health` with HTTP 200 **1.7 seconds**
 after launch on 2026-09-26 (three runs that day read 1.7, 1.7 and 1.8 s), printed by [`scripts/measure_cold_start.py`](../scripts/measure_cold_start.py),
@@ -359,8 +359,10 @@ policy (`aws iam list-attached-role-policies` and `aws iam list-role-policies`, 
 the live function's environment did not set `AWS_BEDROCK_MODEL_ID` (`aws lambda
 get-function-configuration`, keys only). The policy's document was not read, and a role that may
 call one model may still need per-model access for another: `anthropic.claude-opus-4-8` answered
-403 to the same local credentials that `anthropic.claude-sonnet-5` answered. Whether the function
-role can call `anthropic.claude-sonnet-5` is unverified until a deployed press answers. Before a
+403 to the same local credentials that `anthropic.claude-sonnet-5` answered. After `716b0f3` was
+deployed on 2026-10-07, two live presses of the take-4 patch answered `synthesis_mode` `bedrock`
+with `model_answered` `anthropic.claude-sonnet-5`, so the function role can call it (deploy
+receipt `reviews/deploy_20261006/volcan/volcan_deploy_receipt_716b0f3.json`, outside the repository). Before a
 `terraform apply` against this account, pass `-var enable_bedrock_mantle=true`, or first confirm
 with `terraform state list` that the Mantle policy is not in state: if it is, the default plan
 destroys it, and every press then falls back with the permission category.
@@ -1060,7 +1062,7 @@ estimate unless it says ESTIMATE.
 | `/health` in-process request latency | not measured | first request 423.502 ms; after 5 warmups, p95 44.515 ms over 100 requests | `python scripts/measure_request_latency.py` |
 | MCP protocol conformance | not applicable | **23 of 23 conformance checks pass**, stateful on port 8841 and stateless (`VOLCAN_MCP_SESSION_MODE=stateless`, `--expect-mode stateless`) on port 8842, 2026-09-27 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
 | Tools advertised by `tools/list` | not applicable | 12 | `python scripts/mcp_conformance.py http://127.0.0.1:8000/mcp` |
-| Automated tests | not applicable | 889 collected (`python -m pytest tests/ --collect-only -q`, 2026-10-06, on PR #35 after `bceecb0`). CI run 37508504877 on PR #35 at `bceecb0`, 2026-10-06: `884 passed`, 93.67% statement coverage (5099 statements, 323 missed), readiness `46/53 passed, 0 blocking failures, 7 externally blocked`. The five tests added after that run are not in it. Before it, CI run 37432272539 on master at `f9e5135`: `854 passed`, 93.52% statement coverage (5029 statements, 326 missed), including a real Chromium judge journey and Lambda bridge, and the readiness step printed `46/53 passed, 0 blocking failures, 7 externally blocked`, 2026-10-06 (CI run 36804593070 at `fc10e7d`: 751 passing, 93.18% with 4734 statements and 323 missed, 2026-10-01; 751 and 92.84% with 339 missed on the development machine the same day; 737 and 92.89% on 2026-09-30; 725 and 92.74% on 2026-09-29; 723 and 92.67% earlier that day before the Lambda SSE-bridge disconnect fix; 707 and 92.67% on 2026-09-28 before the persona-review gates; 703 and 92.67% earlier that day before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 684 and 92.62% before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
+| Automated tests | not applicable | 931 collected (`python -m pytest tests/ --collect-only -q`, 2026-10-07, on the take-fit branch after it merged `716b0f3`; `927 passed, 4 skipped` on the development machine). CI run 37508504877 on PR #35 at `bceecb0`, 2026-10-06: `884 passed`, 93.67% statement coverage (5099 statements, 323 missed), readiness `46/53 passed, 0 blocking failures, 7 externally blocked`. The 47 tests added after that run are not in it. Before it, CI run 37432272539 on master at `f9e5135`: `854 passed`, 93.52% statement coverage (5029 statements, 326 missed), including a real Chromium judge journey and Lambda bridge, and the readiness step printed `46/53 passed, 0 blocking failures, 7 externally blocked`, 2026-10-06 (CI run 36804593070 at `fc10e7d`: 751 passing, 93.18% with 4734 statements and 323 missed, 2026-10-01; 751 and 92.84% with 339 missed on the development machine the same day; 737 and 92.89% on 2026-09-30; 725 and 92.74% on 2026-09-29; 723 and 92.67% earlier that day before the Lambda SSE-bridge disconnect fix; 707 and 92.67% on 2026-09-28 before the persona-review gates; 703 and 92.67% earlier that day before the dialogue handover, the detector-scope meter row, the bench legend and the narrow-screen context line; 684 and 92.62% before the classic-family rules; 646 and 92.43% before that, before the extensionless file names and the plain words for a pull request that cannot be opened; 637 and 92.22% on 2026-09-27 before the single review cursor and the local revision in /health; 631 and 92.11% before the version-header fix; 623 and 92.08% after the JavaScript and TypeScript rules and before the audit fixes, 577 and 91.98% earlier that day) | `python -m pytest tests/ -q --cov=src --cov-fail-under=85` |
 | Cold start to the first HTTP 200 on `/health` | not applicable | 1.7 s on 2026-09-26 (three runs: 1.7, 1.7, 1.8 s) | `python scripts/measure_cold_start.py` |
 | First digest round trip, browser to server and back | not applicable | 31.3 ms on the first press, then 38.9, 30.5 and 28.7 ms, headless Chromium at 1440x900 on 2026-09-26, no AWS credentials | the page measures and prints this itself on every run |
 | Live GitHub read of a public pull request, browser to server to `api.github.com` and back | not applicable | 1223.2 ms for `python/cpython#1` on 2026-09-08, then 63.2, 59.3, 62.5 and 54.1 ms for the four dialogue turns that followed and touched no network | the page's dialogue log prints each turn's round trip beside the answer |
@@ -1291,9 +1293,44 @@ named governed-action calls only.
 
 ## The public deployment
 
-**Checked on 2026-10-06, after the second redeploy that day: the endpoint serves `22c32ab`, and
-its runtime is the current one.** The endpoint is
-`https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com`.
+**Checked on 2026-10-07, after the redeploy of PR #35: the endpoint serves `716b0f3`, and its
+runtime is the current one.** The endpoint is
+`https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com`. The deploy receipt,
+`reviews/deploy_20261006/volcan/volcan_deploy_receipt_716b0f3.json` in the owner's workspace, is kept outside the repository like every
+live observation.
+
+```bash
+curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health | python -m json.tool
+# 2026-10-07: status ok, source_revision 716b0f3a00aa0577925d6fbd00d74b7dc29f0151,
+# bedrock_model_path ready_to_attempt with model_id anthropic.claude-sonnet-5,
+# durable_state configured_reachable
+git diff --name-only 22c32ab 716b0f3 -- src docs/index.html   # PR #35: five files under src/, and docs/index.html
+git diff --name-only 716b0f3 HEAD -- src docs/index.html      # prints nothing
+```
+
+* `716b0f3` is PR #35: the default model `anthropic.claude-sonnet-5`, `model_answered` in each
+  answer and at the end of the page's coverage line, a `volcan.bedrock` log line with the
+  call's shape, a named cause when an answer carries no text, and an SDK client built with
+  `max_retries=0`. The package reused the live dependencies (`anthropic` 1.8.0) with `src/` and
+  `docs/` from `git archive` of `716b0f3`; its code hash matched the uploaded zip.
+* The function's memory was raised from 256 to 1769 MB the same day, on the owner's approval;
+  the timeout stays 30 s. The same press of the take-4 `permissions.py` patch, one Bedrock call
+  each, measured:
+
+  | Memory | Client round trip | Lambda duration | Model latency | Answer |
+  |---|---|---|---|---|
+  | 256 MB | 17.88 s | 17562 ms | 2959 ms | `bedrock`, `model_answered` `anthropic.claude-sonnet-5` |
+  | 1769 MB | 3.44 s | 3071 ms | 1266 ms | `bedrock`, `model_answered` `anthropic.claude-sonnet-5` |
+
+  One press each, so these are single observations, not a distribution. The 1769 MB press
+  followed a `/health` cold start whose init took 1981 ms. CloudWatch received the
+  `volcan.bedrock` lines (event `bedrock_model_call`, `stop_reason` `end_turn`).
+* The commits after `716b0f3` on the take-fit branch change only documentation and the video
+  pipeline; the last command shows that neither `src/` nor `docs/index.html` changed, so no
+  redeploy is pending.
+
+**Checked on 2026-10-06, after the second redeploy that day: the endpoint served `22c32ab`.**
+This block is history; `716b0f3` replaced that build on 2026-10-07.
 
 ```bash
 curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health | python -m json.tool
@@ -1301,7 +1338,7 @@ curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health | python -
 # bedrock_model_path ready_to_attempt, durable_state configured_reachable
 git cat-file -s 22c32ab:docs/index.html                    # 299248, as at aa3364a
 git diff --name-only aa3364a 22c32ab -- src                # the two DynamoDB stores
-git diff --name-only 22c32ab HEAD -- src docs/index.html   # prints nothing
+git diff --name-only 22c32ab 0077717 -- src docs/index.html   # printed nothing: 0077717 is this branch before PR #35
 ```
 
 * `22c32ab` is PR #34, the fix described in the known issue below. Against `aa3364a` it
@@ -1316,10 +1353,10 @@ git diff --name-only 22c32ab HEAD -- src docs/index.html   # prints nothing
   durable voice stage go through the same corrected transactions; they were not exercised live,
   and `tests/unit/test_dynamodb_wire_shape.py` checks each transaction body offline with real
   boto3 serialization.
-* The commits after `22c32ab` change only documentation (the README, this file,
+* Until PR #35, the commits after `22c32ab` changed only documentation (the README, this file,
   `docs/DEVPOST_SUBMISSION.md` and `docs/COMPLIANCE_AND_ARCHITECTURE.md`) and the video
-  pipeline (`video/`, `tests/unit/test_video_retake_pipeline.py`, `video_sync_receipt.json`). The last command shows that neither `src/` nor `docs/index.html` changed, so no redeploy
-  is pending.
+  pipeline (`video/`, `tests/unit/test_video_retake_pipeline.py`, `video_sync_receipt.json`).
+  PR #35 changed `src/` and `docs/index.html`, and `716b0f3` was deployed for it.
 
 ### Known issue: durable stages answered HTTP 503 on live
 
@@ -1486,7 +1523,7 @@ sources fetched with `curl` on 2026-09-27; the date after each link is the page'
 
 | Piece | What it is | Check it |
 |---|---|---|
-| [`alexa_plus/addon-package/addon.json`](../alexa_plus/addon-package/addon.json) | The MCP Toolkit manifest: name, descriptions, four example phrases and the MCP endpoint, which is the public Lambda URL and serves `22c32ab`, `source_revision` read 2026-10-06, whose `src/` and `docs/index.html` are the current ones ([The public deployment](#the-public-deployment)). Nine values are placeholders on the reserved `.invalid` domain: the privacy page, the terms page, six icons and a carousel image, which must be the owner's own hosted files | `python scripts/validate_alexa_addon.py` prints `schema: pass` and lists the nine; `--strict` fails on them |
+| [`alexa_plus/addon-package/addon.json`](../alexa_plus/addon-package/addon.json) | The MCP Toolkit manifest: name, descriptions, four example phrases and the MCP endpoint, which is the public Lambda URL and serves `716b0f3`, `source_revision` read 2026-10-07, whose `src/` and `docs/index.html` are the current ones ([The public deployment](#the-public-deployment)). Nine values are placeholders on the reserved `.invalid` domain: the privacy page, the terms page, six icons and a carousel image, which must be the owner's own hosted files | `python scripts/validate_alexa_addon.py` prints `schema: pass` and lists the nine; `--strict` fails on them |
 | [`scripts/validate_alexa_addon.py`](../scripts/validate_alexa_addon.py) | Checks the constraints in Amazon's schema reference: name up to 30 characters, short description up to 123, 3 to 4 example phrases, HTTPS URIs, the six icon sizes, a 600x900 carousel image, an MCP integration over HTTPS. A local stand-in: Amazon's CLI, which really validates, was not run | `python -m pytest tests/integration/test_alexa_plus_client_replay.py -v` |
 | [`tests/fixtures/alexa_plus_envelopes.py`](../tests/fixtures/alexa_plus_envelopes.py) and [`scripts/replay_alexa_plus_envelopes.py`](../scripts/replay_alexa_plus_envelopes.py) | The initialize and `tools/call` bodies Amazon documents for its Alexa+ MCP client, copied from the [lifecycle page](https://developer.amazon.com/docs/alexaplus/add-ons/mcp-toolkit-client-lifecycle.html) (Jul 10, 2026), with Amazon's example hotel tool swapped for `digest_semantic_diff` and the inverted admin-check patch, sent to a running server | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp` |
 
@@ -1522,8 +1559,8 @@ that refused a client.
   it asked for, as a stated deviation from the specification. The specification's own rule is
   to use the revision negotiated for the session and otherwise assume 2025-03-26, and Volcan
   now follows it ([The MCP surface](#the-mcp-surface)). Because the fallback does not depend on
-  a session, it also reaches the stateless public Lambda: the build it serves, `22c32ab`, carries
-  the fallback (`git grep -n ASSUMED_VERSION_WITHOUT_HEADER 22c32ab -- src/interfaces`), though
+  a session, it also reaches the stateless public Lambda: the build it serves, `716b0f3`, carries
+  the fallback (`git grep -n ASSUMED_VERSION_WITHOUT_HEADER 716b0f3 -- src/interfaces`), though
   the replay was not run against that endpoint. The replay against a stateless local server
   (`VOLCAN_MCP_SESSION_MODE=stateless`, port 8842, `--runs 5`) served all six shapes in 5 of 5
   sessions.
@@ -1556,7 +1593,7 @@ Since `aa3364a` the first text block is the spoken form of that sentence, `... u
 code stays in the JSON detail block (`tests/unit/test_mcp_first_block_is_speech.py`).
 Those round trips are a warm local server built from this repository on 127.0.0.1. They are
 not the endpoint the add-on manifest registers, which is the public Lambda (it ran an older
-build on 2026-09-27, served `aa3364a` from the morning of 2026-10-06 and serves `22c32ab` since that afternoon), and not Alexa+. With Amazon Bedrock
+build on 2026-09-27, served `aa3364a` from the morning of 2026-10-06 and `22c32ab` from that afternoon, and serves `716b0f3` since 2026-10-07), and not Alexa+. With Amazon Bedrock
 answering, the digest call would add a model round trip that has never been measured here, so
 whether that path meets the 500 ms limit is unknown.
 
@@ -1593,7 +1630,9 @@ the untested part.
   Whether Alexa+ reads `structuredContent`, draws a `ui://` view or plays an MCP audio block is
   not documented; PCM/WAVE in its codec list says nothing about tool results. The live endpoint
   listed the three `outputSchema` fields and the card link in `tools/list` at `aa3364a` (deploy
-  probe, 2026-10-06); `22c32ab` changes no file under `src/interfaces`.
+  probe, 2026-10-06); `22c32ab` changes no file under `src/interfaces`. `716b0f3` adds
+  `model_answered` to the digest result in `src/interfaces/dto.py` and
+  `src/interfaces/operations.py`; `tools/list` has not been probed on it.
 * The endpoint has no OAuth. Amazon's authentication checklist applies to a private server.
 * Amazon's certification criteria include VoiceView, captions and screen magnifier support on
   Alexa devices. Nothing here was tried on a device.
@@ -1716,13 +1755,13 @@ simulator in isolation mode, and record which headers the real client sends.
   4 of 4 detected with 2 of 4 over-flagged before the CORS test-file exemption and 1 of 4 after
   it; commit `f1c35a1` added the exemption and those probes together. The one left is the
   control-flow limit in a new shape. Until 2026-09-27 this entry said Python only.
-* **The public endpoint serves `22c32ab`, and Alexa hardware remains untested.**
-  `/health` reported `source_revision` `22c32ab` on 2026-10-06;
-  `git diff --name-only 22c32ab HEAD -- src docs/index.html` prints nothing, so the live
+* **The public endpoint serves `716b0f3`, and Alexa hardware remains untested.**
+  `/health` reported `source_revision` `716b0f3` on 2026-10-07;
+  `git diff --name-only 716b0f3 HEAD -- src docs/index.html` prints nothing, so the live
   runtime is the current one, though a live `tools/call` of the structured results was not made,
   and of the durable stages only Request changes was exercised live after the fix
-  ([known issue](#known-issue-durable-stages-answered-http-503-on-live)). Earlier that day it
-  reported `aa3364a`, whose durable stages answered HTTP 503. Before that redeploy it reported `9b2bcb9` on 2026-10-01 and again on 2026-10-05, a build
+  ([known issue](#known-issue-durable-stages-answered-http-503-on-live)). On 2026-10-06 it
+  reported `22c32ab`, and earlier that day `aa3364a`, whose durable stages answered HTTP 503. Before that redeploy it reported `9b2bcb9` on 2026-10-01 and again on 2026-10-05, a build
   without the speech-first MCP text block, the Markdown-free full answer, the hedged clean
   findings turn, `outputSchema`, `structuredContent`, `resources/list`, `resources/read` and the
   `ui://volcan/review-card` view. On
@@ -1737,7 +1776,13 @@ simulator in isolation mode, and record which headers the real client sends.
   after `09d4862` are not on camera, including extensionless file names, next from the
   overview, help examples from the open change, next steps outlined only where they work,
   plain words for a pull request that cannot be opened, and README as documentation. [`video/README.md`](../video/README.md) says how it was made.
-  `video/` holds no footage, so gates E2 and E4 stay red.
+  `video/` holds no footage, so gates E2 and E4 stay red. The re-take on the live build is
+  planned, not recorded: it records against `716b0f3`, where `anthropic.claude-sonnet-5`
+  answers on a 1769 MB function (one press of the take-4 patch: 3.44 s at the client, Lambda
+  3071 ms, model 1266 ms; 17.88 s at 256 MB). Beat 2's window is 43.5 s from the press: a 10 s
+  latency allowance, which the capture enforces, the earcon's 0.65 s lead, and the longest
+  answer the page can speak, 370 characters at take 3's 0.0875 s a character. The plan
+  measures 155.412 s. [`video/SHOT_LIST.md`](../video/SHOT_LIST.md) has the arithmetic.
 * **Durability is deployment-dependent and bounded.** A local run without
   `VOLCAN_STATE_TABLE` keeps dialogue, actions, spent nonces and audit records in process
   memory, and a restart loses them. The Terraform deployment passes only an existing
