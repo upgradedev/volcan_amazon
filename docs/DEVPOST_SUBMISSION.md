@@ -291,7 +291,7 @@ re-take records against the live build `716b0f3`, where Claude Sonnet 5
 (`anthropic.claude-sonnet-5`) answers on AWS Lambda with DynamoDB. One press of the take-4 patch
 there answered in 3.44 s at the client (Lambda 3071 ms, model 1266 ms) at 1769 MB, and in
 17.88 s at 256 MB. The plan gives that press 10 s before its answer must start, then the
-longest answer the page can speak, and measures 155.4 s; it is not recorded yet.
+longest answer the page can speak, and measures 155.9 s; it is not recorded yet.
 
 **Deployed.** On 2026-09-23 the public endpoint served `GET /health`, the current companion,
 the REST digest and MCP initialize/tool calls. Health exposes the immutable source revision.

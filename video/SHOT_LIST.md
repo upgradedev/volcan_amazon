@@ -33,7 +33,7 @@ for each window is written beside it in `narration.json`.
 | The screencast ends on narration, so the sync gate's `content-seam<=1s` check can pass | Beat 6 |
 | No hard-coded test count | No count is spoken; see the rules at the end |
 | End on the repository and live URLs | Closing card |
-| Under 170 s measured, inside the kit's 175 s publication budget | 155.4 s measured |
+| Under 170 s measured, inside the kit's 175 s publication budget | 155.9 s measured |
 
 ## Time budget (measured)
 
@@ -44,17 +44,20 @@ for each window is written beside it in `narration.json`.
 | Beat 1, `beat_01_alexa_value` | 15.5 | 23.3 | 7.8 | none |
 | Beat 2, `beat_02_bedrock_press` | 23.3 | 70.8 | 47.5 | the Bedrock answer to Hear this code review |
 | Beat 3, `beat_03_model_coverage` | 70.8 | 79.7 | 8.9 | none |
-| Beat 4, `beat_04_request_changes` | 79.7 | 111.1 | 31.5 | Request changes |
-| Beat 5, `beat_05_confirm` | 111.1 | 140.4 | 29.3 | Confirm |
-| Beat 6, `beat_06_recorded_request` | 140.4 | 144.8 | 4.4 | none |
-| Beat 7, `beat_07_mcp_handshake` | 144.8 | 150.9 | 6.1 | none |
-| Closing card | 150.9 | 155.4 | 4.5 | none |
+| Beat 4, `beat_04_request_changes` | 79.7 | 111.6 | 32.0 | Request changes |
+| Beat 5, `beat_05_confirm` | 111.6 | 140.9 | 29.3 | Confirm |
+| Beat 6, `beat_06_recorded_request` | 140.9 | 145.3 | 4.4 | none |
+| Beat 7, `beat_07_mcp_handshake` | 145.3 | 151.4 | 6.1 | none |
+| Closing card | 151.4 | 155.9 | 4.5 | none |
 
-`video/generate-narration.py --write-timestamps` measured 135.412 s of beats on 2026-10-07,
-so the video is 2.0 + 13.5 + 135.412 + 4.5 = 155.412 s. That run re-synthesized beat 3 only,
-109 characters, for its new line naming Claude; every other beat reused its cached audio, and
-shrinking beat 2's window from 58.5 to 43.5 s sent nothing. The 14.4 s the shorter window
-frees is not spent elsewhere: nothing is padded, and the video is shorter.
+`video/generate-narration.py --write-timestamps` measured 135.912 s of beats on 2026-10-07,
+so the video is 2.0 + 13.5 + 135.912 + 4.5 = 155.912 s. The first run that day re-synthesized
+beat 3 only, 109 characters, for its new line naming Claude; every other beat reused its cached
+audio, and shrinking beat 2's window from 58.5 to 43.5 s sent nothing. The second widened beat
+4's window from 26.5 to 27.0 s, because the rehearsal that day measured Request changes at
+25.763 s, past the 25.45 s slowest run its window was sized from; it sent nothing either. Of the
+15.0 s the shorter beat 2 frees, beat 3's longer line takes 0.6 s and beat 4 0.5 s under its own
+rule; the rest is not spent: nothing is padded, and the video is shorter.
 
 The fit before it, on 2026-10-06, measured 149.809 s of beats (169.809 s of video) with the
 58.5 s window. That fit re-synthesized beats 1, 2,
@@ -120,8 +123,8 @@ beat and sent nothing.
   went from 8.9 to 7.8 s, beat 4 from 33.6 to 31.5 s, beat 6 from 6.9 to 4.4 s and beat 7 from
   8.5 to 6.1 s. They are not lengthened again: the video is shorter instead. Beat 3 grew from
   8.3 to 8.9 s and beat 2 shrank from 62.5 to 47.5 s.
-* **The optional consented clip fits again.** At 155.4 s, a clip of up to 14.5 s keeps the
-  video under 170 s, and up to 19.5 s keeps it under the 175 s budget.
+* **The optional consented clip fits again.** At 155.9 s, a clip of up to 14.0 s keeps the
+  video under 170 s, and up to 19.0 s keeps it under the 175 s budget.
 
 Dropped from the 2026-09-29 take to fit: the "what you heard" beat, the Findings turn on
 octocat/Hello-World, the Alexa+ replay press (see below), and the spoken test and conformance
@@ -184,7 +187,7 @@ port 8813 with no cloud credentials, from the action to the browser's speech end
 | Findings | 29.83 s | no: over the 20 s cold-open cap |
 | Summary | 24.63 s, 24.46 s | no: over the cap, and on the live build it also speaks the model's headline, up to 180 characters |
 | `line 26`, typed | 12.03 s, 12.04 s, 11.88 s | yes: cold open 13.5 s |
-| Request changes, comment `is_admin is inverted.` | 25.39 s, 25.45 s, 25.28 s | yes: window 26.5 s |
+| Request changes, comment `is_admin is inverted.` | 25.39 s, 25.45 s, 25.28 s; 25.763 s in the rehearsal of 2026-10-07 | yes: window 27.0 s |
 | Request changes, the earlier 69-character comment | 33.4 s (rehearsal receipt) | no: a 34.5 s window, 8 s longer, would put the video at about 177.6 s, over the 175 s budget |
 | Confirm | 22.28 s, 22.28 s, 22.27 s, 22.21 s, 23.41 s | yes: window 24.5 s |
 
@@ -305,7 +308,7 @@ was not recorded on the live build. It measured an edge mean of 1.98, a card to 
 
 **Only if the owner records a consented session.** Without one, this slot is left out and
 nothing replaces it. It is deliberately not in `narration.json`, so a default render can never
-include it. At 155.4 s, a clip of up to 14.5 s keeps the video under 170 s.
+include it. At 155.9 s, a clip of up to 14.0 s keeps the video under 170 s.
 
 * 10 to 15 seconds of a blind or low-vision developer using Volcan with their own screen
   reader, during one of the five timed sessions the README names as the cheapest test of its
@@ -317,7 +320,7 @@ include it. At 155.4 s, a clip of up to 14.5 s keeps the video under 170 s.
 * The band says it is a recorded session, with its date, and that consent was given. The
   narration adds no claim about the result beyond what the published session results say.
 
-## Beat 4, `beat_04_request_changes`, 79.7 to 111.1 seconds
+## Beat 4, `beat_04_request_changes`, 79.7 to 111.6 seconds
 
 * **Narration:** "Request changes stages a review, bound to the head commit it read."
 * **After the narrator stops:** the review comment `is_admin is inverted.` goes into the
@@ -326,9 +329,9 @@ include it. At 155.4 s, a clip of up to 14.5 s keeps the video under 170 s.
 * **Sound:** the page's cue and readback, then `Ready to request changes on` the pull request,
   `bound to head commit` and its short id, `with the comment:`, and `Say confirm to submit it,
   or cancel.` State **AWAITING CONFIRM**. The last take talked over this turn; this one keeps
-  all of it, in a 26.5 s window measured on the chosen pull request.
+  all of it, in a 27.0 s window measured on the chosen pull request.
 
-## Beat 5, `beat_05_confirm`, 111.1 to 140.4 seconds
+## Beat 5, `beat_05_confirm`, 111.6 to 140.9 seconds
 
 * **Narration:** "Nothing leaves Volcan until you confirm. Confirm, and listen."
 * **After the narrator stops:** **Confirm**. The page speaks `Understood: confirm.` and then its
@@ -337,7 +340,7 @@ include it. At 155.4 s, a clip of up to 14.5 s keeps the video under 170 s.
   **RECORDED, NOT SENT**. Midway through, the view moves to the review pane, which shows the
   outcome and the exact `POST` body the server recorded. Nothing talks over the turn.
 
-## Beat 6, `beat_06_recorded_request`, 140.4 to 144.8 seconds
+## Beat 6, `beat_06_recorded_request`, 140.9 to 145.3 seconds
 
 * **Narration:** "No GitHub token here: the request is recorded, not sent."
 * **On screen:** the review pane, held: outcome recorded and not sent, the live head re-read,
@@ -348,7 +351,7 @@ include it. At 155.4 s, a clip of up to 14.5 s keeps the video under 170 s.
   the browser's, so the sync gate's `content-seam<=1s` check failed by 4.0 s on the earlier
   plan. Ending on narration leaves the generator's 0.65 s tail.
 
-## Beat 7, `beat_07_mcp_handshake`, 144.8 to 150.9 seconds
+## Beat 7, `beat_07_mcp_handshake`, 145.3 to 151.4 seconds
 
 * **Narration:** "This MCP handshake is real. Alexa+ never called Volcan." The page prints the
   negotiated revision, 2025-11-25.
@@ -363,7 +366,7 @@ include it. At 155.4 s, a clip of up to 14.5 s keeps the video under 170 s.
   Bedrock calls and could run close to a minute. The README's replay command against a local
   server remains the evidence for it.
 
-## Closing card, 150.9 to 155.4 seconds
+## Closing card, 151.4 to 155.9 seconds
 
 `Volcan`
 `Live build: qylv1gxor9.execute-api.eu-west-1.amazonaws.com`

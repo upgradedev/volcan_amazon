@@ -1782,7 +1782,7 @@ simulator in isolation mode, and record which headers the real client sends.
   3071 ms, model 1266 ms; 17.88 s at 256 MB). Beat 2's window is 43.5 s from the press: a 10 s
   latency allowance, which the capture enforces, the earcon's 0.65 s lead, and the longest
   answer the page can speak, 370 characters at take 3's 0.0875 s a character. The plan
-  measures 155.412 s. [`video/SHOT_LIST.md`](../video/SHOT_LIST.md) has the arithmetic.
+  measures 155.912 s. [`video/SHOT_LIST.md`](../video/SHOT_LIST.md) has the arithmetic.
 * **Durability is deployment-dependent and bounded.** A local run without
   `VOLCAN_STATE_TABLE` keeps dialogue, actions, spent nonces and audit records in process
   memory, and a restart loses them. The Terraform deployment passes only an existing

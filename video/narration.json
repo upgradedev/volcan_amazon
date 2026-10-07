@@ -5,7 +5,7 @@
   "live_build": "https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com",
   "previous_take_script": "The 2026-09-29 render of 09d4862 used the six-beat script at commit fc10e7d: git show fc10e7d:video/narration.json",
   "timing_basis": "Measured: each beat's narration by video/generate-narration.py (ElevenLabs audio, measured with ffprobe) plus the generator's 0.65 s tail and the beat's product window. The video opens on a 2.0 s title card, then the cold open of cold_open.seconds, then beat 1, so every beat timestamp below is offset by cards.title_seconds plus cold_open.seconds. Each product window names its own basis.",
-  "target_duration_seconds": 155.412,
+  "target_duration_seconds": 155.912,
   "max_allowed_seconds": 180.0,
   "narration_audio": {
     "generated": false,
@@ -77,11 +77,11 @@
       "beat_id": "beat_04_request_changes",
       "narration_text": "Request changes stages a review, bound to the head commit it read.",
       "speech_text": "Request changes stages a review, bound to the head commit it read.",
-      "product_sound_seconds": 26.5,
-      "product_sound_basis": "Measured on 2026-10-06 against a local server on port 8813 with no cloud credentials, on upgradedev/volcan-demo-service pull request 1 with the review comment is_admin is inverted.: 25.39, 25.45 and 25.28 s from the click on Request changes to the browser's speech end event for its readback and answer. The slowest run plus 1 s, rounded up to the half second. The readback and the answer both repeat the comment, so a longer comment needs a longer window: the 69-character comment this replaces took 33.4 s.",
+      "product_sound_seconds": 27.0,
+      "product_sound_basis": "Measured against a local server on port 8813 with no cloud credentials, on upgradedev/volcan-demo-service pull request 1 with the review comment is_admin is inverted.: 25.39, 25.45 and 25.28 s on 2026-10-06, and 25.763 s in the rehearsal of 2026-10-07, from the click on Request changes to the browser's speech end event for its readback and answer. The slowest run plus 1 s, 26.763 s, rounded up to the half second: 27.0 s (26.5 s before the 2026-10-07 run). The readback and the answer both repeat the comment, so a longer comment needs a longer window: the 69-character comment this replaces took 33.4 s.",
       "visual_action": "Back to Talk through a real pull request, where the chosen pull request is still open. The review comment is_admin is inverted. goes into the comment box, and Request changes after the narrator stops (or the command request changes followed by that comment, typed with Alt and 4). The page plays its cue and speaks its readback, then Ready to request changes on the pull request, bound to head commit and its first seven characters, with the comment, then Say confirm to submit it, or cancel. State AWAITING CONFIRM, with Confirm and Cancel outlined. The whole turn is in the mix as the product's voice; nothing talks over it.",
       "timestamp_start": 79.665,
-      "timestamp_end": 111.134
+      "timestamp_end": 111.634
     },
     {
       "beat_id": "beat_05_confirm",
@@ -90,24 +90,24 @@
       "product_sound_seconds": 24.5,
       "product_sound_basis": "Measured on 2026-10-06 against a local server on port 8813 with no cloud credentials, on upgradedev/volcan-demo-service pull request 1, each time after Request changes with the comment is_admin is inverted.: 22.28, 22.28, 22.27, 22.21 and 23.41 s from the click on Confirm to the browser's speech end event for its readback and answer. The slowest run plus 1 s, rounded up to the half second. Confirm calls no model, so the live build speaks the same sentences.",
       "visual_action": "Confirm after the narrator stops. The page plays its cue and speaks Understood: confirm., then Dry run. Nothing was sent to GitHub. The head commit is still the commit it read, and the exact request Volcan would send has been recorded. A live send would be refused: no GITHUB_TOKEN is set. State RECORDED, NOT SENT. Midway the view moves to the review pane: outcome recorded and not sent, the live head re-read, and the exact POST request body the server recorded. Nothing talks over the turn.",
-      "timestamp_start": 111.134,
-      "timestamp_end": 140.417
+      "timestamp_start": 111.634,
+      "timestamp_end": 140.917
     },
     {
       "beat_id": "beat_06_recorded_request",
       "narration_text": "No GitHub token here: the request is recorded, not sent.",
       "speech_text": "No GitHub token here: the request is recorded, not sent.",
       "visual_action": "The page has stopped speaking. Hold on the review pane the view moved to during Confirm: outcome recorded and not sent, the live head re-read, and the exact POST request body the server recorded. No product turn in this beat. The screencast ends on this narration, so its sound reaches to within the generator's 0.65 s tail of beat 7, as the sync gate's content-seam check needs: a window that ends on the page's own speech ends in silence, because the slowest-plus-1-s rule leaves a margin and the re-rendered system voice ends before the browser's.",
-      "timestamp_start": 140.417,
-      "timestamp_end": 144.783
+      "timestamp_start": 140.917,
+      "timestamp_end": 145.283
     },
     {
       "beat_id": "beat_07_mcp_handshake",
       "narration_text": "This MCP handshake is real. Alexa+ never called Volcan.",
       "speech_text": "This M C P handshake is real. Alexa plus never called Volcan.",
       "visual_action": "Evidence, tab Server and MCP: Server reached, with the commit and the model path the live server reports. On the first sentence press Run a real MCP handshake, which sends initialize and tools/list and calls no tool, and hold on the negotiated version 2025-11-25 and the tool list as the page prints them. On the last sentence the connection strip and its Alexa+ box, which reads package built and tested locally, not certified or deployed. Then the closing card. Do not press Replay the documented Alexa+ requests on the live build: each of its three clients calls digest_semantic_diff with the default engine, so one press is three billed Bedrock calls and could run close to a minute.",
-      "timestamp_start": 144.783,
-      "timestamp_end": 150.912
+      "timestamp_start": 145.283,
+      "timestamp_end": 151.412
     }
   ]
 }

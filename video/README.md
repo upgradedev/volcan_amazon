@@ -292,7 +292,7 @@ follows it, with these limits.
   * `cards.title_slot` starts with `card_then_cold_open`.
   * `cards.title_seconds` is the 2.0 s title card.
   * `cold_open.seconds` is the 13.5 s cold open, measured on the chosen pull request.
-  * Beat 1 starts at 15.5 s, and the closing card ends at 155.412 s, measured. Beat 2 says
+  * Beat 1 starts at 15.5 s, and the closing card ends at 155.912 s, measured. Beat 2 says
     one 3.39 s line, then presses, and holds 43.5 s from the press: a 10 s latency allowance
     (ESTIMATE) to the answer's first sound, the earcon's 0.65 s lead, and the longest sentence
     the page can speak for the stage patch, 370 characters, 32.38 s at take 3's measured rate.
