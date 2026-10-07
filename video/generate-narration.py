@@ -61,11 +61,11 @@ TAIL_SECONDS = 0.65
 # scripts/verify_video_sync.py never reads it, and every window still needs a basis.
 # It was 30 s, then 45 s, then 60 s while beat 2's window held a call that ran to its
 # 25 s timeout. Beat 2 presses Hear this code review when its narrator stops, and its
-# window now holds an answer whose first sound comes within the capture's 10 s latency
+# window now holds an answer whose first sound comes within the capture's 5.9 s latency
 # allowance (ANSWER_LATENCY_ALLOWANCE_SECONDS in video/capture-local.py), then the
-# earcon's 0.65 s lead and the longest sentence the page can speak, about 32.4 s at take
-# 3's measured rate: 43.5 s, rounded up. A later answer fails the take, so the cap is
-# 45 s again.
+# earcon's lead, up to 0.66 s, and the longest sentence the page can speak at the slowest
+# measured rate plus 1 s, about 34.4 s: 41.0 s, rounded up. A later answer fails the take,
+# so the cap is 45 s again.
 MAX_PRODUCT_SOUND_SECONDS = 45.0
 
 ELEVENLABS_KEY_ENV_NAMES = ("ELEVENLABS_API_KEY", "XI_API_KEY", "ELEVEN_LABS_KEY")

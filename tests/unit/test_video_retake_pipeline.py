@@ -139,7 +139,7 @@ def healthy() -> dict[str, object]:
 
 def test_the_capture_accepts_the_live_build_it_was_told_about():
     capture.check_health(healthy(), SHA)
-    with pytest.raises(SystemExit, match="configured_reachable"):
+    with pytest.raises(SystemExit, match="beat 3 names DynamoDB, so it needs configured_reachable"):
         capture.check_health({**healthy(), "durable_state": {"resolved_capability": "process_memory"}}, SHA)
 
 
@@ -147,8 +147,9 @@ def test_the_capture_accepts_the_live_build_it_was_told_about():
     ("change", "message"),
     [
         ({"source_revision": "0" * 40}, "different commit"),
-        ({"bedrock_model_path": {"resolved_capability": "no_credentials"}}, "ready_to_attempt"),
-        ({"github_review_path": {"resolved_capability": "dry_run_with_token"}}, "dry_run_no_token"),
+        ({"bedrock_model_path": {"resolved_capability": "no_credentials"}}, "beat 2 needs ready_to_attempt"),
+        ({"github_review_path": {"resolved_capability": "dry_run_with_token"}},
+         "beat 6 says the build has no GitHub token, so it needs dry_run_no_token"),
         # Beat 3 says Claude on Amazon Bedrock answered.
         ({"bedrock_model_path": {"resolved_capability": "ready_to_attempt", "model_id": "amazon.nova-pro"}},
          "Claude"),
@@ -261,7 +262,7 @@ BASIS = "Measured on the rehearsal server, slowest run plus 1 s, rounded up to t
 def test_the_generator_s_cap_is_45_s_and_refuses_more():
     # The cap is a plan constraint, not a gate: it was 30 s, then 45 s, then 60 s while beat 2
     # held a call up to the 25 s timeout. Beat 2 now holds an answer that starts within the
-    # capture's 10 s latency allowance, 43.5 s in all, so the cap is 45 s again.
+    # capture's 5.9 s latency allowance, 41.0 s in all, so the cap is 45 s again.
     assert narration.MAX_PRODUCT_SOUND_SECONDS == 45.0
     assert narration.product_sound({"product_sound_seconds": 45.0, "product_sound_basis": BASIS}, "b") == 45.0
     assert narration.product_sound({}, "b") == 0.0
@@ -274,24 +275,47 @@ def test_the_generator_s_cap_is_45_s_and_refuses_more():
 
 # The Bedrock answer take 3 measured on the live build on 2026-10-06: its for-speech sentence
 # was 359 characters (139 of finding with its trailing space, a 171-character headline and its
-# full stop, 48 of counts) and spoke for 31.42 s, after the earcon's 0.65 s lead.
-EARCON_LEAD_SECONDS = 0.65
+# full stop, 48 of counts) and spoke for 31.42 s (take3-failure-locals.json: speech ended at
+# 45.328 s, the scroll after speech.start at 13.906 s), after the earcon's 0.65 s lead.
+TAKE_3_EARCON_LEAD_SECONDS = 0.65
 TAKE_3_SENTENCE_CHARACTERS = 359
 TAKE_3_SENTENCE_SECONDS = 31.42
 LOCAL_FINDING_CHARACTERS = 139
 COUNTS_CHARACTERS = 48
+# The four free rehearsals of 2026-10-06 and 2026-10-07: the local engine's 186-character
+# sentence spoke in 16.742, 16.741, 16.757 and 16.783 s, after an earcon lead of 0.634, 0.633,
+# 0.658 and 0.38 s. The window takes the slowest rate and the longest lead.
+REHEARSAL_SENTENCE_CHARACTERS = 186
+REHEARSAL_SENTENCE_SECONDS = (16.742, 16.741, 16.757, 16.783)
+REHEARSAL_EARCON_LEADS = (0.634, 0.633, 0.658, 0.38)
+EARCON_LEAD_SECONDS = 0.66
+# Beats 4 and 5 keep 1 s over their slowest run; beat 2's sentence keeps the same.
+SPEECH_MARGIN_SECONDS = 1.0
+MEASURED_PRESS_SECONDS = 3.44
 
 
-def longest_answer_seconds() -> float:
-    """The longest sentence the page can speak for the stage patch, at take 3's rate: the
-    finding, the headline cut to the spoken budget and closed with a space and an ellipsis,
-    its full stop, and the counts."""
+def longest_answer_characters() -> int:
+    """The longest sentence the page can speak for the stage patch: the finding, the headline
+    cut to the spoken budget and closed with a space and an ellipsis, its full stop, and the
+    counts."""
     from src.infrastructure.bedrock_adapter import SPOKEN_SUMMARY_CHAR_BUDGET
 
     headline = SPOKEN_SUMMARY_CHAR_BUDGET + len(" \u2026")
     characters = LOCAL_FINDING_CHARACTERS + headline + len(".") + COUNTS_CHARACTERS
     assert characters == 370
-    return characters * TAKE_3_SENTENCE_SECONDS / TAKE_3_SENTENCE_CHARACTERS
+    return characters
+
+
+def longest_answer_seconds() -> float:
+    """The longest sentence at the slowest rate measured for beat 2's sentence, plus 1 s."""
+    slowest = max(seconds / REHEARSAL_SENTENCE_CHARACTERS for seconds in REHEARSAL_SENTENCE_SECONDS)
+    assert slowest > TAKE_3_SENTENCE_SECONDS / TAKE_3_SENTENCE_CHARACTERS
+    return longest_answer_characters() * slowest + SPEECH_MARGIN_SECONDS
+
+
+def test_the_earcon_lead_is_the_longest_measured():
+    assert EARCON_LEAD_SECONDS == round(max(REHEARSAL_EARCON_LEADS), 2)
+    assert EARCON_LEAD_SECONDS >= TAKE_3_EARCON_LEAD_SECONDS
 
 
 def test_the_spoken_cut_never_passes_the_budget_plus_its_ellipsis():
@@ -317,22 +341,39 @@ def test_beat_2_presses_when_the_narrator_stops_and_holds_a_late_but_allowed_ans
     # The latency allowance, the earcon's lead and the longest answer, rounded up to the half
     # second and no more: the window is not padded.
     need = capture.ANSWER_LATENCY_ALLOWANCE_SECONDS + EARCON_LEAD_SECONDS + longest_answer_seconds()
-    assert capture.ANSWER_LATENCY_ALLOWANCE_SECONDS == 10.0
+    assert capture.ANSWER_LATENCY_ALLOWANCE_SECONDS == 5.9
     assert need <= window < need + 0.5
-    assert window == 43.5
+    assert window == 41.0
+    # The allowance is what the window leaves after the earcon and the sentence, rounded down
+    # to a tenth.
+    left = window - EARCON_LEAD_SECONDS - longest_answer_seconds()
+    assert capture.ANSWER_LATENCY_ALLOWANCE_SECONDS == int(round(left, 3) * 10) / 10
     basis = beat["product_sound_basis"]
-    for part in ("10 s latency allowance", "31.42 s", "359-character", "171-character", "370 characters",
-                 "180 characters", "to_voice_summary", "16.75 s", "ESTIMATE", "43.5 s", "3.44 s",
-                 "17.88 s", "retake"):
+    for part in ("5.9 s latency allowance", "31.42 s", "45.328 - 13.906 = 31.422 s", "take3-failure-locals.json",
+                 "359-character", "171-character", "370 characters", "180 characters", "to_voice_summary",
+                 "16.741 to 16.783 s", "0.0902 s", "plus 1 s", "0.66 s", "ESTIMATE", "41.0 s", "3.44 s",
+                 "17.88 s", "5.9 + 0.66 + 34.39 = 40.95 s", "retake"):
         assert part in basis
+    assert "10 s latency allowance" not in basis and "43.5 s" not in basis
+    assert "shortest window" not in basis
     assert "25 s timeout" not in basis
     assert "Amazon Bedrock" in beat["narration_text"]
     # The narration speaks of the stage patch, never of the pull request.
     assert "pull request" not in beat["narration_text"]
 
 
-# 3.44 s is the press measured on 716b0f3 at 1769 MB; 10 s is the allowance itself.
-@pytest.mark.parametrize("latency", [1.0, 3.44, 5.0, 10.0])
+def test_beat_2_s_window_leaves_at_most_5_s_of_silent_page_after_the_measured_press():
+    # At take 3's rate a full headline after the 3.44 s press leaves the page silent for the rest
+    # of the window; the next half second up would leave more than 5 s.
+    window = next(b for b in PLAN["beats"] if b["beat_id"] == "beat_02_bedrock_press")["product_sound_seconds"]
+    spoken = longest_answer_characters() * TAKE_3_SENTENCE_SECONDS / TAKE_3_SENTENCE_CHARACTERS
+    silent = window - (MEASURED_PRESS_SECONDS + TAKE_3_EARCON_LEAD_SECONDS + spoken)
+    assert 4.0 < silent <= 5.0
+    assert silent + 0.5 > 5.0
+
+
+# 3.44 s is the press measured on 716b0f3 at 1769 MB; 5.9 s is the allowance itself.
+@pytest.mark.parametrize("latency", [1.0, 3.44, 5.0, 5.9])
 def test_beat_2_s_answer_starts_after_the_narration_and_ends_inside_the_beat(latency):
     beat = next(b for b in PLAN["beats"] if b["beat_id"] == "beat_02_bedrock_press")
     hold = beat["timestamp_end"] - beat["timestamp_start"]
@@ -346,10 +387,10 @@ def test_beat_2_s_answer_starts_after_the_narration_and_ends_inside_the_beat(lat
 
 
 # 17.88 s is the same press measured at 256 MB; 25 s is the model call's timeout.
-@pytest.mark.parametrize("latency", [10.001, 12.0, 17.88, 25.0])
+@pytest.mark.parametrize("latency", [5.901, 12.0, 17.88, 25.0])
 def test_beat_2_s_answer_after_the_allowance_fails_the_take(latency):
     problem = capture.answer_latency_problem(30.0 + latency, 30.0)
-    assert problem is not None and "record again" in problem and "10.0 s latency allowance" in problem
+    assert problem is not None and "record again" in problem and "5.9 s latency allowance" in problem
 
 
 def test_beat_2_s_answer_that_makes_no_sound_fails_the_take():
@@ -416,8 +457,15 @@ def test_beat_3_names_the_aws_services_and_the_coverage_line_after_the_answer():
 
 def test_the_shot_list_and_readme_state_the_beat_2_window_and_the_cold_open():
     shot_list = (VIDEO / "SHOT_LIST.md").read_text(encoding="utf-8")
-    assert "**Beat 2's window, 43.5 s from the press" in shot_list
-    assert "0.65 + 10 + 32.38 = 43.03 s" in shot_list and "716b0f3" in shot_list
+    assert "**Beat 2's window, 41.0 s from the press" in shot_list
+    assert "5.9 + 0.66 + 34.39 = 40.95 s" in shot_list and "716b0f3" in shot_list
+    assert "45.328 - 13.906 = 31.422 s" in shot_list and "take3-failure-locals.json" in shot_list
+    assert "**Beats 1, 6 and 7 stay as cut on 2026-10-06.**" in shot_list
+    assert "Beats 1, 4, 6 and 7" not in shot_list
+    assert "beat 4 was also measured in the free rehearsal of 2026-10-07" in shot_list
+    assert "**Confirm on the live build is checked only offline.**" in shot_list
+    assert "test_confirming_claims_the_action_and_burns_the_nonce_once_serialized" in shot_list
+    assert "Beat 2's window, 43.5 s from the press" not in shot_list
     assert "Beat 2's window, 58.5 s from the press" not in shot_list and "about 47 to 51 s" not in shot_list
     assert "Beat 2 presses when its narrator stops" in shot_list
     assert "| Cold open band only." in shot_list
@@ -699,3 +747,14 @@ def test_a_rehearsal_is_never_built_as_the_shipped_video():
     with pytest.raises(SystemExit, match="narration folder"):
         build.check_rehearsal_receipt({**rehearsal, "narrationDir": "../elsewhere"}, True)
     assert build.check_rehearsal_receipt({"mode": "take", "shippable": True}, False) == build.NARRATION
+
+
+def test_the_health_refusals_name_the_beat_that_says_it():
+    # Each message names the beat whose narration the server would make untrue.
+    beats = {b["beat_id"][:7]: b["narration_text"] for b in PLAN["beats"]}
+    assert "Amazon Bedrock" in beats["beat_02"]
+    assert "DynamoDB" in beats["beat_03"] and "Claude on Amazon Bedrock" in beats["beat_03"]
+    assert "No GitHub token" in beats["beat_06"]
+    source = (VIDEO / "capture-local.py").read_text(encoding="utf-8")
+    assert "beat 2 says the review state" not in source and "beat 5 says the build" not in source
+    assert "beat 3 names Amazon DynamoDB" not in source

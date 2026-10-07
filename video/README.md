@@ -196,7 +196,7 @@ During or after the take, it fails, and the take has to be recorded again:
   `model_id` `/health` reports. Before PR #35 this check only asked that the line start with
   `The model read`; the expected text now follows the page's new line, and the check is
   stricter, not weaker. The answer's first sound comes before beat 2's narration ends, or more
-  than 10 s after the planned press (`ANSWER_LATENCY_ALLOWANCE_SECONDS`); a rehearsal fails on
+  than 5.9 s after the planned press (`ANSWER_LATENCY_ALLOWANCE_SECONDS`); a rehearsal fails on
   both too. The late answer is also named as soon as its response arrives.
 * **The cold open.** Its first sound comes later than 2.0 s after the title card ends, or its
   first word later than 5.0 s into the video, which is 3.0 s into the cold open after the
@@ -292,11 +292,11 @@ follows it, with these limits.
   * `cards.title_slot` starts with `card_then_cold_open`.
   * `cards.title_seconds` is the 2.0 s title card.
   * `cold_open.seconds` is the 13.5 s cold open, measured on the chosen pull request.
-  * Beat 1 starts at 15.5 s, and the closing card ends at 155.912 s, measured. Beat 2 says
-    one 3.39 s line, then presses, and holds 43.5 s from the press: a 10 s latency allowance
-    (ESTIMATE) to the answer's first sound, the earcon's 0.65 s lead, and the longest sentence
-    the page can speak for the stage patch, 370 characters, 32.38 s at take 3's measured rate.
-    `SHOT_LIST.md` gives the parts.
+  * Beat 1 starts at 15.5 s, and the closing card ends at 153.412 s, measured. Beat 2 says
+    one 3.39 s line, then presses, and holds 41.0 s from the press: a 5.9 s latency allowance
+    (ESTIMATE) to the answer's first sound, the earcon's 0.66 s lead, and the longest sentence
+    the page can speak for the stage patch, 370 characters, 34.39 s at the slowest measured
+    rate plus 1 s. `SHOT_LIST.md` gives the parts.
 * **`video/capture-local.py` drives the re-take journey.**
   * It accepts the seven beat ids in `narration.json` and refuses any other list.
   * It opens `VOLCAN_PR_URL` off camera and waits for that turn's speech to end.
@@ -635,18 +635,20 @@ and the 90 to 174 s narration range. `--write-timestamps` offsets the beats by
 the card, 15.5 s in this plan.
 
 `tests/unit/test_video_retake_pipeline.py` covers the scripts without a browser, ffmpeg or a
-request. Its 97 cases (`python -m pytest tests/unit/test_video_retake_pipeline.py -q`) check:
+request. Its 100 cases (`python -m pytest tests/unit/test_video_retake_pipeline.py -q`) check:
 
 * the plan's title card, cold open and timestamps, and its total of 170 s or less;
 * the beat ids;
 * the cold-open commands, a typed `line N` and the checks on its answer;
 * the demo label in the cold-open band and the shot list, and the review comment;
 * that every product window fits the generator's 45 s cap, which refuses 45.5 s; that beat 2
-  says 3 to 4.5 s before the press, presses when its narrator stops, and holds the 10 s
-  latency allowance, the earcon's lead and the longest answer, rounded up to the half second
-  and no more; that the spoken cut never passes 180 characters plus its ellipsis; that an
-  answer after 1, 3.44, 5 or 10 s starts after the narration and ends inside the beat, and
-  that one after 10.001, 12, 17.88 or 25 s, or one with no sound, fails the take; that the
+  says 3 to 4.5 s before the press, presses when its narrator stops, and holds the 5.9 s
+  latency allowance, the earcon's longest measured lead and the longest answer at the slowest
+  measured rate plus 1 s, rounded up to the half second and no more; that the window leaves at
+  most 5 s of silent page after the measured 3.44 s press at take 3's rate; that the spoken cut
+  never passes 180 characters plus its ellipsis; that an answer after 1, 3.44, 5 or 5.9 s
+  starts after the narration and ends inside the beat, and that one after 5.901, 12, 17.88 or
+  25 s, or one with no sound, fails the take; that the
   coverage line must be exactly the page's line ending `Answered by` and a Claude model, the
   one `/health` reports, and that the line before PR #35, another model or a missing count
   fails; that beat 3 names Claude on Amazon Bedrock, AWS Lambda and DynamoDB; and that the

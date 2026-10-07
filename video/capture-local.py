@@ -36,7 +36,7 @@ The take and the rehearsal both press Hear this code review when beat 2's narrat
 stops, after the generator's tail, so the answer can only start after the narration
 however fast the model answers; the check that it did runs in both modes. Beat 2's
 window holds an answer whose first sound comes within ANSWER_LATENCY_ALLOWANCE_SECONDS,
-10 s, of the press; a later answer fails the take in both modes, so a slow answer means
+5.9 s, of the press; a later answer fails the take in both modes, so a slow answer means
 a retake, never an answer that runs past the window.
 
 What it records and what it refuses to do:
@@ -70,7 +70,7 @@ What it records and what it refuses to do:
   or a GitHub review path other than a dry run without a token; if the beats differ
   from this journey; if the press is not answered by Amazon Bedrock, carries a fallback
   reason, makes its first sound while the narrator is still speaking, or makes it more
-  than 10 s after the press; if the coverage line is not the one the page prints for
+  than 5.9 s after the press; if the coverage line is not the one the page prints for
   that answer, ending "Answered by <model_answered>."; if Findings
   answers that no security rule matched; if a voiced turn's speech has not ended inside its
   window or was interrupted; if the page logs an error; if the review dialogue refuses
@@ -162,13 +162,17 @@ NARRATION_TAIL_SECONDS = 0.65
 # a Bedrock call can run to its 25 s timeout before the server falls back, and the script
 # waits longer than that so a slow answer is named as one instead of timing out.
 BILLED_TURN_TIMEOUT_SECONDS = 60.0
-# Beat 2's latency allowance: the answer's first sound, its earcon, must come within this
-# many seconds of the planned press, where the window opens. On the live build of
-# 716b0f3 at 1769 MB one press answered in 3.44 s at the client (Lambda 3071 ms, model
-# 1266 ms); at 256 MB the same press took 17.88 s. The window is this allowance, the
-# earcon's 0.65 s lead and the longest answer the page can speak (video/SHOT_LIST.md), so
-# an answer that starts later could overrun it, and the take is recorded again.
-ANSWER_LATENCY_ALLOWANCE_SECONDS = 10.0
+# Beat 2's latency allowance (ESTIMATE): the answer's first sound, its earcon, must come
+# within this many seconds of the planned press, where the window opens. On the live
+# build of 716b0f3 at 1769 MB one press answered in 3.44 s at the client (Lambda 3071 ms,
+# model 1266 ms); at 256 MB the same press took 17.88 s. The window is this allowance, the
+# earcon's lead and the longest answer the page can speak at the slowest measured rate
+# plus 1 s (video/SHOT_LIST.md). It was 10 s, which left about 7 s of silent page after a
+# fast answer. 41.0 s is the longest window, on the half second, that leaves at most 5 s
+# of silent page after the measured 3.44 s press with a full headline, and 5.9 s is what
+# that window leaves for the answer to start, rounded down to a tenth. An answer that
+# starts later could overrun the window, and the take is recorded again.
+ANSWER_LATENCY_ALLOWANCE_SECONDS = 5.9
 # The model the narration names: beat 3 says Claude on Amazon Bedrock answered.
 CLAUDE_MODEL_PREFIX = "anthropic.claude"
 
@@ -304,7 +308,7 @@ def check_rehearsal_health(health: dict[str, object], release_sha: str) -> list[
     durable = (health.get("durable_state") or {}).get("resolved_capability")
     if durable != "configured_reachable":
         notes.append({"check": "durable_state", "take": "configured_reachable", "rehearsal": durable,
-                      "why": "beat 3 names Amazon DynamoDB; the local server keeps its review state in memory"})
+                      "why": "beat 3 names DynamoDB; the local server keeps its review state in memory"})
     return notes
 
 
@@ -402,11 +406,11 @@ def check_health(health: dict[str, object], release_sha: str) -> None:
         raise SystemExit(f"/health reports bedrock_model_path {model!r}; beat 2 needs ready_to_attempt")
     durable = (health.get("durable_state") or {}).get("resolved_capability")
     if durable != "configured_reachable":
-        raise SystemExit(f"/health reports durable_state {durable!r}; beat 2 says the review state is "
-                         "in Amazon DynamoDB, so it needs configured_reachable")
+        raise SystemExit(f"/health reports durable_state {durable!r}; beat 3 names DynamoDB, "
+                         "so it needs configured_reachable")
     review = (health.get("github_review_path") or {}).get("resolved_capability")
     if review != "dry_run_no_token":
-        raise SystemExit(f"/health reports github_review_path {review!r}; beat 5 says the build has "
+        raise SystemExit(f"/health reports github_review_path {review!r}; beat 6 says the build has "
                          "no GitHub token, so it needs dry_run_no_token")
     model_id = (health.get("bedrock_model_path") or {}).get("model_id")
     if not str(model_id or "").startswith(CLAUDE_MODEL_PREFIX):

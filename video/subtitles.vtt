@@ -5,25 +5,25 @@ WEBVTT
 Volcan, built for Alexa+, lets blind and low-vision developers review AI code by voice.
 
 2
-00:00:23.254 --> 00:01:10.795
+00:00:23.254 --> 00:01:08.295
 Press once, and this patch goes to Amazon Bedrock.
 
 3
-00:01:10.795 --> 00:01:19.665
+00:01:08.295 --> 00:01:17.165
 Claude on Amazon Bedrock answered, on AWS Lambda with DynamoDB. That's how much it read, and which model.
 
 4
-00:01:19.665 --> 00:01:51.634
+00:01:17.165 --> 00:01:49.134
 Request changes stages a review, bound to the head commit it read.
 
 5
-00:01:51.634 --> 00:02:20.917
+00:01:49.134 --> 00:02:18.417
 Nothing leaves Volcan until you confirm. Confirm, and listen.
 
 6
-00:02:20.917 --> 00:02:25.282
+00:02:18.417 --> 00:02:22.782
 No GitHub token here: the request is recorded, not sent.
 
 7
-00:02:25.282 --> 00:02:31.412
+00:02:22.782 --> 00:02:28.912
 This MCP handshake is real. Alexa+ never called Volcan.
