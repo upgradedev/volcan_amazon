@@ -1288,6 +1288,35 @@ named governed-action calls only.
 
 ## The public deployment
 
+**Checked on 2026-10-07: the endpoint serves `716b0f3` at 1769 MB.** `716b0f3` is the merge
+of PR #35: default model `anthropic.claude-sonnet-5`, a `volcan.bedrock` call-shape log line,
+named causes when the model returns no text, and `max_retries=0`. It is the master this branch
+starts from, so `src/` and `docs/index.html` on live are this commit's. The receipt is kept
+outside the repository like the other live observations here.
+
+* `GET /health` reported `status` ok, `source_revision` `716b0f3`, `model_id`
+  `anthropic.claude-sonnet-5`, `bedrock_model_path` `ready_to_attempt` and `durable_state`
+  `configured_reachable`. The uploaded package's code hash matched the local zip.
+* Lambda `MemorySize` was raised from 256 to 1769 MB on the owner's approval, and
+  [`infra/main.tf`](../infra/main.tf) now declares 1769. AWS documents one full vCPU at 1769 MB.
+* One press before and one after, each on the same take-4 `permissions.py` diff with one
+  Bedrock call. These are single presses (n=1 each), not a benchmark:
+
+  | Lambda memory | Client round trip | Lambda `Duration` | Model `latency_ms` | Answer |
+  |---|---|---|---|---|
+  | 256 MB | 17.88 s | 17562 ms | 2959 ms | HTTP 200, `bedrock`, `model_answered` `anthropic.claude-sonnet-5` |
+  | 1769 MB | 3.44 s | 3071 ms | 1266 ms | HTTP 200, `bedrock`, `model_answered` `anthropic.claude-sonnet-5` |
+
+  Lambda `Duration` excludes initialisation. The 1769 MB press followed a `/health` cold start
+  whose `Init` was 1981 ms, so that press ran warm; the receipt does not say whether the 256 MB
+  press was warm. At 256 MB about 14.6 s of the 17.6 s fell outside the model call. Model time
+  also fell, from 2959 to 1266 ms; with one press each that change is recorded, not attributed
+  to memory.
+* CloudWatch received the `volcan.bedrock` lines (event `bedrock_model_call`, `stop_reason`
+  `end_turn`, no response text).
+* `GET /` was not re-measured for this block. `deploy_teardown_receipt.json` is unchanged, so
+  gates D2 and G2 stay red.
+
 **Checked on 2026-10-06, after the redeploy: the endpoint serves `aa3364a`, and its runtime is
 the current one.** The endpoint is `https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com`.
 

@@ -110,7 +110,7 @@ or deployed: the [hackathon FAQ](https://amazonappdev2026.devpost.com/details/fa
 Volcan sends the digest request to Claude on Amazon Bedrock; otherwise, or when the call fails,
 a local deterministic engine answers and the response says why. The default model is Claude
 Sonnet 5 (`anthropic.claude-sonnet-5`) from 2026-10-06, and each answer names the model its
-request asked for in `model_answered` (the configured id, not read back from the response); the live function keeps the model it was deployed with until it is redeployed. A Bedrock answer was recorded on 2026-09-30: one live digest answered `synthesis_mode: bedrock` with a null reason. The public endpoint is an AWS Lambda in eu-west-1; its `GET /health` on 2026-10-06 read
+request asked for in `model_answered` (the configured id, not read back from the response); the live function keeps the model it was deployed with until it is redeployed. Live was redeployed at `716b0f3` and, on 2026-10-07, answered with `anthropic.claude-sonnet-5` at 1769 MB of Lambda memory: one press of the same diff took 17.88 s at 256 MB and 3.44 s at 1769 MB (n=1 each, not a benchmark; [details](docs/EVIDENCE.md#the-public-deployment)). A Bedrock answer was recorded on 2026-09-30: one live digest answered `synthesis_mode: bedrock` with a null reason. The public endpoint is an AWS Lambda in eu-west-1; its `GET /health` on 2026-10-06 read
 `bedrock_model_path` `ready_to_attempt` and `durable_state` `configured_reachable`, and
 [`infra/`](infra/) declares a Lambda with a function URL and a DynamoDB table in Terraform.
 

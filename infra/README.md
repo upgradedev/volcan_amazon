@@ -9,7 +9,9 @@ declares the same Lambda plus a Function URL as a reproducible alternate ingress
 API Gateway endpoint was updated and probed on 2026-09-23; its health response carries the
 deployed Git revision.
 
-- **Compute:** AWS Lambda (`python3.11`, 256MB) executing the FastMCP ASGI application.
+- **Compute:** AWS Lambda (`python3.11`, 1769 MB, raised from 256 MB on 2026-10-07) executing the FastMCP ASGI application.
+  One press of the same diff took 17562 ms of Lambda time at 256 MB and 3071 ms at 1769 MB
+  (n=1 each, not a benchmark; see [docs/EVIDENCE.md](../docs/EVIDENCE.md#the-public-deployment)).
 - **Networking:** Active ingress is API Gateway HTTP API. Terraform declares an HTTPS Lambda Function URL without an always-on load balancer.
 - **Intelligence:** Amazon Bedrock is attempted when the configured model is available; each response reports `bedrock` or a labelled local fallback reason.
 - **Durable application state:** encrypted DynamoDB, pay per request, with conditional session/action/nonce writes, two-hour session TTL and point-in-time recovery.

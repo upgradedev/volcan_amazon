@@ -188,7 +188,12 @@ resource "aws_lambda_function" "volcan_mcp_function" {
   handler          = "src.interfaces.lambda_handler.handler"
   filename         = var.lambda_package_path
   source_code_hash = filebase64sha256(var.lambda_package_path)
-  memory_size      = 256
+  # AWS documents one full vCPU at 1769 MB. Live ran 256 MB until the 2026-10-07 change.
+  # One press of the same diff, one Bedrock call each (n=1, not a benchmark):
+  # 256 MB: Lambda 17562 ms, model 2959 ms, client 17.88 s.
+  # 1769 MB: Lambda 3071 ms, model 1266 ms, client 3.44 s.
+  # At 256 MB about 14.6 s of the 17.6 s Lambda time fell outside the model call.
+  memory_size      = 1769
   timeout          = 30
 
   environment {
