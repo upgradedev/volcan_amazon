@@ -11,7 +11,7 @@ from 256 to 1769 MB the same day. On that build one press of the take-4 patch an
 `reviews/deploy_20261006/volcan/volcan_deploy_receipt_716b0f3.json` in the owner's workspace,
 outside the repository.
 Section 1 gives the commands for that take and for a free rehearsal. Section 4 says what the
-pipeline does for the take, what the rehearsal of 2026-10-06 found and what is still open.
+pipeline does for the take, what the rehearsals of 2026-10-06 and 2026-10-07 found and what is still open.
 Sections 2 and 3 describe the render that exists. Its script and its capture are in history:
 `git show fc10e7d:video/narration.json` and
 `git show fc10e7d:video/capture-local.py`. The `cue_sheet.json`, `subtitles.srt` and
@@ -412,6 +412,57 @@ follows it, with these limits.
     because the window keeps its margin. A narration beat after the turn closes it.
 * **The optional consented clip has no place in the pipeline.** It goes in during the edit,
   and every later timestamp moves by its length.
+
+### The free rehearsal of the 43.5 s window, 2026-10-07
+
+After the branch merged `716b0f3` and beat 2's window became 43.5 s, a free rehearsal ran the
+plan at `7d42e92`, on the chosen pull request, with the real ElevenLabs narration. No Bedrock
+call was billed. ElevenLabs was called for beat 3 only, 109 characters, for its new line
+naming Claude; the other six beats reused their cached audio (`narration/tts-ledger.jsonl` in
+the media root has the call).
+
+* **Setup.** `video/capture-local.py --rehearsal`, `video/build-video.py --rehearsal` and the
+  unchanged gate (`git diff 716b0f3 -- scripts/verify_video_sync.py` prints nothing), against
+  a local server on port 8813 started with the commands in section 1 and reporting
+  `source_revision` `7d42e92`, `bedrock_model_path` `unavailable_no_sdk_and_no_credentials`
+  with `model_id` `anthropic.claude-sonnet-5`, `durable_state` `process_memory` and
+  `github_review_path` `dry_run_no_token`. `VOLCAN_PR_URL` was
+  https://github.com/upgradedev/volcan-demo-service/pull/1, and the cold open was `line 26`.
+  The capture, the composed video, the gate's output in `output-rehearsal/sync-gate.txt` and
+  frames in `output-rehearsal/frames6/` are in `reviews/videos_20261006/volcan_amazon/` in the
+  owner's workspace, with the logs in `rehearsal6-capture.log` and `rehearsal6-build.log`.
+* **The capture** exited 0 with an empty `failures` list: no page error, no blank stretch, the
+  recording drifting 0.4984% from the page clock (`videoPerPageSecond` 1.004984).
+  * Cold open, `line 26`: first sound and first word 0.616 s into the cold open, 2.616 s into
+    the video. Its speech ended 1.055 s before beat 1.
+  * Beat 2: the narrator stopped at 11.145 s of timeline, the window opened at 11.795 s and the
+    press was made at 11.859 s. The local answer's earcon started at 12.542 s, 0.747 s after
+    the window opened: after the narration, and inside the 10 s allowance, so both checks
+    passed. Its speech ended at 29.957 s; the window closes at 55.295 s.
+  * Beat 3: the coverage check, now an exact match on the line ending `Answered by` and the
+    model, is listed under `notRepresentative`, because the local engine answers with no model
+    and the page prints no coverage line.
+  * Request changes, with `is_admin is inverted.`: its speech ended 0.574 s before beat 5 (95.06 s against 95.634 s of timeline).
+  * Confirm: its speech ended 2.106 s before beat 6.
+* **The build** composed 155.44 s, with 25 caption windows, and refused nothing.
+* **The gate passed every check:** `order-manifest`, `order-pixels` (title card 1.9,
+  screencast 11.1, web 12.0, closing card 4.0), `durations>0`, `duration-reconstruct`,
+  `publication-budget<175s` (155.44 s), `content-seam<=1s` (0.651 s), `av-duration`,
+  `captions-in-bounds`, `captions-monotonic-nonoverlap`, `captions-no-outro-bleed` and
+  `web-beat-audible` (-1.5 dB).
+  * Cross-check: ffmpeg `silencedetect` (-40 dB, d=0.5) puts beat 2's rehearsal silence, after
+    the local answer, from 43.09 to 70.86 s of video, 27.8 s, against 43.1 s with the 58.5 s
+    window. In the take the latency, about 3.4 s on one measured press, and the model's
+    headline, up to about 16 s, fill most of it.
+  * Frames read at 35, 60, 72, 77.5, 125 and 149 s of video: the spoken answer with its
+    caption, beat 3's caption `Claude on Amazon Bedrock answered, on AWS Lambda with
+    DynamoDB.` over the meter reading `local heuristic`, the caption `That's how much it read,
+    and which model.`, the dry-run Confirm answer, and the Server and MCP tab with the Alexa+
+    box.
+* **Not representative of the billed take**, from the receipt's `notRepresentative`: the
+  Amazon Bedrock items (the model path in `/health`, the press answered by the local engine,
+  the meter reading `local heuristic`, no coverage line and no model answer to open) and the
+  DynamoDB item (`durable_state` `process_memory`).
 
 ### The free rehearsal of the press-after-narration plan, 2026-10-06
 
