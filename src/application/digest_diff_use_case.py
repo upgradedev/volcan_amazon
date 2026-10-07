@@ -87,4 +87,5 @@ class DigestDiffUseCase:
             model_prose_full=enhanced_report.model_prose_full,
             model_input_chars_sent=enhanced_report.model_input_chars_sent,
             model_input_chars_total=enhanced_report.model_input_chars_total,
+            model_answered=enhanced_report.model_answered,
         )
