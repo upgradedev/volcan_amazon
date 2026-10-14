@@ -32,7 +32,7 @@ It is not an Alexa skill, the Alexa+ front end is simulated, and GitHub reviews 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-931%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-934%20passing-brightgreen.svg)](tests/)
 
 ## Table of Contents
 
