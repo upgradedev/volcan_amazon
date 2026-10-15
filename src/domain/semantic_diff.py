@@ -134,13 +134,16 @@ class SemanticDiffReport:
         """
         if level == 0:
             headline = self.executive_spoken_summary.rstrip().rstrip(".")
+            headline_sentence = (
+                headline if headline.endswith(("!", "?", "\u2026")) else f"{headline}."
+            )
             counts = (
                 f"Modified {plural(self.total_files_changed, 'file')} with "
                 f"{plural(self.total_insertions, 'addition')} and "
                 f"{plural(self.total_deletions, 'deletion')}."
             )
             if not self.critical_findings:
-                return f"{headline}. {counts}"
+                return f"{headline_sentence} {counts}"
             # The finding is the first thing a listener hears, then the counts,
             # and nothing else. The local engine's headline ("Security-sensitive
             # changes in <file>") and a closing "Note: 1 critical finding
@@ -152,7 +155,7 @@ class SemanticDiffReport:
                 lead += "."
             parts = [lead]
             if self.synthesis_mode == "bedrock" and headline:
-                parts.append(f"{headline}.")
+                parts.append(headline_sentence)
             more = len(self.critical_findings) - 1
             if more:
                 parts.append(f"{plural(more, 'more security finding')}.")

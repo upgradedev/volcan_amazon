@@ -1017,8 +1017,8 @@ def test_the_speech_pane_reports_what_the_model_read():
 def test_the_patch_help_names_the_model_data_flow():
     """Before typing a patch, a developer is told what a press sends where.
 
-    The notice lives in the input\'s described-by hint, so a screen reader hears
-    it, and its character figure is the server\'s budget constant, not a second
+    The notice lives in the input's described-by hint, so a screen reader hears
+    it, and its character figure is the server's budget constant, not a second
     number that can drift from it.
     """
     from src.infrastructure.bedrock_adapter import MODEL_DIFF_CHAR_BUDGET
@@ -1029,3 +1029,27 @@ def test_the_patch_help_names_the_model_data_flow():
     assert "the local rules always read the whole patch" in hint
     assert str(MODEL_DIFF_CHAR_BUDGET) in hint
     assert MODEL_DIFF_CHAR_BUDGET == 3000
+    # V1: runLevelOne and runDrillDown set busy state and populate meters on standalone press
+    l1 = function_body("runLevelOne")
+    drill = function_body("runDrillDown")
+    assert 'setBusy(button, true, "Loading file-by-file")' in l1
+    assert 'renderFindings(digest.data.critical_findings, digest.data.voice_summary)' in l1
+    assert 'setBusy(button, true, "Drilling into file "' in drill
+    # V2: multi-file patches cycle through sections via State.sectionIndex / State.sectionCount
+    assert "State.sectionCount" in drill and "State.sectionIndex" in drill
+    # V3: renderReviewPane displays refusal details when a command is refused
+    pane = function_body("renderReviewPane")
+    assert "if (!rows.length && data.error && data.spoken)" in pane
+    assert '["Status", "Not staged (" + data.state + ")"]' in pane
+    # V4: resetStage clears preview banner and resets Braille output
+    reset = function_body("resetStage")
+    assert "endPreview();" in reset and "drawGhostCells();" in reset
+    # V6: readCardResource sends keepalive: true on DELETE /mcp cleanup
+    card = function_body("readCardResource")
+    assert "keepalive: true" in card
+    # V7: .info-btn meets 32x32 minimum interactive target size
+    info_btn_css = html.split(".info-btn {", 1)[1].split("}", 1)[0]
+    assert "width: 32px; height: 32px; min-height: 32px;" in info_btn_css
+
+
+

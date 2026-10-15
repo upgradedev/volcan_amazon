@@ -120,3 +120,21 @@ def test_a_clean_patch_with_no_definition_in_sight_names_the_file():
     patch = "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-a\n+b\n"
     headline = BedrockSynthesisAdapter._heuristic_headline(UnifiedDiffParser.parse_patch(patch))
     assert headline == "The change touches README.md; no security rule matched"
+    # V5: truncated ellipsis headline must not receive a redundant trailing period
+    report = SemanticDiffReport(
+        total_files_changed=1,
+        total_insertions=1,
+        total_deletions=1,
+        executive_spoken_summary="This change introduces a critical privilege-escalation risk \u2026",
+        category_breakdown={},
+        critical_findings=[
+            "In src/auth/permissions.py, an authorization comparison was inverted"
+        ],
+        sections=[],
+        synthesis_mode="bedrock",
+    )
+    summary = report.to_voice_summary(level=0)
+    assert "\u2026." not in summary
+    assert "\u2026 Modified 1 file" in summary
+
+
