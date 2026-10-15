@@ -292,9 +292,9 @@ perform today, and readiness gates E2 and E4 report red until footage is in `vid
 the REST digest and MCP initialize/tool calls. Health exposes the immutable source revision.
 A governed action remained a dry-run and its bounded EMF records were read back from
 CloudWatch. On 2026-10-06, after a redeploy, `GET /health` reported `source_revision`
-`aa3364a`; the later commits on master change no file under `src/` and not `docs/index.html`
-(`git diff --name-only aa3364a HEAD -- src docs/index.html` prints nothing), so the endpoint
-serves the current runtime. A live GitHub write remains absent. An Alexa+ add-on deployment is absent because
+`aa3364a`. On 2026-10-07, after the next redeploy, it reported `716b0f3` (PR #35), with the
+Lambda at 1769 MB instead of 256 MB; one press of the same diff took 17.88 s before the memory
+change and 3.44 s after it (n=1 each, not a benchmark). A live GitHub write remains absent. An Alexa+ add-on deployment is absent because
 the add-on tools are partner-only ([hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs)). No Alexa skill has been
 certified and nothing has run on an Echo device; for this track the FAQ says "no physical
 device needed".
