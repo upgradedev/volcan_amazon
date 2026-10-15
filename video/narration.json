@@ -1,11 +1,11 @@
 {
   "project": "volcan_amazon",
   "title": "Volcan: hear your code review instead of scrubbing a diff",
-  "status": "Plan for the re-take on the live build, not recorded. Every window and timestamp below is an ESTIMATE until video/generate-narration.py measures the narration and a rehearsal measures the product's turns. video/SHOT_LIST.md is the plan in full.",
+  "status": "Plan for the re-take on the live build, not recorded. The live build serves 716b0f3 (PR #35), default model anthropic.claude-sonnet-5, Lambda at 1769 MB. The narration is measured by video/generate-narration.py. The cold open and the product windows of beats 4 and 5 are measured against a local server on 2026-10-06, and beat 4's also in the free rehearsal of 2026-10-07. Beat 2's window is a 5.9 s latency allowance (ESTIMATE) plus the earcon's lead and the longest answer the page can speak, at the slowest speech rate measured for beat 2's sentence plus 1 s. video/SHOT_LIST.md is the plan in full.",
   "live_build": "https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com",
   "previous_take_script": "The 2026-09-29 render of 09d4862 used the six-beat script at commit fc10e7d: git show fc10e7d:video/narration.json",
-  "timing_basis": "ESTIMATE: each beat's narration at 2.2 words a second of speech_text, the slowest rate of the 2026-09-29 take's beats rounded down, plus the generator's 0.65 s tail and the beat's product window. The video opens on a 2.0 s title card, then the 12.0 s cold open, then beat 1, so every beat timestamp below is offset by cards.title_seconds plus cold_open.seconds.",
-  "target_duration_seconds": 158.536,
+  "timing_basis": "Measured: each beat's narration by video/generate-narration.py (ElevenLabs audio, measured with ffprobe) plus the generator's 0.65 s tail and the beat's product window. The video opens on a 2.0 s title card, then the cold open of cold_open.seconds, then beat 1, so every beat timestamp below is offset by cards.title_seconds plus cold_open.seconds. Each product window names its own basis.",
+  "target_duration_seconds": 153.412,
   "max_allowed_seconds": 180.0,
   "narration_audio": {
     "generated": false,
@@ -20,13 +20,14 @@
     }
   },
   "cold_open": {
-    "seconds": 12.0,
-    "basis": "ESTIMATE, not measured on the live build. On 2026-09-28 the Findings turn on octocat/Hello-World pull request 1, which has no finding, took 7.47 s and 7.46 s from the click to the browser's speech end event (the product_sound_basis of beat 3 in the previous script). A finding is a longer sentence than the clean answer. Replace with the slowest of three rehearsal runs plus 1 s.",
-    "visual_action": "After the 2.0 s title card. The chosen pull request was opened on the live page before the camera rolled, because opening one runs the default engine, an Amazon Bedrock call, and one live digest took 19.67 s on 2026-10-01; the band says so. The first frame is the dialogue under Talk through a real pull request, showing the opened overview, with the next steps outlined. Within the first 0.5 s press Findings when the rehearsal showed at least one finding, otherwise File by file (or the same command typed with Alt and 4 or said with Alt and 5). The page plays its cue and speaks its readback, Understood: findings. or Understood: file by file., then its answer: each finding, file and line as the server words it, or each file with its additions and deletions. These turns read the report already built and call no model. The narrator is silent. The product's own sound and voice are in the mix for the whole turn.",
+    "seconds": 13.5,
+    "basis": "Measured on 2026-10-06 against a local server on port 8813 with no cloud credentials, on upgradedev/volcan-demo-service pull request 1: the typed command line 26 took 12.03, 12.04 and 11.88 s from Enter to the browser's speech end event for its readback and answer. Typing starts 0.1 s into the cold open and Enter follows about 0.3 s later. The slowest run plus 1 s plus that lead, rounded up to the half second. The turn reads the parsed patch and calls no model, so its words are the same on the live build. Findings took 29.8 s and Summary 24.6 s and 24.5 s on the same server, against the capture's 20 s cap for a cold open; on the live build Summary also speaks the model's headline, up to 180 characters, after the finding.",
+    "visual_action": "After the 2.0 s title card. The chosen pull request was opened on the live page before the camera rolled, because opening one runs the default engine, an Amazon Bedrock call, and one live digest took 19.67 s on 2026-10-01; the band says so, and says that the pull request is a demo written for this walkthrough. The first frame is the dialogue under Talk through a real pull request, showing the opened overview. Within the first 0.5 s, Alt and 4 puts the focus in the command box, line 26 is typed and Enter sends it. The page speaks its readback, Understood: line 26., then the line: Line 6 of 9, added, new line 26: return user.role not equals Role.ADMIN, the inverted comparison in is_admin, and the dialogue log prints the line with != under the overview, which says 2 security findings. The review card that names the finding, an authorization comparison was inverted, is not in this frame; the capture checks that the turn's answer carries it. The turn reads the report already built and calls no model. The narrator is silent. The product's own voice is in the mix for the whole turn.",
     "gate": "The first product sound by 2.0 s after the title card ends, which is 4.0 s into the video, and the first spoken word by 5.0 s into the video, which is 3.0 s into the cold open with the 2.0 s card. The turn plays to its end with nothing over it. A take that misses either is recorded again.",
     "band_lines": [
-      "{build} at commit {sha7}. Pull request opened before this shot."
-    ]
+      "{build} at commit {sha7}. A demo pull request in upgradedev/volcan-demo-service, written for this walkthrough, opened before this shot."
+    ],
+    "command": "line 26"
   },
   "cards": {
     "title_seconds": 2.0,
@@ -48,57 +49,65 @@
   "beats": [
     {
       "beat_id": "beat_01_alexa_value",
-      "narration_text": "That was Volcan, live, answering in its own voice. It is a Model Context Protocol server built to be called by Alexa+, so a blind or low-vision developer can review an AI agent's pull request by voice, and hear the verdict first.",
-      "speech_text": "That was Volcan, live, answering in its own voice. It is a Model Context Protocol server built to be called by Alexa plus, so a blind or low-vision developer can review an A I agent's pull request by voice, and hear the verdict first.",
-      "visual_action": "The cold-open turn has ended. The view scrolls to the top of the live page: the heading Hear your code review instead of scrubbing a diff, For blind and low-vision developers, the silent preview of the Inverted admin check patch, and the label Live MCP server, simulated Alexa+ front end. Not an Alexa skill. GitHub: dry-run. That label stays on screen; the narration does not open with it. On the last sentence Alt and 1 puts the focus ring on Hear this code review. No product turn in this beat.",
-      "timestamp_start": 14.0,
-      "timestamp_end": 34.65
+      "narration_text": "Volcan, built for Alexa+, lets blind and low-vision developers review AI code by voice.",
+      "speech_text": "Volcan, built for Alexa plus, lets blind and low-vision developers review A I code by voice.",
+      "visual_action": "The cold-open turn has ended. The view scrolls to the top of the live page: the heading Hear your code review instead of scrubbing a diff, For blind and low-vision developers, the silent preview of the Inverted admin check patch, and the label Live MCP server, simulated Alexa+ front end. Not an Alexa skill. GitHub: dry-run. That label stays on screen; the narration does not open with it. Late in the line, Alt and 1 puts the focus ring on Hear this code review. No product turn in this beat.",
+      "timestamp_start": 15.5,
+      "timestamp_end": 23.255
     },
     {
       "beat_id": "beat_02_bedrock_press",
-      "narration_text": "This patch, an inverted admin check, goes to Claude on Amazon Bedrock. Volcan runs on AWS Lambda, with its review state in Amazon DynamoDB.",
-      "speech_text": "This patch, an inverted admin check, goes to Claude on Amazon Bedrock. Volcan runs on A W S Lambda, with its review state in Amazon Dynamo D B.",
-      "product_sound_seconds": 25.0,
-      "product_sound_basis": "ESTIMATE, not measured on this build. One live Bedrock digest of the auth-bypass patch took 19.67 s on 2026-10-01 (docs/EVIDENCE.md, The public deployment). The press comes at the start of this beat, so the narration covers most of that wait; what is left, plus the earcon and the spoken answer (16.74 s of speech for the local engine's sentence on 2026-09-28), is this window. Replace it with the slowest of three rehearsal presses, from the end of the narration to the browser's speech end event, plus 1 s. The narration must end at least 1 s before the fastest rehearsal answer arrives.",
-      "visual_action": "Enter on Hear this code review at the first frame of the beat, before the narrator speaks: the model call starts and the narrator talks over the wait. The silent preview stays drawn and the button shows it is working. No cut and no speed-up: the wait is shown as it happened. When the answer arrives, after the narrator has stopped, the page plays the falling earcon the server returned and speaks the server's sentence, finding first, while the words light. The product's own sound and voice are in the mix. The engine meter must read Amazon Bedrock; a take whose meter reads local heuristic, or that shows a fallback reason, is recorded again.",
-      "timestamp_start": 34.65,
-      "timestamp_end": 73.027
+      "narration_text": "Press once, and this patch goes to Amazon Bedrock.",
+      "speech_text": "Press once, and this patch goes to Amazon Bedrock.",
+      "product_sound_seconds": 41.0,
+      "product_sound_basis": "Sized from a 5.9 s latency allowance (ESTIMATE, ANSWER_LATENCY_ALLOWANCE_SECONDS in video/capture-local.py), the earcon's lead, and the longest answer the page can speak at the slowest rate measured for beat 2's sentence, plus 1 s, the margin beats 4 and 5 use. The press is made when the narrator stops, after the generator's 0.65 s tail, so this window runs from the press and the answer can only start after the narration. Parts: the answer's first sound within 5.9 s of the press (on 716b0f3 at 1769 MB one press answered in 3.44 s at the client, Lambda 3071 ms, model 1266 ms; at 256 MB it took 17.88 s); the falling earcon, which started 0.63 to 0.66 s before the first word in three of the four free rehearsals of 2026-10-06 and 2026-10-07 and 0.38 s before it in the fourth, so 0.66 s, the longest; and the longest sentence SemanticDiffReport.to_voice_summary(level=0) can speak for this patch: the local finding (139 characters with its trailing space, as spoken), the model's headline, which shorten_for_speech cuts to 180 characters and closes with a space and an ellipsis (at most 182), its full stop (1), and the counts (48): 370 characters. The slowest rate measured is the local engine's 186-character sentence, finding and counts only, which took 16.741 to 16.783 s in those four rehearsals: 16.783 / 186 = 0.0902 s a character. Take 3's Bedrock answer, a 359-character sentence with a 171-character headline, spoke faster, 0.0875 s a character, on the live build on 2026-10-06: 31.42 s comes from the actions in take3-failure-locals.json in the media root, speech ended at 45.328 s less the scroll that follows speech.start at 13.906 s, 45.328 - 13.906 = 31.422 s. 370 characters at 0.0902 s take 33.39 s, plus 1 s: 34.39 s. 5.9 + 0.66 + 34.39 = 40.95 s, rounded up to the half second: 41.0 s. The allowance is what 41.0 s leaves after the earcon and the sentence, 41.0 - 0.66 - 34.39 = 5.95 s, rounded down to a tenth: 5.9 s. 41.0 s is the longest window, on the half second, that leaves at most 5 s of silent page after the 3.44 s press with a full headline at take 3's rate: 3.44 + 0.65 + 32.38 = 36.47 s leaves 4.53 s, where 41.5 s would leave 5.03 s. The capture fails the take, in both modes, when the answer's first sound comes more than 5.9 s after the press or its speech has not ended when beat 3 begins, so a slow answer means a retake. The operator names are added after the cut, so a headline with code operators in it speaks more than 182 characters; the speech-end check catches that too.",
+      "visual_action": "The narrator says one line and stops. After the generator's 0.65 s tail, Enter on Hear this code review, where Alt and 1 put the focus in beat 1: the model call starts only now, so its answer cannot start under the narration. The silent preview stays drawn and the button shows it is working. No cut and no speed-up: the wait is shown as it happened. When the answer arrives, the page plays the falling earcon the server returned and speaks the server's sentence, the finding, then the model's headline, then the counts, while the words light. The product's own sound and voice are in the mix and nothing talks over them. A fast answer leaves the page holding, silent, until beat 3: about 4.5 s after a 3.44 s answer with a full headline, and about 6.8 s or more when the model's whole answer is 156 characters, as one of four Sonnet 5 answers on the take-4 patch was (call 38 in bedrock-diagnosis-ledger.jsonl in the media root). A fixed window cannot bound both the latency and the answer's length. The engine meter must read Amazon Bedrock; a take whose meter reads local heuristic, or that shows a fallback reason, is recorded again.",
+      "timestamp_start": 23.255,
+      "timestamp_end": 68.295
     },
     {
       "beat_id": "beat_03_model_coverage",
-      "narration_text": "The meter names Amazon Bedrock, this line says how much of the patch the model read, and this panel opens its full answer.",
-      "speech_text": "The meter names Amazon Bedrock, this line says how much of the patch the model read, and this panel opens its full answer.",
-      "visual_action": "Hold on the engine meter reading Amazon Bedrock and the round trip the page measured. Then the coverage line under the spoken caption, exactly as the page prints it: for this short patch, The model read the whole N-character patch., with N as printed. Then open the details The model's full answer and hold on the model's own words. Nothing is typed over the page; every number on screen is one the page printed.",
-      "timestamp_start": 73.027,
-      "timestamp_end": 84.132
+      "narration_text": "Claude on Amazon Bedrock answered, on AWS Lambda with DynamoDB. That's how much it read, and which model.",
+      "speech_text": "Claude on Amazon Bedrock answered, on A W S Lambda with Dynamo D B. That's how much it read, and which model.",
+      "visual_action": "Hold on the engine meter reading Amazon Bedrock and the round trip the page measured while the narrator says Claude on Amazon Bedrock answered, on AWS Lambda with DynamoDB. On the second sentence, the coverage line under the spoken caption, exactly as the page prints it: for this short patch, The model read the whole N-character patch. Answered by anthropic.claude-sonnet-5., with N and the model as the answer reports them in model_input_chars_total and model_answered. Then open the details The model's full answer and hold on the model's own words. Nothing is typed over the page; every number on screen is one the page printed.",
+      "timestamp_start": 68.295,
+      "timestamp_end": 77.165
     },
     {
       "beat_id": "beat_04_request_changes",
-      "narration_text": "Back on the pull request, request changes stages a review, bound to the head commit Volcan read. Listen.",
-      "speech_text": "Back on the pull request, request changes stages a review, bound to the head commit Volcan read. Listen.",
-      "product_sound_seconds": 14.0,
-      "product_sound_basis": "ESTIMATE, not measured. On the 09d4862 take the page spoke this turn from 80.9 s to 92.6 s of the timeline before Confirm interrupted it (video/README.md), so the full turn is longer than 11.7 s. Replace with the slowest of three rehearsal runs on the chosen pull request, from the command to the browser's speech end event for the readback and answer, plus 1 s.",
-      "visual_action": "Back to Talk through a real pull request, where the chosen pull request is still open. A comment that says it is a dry-run demo goes into the comment box, and Request changes after the narrator stops (or the command request changes followed by that comment, typed with Alt and 4). The page plays its cue and speaks its readback, then Ready to request changes on the pull request, bound to head commit and its first seven characters, with the comment, then Say confirm to submit it, or cancel. State AWAITING CONFIRM, with Confirm and Cancel outlined. The whole turn is in the mix as the product's voice; nothing talks over it.",
-      "timestamp_start": 84.132,
-      "timestamp_end": 106.964
+      "narration_text": "Request changes stages a review, bound to the head commit it read.",
+      "speech_text": "Request changes stages a review, bound to the head commit it read.",
+      "product_sound_seconds": 27.0,
+      "product_sound_basis": "Measured against a local server on port 8813 with no cloud credentials, on upgradedev/volcan-demo-service pull request 1 with the review comment is_admin is inverted.: 25.39, 25.45 and 25.28 s on 2026-10-06, and 25.763 s in the rehearsal of 2026-10-07, from the click on Request changes to the browser's speech end event for its readback and answer. The slowest run plus 1 s, 26.763 s, rounded up to the half second: 27.0 s (26.5 s before the 2026-10-07 run). The readback and the answer both repeat the comment, so a longer comment needs a longer window: the 69-character comment this replaces took 33.4 s.",
+      "visual_action": "Back to Talk through a real pull request, where the chosen pull request is still open. The review comment is_admin is inverted. goes into the comment box, and Request changes after the narrator stops (or the command request changes followed by that comment, typed with Alt and 4). The page plays its cue and speaks its readback, then Ready to request changes on the pull request, bound to head commit and its first seven characters, with the comment, then Say confirm to submit it, or cancel. State AWAITING CONFIRM, with Confirm and Cancel outlined. The whole turn is in the mix as the product's voice; nothing talks over it.",
+      "timestamp_start": 77.165,
+      "timestamp_end": 109.134
     },
     {
       "beat_id": "beat_05_confirm",
-      "narration_text": "Nothing leaves until you confirm, and this build has no GitHub token, so it records the review and sends nothing. Confirm, and listen.",
-      "speech_text": "Nothing leaves until you confirm, and this build has no GitHub token, so it records the review and sends nothing. Confirm, and listen.",
-      "product_sound_seconds": 23.5,
-      "product_sound_basis": "Measured on 2026-09-28 against a local server on port 8871, each time after Request changes on octocat/Hello-World pull request 1: 22.1 s and 21.8 s in two rehearsals and 21.96 s in a full rehearsal take, from the click on Confirm to the browser's speech end event for its readback and answer. Re-measure on the live build with the chosen pull request.",
-      "visual_action": "Confirm after the narrator stops. The page plays its cue and speaks Understood: confirm., then Dry run. Nothing was sent to GitHub. The head commit is still the commit it read, and the exact request Volcan would send has been recorded. A live send would be refused: no GITHUB_TOKEN is set. State RECORDED, NOT SENT. Midway the view moves to the review pane: outcome recorded and not sent, the live head re-read, and the exact POST request body the server recorded.",
-      "timestamp_start": 106.964,
-      "timestamp_end": 141.568
+      "narration_text": "Nothing leaves Volcan until you confirm. Confirm, and listen.",
+      "speech_text": "Nothing leaves Volcan until you confirm. Confirm, and listen.",
+      "product_sound_seconds": 24.5,
+      "product_sound_basis": "Measured on 2026-10-06 against a local server on port 8813 with no cloud credentials, on upgradedev/volcan-demo-service pull request 1, each time after Request changes with the comment is_admin is inverted.: 22.28, 22.28, 22.27, 22.21 and 23.41 s from the click on Confirm to the browser's speech end event for its readback and answer. The slowest run plus 1 s, rounded up to the half second. Confirm calls no model, so the live build speaks the same sentences.",
+      "visual_action": "Confirm after the narrator stops. The page plays its cue and speaks Understood: confirm., then Dry run. Nothing was sent to GitHub. The head commit is still the commit it read, and the exact request Volcan would send has been recorded. A live send would be refused: no GITHUB_TOKEN is set. State RECORDED, NOT SENT. Midway the view moves to the review pane: outcome recorded and not sent, the live head re-read, and the exact POST request body the server recorded. Nothing talks over the turn.",
+      "timestamp_start": 109.134,
+      "timestamp_end": 138.417
     },
     {
-      "beat_id": "beat_06_mcp_handshake",
-      "narration_text": "This handshake is a real one with the server under the page, at protocol revision 2025-11-25. Alexa+ itself has never called Volcan.",
-      "speech_text": "This handshake is a real one with the server under the page, at protocol revision twenty twenty-five, eleven, twenty-five. Alexa plus itself has never called Volcan.",
+      "beat_id": "beat_06_recorded_request",
+      "narration_text": "No GitHub token here: the request is recorded, not sent.",
+      "speech_text": "No GitHub token here: the request is recorded, not sent.",
+      "visual_action": "The page has stopped speaking. Hold on the review pane the view moved to during Confirm: outcome recorded and not sent, the live head re-read, and the exact POST request body the server recorded. No product turn in this beat. The screencast ends on this narration, so its sound reaches to within the generator's 0.65 s tail of beat 7, as the sync gate's content-seam check needs: a window that ends on the page's own speech ends in silence, because the slowest-plus-1-s rule leaves a margin and the re-rendered system voice ends before the browser's.",
+      "timestamp_start": 138.417,
+      "timestamp_end": 142.783
+    },
+    {
+      "beat_id": "beat_07_mcp_handshake",
+      "narration_text": "This MCP handshake is real. Alexa+ never called Volcan.",
+      "speech_text": "This M C P handshake is real. Alexa plus never called Volcan.",
       "visual_action": "Evidence, tab Server and MCP: Server reached, with the commit and the model path the live server reports. On the first sentence press Run a real MCP handshake, which sends initialize and tools/list and calls no tool, and hold on the negotiated version 2025-11-25 and the tool list as the page prints them. On the last sentence the connection strip and its Alexa+ box, which reads package built and tested locally, not certified or deployed. Then the closing card. Do not press Replay the documented Alexa+ requests on the live build: each of its three clients calls digest_semantic_diff with the default engine, so one press is three billed Bedrock calls and could run close to a minute.",
-      "timestamp_start": 141.568,
-      "timestamp_end": 154.036
+      "timestamp_start": 142.783,
+      "timestamp_end": 148.912
     }
   ]
 }

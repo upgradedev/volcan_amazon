@@ -32,6 +32,12 @@ instead of failing. Every other check that would fail the take after the journey
 collected under failures, so one run reports all of them, and the script exits 1 if
 there are any. Without a measured narration/timing.json it uses a silent timing stub
 built from the plan's ESTIMATE windows in narration.json, in rehearsal/narration-stub/.
+The take and the rehearsal both press Hear this code review when beat 2's narrator
+stops, after the generator's tail, so the answer can only start after the narration
+however fast the model answers; the check that it did runs in both modes. Beat 2's
+window holds an answer whose first sound comes within ANSWER_LATENCY_ALLOWANCE_SECONDS,
+5.9 s, of the press; a later answer fails the take in both modes, so a slow answer means
+a retake, never an answer that runs past the window.
 
 What it records and what it refuses to do:
 
@@ -45,8 +51,9 @@ What it records and what it refuses to do:
 * The cold open follows the title card: cold_open.seconds of narration.json, before the
   first beat, on timeline seconds from minus that length to 0. The pull request was
   opened before it, and its spoken answer has ended before the first frame. Within
-  0.5 s the cold-open command (Findings, or File by file with VOLCAN_COLD_OPEN=files)
-  is pressed. The turn must make its first sound by 2.0 s after the title card ends,
+  0.5 s the cold-open command is pressed: cold_open.command in narration.json, which
+  VOLCAN_COLD_OPEN overrides. Findings, File by file and Summary are buttons; a
+  command such as "line 26" is typed into the command box and sent with Enter. The turn must make its first sound by 2.0 s after the title card ends,
   and speak its first word by 5.0 s from the start of the video, so by 3.0 s into the
   cold open with the plan's 2.0 s card.
 * Four turns are voiced: the cold-open command, the press of Hear this code review,
@@ -62,7 +69,9 @@ What it records and what it refuses to do:
 * The take fails if /health reports another commit, a model path that is not ready,
   or a GitHub review path other than a dry run without a token; if the beats differ
   from this journey; if the press is not answered by Amazon Bedrock, carries a fallback
-  reason, or makes its first sound while the narrator is still speaking; if Findings
+  reason, makes its first sound while the narrator is still speaking, or makes it more
+  than 5.9 s after the press; if the coverage line is not the one the page prints for
+  that answer, ending "Answered by <model_answered>."; if Findings
   answers that no security rule matched; if a voiced turn's speech has not ended inside its
   window or was interrupted; if the page logs an error; if the review dialogue refuses
   a turn; if a request would bill a model call the take did not plan; if the picture
@@ -74,7 +83,9 @@ Environment:
   VOLCAN_RELEASE_SHA   the 40 character commit /health reports as source_revision
   VOLCAN_APP_URL       default http://127.0.0.1:8801/; the live build for this take
   VOLCAN_PR_URL        required: the public pull request chosen in rehearsal
-  VOLCAN_COLD_OPEN     findings (default) or files: the cold-open command
+  VOLCAN_COLD_OPEN     findings, files, summary or "line N": the cold-open command,
+                       overriding cold_open.command in narration.json (findings when
+                       neither names one)
   FFMPEG               path to ffmpeg, for finding the marker frames
   VOLCAN_SPEECH_VOICE  default "Microsoft David Desktop", the System.Speech voice
 
@@ -106,10 +117,17 @@ EXPECTED_BEATS = [
     "beat_03_model_coverage",
     "beat_04_request_changes",
     "beat_05_confirm",
-    "beat_06_mcp_handshake",
+    "beat_06_recorded_request",
+    "beat_07_mcp_handshake",
 ]
 VIEWPORT = {"width": 1280, "height": 720}
-REVIEW_COMMENT = "Volcan demo: a dry-run request changes review, recorded and not sent."
+# A real review comment about the inverted check. The readback and the staged answer
+# both repeat it, so its length decides whether Request changes fits its window: on
+# upgradedev/volcan-demo-service pull request 1 this comment took 25.28 to 25.45 s from
+# the click to the browser's speech end, and the 69-character comment it replaces took
+# 33.4 s. That the review is a dry run, recorded and not sent, is what Confirm answers
+# on camera and what beat 6 says.
+REVIEW_COMMENT = "is_admin is inverted."
 BILLED_FLAG = "--allow-billed-presses"
 REHEARSAL_FLAG = "--rehearsal"
 # A rehearsal drives only a server on this machine.
@@ -118,12 +136,20 @@ TITLE_SLOT = "card_then_cold_open"
 # The presses this take is allowed to bill, in order, one model call each.
 BILLED_PRESSES = (
     ("open_pull_request", "opening the pull request, before the cold open, off camera"),
-    ("digest", "Hear this code review, at the start of beat 2"),
+    ("digest", "Hear this code review, in beat 2 when the narrator stops"),
 )
+# Each cold-open command: the button's selector, its label, the button's id, and the
+# words typed into the command box (Alt+4) for a typed command, or None for a button.
 COLD_OPEN_COMMANDS = {
-    "findings": ("#cmdFindings", "Findings", "cmdFindings"),
-    "files": ("#cmdFiles", "File by file", "cmdFiles"),
+    "findings": ("#cmdFindings", "Findings", "cmdFindings", None),
+    "files": ("#cmdFiles", "File by file", "cmdFiles", None),
+    "summary": ("#cmdSummary", "Summary", "cmdSummary", None),
 }
+# A typed "line N" turn: the page reads new line N of the first changed file, the
+# file the opened overview starts on. It reads the report already built and calls no
+# model, and its words come from the parsed patch, so they are the same whichever
+# engine digested the pull request.
+COLD_OPEN_LINE = re.compile(r"line (\d{1,4})")
 # The start of the page's answer when no rule matched (CLEAN_FINDINGS_TEXT in
 # src/domain/review_dialogue.py). The plan keeps that turn off camera.
 NO_FINDING_PREFIX = "No security rule matched this change."
@@ -132,9 +158,85 @@ NO_FINDING_PREFIX = "No security rule matched this change."
 COLD_OPEN_FIRST_SOUND_SECONDS = 2.0
 VIDEO_FIRST_WORD_SECONDS = 5.0
 NARRATION_TAIL_SECONDS = 0.65
-# A Bedrock call can take up to its 25 s timeout before the server falls back, and
-# one live digest took 19.67 s on 2026-10-01; the page waits longer than both.
+# How long the script waits for a billed turn's response. It is not the beat 2 budget:
+# a Bedrock call can run to its 25 s timeout before the server falls back, and the script
+# waits longer than that so a slow answer is named as one instead of timing out.
 BILLED_TURN_TIMEOUT_SECONDS = 60.0
+# Beat 2's latency allowance (ESTIMATE): the answer's first sound, its earcon, must come
+# within this many seconds of the planned press, where the window opens. On the live
+# build of 716b0f3 at 1769 MB one press answered in 3.44 s at the client (Lambda 3071 ms,
+# model 1266 ms); at 256 MB the same press took 17.88 s. The window is this allowance, the
+# earcon's lead and the longest answer the page can speak at the slowest measured rate
+# plus 1 s (video/SHOT_LIST.md). It was 10 s, which left about 7 s of silent page after a
+# fast answer. 41.0 s is the longest window, on the half second, that leaves at most 5 s
+# of silent page after the measured 3.44 s press with a full headline, and 5.9 s is what
+# that window leaves for the answer to start, rounded down to a tenth. An answer that
+# starts later could overrun the window, and the take is recorded again.
+ANSWER_LATENCY_ALLOWANCE_SECONDS = 5.9
+# The model the narration names: beat 3 says Claude on Amazon Bedrock answered.
+CLAUDE_MODEL_PREFIX = "anthropic.claude"
+
+
+def press_timeline_seconds(beat_start: float, narration_seconds: float, tail_seconds: float) -> float:
+    """When beat 2 presses Hear this code review: once the narrator has stopped and the
+    generator's tail has passed, in a take and in a rehearsal alike. The model call
+    starts only then, so its answer, however fast, starts after the narration; the
+    beat's product window, which starts here, holds an answer that starts within
+    ANSWER_LATENCY_ALLOWANCE_SECONDS of it."""
+    return beat_start + narration_seconds + tail_seconds
+
+
+def answer_latency_problem(first_sound: float | None, window_opens: float,
+                           allowance: float = ANSWER_LATENCY_ALLOWANCE_SECONDS) -> str | None:
+    """Why beat 2's answer started too late for its window, or None.
+
+    first_sound and window_opens are timeline seconds. The window is sized for an answer
+    whose first sound comes within the allowance of the planned press; one that comes later
+    may still be speaking when beat 3 begins, so the take is recorded again."""
+    if first_sound is None:
+        return "beat 2's answer made no sound; record again"
+    late = round(first_sound - window_opens, 3)
+    if late > allowance:
+        return (f"beat 2's answer made its first sound {late} s after the press, past the "
+                f"{allowance} s latency allowance its window is sized for; record again")
+    return None
+
+
+def expected_coverage_line(data: dict[str, object]) -> str | None:
+    """The coverage line the page prints for this answer (renderModelProvenance in
+    docs/index.html), or None when the answer names no model or not what it read."""
+    model = data.get("model_answered")
+    sent = data.get("model_input_chars_sent")
+    total = data.get("model_input_chars_total")
+
+    def number(value: object) -> bool:
+        return isinstance(value, int) and not isinstance(value, bool)
+
+    if not isinstance(model, str) or not model or not number(total):
+        return None
+    if number(sent) and total > sent:
+        read = (f"The model read the first {sent} of {total} patch characters; "
+                "the local rules still read the whole patch.")
+    else:
+        read = f"The model read the whole {total}-character patch."
+    return f"{read} Answered by {model}."
+
+
+def coverage_line_problem(coverage: str, data: dict[str, object], health_model: object) -> str | None:
+    """Why the coverage line on screen is not the one beat 3 talks about, or None. It must
+    be exactly the line the page prints for this answer, naming a Claude model, the one
+    /health reports."""
+    model = data.get("model_answered")
+    if not isinstance(model, str) or not model.startswith(CLAUDE_MODEL_PREFIX):
+        return f"the answer names model_answered {model!r}, not a Claude model; beat 3 says Claude answered"
+    if model != health_model:
+        return f"the answer names {model!r}, but /health reports model_id {health_model!r}"
+    expected = expected_coverage_line(data)
+    if expected is None:
+        return "the answer does not report how much of the patch the model read"
+    if coverage != expected:
+        return f"the coverage line reads {coverage[:200]!r}, not {expected!r}"
+    return None
 
 
 def check_beats(scene_ids: list[str]) -> None:
@@ -206,7 +308,7 @@ def check_rehearsal_health(health: dict[str, object], release_sha: str) -> list[
     durable = (health.get("durable_state") or {}).get("resolved_capability")
     if durable != "configured_reachable":
         notes.append({"check": "durable_state", "take": "configured_reachable", "rehearsal": durable,
-                      "why": "beat 2 says the review state is in Amazon DynamoDB; the local server keeps it in memory"})
+                      "why": "beat 3 names DynamoDB; the local server keeps its review state in memory"})
     return notes
 
 
@@ -304,12 +406,16 @@ def check_health(health: dict[str, object], release_sha: str) -> None:
         raise SystemExit(f"/health reports bedrock_model_path {model!r}; beat 2 needs ready_to_attempt")
     durable = (health.get("durable_state") or {}).get("resolved_capability")
     if durable != "configured_reachable":
-        raise SystemExit(f"/health reports durable_state {durable!r}; beat 2 says the review state is "
-                         "in Amazon DynamoDB, so it needs configured_reachable")
+        raise SystemExit(f"/health reports durable_state {durable!r}; beat 3 names DynamoDB, "
+                         "so it needs configured_reachable")
     review = (health.get("github_review_path") or {}).get("resolved_capability")
     if review != "dry_run_no_token":
-        raise SystemExit(f"/health reports github_review_path {review!r}; beat 5 says the build has "
+        raise SystemExit(f"/health reports github_review_path {review!r}; beat 6 says the build has "
                          "no GitHub token, so it needs dry_run_no_token")
+    model_id = (health.get("bedrock_model_path") or {}).get("model_id")
+    if not str(model_id or "").startswith(CLAUDE_MODEL_PREFIX):
+        raise SystemExit(f"/health reports model_id {model_id!r}; beat 3 says Claude on Amazon Bedrock "
+                         "answered, so it needs a Claude model")
 
 
 def pull_request_label(url: str) -> str:
@@ -321,11 +427,33 @@ def pull_request_label(url: str) -> str:
     return f"{owner}/{repo} pull request {number}"
 
 
-def cold_open_command(value: str | None) -> tuple[str, str, str]:
-    key = (value or "findings").strip().lower()
-    if key not in COLD_OPEN_COMMANDS:
-        raise SystemExit("VOLCAN_COLD_OPEN must be findings or files")
-    return COLD_OPEN_COMMANDS[key]
+def cold_open_command(value: str | None) -> tuple[str, str, str, str | None]:
+    """The cold-open command: findings (the default), files, summary, or "line N"."""
+    key = " ".join((value or "findings").strip().lower().split())
+    if key in COLD_OPEN_COMMANDS:
+        return COLD_OPEN_COMMANDS[key]
+    found = COLD_OPEN_LINE.fullmatch(key)
+    if found and int(found.group(1)) > 0:
+        words = f"line {int(found.group(1))}"
+        return ("#commandInput", words, "commandInput", words)
+    raise SystemExit("VOLCAN_COLD_OPEN must be findings, files, summary, or line and a number, such as line 26")
+
+
+def cold_open_line_problem(words: str, data: dict[str, object]) -> str | None:
+    """Why a typed "line N" cold open does not show the finding it was chosen for, or None.
+
+    A button command is checked against the outlined next steps before the press; a
+    typed line is checked on its answer: no refusal, the line it asked for, and a file
+    whose review card names a security finding, because the cold open is for a finding."""
+    wanted = int(words.split()[1])
+    if data.get("error"):
+        return f"{words}: the page refused the turn: {str(data.get('spoken') or '')[:120]}"
+    line = data.get("line") or {}
+    if line.get("new_no") != wanted:
+        return f"{words}: the page read new line {line.get('new_no')!r}, not {wanted}"
+    if not (data.get("review_card") or {}).get("finding"):
+        return f"{words}: the review card names no security finding for this file; the cold open is for a finding"
+    return None
 
 
 def billed_kind(url: str, method: str, body: str | None) -> str | None:
@@ -536,9 +664,11 @@ def main() -> None:
         check_local_url(app_url)
     pr_url = env("VOLCAN_PR_URL")
     pr_label = pull_request_label(pr_url)
-    cold_selector, cold_label, cold_id = cold_open_command(os.environ.get("VOLCAN_COLD_OPEN"))
     voice = os.environ.get("VOLCAN_SPEECH_VOICE", "Microsoft David Desktop").strip()
     spec = json.loads(SPEC.read_text(encoding="utf-8"))
+    # VOLCAN_COLD_OPEN overrides the plan's cold_open.command.
+    cold_selector, cold_label, cold_id, cold_typed = cold_open_command(
+        os.environ.get("VOLCAN_COLD_OPEN") or (spec.get("cold_open") or {}).get("command"))
     title_seconds, cold_seconds = check_title_slot(spec)
     measured = root / "narration" / "timing.json"
     narration_dir = "narration"
@@ -661,7 +791,8 @@ def main() -> None:
 
         def window_opens(beat: str) -> float:
             """Where the narrator stops and the beat's product sound window begins."""
-            return narrator_stops(beat) + float(timing["tailSeconds"])
+            return press_timeline_seconds(beat_start(beat), float(by_id[beat]["durationSeconds"]),
+                                          float(timing["tailSeconds"]))
 
         def sentence(beat: str, index: int, fraction: float = 0.0) -> float:
             window = by_id[beat]["sentences"][index]
@@ -763,7 +894,7 @@ def main() -> None:
         def is_press(response) -> bool:
             return '"engine"' not in (response.request.post_data or "")
 
-        b1, b2, b3, b4, b5, b6 = EXPECTED_BEATS
+        b1, b2, b3, b4, b5, b6, b7 = EXPECTED_BEATS
 
         # Off camera: open the chosen pull request. One billed model call. Its spoken
         # answer ends before the cold open's first frame, so nothing on camera cuts it.
@@ -782,7 +913,7 @@ def main() -> None:
         if f"Opened {pr_label}" not in page.inner_text("#dialogueLog"):
             raise SystemExit(f"the dialogue did not open {pr_label}")
         wait_speech_end(int(opened["firstSpeech"]) + 1, BILLED_TURN_TIMEOUT_SECONDS)
-        if cold_id not in outlined():
+        if cold_typed is None and cold_id not in outlined():
             raise SystemExit(f"{cold_label} is not an outlined next step: {outlined()}")
         scroll_to("#reviewConvo", 12, "instant")
         page.wait_for_timeout(1500)
@@ -791,13 +922,31 @@ def main() -> None:
         clock["origin"] = time.monotonic()
         cold_epoch = page_epoch()
         timeline_epoch = cold_epoch + cold_seconds * 1000
-        until(-cold_seconds + 0.3)
+        if cold_typed is None:
+            until(-cold_seconds + 0.3)
+
+            def press_cold() -> None:
+                page.click(cold_selector)
+        else:
+            # Typed on camera into the command box (Alt+4), then sent with Enter.
+            until(-cold_seconds + 0.1)
+            page.keyboard.press("Alt+4")
+            if focused() != cold_id:
+                raise SystemExit(f"Alt+4 put the focus on {focused()!r}, not the command box")
+            act(f"type {cold_typed}", lambda: page.keyboard.type(cold_typed, delay=25))
+
+            def press_cold() -> None:
+                press_key("Enter", cold_id, cold_label)
         before = turns()
-        cold = start_turn(cold_label, lambda: page.click(cold_selector), "/api/review/turn", 2)
+        cold = start_turn(cold_label, press_cold, "/api/review/turn", 2)
         answered(before)
         if cold_label == "Findings" and no_finding(str(cold["data"].get("spoken") or "")):
             fail("Findings answered that no security rule matched; the plan wants a finding in the cold "
                  "open. Choose another pull request or set VOLCAN_COLD_OPEN=files")
+        if cold_typed is not None:
+            problem = cold_open_line_problem(cold_typed, cold["data"])
+            if problem:
+                fail(problem)
         finish_voiced(cold, 0.0)
 
         # Beat 1: the Alexa+ value over the top of the page, then the focus ring.
@@ -808,8 +957,13 @@ def main() -> None:
         if focused() != "runReview":
             raise SystemExit(f"Alt+1 put the focus on {focused()!r}, not Hear this code review")
 
-        # Beat 2: press at the first frame; the narrator covers the model wait. One billed call.
-        until(beat_start(b2))
+        # Beat 2: one short line from the narrator, then the press. One billed call. The
+        # press waits for the narrator to stop, in a take as in a rehearsal, so the answer
+        # starts after the narration whatever the model's latency: take 3 pressed at the
+        # first frame and Amazon Bedrock answered in about 5 s, under the narration. The
+        # product window that opens here holds an answer that starts within the latency
+        # allowance; a later one fails the take.
+        until(window_opens(b2))
         armed["digest"] = 1
         press = start_turn("Enter presses Hear this code review",
                            lambda: press_key("Enter", "runReview", "Hear this code review"),
@@ -825,6 +979,13 @@ def main() -> None:
                     {"synthesis_mode": mode, "fallback_reason": reason},
                     f"the press was not answered by Amazon Bedrock: synthesis_mode {mode!r}, "
                     f"fallback reason {reason!r}")
+        # An answer that arrives after the allowance cannot start inside the window's
+        # budget. It is named here, at once, rather than as a timeout later; the precise
+        # check on the first sound runs after the journey, in both modes.
+        if now() > window_opens(b2) + ANSWER_LATENCY_ALLOWANCE_SECONDS:
+            fail(f"beat 2's answer arrived {round(now() - window_opens(b2), 3)} s after the press, past "
+                 f"the {ANSWER_LATENCY_ALLOWANCE_SECONDS} s latency allowance its window is sized for; "
+                 "record again")
         page.wait_for_function(
             "(from) => window.__volcanCaptureLog.slice(from).some(e => e.kind === 'speech.start')",
             arg=press["logFrom"], timeout=max(0.5, beat_start(b3) - now()) * 1000)
@@ -832,20 +993,25 @@ def main() -> None:
             lambda: scroll_to(".r-earcon", 16))
         finish_voiced(press, beat_start(b3))
 
-        # Beat 3: the meter, the coverage line as printed, and the model's full answer.
+        # Beat 3: the meter while the narrator names Amazon Bedrock, AWS Lambda and
+        # DynamoDB; the coverage line as printed on the sentence about it; the full answer.
         until(beat_start(b3))
         meter = page.inner_text("#meterEngine").strip()
         if not meter.startswith("Amazon Bedrock"):
             differs("the engine meter reads Amazon Bedrock", "Amazon Bedrock", meter[:80],
                     "the engine meter does not read Amazon Bedrock")
         coverage = page.inner_text("#modelCoverage").strip()
-        if not coverage.startswith("The model read"):
-            differs("the page prints a model coverage line", "The model read ...", coverage[:120] or None,
-                    "the page printed no model coverage line")
+        health_model = (health.get("bedrock_model_path") or {}).get("model_id")
+        coverage_problem = coverage_line_problem(coverage, press["data"], health_model)
+        if coverage_problem:
+            differs("the page prints the answer's coverage line, ending Answered by <model_answered>.",
+                    expected_coverage_line(press["data"]) or "The model read ... Answered by anthropic.claude-...",
+                    coverage[:200] or None, coverage_problem)
         act("scroll to the engine meter", lambda: scroll_to("#meters", 120))
-        until(sentence(b3, 0, 0.35))
+        coverage_sentence = len(by_id[b3]["sentences"]) - 1
+        until(sentence(b3, coverage_sentence))
         act("scroll to the coverage line", lambda: scroll_to("#modelCoverage", 260))
-        until(sentence(b3, 0, 0.7))
+        until(sentence(b3, coverage_sentence, 0.6))
         if page.is_visible("#modelProseWrap summary"):
             act("open The model's full answer", lambda: page.click("#modelProseWrap summary"))
             act("scroll to the model's full answer", lambda: scroll_to("#modelProseWrap", 80))
@@ -881,16 +1047,23 @@ def main() -> None:
         act("scroll to the recorded request", lambda: scroll_to("#reviewPane", 150))
         finish_voiced(confirm, beat_start(b6))
 
-        # Beat 6: Server and MCP, a real handshake, then the Alexa+ box. No replay press.
+        # Beat 6: the narrator, over the recorded request, once the page has stopped
+        # speaking. The screencast then ends on narration, so the main audio covers it
+        # to within the generator's tail of its end.
         until(beat_start(b6))
+        if "recorded and not sent" not in page.inner_text("#reviewPane"):
+            raise SystemExit("the review pane no longer shows a recorded, unsent review")
+
+        # Beat 7: Server and MCP, a real handshake, then the Alexa+ box. No replay press.
+        until(beat_start(b7))
         act("Server and MCP tab", lambda: page.click("#tabServer"))
         act("scroll to Evidence", lambda: scroll_to("#evidence"))
-        until(sentence(b6, 0, 0.3))
+        until(sentence(b7, 0, 0.3))
         act("scroll to the MCP handshake", lambda: scroll_to("#mcp", 16))
         act("Run a real MCP handshake", lambda: page.click("#runMcp"))
         page.wait_for_selector("#mcpPane details", timeout=10_000)
         act("scroll to the handshake facts", lambda: scroll_to("#mcp .row-actions", 24))
-        until(sentence(b6, len(by_id[b6]["sentences"]) - 1))
+        until(sentence(b7, len(by_id[b7]["sentences"]) - 1))
         act("jump to the connection strip and the Alexa+ box",
             lambda: scroll_to("#evidenceTabs", 24, "instant"))
         until(total + 1.5)
@@ -940,6 +1113,11 @@ def main() -> None:
                 found.setdefault(entry["kind"], entry)
         return found
 
+    def turn_log_end(turn: dict[str, object]) -> int:
+        """Where this turn's stretch of the log ends: the next voiced turn's press."""
+        later = [int(other["logFrom"]) for other in voiced if int(other["logFrom"]) > int(turn["logFrom"])]
+        return min(later) if later else len(log)
+
     def turn_earcon(turn: dict[str, object]) -> dict[str, object] | None:
         """Where the page's own playback clock says this turn's cue started.
 
@@ -947,7 +1125,10 @@ def main() -> None:
         minus that position is the start. Headless Chromium fires "playing" a few
         hundred milliseconds before the clock moves, and the waveform's playhead
         follows the clock, so this is the moment the picture shows the cue sounding."""
-        entries = log[int(turn["logFrom"]):]
+        # Only this turn's own stretch of the log, up to the next voiced turn's press: a
+        # turn the server answered without a cue (a typed "line N") must not be credited
+        # with the next turn's cue, and a cue it did play is still found and checked.
+        entries = log[int(turn["logFrom"]):turn_log_end(turn)]
         play = next((entry for entry in entries if entry["kind"] == "media.play"), None)
         if play is None:
             return None
@@ -987,10 +1168,22 @@ def main() -> None:
     except SystemExit as exc:
         fail(str(exc))
     press_sound, _ = first_sound(press)
-    if press_sound is None or timeline_time(press_sound) < narrator_stops(b2):
+    # The take and the rehearsal press at the same moment, so this check is the take's in
+    # both: a rehearsal that fails it has a failure, not a note.
+    if rehearsal:
+        if press_sound is None or timeline_time(press_sound) < narrator_stops(b2):
+            fail("the answer starts after beat 2's narration: the answer began while the narrator was "
+                 f"still speaking, or made no sound (after {round(narrator_stops(b2), 3)} s)")
+    elif press_sound is None or timeline_time(press_sound) < narrator_stops(b2):
         differs("the answer starts after beat 2's narration", f"after {round(narrator_stops(b2), 3)} s",
                 None if press_sound is None else timeline_time(press_sound),
                 "the model's answer began while the narrator was still speaking")
+    # The window is sized for an answer that starts within the latency allowance, so a
+    # later one fails the take, and a rehearsal, rather than run past the window.
+    latency_problem = answer_latency_problem(
+        None if press_sound is None else timeline_time(press_sound), window_opens(b2))
+    if latency_problem:
+        fail(latency_problem)
 
     def expected_sentences(turn: dict[str, object]) -> list[str]:
         data = turn["data"]
@@ -1134,6 +1327,15 @@ def main() -> None:
             "sentenceOnScreen": press["data"].get("voice_summary"),
             "firstSoundTimelineSeconds": None if press_sound is None else timeline_time(press_sound),
             "narratorStopsTimelineSeconds": round(narrator_stops(b2), 3),
+            "pressTimelineSeconds": press["timelineAction"],
+            "windowOpensTimelineSeconds": round(window_opens(b2), 3),
+            "latencyAllowanceSeconds": ANSWER_LATENCY_ALLOWANCE_SECONDS,
+            "firstSoundAfterWindowOpensSeconds": None if press_sound is None
+            else round(timeline_time(press_sound) - window_opens(b2), 3),
+            "windowClosesTimelineSeconds": round(beat_end(b2), 3),
+            "modelAnswered": press["data"].get("model_answered"),
+            "coverageLine": coverage,
+            "expectedCoverageLine": expected_coverage_line(press["data"]),
         },
         "productAudio": product_audio,
         "unrecordedProductVoice": [],

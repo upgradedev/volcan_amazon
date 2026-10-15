@@ -17,7 +17,7 @@ What this copy changes, so it reads Volcan's own video/narration.json:
      after the beat's speech, in which the page itself makes its sound (the
      earcon and the browser's speech). It is added to the beat's hold, never to
      its captions, and must be backed by a "product_sound_basis" that says how it
-     was measured.
+     was measured. It is at most MAX_PRODUCT_SOUND_SECONDS, 45 s.
   4. timing.json also records each caption sentence's window inside the beat, so
      the capture can press a button on the sentence that talks about it, and the
      number of characters sent to the text to speech provider on this run. Every
@@ -57,7 +57,16 @@ import urllib.request
 
 SPEC = pathlib.Path(__file__).with_name("narration.json")
 TAIL_SECONDS = 0.65
-MAX_PRODUCT_SOUND_SECONDS = 30.0
+# The longest product window one beat may hold. It is a plan constraint, not a gate:
+# scripts/verify_video_sync.py never reads it, and every window still needs a basis.
+# It was 30 s, then 45 s, then 60 s while beat 2's window held a call that ran to its
+# 25 s timeout. Beat 2 presses Hear this code review when its narrator stops, and its
+# window now holds an answer whose first sound comes within the capture's 5.9 s latency
+# allowance (ANSWER_LATENCY_ALLOWANCE_SECONDS in video/capture-local.py), then the
+# earcon's lead, up to 0.66 s, and the longest sentence the page can speak at the slowest
+# measured rate plus 1 s, about 34.4 s: 41.0 s, rounded up. A later answer fails the take,
+# so the cap is 45 s again.
+MAX_PRODUCT_SOUND_SECONDS = 45.0
 
 ELEVENLABS_KEY_ENV_NAMES = ("ELEVENLABS_API_KEY", "XI_API_KEY", "ELEVEN_LABS_KEY")
 
@@ -335,11 +344,12 @@ def main() -> None:
         cards = spec.get("cards") or {}
         title = lead_seconds(spec)
         outro = float(cards.get("outro_seconds", 0.0))
-        for beat, scene in zip(beats, timing):
+        # Each beat ends where the next one starts, so rounding never opens or overlaps
+        # a millisecond between them; the last ends at the measured total.
+        for index, (beat, scene) in enumerate(zip(beats, timing)):
+            following = timing[index + 1]["startSeconds"] if index + 1 < len(timing) else offset
             beat["timestamp_start"] = round(title + float(scene["startSeconds"]), 3)
-            beat["timestamp_end"] = round(
-                title + float(scene["startSeconds"]) + float(scene["holdSeconds"]), 3
-            )
+            beat["timestamp_end"] = round(title + float(following), 3)
         spec["target_duration_seconds"] = round(title + offset + outro, 3)
         SPEC.write_text(json.dumps(spec, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(f"wrote measured beat windows back to {SPEC.name}")

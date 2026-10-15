@@ -286,15 +286,28 @@ rest.
 **Not published.** A 163.68 second render at 1920x1080 (ffprobe) of a local run of `09d4862`
 exists outside the repository, pending upload by the owner; there is no public link yet.
 `video/SHOT_LIST.md` is a beat sheet in which every beat is an action this repository can
-perform today, and readiness gates E2 and E4 report red until footage is in `video/`.
+perform today, and readiness gates E2 and E4 report red until footage is in `video/`. Its
+re-take records against the live build `716b0f3`, where Claude Sonnet 5
+(`anthropic.claude-sonnet-5`) answers on AWS Lambda with DynamoDB. One press of the take-4 patch
+there answered in 3.44 s at the client (Lambda 3071 ms, model 1266 ms) at 1769 MB, and in
+17.88 s at 256 MB. The plan gives that press 10 s before its answer must start, then the
+longest answer the page can speak, and measures 155.9 s; it is not recorded yet.
 
 **Deployed.** On 2026-09-23 the public endpoint served `GET /health`, the current companion,
 the REST digest and MCP initialize/tool calls. Health exposes the immutable source revision.
 A governed action remained a dry-run and its bounded EMF records were read back from
-CloudWatch. On 2026-10-06, after a redeploy, `GET /health` reported `source_revision`
-`aa3364a`. On 2026-10-07, after the next redeploy, it reported `716b0f3` (PR #35), with the
-Lambda at 1769 MB instead of 256 MB; one press of the same diff took 17.88 s before the memory
-change and 3.44 s after it (n=1 each, not a benchmark). A live GitHub write remains absent. An Alexa+ add-on deployment is absent because
+CloudWatch. On 2026-10-07, after the redeploy of PR #35, `GET /health` reported
+`source_revision` `716b0f3` and `model_id` `anthropic.claude-sonnet-5`; the later commits change
+no file under `src/` and not `docs/index.html` (`git diff --name-only 716b0f3 HEAD -- src
+docs/index.html` prints nothing), so the endpoint serves the current runtime. On 2026-10-06 it
+served `22c32ab` (PR #34). Known issue, fixed: the
+transactional writes serialized their DynamoDB items twice and DynamoDB refused them, so every
+durable stage (Request changes, Confirm, the audit append and finalization) failed on live. The
+deployed builds from `e500731` (2026-09-29), the first with the DynamoDB store, until `22c32ab`
+carried that code; the HTTP 503 was observed on `aa3364a`. After the fix, Request changes
+answered `CONFIRM_REVIEW` on live; the other stages share the corrected code and are checked
+offline (`docs/EVIDENCE.md`, "Known issue: durable stages answered HTTP
+503 on live"). A live GitHub write remains absent. An Alexa+ add-on deployment is absent because
 the add-on tools are partner-only ([hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs)). No Alexa skill has been
 certified and nothing has run on an Echo device; for this track the FAQ says "no physical
 device needed".
@@ -382,7 +395,8 @@ does and does not compound, is in `docs/EVIDENCE.md`.
    or motor-impaired developer, and every design decision about cue ordering, readback
    wording and digest length is currently a hypothesis.
 6. **Deploy and fault-test the durable-state candidate.** The cold-start and concurrent-worker
-   suite proves the conditional DynamoDB model with an in-process double. The remaining proof
+   suite proves the conditional DynamoDB model with an in-process double, which until PR #34
+   accepted the double serialization that broke every live durable stage. The remaining proof
    is an exact-SHA deployment and a cross-container dialogue/approval run. Local tests already
    inject stage/finalization failures and response loss; a post-claim external-write crash still
    requires the documented operator-reconciliation state.
