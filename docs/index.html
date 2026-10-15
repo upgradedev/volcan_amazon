@@ -471,7 +471,7 @@
     }
     .info-btn {
       display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
-      width: 28px; height: 28px; min-height: 28px; padding: 0; margin-left: 2px;
+      width: 32px; height: 32px; min-height: 32px; padding: 0; margin-left: 2px;
       background: transparent; border: 1px solid transparent; border-radius: 50%; color: var(--ink-soft);
     }
     .info-btn:hover, .info-btn[aria-expanded="true"] { color: var(--ink); border-color: var(--line-strong); }
@@ -1637,6 +1637,8 @@
       previewSeq: 0,
       previewTimer: null,
       pressSeq: 0,
+      sectionIndex: 0,
+      sectionCount: 1,
       voice: "page"
     };
 
@@ -2001,9 +2003,12 @@
       var file = null;
       var inHunk = false;
       var rows = [];
+      var gitSections = 0;
+      var plusFiles = 0;
       raw.split("\n").forEach(function (line) {
-        if (line.indexOf("diff --git") === 0) { inHunk = false; return; }
+        if (line.indexOf("diff --git") === 0) { gitSections += 1; inHunk = false; return; }
         if (line.indexOf("+++ ") === 0) {
+          plusFiles += 1;
           if (!file) { file = line.slice(4).replace(/^b\//, ""); }
           return;
         }
@@ -2020,6 +2025,18 @@
         if (mark !== "+" && mark !== "-") { return; }
         rows.push([mark === "+" ? "add" : "del", line.slice(1)]);
       });
+
+      State.sectionCount = Math.max(1, gitSections || plusFiles);
+      State.sectionIndex = 0;
+      var drillBtn = $("drillDown");
+      if (drillBtn) {
+        drillBtn.textContent = State.sectionCount > 1
+          ? "Drill into file 1 of " + State.sectionCount
+          : "Drill into file 1";
+        drillBtn.title = State.sectionCount > 1
+          ? "Call the drill down endpoint for section 1 of " + State.sectionCount + " (press again to cycle files)"
+          : "Call the drill down endpoint for the first section of the patch";
+      }
 
       var indent = Infinity;
       rows.forEach(function (row) {
@@ -2039,7 +2056,9 @@
       if (!rows.length) {
         view.appendChild(el("span", "ln ctx", "No hunk to show yet."));
       }
-      $("patchFile").textContent = file || "pasted patch";
+      $("patchFile").textContent = file
+        ? (State.sectionCount > 1 ? file + " (+" + (State.sectionCount - 1) + " more)" : file)
+        : "pasted patch";
     }
 
     function setPatchEditor(open) {
@@ -2496,7 +2515,7 @@
       $("fidelityCode").setAttribute("aria-pressed", String(fidelity === "code"));
       $("fidelityLiterary").setAttribute("aria-pressed", String(fidelity === "literary"));
       if (!State.lastDigest && $("stage").getAttribute("data-preview") === "ready") {
-        schedulePreview();
+        rerunBraille();
         return;
       }
       if (!State.lastDigest) {
@@ -2682,6 +2701,7 @@
       State.pressSeq += 1;
       stopAudio();
       cancelAnimationFrame(Playback.frame);
+      endPreview();
       State.lastDigest = null;
       State.lastWords = null;
       State.lastSamples = null;
@@ -2695,6 +2715,10 @@
       clear($("modelCoverage"));
       clear($("modelProse"));
       $("modelProseWrap").hidden = true;
+      clear($("brailleOutput")).appendChild(el("p", "empty-state-card", "No cells yet."));
+      $("brailleCaption").textContent = "";
+      $("brailleScrollHint").hidden = true;
+      drawGhostCells();
       var legend = clear($("earconCaption"));
       legend.classList.add("legend");
       Array.prototype.forEach.call(EARCON_LEGEND.childNodes, function (node) {
@@ -2709,11 +2733,15 @@
       $("meterEngineNote").textContent = "";
       $("runProgress").hidden = true;
       setBusy($("runReview"), false);
+      setBusy($("level1"), false);
+      setBusy($("drillDown"), false);
     }
 
     function schedulePreview(delay) {
       if (!State.live) { return; }
       if (State.lastDigest || State.pressSeq) { resetStage(); }
+      else { endPreview(); }
+      $("stage").setAttribute("data-preview", "pending");
       clearTimeout(State.previewTimer);
       State.previewTimer = setTimeout(previewAnswer, delay || 0);
     }
@@ -2821,17 +2849,38 @@
     }
 
     async function runLevelOne() {
+      var button = $("level1");
+      var seq = State.pressSeq += 1;
+      setBusy(button, true, "Loading file-by-file");
+      $("runProgress").hidden = false;
       var ready = await requireServer([
         ["spokenPane", "The file-by-file digest needs POST /api/digest_semantic_diff."]
       ]);
-      if (!ready) { return; }
-      var seq = State.pressSeq += 1;
+      if (!ready) {
+        $("runProgress").hidden = true;
+        setBusy(button, false);
+        return;
+      }
       try {
         var digest = await postJson("/api/digest_semantic_diff",
           { raw_diff: $("diffInput").value, level: 1 });
         if (seq !== State.pressSeq) { return; }
+        $("meters").hidden = false;
+        $("meterEngine").firstChild.nodeValue =
+          digest.data.synthesis_mode === "bedrock" ? "Amazon Bedrock" : "local heuristic";
+        var l1Note =
+          "Reported by the server as synthesis_mode: " + digest.data.synthesis_mode + ".";
+        if (digest.data.synthesis_fallback_reason) {
+          l1Note += " No model answered, because: "
+            + digest.data.synthesis_fallback_reason + ".";
+        }
+        $("meterEngineNote").textContent = l1Note;
+        $("meterLatency").firstChild.nodeValue = digest.elapsedMs.toFixed(1) + " ms";
+        $("meterChange").firstChild.nodeValue = plural(digest.data.total_files, "file")
+          + "   +" + digest.data.insertions + " -" + digest.data.deletions;
         var words = renderSpoken(digest.data, digest.elapsedMs, "Level 1 file-by-file digest");
         renderEarcon(digest.data.earcon);
+        renderFindings(digest.data.critical_findings, digest.data.voice_summary);
         whenCueEnds(function () {
           if (seq === State.pressSeq) {
             speakOrAnnounce("Level 1 digest.", digest.data.voice_summary, words, digest.data.voice_summary_for_speech);
@@ -2839,24 +2888,46 @@
         });
         announceResult("Level 1 digest.", digest.data.voice_summary);
       } catch (error) {
+        if (seq !== State.pressSeq) { return; }
         spokenTarget().appendChild(failureCard("The level 1 digest call failed: " + error.message + "."));
+      } finally {
+        if (seq === State.pressSeq) {
+          $("runProgress").hidden = true;
+          setBusy(button, false);
+        }
       }
     }
 
     async function runDrillDown() {
+      var button = $("drillDown");
+      var targetIndex = State.sectionIndex || 0;
+      var seq = State.pressSeq += 1;
+      setBusy(button, true, "Drilling into file " + (targetIndex + 1));
+      $("runProgress").hidden = false;
       var ready = await requireServer([
         ["spokenPane", "The drill down needs POST /api/drill_down_section."]
       ]);
-      if (!ready) { return; }
-      var seq = State.pressSeq += 1;
+      if (!ready) {
+        $("runProgress").hidden = true;
+        setBusy(button, false);
+        return;
+      }
       try {
         var drill = await postJson("/api/drill_down_section",
-          { raw_diff: $("diffInput").value, section_index: 0 });
+          { raw_diff: $("diffInput").value, section_index: targetIndex });
         if (seq !== State.pressSeq) { return; }
+        $("meters").hidden = false;
+        $("meterEngine").firstChild.nodeValue = "local AST drill-down";
+        $("meterEngineNote").textContent =
+          "Reported by POST /api/drill_down_section for section " + (targetIndex + 1) + ".";
+        $("meterLatency").firstChild.nodeValue = drill.elapsedMs.toFixed(1) + " ms";
+        $("meterChange").firstChild.nodeValue = drill.data.file_path
+          + "   (section " + (targetIndex + 1) + " of " + State.sectionCount + ")";
         var sentence = spokenSentence(drill.data.spoken_text);
         spokenTarget().appendChild(sentence.node);
         $("spokenCaption").textContent = "Drill down on " + drill.data.file_path
-          + ", returned in " + drill.elapsedMs.toFixed(1) + " ms.";
+          + " (section " + (targetIndex + 1) + " of " + State.sectionCount + "), returned in "
+          + drill.elapsedMs.toFixed(1) + " ms.";
         renderModelProvenance({});
         State.lastDigest = {
           voice_summary: drill.data.spoken_text,
@@ -2864,6 +2935,9 @@
         };
         State.lastWords = sentence.words;
         renderEarcon(drill.data.earcon);
+        if (State.sectionCount > 1) {
+          State.sectionIndex = (targetIndex + 1) % State.sectionCount;
+        }
         var drillPrefix = "Drill down on " + drill.data.file_path + ".";
         whenCueEnds(function () {
           if (seq === State.pressSeq) {
@@ -2872,8 +2946,18 @@
         });
         announceResult(drillPrefix, drill.data.spoken_text);
       } catch (error) {
+        if (seq !== State.pressSeq) { return; }
         spokenTarget().appendChild(failureCard("The drill down call failed: " + error.message + ".",
-          "This patch may have no section at index 0. Run the review first to see how many sections the parser found."));
+          "This patch may have no section at index " + targetIndex + ". Run the review first to see how many sections the parser found."));
+      } finally {
+        if (seq === State.pressSeq) {
+          $("runProgress").hidden = true;
+          setBusy(button, false);
+          if (State.sectionCount > 1) {
+            button.textContent = "Drill into file " + (State.sectionIndex + 1) + " of " + State.sectionCount;
+            button.dataset.idleLabel = button.textContent;
+          }
+        }
       }
     }
 
@@ -3590,6 +3674,10 @@
         if (outcome.live_head_sha) { rows.push(["Live head re-read", outcome.live_head_sha]); }
         if (outcome.identity) { rows.push(["Authenticated as", outcome.identity]); }
       }
+      if (!rows.length && data.error && data.spoken) {
+        rows.push(["Status", "Not staged (" + data.state + ")"]);
+        rows.push(["Reason", data.spoken]);
+      }
       if (rows.length) { pane.appendChild(govRows(rows)); }
       else {
         pane.appendChild(el("p", "empty-state-card",
@@ -3709,7 +3797,12 @@
             Review.grant = null;
             Review.pending = null;
           }
-          if (data.pending_review || data.review_outcome || data.pull_request) {
+          if (data.state === "OVERVIEW") {
+            $("cmdRequestChanges").title = data.pull_request
+              ? "Stage a REQUEST_CHANGES review for confirmation"
+              : "Requires a GitHub pull request URL in the box above (a pasted patch has no pull request to submit a review to)";
+          }
+          if (data.pending_review || data.review_outcome || data.pull_request || data.error || data.state === "REFUSED") {
             renderReviewPane(data);
           }
           if (data.review_outcome) { refreshAudit(); }
@@ -3802,7 +3895,7 @@
         return contents.text;
       } finally {
         if (init.sessionId) {
-          fetch(State.apiBase + "/mcp", { method: "DELETE", headers: headers }).catch(function () {});
+          fetch(State.apiBase + "/mcp", { method: "DELETE", headers: headers, keepalive: true }).catch(function () {});
         }
       }
     }
