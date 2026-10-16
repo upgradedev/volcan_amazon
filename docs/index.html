@@ -1947,6 +1947,9 @@
       try { window.localStorage.setItem(VOICE_KEY, State.voice); } catch (error) { State.voiceStored = false; }
       if (readerSpeaks() && speechAvailable()) { window.speechSynthesis.cancel(); }
       renderVoiceMode();
+      announce("runStatus", readerSpeaks()
+        ? "Screen reader mode active: answers are sent to the status line and the browser voice stays silent."
+        : "Browser voice mode active: the browser voice speaks answers after the earcon cue.");
     }
 
     /* A short spoken confirmation outside the stage: the staged action, the
@@ -2462,6 +2465,19 @@
       return described;
     }
 
+    function appendBrailleRows(region, brailleText, rowType, plainText) {
+      var cells = Array.from(String(brailleText || ""));
+      var width = 40;
+      if (!cells.length) { cells = ["⠀"]; }
+      for (var offset = 0; offset < cells.length; offset += width) {
+        var row = el("span", "row");
+        row.setAttribute("data-type", rowType);
+        row.appendChild(document.createTextNode(cells.slice(offset, offset + width).join("")));
+        row.appendChild(el("span", "plain", offset === 0 ? plainText : plainText + " (cont.)"));
+        region.appendChild(row);
+      }
+    }
+
     function renderBraille(data, elapsedMs) {
       var region = clear($("brailleOutput"));
       // The server says which table produced the cells and whether a finger
@@ -2475,22 +2491,14 @@
         "Braille cell stream, " + data.total_lines + " lines, " + fidelityWords
         + (data.lossless ? ", lossless" : ", lossy for this patch"));
 
-      var summary = el("span", "row");
-      summary.setAttribute("data-type", "HEADER");
-      summary.appendChild(document.createTextNode(data.braille_summary));
-      summary.appendChild(el("span", "plain",
-        "summary   +" + data.additions + " / -" + data.deletions + " lines"));
-      region.appendChild(summary);
+      appendBrailleRows(region, data.braille_summary, "HEADER",
+        "summary   +" + data.additions + " / -" + data.deletions + " lines");
 
       data.lines.forEach(function (line) {
-        var row = el("span", "row");
-        row.setAttribute("data-type", line.type);
-        row.appendChild(document.createTextNode(line.braille));
-        row.appendChild(el("span", "plain", line.type + "   " + line.text));
-        region.appendChild(row);
+        appendBrailleRows(region, line.braille, line.type, line.type + "   " + line.text);
       });
 
-      markOverflow(region, data.lines.length + 1);
+      markOverflow(region, region.querySelectorAll(".row").length);
       $("brailleCaption").textContent = data.total_lines
         + " Braille lines from POST /api/braille/diff_digest in " + elapsedMs.toFixed(1)
         + " ms. Added rows carry dots 3-4-6 and removed rows dots 3-6, so a finger finds "
@@ -4128,7 +4136,7 @@
         + "     return resp.json()\n"
     };
 
-    function loadPreset(id) {
+    function loadPreset(id, byUser) {
       $("diffInput").value = PRESETS[id];
       Object.keys(PRESETS).forEach(function (key) {
         var n = Number(key);
@@ -4136,6 +4144,12 @@
       });
       renderPatchView();
       schedulePreview();
+      if (byUser) {
+        var chip = $("preset" + id);
+        var label = chip ? chip.textContent.trim() : ("preset " + id);
+        announce("runStatus", "Loaded patch preset: " + label + " ("
+          + $("patchFile").textContent + "). Press Hear this code review to play it.");
+      }
     }
 
     $("runReview").addEventListener("click", runReview);
@@ -4150,12 +4164,12 @@
     $("stageBtn").addEventListener("click", stageAction);
     $("approveBtn").addEventListener("click", approveAction);
     $("rejectBtn").addEventListener("click", rejectAction);
-    $("preset1").addEventListener("click", function () { loadPreset(1); });
-    $("preset2").addEventListener("click", function () { loadPreset(2); });
-    $("preset3").addEventListener("click", function () { loadPreset(3); });
-    $("preset4").addEventListener("click", function () { loadPreset(4); });
-    $("preset5").addEventListener("click", function () { loadPreset(5); });
-    $("preset6").addEventListener("click", function () { loadPreset(6); });
+    $("preset1").addEventListener("click", function () { loadPreset(1, true); });
+    $("preset2").addEventListener("click", function () { loadPreset(2, true); });
+    $("preset3").addEventListener("click", function () { loadPreset(3, true); });
+    $("preset4").addEventListener("click", function () { loadPreset(4, true); });
+    $("preset5").addEventListener("click", function () { loadPreset(5, true); });
+    $("preset6").addEventListener("click", function () { loadPreset(6, true); });
     $("fidelityCode").addEventListener("click", function () { setBrailleFidelity("code"); });
     $("fidelityLiterary").addEventListener("click", function () { setBrailleFidelity("literary"); });
 
