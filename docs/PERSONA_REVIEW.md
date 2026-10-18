@@ -45,7 +45,7 @@ being smoothed over.
 
 | Step | What it asks | Outcome | Evidence |
 |---|---|---|---|
-| 1 | Does a deployed endpoint answer, and identify its build? | FAIL | Live `/health` identifies `9b2bcb9` (re-verified 2026-10-01; it identified `6e9ae4d` on 2026-09-30 and `38668ad` against `287c9db` on 2026-09-29); `deploy_teardown_receipt.json` still records an older probe, and `python ci/readiness.py` reports G2 red by design, since a committed receipt cannot equal a later HEAD |
+| 1 | Does a deployed endpoint answer, and identify its build? | PASS | Live `/health` at `https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health` reports `0864c76e8459302ca9fe22f2a18b854502cd0aae`; `deploy_teardown_receipt.json` records the live HTTP probe and `python ci/readiness.py` reports G2 green |
 | 2 | What is owner-gated and unmet, printed apart from the score rather than folded into it? | OPEN | `python ci/readiness.py`: O1, O2 and O3 fail as owner actions, E4 fails because the take is rendered but not published. `video/README.md` points at the `09d4862` render |
 | 3 | Is the track and prize this entry is aimed at written down, with nothing else claimed? | PASS | Alexa+ track with a simulated front end in `README.md`, submission narrative in `docs/DEVPOST_SUBMISSION.md` |
 | 4 | Do the presentation surfaces say what the code says? | PASS | `python ci/readiness.py`: gate G1 passes, the README badge and pytest agree at 751 tests |

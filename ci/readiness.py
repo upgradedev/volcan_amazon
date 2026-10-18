@@ -276,6 +276,54 @@ def check_c6(test_files: list[str]) -> tuple[bool, str]:
     return True, f"{len(varied)} parameterized fixtures vary their offset: {', '.join(sorted(varied)[:3])}"
 
 
+LIVE_RUNTIME_PATHS = ("src/", "docs/index.html")
+
+
+def deployed_checkout_problem(deployed: str, head: str = "") -> str | None:
+    """Return None when ``deployed`` is HEAD or an ancestor with unchanged live runtime files."""
+    resolved_head = head or git_head()
+    if not resolved_head:
+        return "git rev-parse HEAD produced nothing; cannot compare"
+    if not re.fullmatch(r"[0-9a-f]{7,40}", deployed or ""):
+        return f"deploy receipt records an invalid commit SHA: {deployed!r}"
+    if deployed == resolved_head or resolved_head.startswith(deployed):
+        return None
+    try:
+        ancestor = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", deployed, resolved_head],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return f"git merge-base failed while checking {deployed[:12]}: {exc}"
+    if ancestor.returncode != 0:
+        return (
+            f"deployed commit {deployed[:12]} is not an ancestor of HEAD "
+            f"{resolved_head[:12]}; the live endpoint is not built from this branch"
+        )
+    try:
+        diff = subprocess.run(
+            ["git", "diff", "--name-only", f"{deployed}..{resolved_head}", "--", *LIVE_RUNTIME_PATHS],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return f"git diff failed while checking {deployed[:12]}: {exc}"
+    if diff.returncode != 0:
+        return f"git diff exited {diff.returncode} while checking {deployed[:12]}"
+    changed = [line.strip() for line in diff.stdout.splitlines() if line.strip()]
+    if changed:
+        return (
+            f"live runtime files changed after deployed commit {deployed[:12]}: "
+            f"{changed[:5]}"
+        )
+    return None
+
+
 def check_d2(receipt_path: str, head: str) -> tuple[bool, str]:
     """The deploy receipt must describe a real probe of the commit being submitted."""
     if not os.path.exists(receipt_path):
@@ -300,21 +348,19 @@ def check_d2(receipt_path: str, head: str) -> tuple[bool, str]:
     if ok_probe is None:
         return False, "no probe in the receipt recorded a real URL answering HTTP 200 with a body"
 
-    deployed = receipt.get("deployed_commit_sha", "")
+    deployed = str(receipt.get("deployed_commit_sha") or "")
     if not deployed:
         return False, "deploy receipt records no deployed commit SHA"
-    if deployed != head:
-        return False, (
-            f"deployed commit {deployed[:12]} is not HEAD {head[:12]}; "
-            f"the live endpoint runs older code"
-        )
+    problem = deployed_checkout_problem(deployed, head)
+    if problem is not None:
+        return False, problem
     if not receipt.get("teardown_performed"):
-        return False, f"{ok_probe['url']} answered 200 but no teardown was performed and recorded"
-    return True, f"probe of {ok_probe['url']} returned 200 at HEAD, teardown recorded"
+        return False, f"{ok_probe['url']} answered 200 at {deployed[:12]} but no teardown was performed and recorded"
+    return True, f"probe of {ok_probe['url']} returned 200 at {deployed[:12]}, teardown recorded"
 
 
 def check_g2(receipt_path: str, head: str) -> tuple[bool, str]:
-    """The deployed SHA must equal git rev-parse HEAD."""
+    """The deployed SHA must equal HEAD or be an ancestor with unchanged live runtime files."""
     if not head:
         return False, "git rev-parse HEAD produced nothing; cannot compare"
     if not os.path.exists(receipt_path):
@@ -324,12 +370,13 @@ def check_g2(receipt_path: str, head: str) -> tuple[bool, str]:
             receipt = json.load(handle)
     except Exception as exc:  # noqa: BLE001
         return False, f"deploy receipt is not readable JSON: {exc}"
-    deployed = receipt.get("deployed_commit_sha", "")
+    deployed = str(receipt.get("deployed_commit_sha") or "")
     if not deployed:
         return False, "deploy receipt records no deployed commit SHA"
-    if deployed != head:
-        return False, f"deployed {deployed[:12]} != HEAD {head[:12]}"
-    return True, f"deployed SHA matches HEAD ({head[:12]})"
+    problem = deployed_checkout_problem(deployed, head)
+    if problem is not None:
+        return False, problem
+    return True, f"deployed SHA {deployed[:12]} matches live runtime files at HEAD ({head[:12]})"
 
 
 def check_f1(readme: str) -> tuple[bool, str]:

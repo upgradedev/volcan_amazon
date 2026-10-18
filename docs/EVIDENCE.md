@@ -1242,9 +1242,9 @@ magnitude as the claim and rerun each command on your own hardware.
 | Code-fidelity Braille is one to one over 95 characters and literary names its losses | `python -m pytest tests/unit/test_braille_code_fidelity.py -v` |
 | A missing version header is resolved as the specification directs, and an unsupported one gets HTTP 400 | `python -m pytest tests/integration/test_mcp_conformance.py -k "version or header" -v` |
 
-`ci/readiness.py` is written so that it can fail, and it does. On 2026-09-29 it printed
-`46/53 passed, 0 blocking failures, 7 externally blocked`. The remaining red gates require
-the final deployment receipt, video, or owner submission actions. Each
+`ci/readiness.py` is written so that it can fail, and it does. It prints
+`47/53 passed, 0 blocking failures, 6 externally blocked` (on 2026-09-29, before the deployment receipt was refreshed, it printed `46/53 passed, 0 blocking failures, 7 externally blocked`). The remaining red gates require
+a disposable teardown receipt, video, or owner submission actions. Each
 failure is printed with its reason rather than hidden.
 
 Until 2026-09-29, four of those gates read the persona review
@@ -1430,8 +1430,7 @@ git diff --name-only aa3364a HEAD -- src docs/index.html   # printed nothing at 
 * `/health` reports `mcp.capabilities` as `["tools"]` only: the field is a fixed list in
   `src/interfaces/rest_api.py` and does not mention `resources`. `initialize` is what a client
   negotiates on.
-* `deploy_teardown_receipt.json` is unchanged, so gates D2 and G2 stay red, as the end of this
-  section explains.
+* `deploy_teardown_receipt.json` was refreshed on 2026-10-18 against `0864c76e8459302ca9fe22f2a18b854502cd0aae`, so gate G2 passes while D2 remains externally blocked only because no teardown is executed on the live judge endpoint.
 
 **Checked on 2026-09-27, when the endpoint served an older build.** The endpoint is
 `https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com`. What it served that day, against
@@ -1475,8 +1474,7 @@ curl -s -X POST -H "Content-Type: application/json" --data @auth_bypass.json <en
 # the admin-check bypass as an authentication bypass. First model answer recorded for this repo.
 ```
 
-[`deploy_teardown_receipt.json`](../deploy_teardown_receipt.json) is still the superseded probe from
-2026-09-05 of an even older commit, `38668ad`, and says so in its `_note`. Gates D2 and G2 read that committed file, so they stay red until a fresh receipt is recorded; live observations stay uncommitted by convention, because committing one moves HEAD and invalidates its own comparison. The 2026-09-27 block above stays as the dated history of the older build.
+[`deploy_teardown_receipt.json`](../deploy_teardown_receipt.json) records the 2026-10-18 live HTTP probe of `https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com` (`/health`, `/`, and `POST /mcp`) at `0864c76e8459302ca9fe22f2a18b854502cd0aae`. Gate G2 verifies via `deployed_checkout_problem` that the deployed revision is HEAD or an ancestor with unchanged live runtime files (`src/` and `docs/index.html`), so G2 passes while D2 remains externally blocked only because `teardown_performed` is false on the active judge endpoint. The 2026-09-27 block above stays as the dated history of the older build.
 
 ---
 
