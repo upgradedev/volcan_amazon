@@ -71,11 +71,25 @@ def test_the_gates_read_the_document_this_repository_ships():
 
 
 def test_the_audit_reports_all_four_as_passing_from_inside_the_repository():
-    """End to end: run the auditor and read I1 to I4 out of its own results."""
+    """End to end: run the auditor and read I1 to I4 and G2 out of its own results."""
     results = {r.gate_id: r for r in readiness.audit_project()}
     for gate_id in ("I1", "I2", "I3", "I4"):
         assert results[gate_id].passed is True, results[gate_id].message
         assert readiness.PERSONA_REVIEW_DOC in results[gate_id].message
+    assert results["G2"].passed is True, results["G2"].message
+    head = readiness.git_head()
+    assert readiness.deployed_checkout_problem(head, head) is None
+    non_ancestor = readiness.deployed_checkout_problem("0" * 40, head)
+    assert non_ancestor is not None and "is not an ancestor of HEAD" in non_ancestor
+    first_commit = readiness.subprocess.run(
+        ["git", "rev-list", "--max-parents=0", "HEAD"],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip().splitlines()[0]
+    stale_runtime = readiness.deployed_checkout_problem(first_commit, head)
+    assert stale_runtime is not None and "live runtime files changed after deployed commit" in stale_runtime
 
 
 def test_a_missing_document_fails_all_four():
