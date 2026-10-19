@@ -122,7 +122,7 @@ def test_g2_passes_because_the_live_runtime_is_this_runtime(audit_results):
     receipt = json.loads((REPO_ROOT / "deploy_teardown_receipt.json").read_text(encoding="utf-8"))
     problem = readiness.deployed_checkout_problem(str(receipt.get("deployed_commit_sha") or ""), head)
     if problem is not None and not _on_master():
-        pytest.skip(f"G2 externally blocked until redeploy: {problem}")
+        pytest.skip(f"G2 externally blocked until the deploy receipt names the live runtime: {problem}")
     assert audit_results["G2"].passed is True, audit_results["G2"].message
 
 

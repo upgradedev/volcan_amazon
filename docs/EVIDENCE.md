@@ -1437,7 +1437,7 @@ git diff --name-only aa3364a HEAD -- src docs/index.html   # printed nothing at 
 * `/health` reports `mcp.capabilities` as `["tools"]` only: the field is a fixed list in
   `src/interfaces/rest_api.py` and does not mention `resources`. `initialize` is what a client
   negotiates on.
-* `deploy_teardown_receipt.json` was refreshed on 2026-10-18 against `0864c76e8459302ca9fe22f2a18b854502cd0aae`, so gate G2 passes while D2 remains externally blocked only because no teardown is executed on the live judge endpoint.
+* `deploy_teardown_receipt.json` was refreshed on 2026-10-19 against `873845d97a4747dc4b85882d3d6593a15759d375`, so gate G2 passes while D2 remains externally blocked only because no teardown is executed on the live judge endpoint.
 
 **Checked on 2026-09-27, when the endpoint served an older build.** The endpoint is
 `https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com`. What it served that day, against
@@ -1481,7 +1481,7 @@ curl -s -X POST -H "Content-Type: application/json" --data @auth_bypass.json <en
 # the admin-check bypass as an authentication bypass. First model answer recorded for this repo.
 ```
 
-[`deploy_teardown_receipt.json`](../deploy_teardown_receipt.json) records the 2026-10-18 live HTTP probe of `https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com` (`/health`, `/`, and `POST /mcp`) at `0864c76e8459302ca9fe22f2a18b854502cd0aae`. Gate G2 verifies via `deployed_checkout_problem` that the deployed revision is HEAD or an ancestor with unchanged live runtime files (`src/` and `docs/index.html`), so G2 passes while D2 remains externally blocked only because `teardown_performed` is false on the active judge endpoint. The 2026-09-27 block above stays as the dated history of the older build.
+[`deploy_teardown_receipt.json`](../deploy_teardown_receipt.json) records the 2026-10-19 live HTTP probe of `https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com` (`/health`, `/`, and `POST /mcp` initialize, all read-only) at `873845d97a4747dc4b85882d3d6593a15759d375`. The 2026-10-18 probe at `0864c76` is in git history. Gate G2 verifies via `deployed_checkout_problem` that the deployed revision is HEAD or an ancestor with unchanged live runtime files (`src/` and `docs/index.html`), so G2 passes while D2 remains externally blocked only because `teardown_performed` is false on the active judge endpoint. The 2026-09-27 block above stays as the dated history of the older build.
 
 ---
 

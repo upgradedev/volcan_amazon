@@ -35,7 +35,7 @@ ENVIRONMENT_GATED: dict[str, str] = {
     "D2": "needs a deploy of the current commit followed by a recorded teardown",
     "E2": "needs a rendered video file to compare narration against picture",
     "E4": "needs the owner to record and publish the video",
-    "G2": "needs a redeploy so the deployed commit matches HEAD",
+    "G2": "needs a deploy receipt whose live runtime matches HEAD: a redeploy, or a fresh read-only probe when live already serves it",
     "O1": "owner action: YouTube upload",
     "O2": "owner action: Devpost project creation",
     "O3": "owner action: pressing Submit",
