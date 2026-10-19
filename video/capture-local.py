@@ -173,6 +173,7 @@ BILLED_TURN_TIMEOUT_SECONDS = 60.0
 # that window leaves for the answer to start, rounded down to a tenth. An answer that
 # starts later could overrun the window, and the take is recorded again.
 ANSWER_LATENCY_ALLOWANCE_SECONDS = 5.9
+MCP_FACTS_HOLD_SECONDS = 2.0  # the handshake facts stay on screen at least this long
 # The model the narration names: beat 3 says Claude on Amazon Bedrock answered.
 CLAUDE_MODEL_PREFIX = "anthropic.claude"
 # A Claude model id, as the page's modelWords and the server's model_words read it.
@@ -1159,15 +1160,19 @@ def main() -> None:
             raise SystemExit("the review pane no longer shows a recorded, unsent review")
 
         # Beat 7: Server and MCP, a real handshake, then the Alexa+ box. No replay press.
+        # The handshake is pressed as the beat starts and its facts are held for at least
+        # MCP_FACTS_HOLD_SECONDS. Take 6's first attempt pressed it on the first sentence:
+        # the live build answered 0.81 s later and the page jumped away 0.19 s after that,
+        # so the facts were never on screen while the narrator said the handshake is real.
         until(beat_start(b7))
         act("Server and MCP tab", lambda: page.click("#tabServer"))
-        act("scroll to Evidence", lambda: scroll_to("#evidence"))
-        until(sentence(b7, 0, 0.3))
-        act("scroll to the MCP handshake", lambda: scroll_to("#mcp", 16))
+        act("scroll to the MCP handshake", lambda: scroll_to("#mcp", 16, "instant"))
         act("Run a real MCP handshake", lambda: page.click("#runMcp"))
         page.wait_for_selector("#mcpPane details", timeout=10_000)
         act("scroll to the handshake facts", lambda: scroll_to("#mcp .row-actions", 24))
-        until(sentence(b7, len(by_id[b7]["sentences"]) - 1))
+        facts_on_screen = now()
+        last_sentence = len(by_id[b7]["sentences"]) - 1
+        until(max(sentence(b7, last_sentence, 0.4), facts_on_screen + MCP_FACTS_HOLD_SECONDS))
         act("jump to the connection strip and the Alexa+ box",
             lambda: scroll_to("#evidenceTabs", 24, "instant"))
         until(total + 1.5)
