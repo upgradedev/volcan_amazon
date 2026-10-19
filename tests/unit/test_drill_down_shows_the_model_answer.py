@@ -8,11 +8,15 @@ pin four things:
 
 * the model is shown the focused file's part of the patch, not the whole patch;
 * the answer, the model id and the coverage counts reach the API;
-* every branch where no model answered (refusal, timeout, no credentials,
-  the local engine) carries its named reason and no model-shaped data;
-* an index outside the patch is refused before any model call.
+* every branch where no model answered (refusal, timeout, no credentials)
+  carries its named reason, in the spoken text as well as in the field, and
+  no model-shaped data;
+* a Bedrock answer is labelled as one even when it names no model;
+* an index outside the patch is refused before any model call;
+* the MCP tool returns the same fields, with the model sentence first.
 """
 import asyncio
+import dataclasses
 import os
 import re
 
@@ -28,6 +32,7 @@ from src.infrastructure.bedrock_adapter import (
     BedrockSynthesisAdapter,
 )
 from src.interfaces.dto import DrillDownRequest, DrillDownResult
+from src.interfaces.mcp_protocol import PROTOCOL_VERSION
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -171,7 +176,12 @@ def test_rest_and_mcp_publish_the_same_drill_down_fields(monkeypatch):
 # --- every branch where no model answered is labelled -------------------------
 
 
-def _assert_no_model_data(body):
+def _assert_no_model_data(body, reason):
+    assert body["synthesis_fallback_reason"] == reason
+    # The listener hears it too: this text is what the status line, a Braille
+    # display and an MCP client get, and the meter is not read aloud.
+    assert body["spoken_text"].endswith(f" No model answered: {reason}."), body["spoken_text"]
+    assert "No model answered: " in body["spoken_text_for_speech"]
     assert body["synthesis_mode"] == "heuristic-local"
     assert body["model_answered"] is None
     assert body["model_prose_full"] is None
@@ -189,8 +199,7 @@ def test_a_refusal_is_named_and_carries_no_model_answer(monkeypatch):
 
     body = _drill(1)
 
-    _assert_no_model_data(body)
-    assert body["synthesis_fallback_reason"] == NO_TEXT_PUBLIC_REASONS[NO_TEXT_REFUSAL]
+    _assert_no_model_data(body, NO_TEXT_PUBLIC_REASONS[NO_TEXT_REFUSAL])
 
 
 def test_a_timeout_is_named_and_carries_no_model_answer(monkeypatch):
@@ -198,11 +207,10 @@ def test_a_timeout_is_named_and_carries_no_model_answer(monkeypatch):
 
     body = _drill(1)
 
-    _assert_no_model_data(body)
-    assert body["synthesis_fallback_reason"] == (
+    _assert_no_model_data(body, (
         "Amazon Bedrock did not answer before the request deadline; "
         "the local deterministic digest answered instead"
-    )
+    ))
 
 
 def test_no_credentials_is_named_and_calls_no_model(monkeypatch):
@@ -211,9 +219,76 @@ def test_no_credentials_is_named_and_calls_no_model(monkeypatch):
     body = _drill(1)
 
     assert recorder.calls == []
-    _assert_no_model_data(body)
-    assert body["synthesis_fallback_reason"] == (
-        "no AWS credentials were resolved by the boto3 credential chain"
+    _assert_no_model_data(body, "no AWS credentials were resolved by the boto3 credential chain")
+
+
+class _FixedReportUseCase:
+    """The real local section, with a report this test chooses."""
+
+    def __init__(self, report):
+        self._report = report
+
+    async def drill_down(self, raw_diff, section_index, engine="auto"):
+        return UnifiedDiffParser.parse_patch(raw_diff)[section_index], self._report
+
+
+def test_a_bedrock_answer_that_names_no_model_is_still_labelled_a_model_answer(monkeypatch):
+    _install(monkeypatch, reply=_text_reply(PROSE))
+    file_text = UnifiedDiffParser.parse_patch_with_text(TWO_FILES)[1][1]
+    answered = asyncio.run(operations.digest_use_case.execute(file_text))
+    assert answered.synthesis_mode == "bedrock"
+    unnamed = dataclasses.replace(answered, model_answered=None)
+    monkeypatch.setattr(operations, "digest_use_case", _FixedReportUseCase(unnamed))
+
+    body = _drill(1)
+
+    assert body["synthesis_mode"] == "bedrock"
+    assert body["model_answered"] is None
+    assert body["model_prose_full"] == answered.model_prose_full
+    assert "Amazon Bedrock, model not named, says: Inverted admin check." in body["spoken_text"]
+    assert "No model answered" not in body["spoken_text"]
+
+
+def _mcp_drill(index):
+    from fastapi.testclient import TestClient
+
+    from src.interfaces.mcp_server import app
+
+    response = TestClient(app).post(
+        "/mcp", headers={"MCP-Protocol-Version": PROTOCOL_VERSION},
+        json={"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {
+            "name": "drill_down_section",
+            "arguments": {"raw_diff": TWO_FILES, "section_index": index},
+        }},
+    )
+    assert response.status_code == 200, response.text
+    result = response.json()["result"]
+    assert result.get("isError") is not True, result
+    return result
+
+
+def test_the_mcp_tool_returns_the_same_fields_with_the_model_sentence_first(monkeypatch):
+    _install(monkeypatch, reply=_text_reply(PROSE))
+
+    result = _mcp_drill(1)
+
+    structured = result["structuredContent"]
+    assert set(structured) == set(DrillDownResult.model_fields)
+    DrillDownResult.model_validate(structured)
+    assert structured["model_answered"] == "anthropic.claude-sonnet-5"
+    first = result["content"][0]
+    assert first["type"] == "text"
+    assert "Claude Sonnet 5 on Amazon Bedrock says: Inverted admin check." in first["text"]
+
+
+def test_the_mcp_tool_says_no_model_answered_and_why(monkeypatch):
+    _install(monkeypatch, reply=_text_reply(PROSE), credentials=False)
+
+    result = _mcp_drill(1)
+
+    assert result["structuredContent"]["synthesis_mode"] == "heuristic-local"
+    assert result["content"][0]["text"].endswith(
+        "No model answered: no AWS credentials were resolved by the boto3 credential chain."
     )
 
 

@@ -1687,8 +1687,10 @@
       return text.charAt(0).toUpperCase() + text.slice(1) + " cue";
     }
 
+    /* A refusal or a timeout means a model was called and did not answer,
+       so the local path is never described as "no model called". */
     function engineWords(mode) {
-      return mode === "bedrock" ? "Amazon Bedrock, a model answered" : "the local heuristic, no model called";
+      return mode === "bedrock" ? "Amazon Bedrock, a model answered" : "the local rules, no model answered";
     }
 
     /* "anthropic.claude-sonnet-5" as "Claude Sonnet 5", read from the id the
@@ -2401,10 +2403,14 @@
 
     /* Who answered a drill-down, as words: "Claude Sonnet 5 on Amazon
        Bedrock", read from model_answered, and only when a model answered.
-       Null otherwise, so no fallback can wear the model's name. */
+       A Bedrock answer that names no model is still a model answer and is
+       labelled as one, without a name. Null otherwise, so no fallback can
+       wear the model's name. */
     function drillModelWords(data) {
       if (data.synthesis_mode !== "bedrock") { return null; }
-      if (typeof data.model_answered !== "string" || !data.model_answered) { return null; }
+      if (typeof data.model_answered !== "string" || !data.model_answered) {
+        return "Amazon Bedrock, model not named";
+      }
       return modelWords(data.model_answered) + " on Amazon Bedrock";
     }
 
@@ -2425,14 +2431,15 @@
       var sent = data.model_input_chars_sent;
       var total = data.model_input_chars_total;
       var part = " characters of " + data.file_path + "'s part of the patch.";
+      var who = data.model_answered ? answeredBy : "The model on Amazon Bedrock";
       if (typeof sent === "number" && typeof total === "number" && total > sent) {
-        coverage.textContent = answeredBy + " read the first " + sent + " of " + total + part;
+        coverage.textContent = who + " read the first " + sent + " of " + total + part;
       } else if (typeof sent === "number" && typeof total === "number") {
-        coverage.textContent = answeredBy + " read " + sent + " of " + total + part;
+        coverage.textContent = who + " read " + sent + " of " + total + part;
       } else {
-        coverage.textContent = answeredBy + " answered; what it was shown was not reported.";
+        coverage.textContent = who + " answered; what it was shown was not reported.";
       }
-      coverage.textContent += " The local rules read the whole patch.";
+      coverage.textContent += " The local rules read all of this file's changes.";
       prose.textContent = data.model_prose_full;
       wrap.hidden = false;
       wrap.open = true;
@@ -2443,8 +2450,10 @@
       var sentence = spokenSentence(data.voice_summary);
       State.lastWords = sentence.words;
       spokenTarget().appendChild(sentence.node);
+      var why = data.synthesis_mode !== "bedrock" && data.synthesis_fallback_reason
+        ? ", because: " + data.synthesis_fallback_reason + "." : ".";
       plainThenRaw($("spokenCaption"), label + " returned in " + elapsedMs.toFixed(1)
-        + " ms by " + engineWords(data.synthesis_mode), data.synthesis_mode, ".");
+        + " ms by " + engineWords(data.synthesis_mode), data.synthesis_mode, why);
       renderModelProvenance(data);
       return sentence.words;
     }
@@ -2983,7 +2992,7 @@
         var drillNote = "Reported by POST /api/drill_down_section for section " + (targetIndex + 1)
           + " as synthesis_mode: " + drill.data.synthesis_mode;
         if (drillModel) {
-          drillNote += ", model_answered: " + drill.data.model_answered + ".";
+          drillNote += ", model_answered: " + (drill.data.model_answered || "null") + ".";
         } else {
           drillNote += ". No model answered, because: "
             + (drill.data.synthesis_fallback_reason || "the server gave no reason") + ".";

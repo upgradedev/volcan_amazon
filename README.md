@@ -37,7 +37,7 @@ It is not an Alexa skill, the Alexa+ front end is simulated, and GitHub reviews 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-952%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-956%20passing-brightgreen.svg)](tests/)
 
 ## Table of Contents
 
@@ -116,7 +116,7 @@ or deployed: the [hackathon FAQ](https://amazonappdev2026.devpost.com/details/fa
 Volcan sends the digest request to Claude on Amazon Bedrock; otherwise, or when the call fails,
 a local deterministic engine answers and the response says why. The default model is Claude
 Sonnet 5 (`anthropic.claude-sonnet-5`) from 2026-10-06, and each answer names the model its
-request asked for in `model_answered` (the configured id, not read back from the response); the live function has run it since `716b0f3` was deployed on 2026-10-07, and two live presses that day answered with `model_answered` `anthropic.claude-sonnet-5`. The drill-down asks the same model about one file: its request carries only that file's part of the patch, and the result returns the answer in `model_prose_full` with `model_answered` and what the model read (`model_input_chars_sent` of `model_input_chars_total`). The page labels the answer with the model's name, read from `model_answered` (for example "Claude Sonnet 5 on Amazon Bedrock"), only when a model answered; otherwise the meter reads "local rules, no model answered" and gives the named reason (a refusal, a timeout, no credentials). The local rules' finding is spoken first either way. A Bedrock answer was recorded on 2026-09-30: one live digest answered `synthesis_mode: bedrock` with a null reason. The public endpoint is an AWS Lambda in eu-west-1; its `GET /health` on 2026-10-06 read
+request asked for in `model_answered` (the configured id, not read back from the response); the live function has run it since `716b0f3` was deployed on 2026-10-07, and two live presses that day answered with `model_answered` `anthropic.claude-sonnet-5`. The drill-down asks the same model about one file: its request carries only that file's part of the patch, and the result returns the answer in `model_prose_full` with `model_answered` and what the model read (`model_input_chars_sent` of `model_input_chars_total`). The page labels the answer with the model's name, read from `model_answered` (for example "Claude Sonnet 5 on Amazon Bedrock"), only when a model answered; otherwise the meter reads "local rules, no model answered" and gives the named reason (a refusal, a timeout, no credentials), and the spoken text ends "No model answered:" with the same reason, so a listener hears it too. The local rules' finding is spoken first either way. A Bedrock answer was recorded on 2026-09-30: one live digest answered `synthesis_mode: bedrock` with a null reason. The public endpoint is an AWS Lambda in eu-west-1; its `GET /health` on 2026-10-06 read
 `bedrock_model_path` `ready_to_attempt` and `durable_state` `configured_reachable`, and
 [`infra/`](infra/) declares a Lambda with a function URL and a DynamoDB table in Terraform.
 
@@ -132,10 +132,12 @@ python -m pytest tests/ -q
 ```
 
 CI run 39131949075 on master at `0a30bb8` printed `934 passed` on 2026-10-18.
-`python -m pytest tests/ --collect-only -q` collects 952 on 2026-10-19, 18 more than master:
-17 in `tests/unit/test_drill_down_shows_the_model_answer.py` and the browser test
-`tests/e2e/test_drill_down_display.py`. `python -m pytest tests/ -q` printed
-`948 passed, 4 skipped` on the development machine the same day. The `bedrock` extra installs
+`python -m pytest tests/ --collect-only -q` collects 956 on 2026-10-19, 22 more than master:
+20 in `tests/unit/test_drill_down_shows_the_model_answer.py`, the browser test
+`tests/e2e/test_drill_down_display.py`, and the G2 deploy-parity check, now its own test in
+`tests/unit/test_readiness_gates.py`. `python -m pytest tests/ -q` printed
+`951 passed, 5 skipped` on the development machine the same day; the fifth skip is that G2
+check, which skips off master while the live runtime is behind this branch. The `bedrock` extra installs
 `anthropic[bedrock]==1.8.0`. With AWS credentials as well, a Bedrock call is ready to attempt.
 Credentials and an importable SDK do not prove a model answered: the receipt is the digest
 response's `synthesis_mode: bedrock`. Without them the local engine answers, and the page says
@@ -208,7 +210,7 @@ for a redeploy. The table below gives the commands.
 | Shared durable state | Deployed: DynamoDB `volcan-state-euw1-prod` plus a Secrets Manager approval secret; a local run keeps state in memory | The `durable_state` field of `GET /health` says which, and reports reachability only: live durable writes failed until `22c32ab`, and after it Request changes was verified live ([known issue](docs/EVIDENCE.md#known-issue-durable-stages-answered-http-503-on-live)) |
 | Alexa+ MCP add-on package | Built and tested locally, not certified or deployed: the hackathon FAQ says the add-on tools are "available to select partners only", so participants cannot deploy it. A replay of Amazon's documented Alexa+ client requests, against a local build (the registered endpoint runs the `src/` of master `0a30bb8`, `source_revision` read 2026-10-19; the replay was not re-run against that endpoint), gets the finding back from all three client shapes: one that follows the protocol's version rules, one that declares the revision it asked for, and one that never sends the version header. The page's Evidence tab, Server and MCP, runs the same three clients from the browser on a press. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
 | Demo video | Take 5, recorded on 2026-10-15 against the live build `716b0f3` with Claude Sonnet 5 answering: 153.44 s at 1920x1080, and 167.448 s with a live `tools/call` replay clip spliced in; `scripts/verify_video_sync.py` printed `ALL SYNC GATES PASSED` for both (files and receipts kept outside the repository). It awaits the owner's approval and upload, there is no public link yet, and it does not show the per-file drill-down answer. Superseded: a 163.68 s render of a local run of `09d4862`, and before it a 164.52 s render from `7a3de49` | [video/README.md](video/README.md) |
-| Test suite | 952 collected (`python -m pytest tests/ --collect-only -q`, 2026-10-19; `948 passed, 4 skipped` on the development machine). CI run 39131949075 on master at `0a30bb8`, 2026-10-18: `934 passed`, 93.75% statement coverage (5134 statements, 321 missed), readiness `47/53 passed, 0 blocking failures, 6 externally blocked`. The 18 drill-down tests added after `0a30bb8` are not in it. Earlier: CI run 37516718286 on PR #35 at `745358f` passed 892 with 93.71% (5133 statements, 323 missed) on 2026-10-06; CI run 37512533048 on PR #35 at `a81be1c` passed 889 with 93.70% (5124 statements, 323 missed) on 2026-10-06; CI run 37508504877 on PR #35 at `bceecb0` passed 884 with 93.67% (5099 statements, 323 missed) on 2026-10-06; CI run 37432272539 on master at `f9e5135` passed 854 with 93.52% (5029 statements, 326 missed) on 2026-10-06; CI run 36804593070 at `fc10e7d` passed 751 with 93.18% (4734 statements, 323 missed) on 2026-10-01 | `python -m pytest tests/ -q --cov=src` |
+| Test suite | 956 collected (`python -m pytest tests/ --collect-only -q`, 2026-10-19; `951 passed, 5 skipped` on the development machine). CI run 39131949075 on master at `0a30bb8`, 2026-10-18: `934 passed`, 93.75% statement coverage (5134 statements, 321 missed), readiness `47/53 passed, 0 blocking failures, 6 externally blocked`. The 22 tests added after `0a30bb8` are not in it. Earlier: CI run 37516718286 on PR #35 at `745358f` passed 892 with 93.71% (5133 statements, 323 missed) on 2026-10-06; CI run 37512533048 on PR #35 at `a81be1c` passed 889 with 93.70% (5124 statements, 323 missed) on 2026-10-06; CI run 37508504877 on PR #35 at `bceecb0` passed 884 with 93.67% (5099 statements, 323 missed) on 2026-10-06; CI run 37432272539 on master at `f9e5135` passed 854 with 93.52% (5029 statements, 326 missed) on 2026-10-06; CI run 36804593070 at `fc10e7d` passed 751 with 93.18% (4734 statements, 323 missed) on 2026-10-01 | `python -m pytest tests/ -q --cov=src` |
 
 ## Who it is for and who pays
 

@@ -9,6 +9,7 @@ every count agrees with its noun.
 from fastapi.testclient import TestClient
 
 from src.domain.spoken_form import speakable, strip_markdown_for_speech
+from src.interfaces.composition import bedrock_adapter
 from src.interfaces.mcp_server import app
 
 INVERTED = """diff --git a/src/auth/permissions.py b/src/auth/permissions.py
@@ -49,7 +50,9 @@ def test_the_digest_returns_a_spoken_form_beside_the_literal_text():
     assert "!=" not in spoken and "==" not in spoken
 
 
-def test_level_one_and_the_drill_down_speak_words_not_enums():
+def test_level_one_and_the_drill_down_speak_words_not_enums(monkeypatch):
+    # The drill-down asks for a model; this test never reaches one.
+    monkeypatch.setattr(bedrock_adapter, "credentials_present", lambda refresh=False: False)
     client = TestClient(app)
     level1 = client.post(
         "/api/digest_semantic_diff", json={"raw_diff": CLEAN, "level": 1, "engine": "local"},
@@ -59,7 +62,12 @@ def test_level_one_and_the_drill_down_speak_words_not_enums():
 
     drill = client.post("/api/drill_down_section", json={"raw_diff": CLEAN, "section_index": 0}).json()
     text = drill["spoken_text"]
-    assert text == "Inspecting src/utils/parser.py: business logic, low significance. 3 lines added, 1 removed.", text
+    # The local finding in words, then the bounded reason no model answered.
+    assert drill["synthesis_mode"] == "heuristic-local"
+    assert text == (
+        "Inspecting src/utils/parser.py: business logic, low significance. 3 lines added, 1 removed."
+        f" No model answered: {drill['synthesis_fallback_reason'].rstrip('.')}."
+    ), text
     assert "1 lines" not in text and "Category:" not in text
     # The raw values stay machine-readable in their own fields.
     assert drill["category"] == "BUSINESS_LOGIC" and drill["significance"] == "LOW"

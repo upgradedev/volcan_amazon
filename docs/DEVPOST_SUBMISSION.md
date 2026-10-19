@@ -277,11 +277,15 @@ call. The result returns the model's answer in `model_prose_full`, the model in 
 and what it read in `model_input_chars_sent` of `model_input_chars_total`, the same fields the
 digest returns. The local rules' finding is spoken first, then the model's own words, for example
 "Claude Sonnet 5 on Amazon Bedrock says: ...". The page names the model from `model_answered`
-only when a model answered, shows "read N of M characters" of that file, opens the full answer,
-and announces it through the same status line a screen reader and a Braille display read. When
+only when a model answered, shows "read N of M characters" of that file, and opens the model's
+full answer in the panel below the caption. With **My screen reader speaks the answers** on,
+the spoken text (the local finding, then the model's answer shortened for speech to about 180
+characters) goes to the same status line as the main summary, which a screen reader reads and
+a Braille display shows; in the default browser-voice mode, when the browser has a voice, the
+browser speaks it and the status line says only that it is speaking. The Braille cells panel keeps the whole patch's digest. When
 no model answered, because the model's safety classifier refused, the call ran past its deadline,
 or no credentials resolved, the meter reads "local rules, no model answered" with that named
-reason. Up to master `0a30bb8` this press asked the model about the whole patch, dropped the answer and
+reason, and the spoken text ends "No model answered:" with the same reason. Up to master `0a30bb8` this press asked the model about the whole patch, dropped the answer and
 labelled the result "local AST drill-down"; `tests/unit/test_drill_down_shows_the_model_answer.py`
 and `tests/e2e/test_drill_down_display.py` now hold each branch.
 The checked-in infrastructure narrows the intended Lambda grant to

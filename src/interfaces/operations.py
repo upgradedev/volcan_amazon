@@ -100,6 +100,14 @@ async def op_digest(req: DigestRequest, engine: str = "auto") -> dict[str, Any]:
     }
 
 
+def _answered_by(model_answered: str | None) -> str:
+    """Who answered on Bedrock, as words. A Bedrock answer that names no model
+    is still a model answer, so it is said as one, without inventing a name."""
+    if model_answered:
+        return f"{model_words(model_answered)} on Amazon Bedrock"
+    return "Amazon Bedrock, model not named,"
+
+
 async def op_drill_down(req: DrillDownRequest) -> dict[str, Any]:
     # The index is checked against the local parse first, so a press past the
     # last file costs no model call. The model, when one is called, is asked
@@ -122,13 +130,15 @@ async def op_drill_down(req: DrillDownRequest) -> dict[str, Any]:
     elif sec.security_flags:
         spoken += f" Security alert: Flagged for {', '.join(sec.security_flags)}."
     # The local rules speak first, as in the level 0 digest, then the model in
-    # its own words, named from the answer. When no model answered nothing is
-    # added here: synthesis_fallback_reason says why.
-    if report.synthesis_mode == "bedrock" and report.model_answered:
-        spoken += (
-            f" {model_words(report.model_answered)} on Amazon Bedrock says: "
-            f"{report.executive_spoken_summary}"
-        )
+    # its own words, named from the answer. When no model answered, the
+    # listener hears that and the bounded reason, because this text is what a
+    # screen reader, a Braille display and an MCP client such as Alexa+ get.
+    if report.synthesis_mode == "bedrock":
+        spoken += f" {_answered_by(report.model_answered)} says: {report.executive_spoken_summary}"
+    elif report.fallback_reason:
+        spoken += f" No model answered: {report.fallback_reason.rstrip('.')}."
+    else:
+        spoken += " No model answered."
     return {
         "spoken_text": spoken,
         "spoken_text_for_speech": speakable(spoken),
