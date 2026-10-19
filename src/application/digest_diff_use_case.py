@@ -1,4 +1,5 @@
 """Use Case: Digest Raw Code Diffs into Multi-Level Spoken Summaries."""
+import re
 from collections import Counter
 from typing import Protocol
 
@@ -12,6 +13,26 @@ from src.domain.semantic_diff import (
 LOCAL_ENGINE_REQUESTED = (
     "this request asked for the local deterministic engine, so no model was called"
 )
+
+#: A Claude model id as Bedrock names it, read into words. The page has the
+#: same rule in ``modelWords``; tests/unit/test_drill_down_shows_the_model_answer.py
+#: holds the two to one pattern.
+_CLAUDE_ID = re.compile(r"^(?:[a-z]{2,6}\.)?anthropic\.claude-([a-z]+)((?:-\d+)+)$")
+
+
+def model_words(model_answered: str) -> str:
+    """"anthropic.claude-sonnet-5" as "Claude Sonnet 5", read from the id.
+
+    Any id the rule does not fit (a dated snapshot, the fixed label for an
+    inference profile) is said as it is, so the name always comes from the
+    answer and never from a constant.
+    """
+    match = _CLAUDE_ID.match(model_answered or "")
+    if not match:
+        return model_answered
+    family = match.group(1).capitalize()
+    version = ".".join(match.group(2).strip("-").split("-"))
+    return f"Claude {family} {version}"
 
 
 class BedrockSynthesisPort(Protocol):
@@ -27,6 +48,26 @@ class BedrockSynthesisPort(Protocol):
 class DigestDiffUseCase:
     def __init__(self, bedrock_adapter: BedrockSynthesisPort):
         self._bedrock = bedrock_adapter
+
+    async def drill_down(
+        self, raw_diff: str, section_index: int, engine: str = "auto",
+    ) -> tuple[DiffSectionDigest, SemanticDiffReport]:
+        """One file of the patch: its locally parsed section, and a digest of
+        that file's own part of the patch.
+
+        The index is checked against the local parse before anything else, so
+        a press past the last file never reaches a model. The model, when one
+        is called, is shown this file's text only, and the report's coverage
+        counts are counts of that text.
+        """
+        pairs = UnifiedDiffParser.parse_patch_with_text(raw_diff)
+        if section_index < 0 or section_index >= len(pairs):
+            raise IndexError(
+                f"Section index {section_index} is out of bounds; the patch has "
+                f"{len(pairs)} sections."
+            )
+        section, file_text = pairs[section_index]
+        return section, await self.execute(file_text, engine=engine)
 
     async def execute(self, raw_diff: str, engine: str = "auto") -> SemanticDiffReport:
         """Digest a patch. ``engine="local"`` never reaches a model."""

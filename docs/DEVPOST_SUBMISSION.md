@@ -80,9 +80,10 @@ Around those renderings:
   The second pass exists because `user.role == "admin"` and `user.role != "admin"` contain
   identical words, so no keyword matcher can tell them apart, and the finding is spoken ahead
   of the line detail rather than in line order.
-* **The demo's own buttons reach those rules.** The companion page ships four preset patches:
-  one per syntax-tree rule, plus a labelled clean control where the right answer is no finding
-  and the rising cue. Each chip's label quotes the sentence the server will say back, and
+* **The demo's own buttons reach those rules.** The companion page ships six preset patches:
+  five that each reach one rule Volcan ships (an inverted admin check, CORS opened to any origin,
+  a deleted signature check, SQL built from input, TLS checks turned off), plus a labelled clean
+  control where the right answer is no finding and the rising cue. Each chip's label quotes the sentence the server will say back, and
   `tests/e2e/test_shipped_presets_reach_their_rule.py` runs every shipped preset through the
   production parser and fails the build if a label and its rule separate, or if a rule ships
   with no preset to demonstrate it. Until 2026-09-08 the presets triggered no syntax-tree rule
@@ -268,6 +269,21 @@ less often. `AWS_BEDROCK_MODEL_ID` overrides it. Every response states whether `
 deterministic local path answered, and a model answer names the model its request asked for in
 `model_answered`. When Bedrock fails, `synthesis_fallback_reason` returns one bounded category;
 provider account, role and request identifiers are never returned to the anonymous client.
+
+**Drill into a file, answered by Claude.** The Drill into file press, and the MCP tool
+`drill_down_section`, ask the same model about one file of the patch: the request carries only
+that file's part of the patch, and the index is checked against the local parse before any model
+call. The result returns the model's answer in `model_prose_full`, the model in `model_answered`,
+and what it read in `model_input_chars_sent` of `model_input_chars_total`, the same fields the
+digest returns. The local rules' finding is spoken first, then the model's own words, for example
+"Claude Sonnet 5 on Amazon Bedrock says: ...". The page names the model from `model_answered`
+only when a model answered, shows "read N of M characters" of that file, opens the full answer,
+and announces it through the same status line a screen reader and a Braille display read. When
+no model answered, because the model's safety classifier refused, the call ran past its deadline,
+or no credentials resolved, the meter reads "local rules, no model answered" with that named
+reason. Up to master `0a30bb8` this press asked the model about the whole patch, dropped the answer and
+labelled the result "local AST drill-down"; `tests/unit/test_drill_down_shows_the_model_answer.py`
+and `tests/e2e/test_drill_down_display.py` now hold each branch.
 The checked-in infrastructure narrows the intended Lambda grant to
 `bedrock-mantle:CreateInference` on its account-scoped default project. A deployment missing
 that grant falls back with the bounded permission category.
@@ -283,24 +299,28 @@ it as the evidence. `docs/EVIDENCE.md` carries the exact command that reproduces
 source module's AST on each run to keep it that way. Volcan plans commands and refuses the
 rest.
 
-**Not published.** A 163.68 second render at 1920x1080 (ffprobe) of a local run of `09d4862`
-exists outside the repository, pending upload by the owner; there is no public link yet.
-`video/SHOT_LIST.md` is a beat sheet in which every beat is an action this repository can
-perform today, and readiness gates E2 and E4 report red until footage is in `video/`. Its
-re-take records against the live build `716b0f3`, where Claude Sonnet 5
-(`anthropic.claude-sonnet-5`) answers on AWS Lambda with DynamoDB. One press of the take-4 patch
-there answered in 3.44 s at the client (Lambda 3071 ms, model 1266 ms) at 1769 MB, and in
-17.88 s at 256 MB. The plan gives that press 10 s before its answer must start, then the
-longest answer the page can speak, and measures 155.9 s; it is not recorded yet.
+**Not published.** Take 5 was recorded on 2026-10-15 against the live build `716b0f3`, where
+Claude Sonnet 5 (`anthropic.claude-sonnet-5`) answers on AWS Lambda with DynamoDB: 153.44 s at
+1920x1080, and 167.448 s with a live `tools/call` replay clip spliced in.
+`scripts/verify_video_sync.py` printed `ALL SYNC GATES PASSED` for both. The files and receipts
+are kept outside the repository, pending the owner's approval and upload; there is no public link
+yet, and readiness gates E2 and E4 report red until footage is in `video/`. Take 5 does not show
+the per-file drill-down answer. An earlier 163.68 second render of a local run of `09d4862` is
+superseded. `video/SHOT_LIST.md` is a beat sheet in which every beat is an action this repository
+can perform today. One press of the take-4 patch on the live build answered in 3.44 s at the
+client (Lambda 3071 ms, model 1266 ms) at 1769 MB, and in 17.88 s at 256 MB.
 
 **Deployed.** On 2026-09-23 the public endpoint served `GET /health`, the current companion,
 the REST digest and MCP initialize/tool calls. Health exposes the immutable source revision.
 A governed action remained a dry-run and its bounded EMF records were read back from
-CloudWatch. On 2026-10-07, after the redeploy of PR #35, `GET /health` reported
-`source_revision` `716b0f3` and `model_id` `anthropic.claude-sonnet-5`; the later commits change
-no file under `src/` and not `docs/index.html` (`git diff --name-only 716b0f3 HEAD -- src
-docs/index.html` prints nothing), so the endpoint serves the current runtime. On 2026-10-06 it
-served `22c32ab` (PR #34). Known issue, fixed: the
+CloudWatch. On 2026-10-19, `curl -s <endpoint>/health` reported `source_revision` `0a30bb8`
+(master) and `model_id` `anthropic.claude-sonnet-5`. That revision is the `SOURCE_REVISION`
+value set at deploy, not a hash of the code; the probe in `deploy_teardown_receipt.json` read
+`0864c76` on 2026-10-18, and `git diff --name-only 0864c76 0a30bb8 -- src docs/index.html`
+prints nothing, so both name the runtime of master `0a30bb8`. The drill-down answered by Claude
+changes `src/` and `docs/index.html` after `0a30bb8` and is not live until the owner approves a
+redeploy. On 2026-10-07, after the redeploy of PR #35, `GET /health` reported `source_revision`
+`716b0f3`; on 2026-10-06 it served `22c32ab` (PR #34). Known issue, fixed: the
 transactional writes serialized their DynamoDB items twice and DynamoDB refused them, so every
 durable stage (Request changes, Confirm, the audit append and finalization) failed on live. The
 deployed builds from `e500731` (2026-09-29), the first with the DynamoDB store, until `22c32ab`

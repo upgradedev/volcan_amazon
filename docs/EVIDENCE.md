@@ -567,7 +567,7 @@ those.
 | Tool | What it returns |
 |---|---|
 | `digest_semantic_diff` | Spoken digest, the earcon that encodes the verdict as audio, and the parsed detail |
-| `drill_down_section` | Symbol-level explanation of one file section, plus the earcon for that section |
+| `drill_down_section` | The local rules' finding for one file section, then Claude on Amazon Bedrock's answer about that file alone with `model_answered` and coverage counts, or the named reason no model answered, plus the earcon for that section |
 | `stage_governed_action` | An action id, a payload hash, a dry-run plan and a single-use grant |
 | `confirm_governed_action` | Release or a named refusal, plus the matching earcon |
 | `play_earcon` | A 16-bit PCM WAV as an MCP `audio` content block |
