@@ -18,7 +18,21 @@ answer the page can speak, at the slowest speech rate measured for beat 2's sent
 the allowance is an ESTIMATE resting on one measured press. The basis for each window is
 written beside it in `narration.json`.
 
-## Take 6 on `873845d`: the drill-down beat needs an owner choice
+## Take 6 on `873845d`: the owner chose take 5's journey
+
+**Owner decision, 2026-10-19:** take 6 records take 5's seven beats unchanged, on the live
+`873845d` build. That means the cold open, Hear with the Amazon Bedrock answer and its coverage
+line, Request changes, Confirm, the recorded request and the MCP handshake. No drill-down is
+pressed on camera. `drill_down` stays out of `BILLED_PRESSES`, so a drill-down press in the
+take or the rehearsal is refused.
+
+The take makes 5 billed calls: open, Hear and 3 replay. Its length is about 167 s
+(ESTIMATE, from take 5's measured 167.448 s), inside the 175 s publication gate. Shapes A and B
+below were not chosen. B would drop Request changes and Confirm, which is the governed write
+and a must-show row, and A keeps only 0.04 s to 2.5 s of margin. The drill-down with Claude
+stays live for judges to try, and the Devpost text points at it. The replay clip must still be
+re-recorded, because take 5's clip shows `716b0f3`. The arithmetic below is kept as the record
+of why.
 
 The live build serves `873845d` (PR #40) since 2026-10-19. Its drill-down asks Amazon Bedrock
 about one file and shows the answer with its own label and coverage line. Take 6 is meant to
@@ -81,7 +95,7 @@ publication gate is 175 s. All margins are ESTIMATE.
 No cut inside a product turn or a model wait is allowed, so the gap cannot be closed by
 trimming product speech. Beats 1, 6 and 7 were already cut on 2026-10-06.
 
-**Recommendation: shape B.** Shape A cannot keep 5 s of margin, and as written it has four
+**Recommendation before the owner's choice: shape B (not chosen; see above).** Shape A cannot keep 5 s of margin, and as written it has four
 defects, each of which would have to be fixed before it could be offered:
 
 1. Its margin is 0.04 s. The 2.5 s exists only after cutting beat 3's second sentence,
