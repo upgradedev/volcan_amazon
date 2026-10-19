@@ -503,8 +503,12 @@ include it. At 153.4 s, a clip of up to 16.5 s keeps the video under 170 s.
 * **On screen:**
   * Evidence, tab **Server and MCP**, shows **Server reached** with the commit and the model
     path the live server reports.
-  * **Run a real MCP handshake** sends `initialize` and `tools/list` and calls no tool. Hold
-    on the negotiated version and the tool list as the page prints them.
+  * **Run a real MCP handshake** sends `initialize` and `tools/list` and calls no tool. It is
+    pressed as the beat starts, and the negotiated version and the tool list are held for at
+    least 2.0 s (`MCP_FACTS_HOLD_SECONDS` in `capture-local.py`) and until 40% into the last
+    sentence. Take 6's first attempt, on 2026-10-19, pressed it on the first sentence. The live
+    build answered 0.81 s later and the page jumped away 0.19 s after that, so frames read by
+    index at 144.2 s and 144.8 s showed `not run yet` and then the connection strip.
   * Then the connection strip's Alexa+ box: package built and tested locally, not certified
     or deployed.
 * **Not pressed:** **Replay the documented Alexa+ requests**. On the live build it costs three
