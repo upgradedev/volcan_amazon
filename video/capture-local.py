@@ -300,7 +300,11 @@ def drill_label_problem(meter: str, coverage: str, spoken: str, data: dict[str, 
     response. In a rehearsal no model can answer, so the page must say so honestly: the
     meter reads DRILL_REHEARSAL_METER, no coverage line is printed, and the spoken
     sentence ends "No model answered: <reason>."; a rehearsal whose drill-down wears a
-    model's name fails."""
+    model's name fails.
+
+    Defined and unit-tested, not yet called by the capture: the journey has no
+    drill-down press until the owner picks a take 6 shape (video/SHOT_LIST.md). The
+    wiring and a test that fails if the journey stops calling it land with that shape."""
     meter = " ".join(str(meter or "").split())
     coverage = " ".join(str(coverage or "").split())
     if rehearsal:
