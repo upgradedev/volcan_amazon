@@ -8,6 +8,7 @@ gate goes red.
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -76,8 +77,16 @@ def test_the_audit_reports_all_four_as_passing_from_inside_the_repository():
     for gate_id in ("I1", "I2", "I3", "I4"):
         assert results[gate_id].passed is True, results[gate_id].message
         assert readiness.PERSONA_REVIEW_DOC in results[gate_id].message
-    assert results["G2"].passed is True, results["G2"].message
+    # G2 reads the deploy receipt against HEAD. Whether it passes depends on
+    # what is live, which a commit that changes the runtime cannot change
+    # before it is deployed, so the test pins the gate's verdict to its own
+    # comparison rather than to the deploy state.
     head = readiness.git_head()
+    receipt = json.loads((REPO_ROOT / "deploy_teardown_receipt.json").read_text(encoding="utf-8"))
+    problem = readiness.deployed_checkout_problem(str(receipt.get("deployed_commit_sha") or ""), head)
+    assert results["G2"].passed is (problem is None), results["G2"].message
+    if problem is not None:
+        assert results["G2"].message.endswith(problem), results["G2"].message
     assert readiness.deployed_checkout_problem(head, head) is None
     non_ancestor = readiness.deployed_checkout_problem("0" * 40, head)
     assert non_ancestor is not None and "is not an ancestor of HEAD" in non_ancestor
