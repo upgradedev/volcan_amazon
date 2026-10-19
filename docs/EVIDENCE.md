@@ -105,14 +105,17 @@ Braille cells, and reports the round trip it measured with `performance.now()`.
 **The patch already in the box is the point of the product.** It inverts an authorization
 comparison, and the words on both sides of that change are identical, so no keyword matcher
 can see it. Volcan answers `an authorization comparison was inverted: user.role == 'admin'
-became user.role != 'admin'` and sounds the falling `SECURITY_FINDING` cue. Three more chips
-sit beside it: one per syntax-tree rule, plus a labelled clean control where the right answer
-is no finding at all and the rising `DIFF_READY` cue. Every chip's label quotes the sentence
+became user.role != 'admin'` and sounds the falling `SECURITY_FINDING` cue. Five more chips
+sit beside it: one for each of the other four syntax-tree rules (presets 2, 3, 5 and 6), plus a
+labelled clean control (preset 4) where the right answer is no finding at all and the rising
+`DIFF_READY` cue. Every chip's label quotes the sentence
 the server will produce, and
 [`tests/e2e/test_shipped_presets_reach_their_rule.py`](../tests/e2e/test_shipped_presets_reach_their_rule.py)
 runs each shipped preset through the production parser and fails the build if a label and its
-rule ever separate. All four, posted to `POST /api/digest_semantic_diff` on a running server on
-2026-09-27, answered:
+rule ever separate. All six, posted to `POST /api/digest_semantic_diff` with `engine` `local`
+on a local server with every `AWS_*` variable removed (no model call), on 2026-10-19, answered
+(each patch lifted from the page by `shipped_presets()` in that test, then
+`httpx.post(base + "/api/digest_semantic_diff", json={"raw_diff": patch, "level": 0, "engine": "local"})`):
 
 ```
 preset 1: cue=SECURITY_FINDING
@@ -123,6 +126,10 @@ preset 3: cue=SECURITY_FINDING
    voice: In src/webhooks/receiver.py, the call verify_signature(payload, request.headers['X-Signature']) was removed and nothing replaced it. Modified 1 file with 0 additions and 1 deletion.
 preset 4: cue=DIFF_READY
    voice: The change touches normalise in src/utils/parser.py; no security rule matched. Modified 1 file with 3 additions and 1 deletion.
+preset 5: cue=SECURITY_FINDING
+   voice: In src/orders/lookup.py, a SQL SELECT is built by string concatenation from req.order_id, not bound as a parameter. Modified 1 file with 1 addition and 1 deletion.
+preset 6: cue=SECURITY_FINDING
+   voice: In src/billing/rates.py, TLS certificate checks were turned off: requests.get(url, timeout=5, verify=False). Modified 1 file with 1 addition and 1 deletion.
 ```
 
 The finding is said once and leads; the counts follow. With no finding, the local engine names
@@ -567,7 +574,7 @@ those.
 | Tool | What it returns |
 |---|---|
 | `digest_semantic_diff` | Spoken digest, the earcon that encodes the verdict as audio, and the parsed detail |
-| `drill_down_section` | Symbol-level explanation of one file section, plus the earcon for that section |
+| `drill_down_section` | The local rules' finding for one file section, then Claude on Amazon Bedrock's answer about that file alone with `model_answered` and coverage counts, or the named reason no model answered, plus the earcon for that section |
 | `stage_governed_action` | An action id, a payload hash, a dry-run plan and a single-use grant |
 | `confirm_governed_action` | Release or a named refusal, plus the matching earcon |
 | `play_earcon` | A 16-bit PCM WAV as an MCP `audio` content block |

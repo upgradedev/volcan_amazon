@@ -8,6 +8,8 @@ gate goes red.
 """
 from __future__ import annotations
 
+import json
+import os
 import sys
 from pathlib import Path
 
@@ -70,13 +72,29 @@ def test_the_gates_read_the_document_this_repository_ships():
     assert (REPO_ROOT / readiness.PERSONA_REVIEW_DOC).is_file()
 
 
-def test_the_audit_reports_all_four_as_passing_from_inside_the_repository():
-    """End to end: run the auditor and read I1 to I4 and G2 out of its own results."""
-    results = {r.gate_id: r for r in readiness.audit_project()}
+@pytest.fixture(scope="module")
+def audit_results():
+    return {r.gate_id: r for r in readiness.audit_project()}
+
+
+def _on_master() -> bool:
+    """True in CI on a push to master, or in a local checkout of master."""
+    ref = os.environ.get("GITHUB_REF")
+    if ref is not None:
+        return ref == "refs/heads/master"
+    branch = readiness.subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=str(REPO_ROOT), capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    return branch == "master"
+
+
+def test_the_audit_reports_all_four_as_passing_from_inside_the_repository(audit_results):
+    """End to end: run the auditor and read I1 to I4 out of its own results."""
+    results = audit_results
     for gate_id in ("I1", "I2", "I3", "I4"):
         assert results[gate_id].passed is True, results[gate_id].message
         assert readiness.PERSONA_REVIEW_DOC in results[gate_id].message
-    assert results["G2"].passed is True, results["G2"].message
     head = readiness.git_head()
     assert readiness.deployed_checkout_problem(head, head) is None
     non_ancestor = readiness.deployed_checkout_problem("0" * 40, head)
@@ -90,6 +108,22 @@ def test_the_audit_reports_all_four_as_passing_from_inside_the_repository():
     ).stdout.strip().splitlines()[0]
     stale_runtime = readiness.deployed_checkout_problem(first_commit, head)
     assert stale_runtime is not None and "live runtime files changed after deployed commit" in stale_runtime
+
+
+def test_g2_passes_because_the_live_runtime_is_this_runtime(audit_results):
+    """The deploy-parity guard: master CI goes red when live falls behind master.
+
+    A branch that changes the runtime cannot be deployed before it merges, so
+    on any ref other than master the test is skipped with the gate's own
+    reason, which keeps the condition visible in the CI output. On master it
+    is a hard assert, as it was before.
+    """
+    head = readiness.git_head()
+    receipt = json.loads((REPO_ROOT / "deploy_teardown_receipt.json").read_text(encoding="utf-8"))
+    problem = readiness.deployed_checkout_problem(str(receipt.get("deployed_commit_sha") or ""), head)
+    if problem is not None and not _on_master():
+        pytest.skip(f"G2 externally blocked until redeploy: {problem}")
+    assert audit_results["G2"].passed is True, audit_results["G2"].message
 
 
 def test_a_missing_document_fails_all_four():

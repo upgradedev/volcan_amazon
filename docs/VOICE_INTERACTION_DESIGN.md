@@ -82,9 +82,14 @@ field carries the turn.
 ### Drill into one file
 * **Spoken form:** "inspect section one", "explain the changes in auth dot py"
 * **Endpoint:** `POST /api/drill_down_section`, or MCP tool `drill_down_section`
-* **Response:** symbol-level explanation, the category, the significance, the security
-  flags, and the `DRILL_DOWN_OPENED` earcon, replaced by `SECURITY_FINDING` when this
-  section is the flagged one, so the verdict survives the descent into a single file
+* **Response:** the local rules' finding for that file, then Claude on Amazon Bedrock's
+  answer about that file alone ("Claude Sonnet 5 on Amazon Bedrock says: ..."), with the
+  model named from `model_answered` and the coverage counts `model_input_chars_sent` of
+  `model_input_chars_total`; when no model answered, the spoken text ends "No model
+  answered:" and the named reason (a refusal, a timeout, no credentials). Also the category,
+  the significance, the security flags, and the `DRILL_DOWN_OPENED` earcon, replaced by
+  `SECURITY_FINDING` when this section is the flagged one, so the verdict survives the
+  descent into a single file
 
 ### Stage a command
 * **Spoken form:** "stage running the unit tests"

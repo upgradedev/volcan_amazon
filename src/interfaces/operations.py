@@ -11,6 +11,7 @@ MCP turns it into an audio content block.
 import base64
 from typing import Any
 
+from src.application.digest_diff_use_case import model_words
 from src.application.durable_state import review_audit_scope
 from src.application.public_audit import (
     PUBLIC_AUDIT_LIMIT,
@@ -38,6 +39,35 @@ from src.interfaces.dto import (
 )
 
 
+def _model_evidence(report) -> dict[str, Any]:
+    """What a model said and was shown, or nulls when none answered.
+
+    The digest and the drill-down return these under the same names with the
+    same meaning, so the page and an MCP client read them one way.
+    """
+    return {
+        "synthesis_mode": report.synthesis_mode,
+        # Null when a model answered. Otherwise a bounded product-owned category
+        # explains why the deterministic path answered. Provider payloads can
+        # contain cloud identity and request identifiers and never cross the API.
+        "synthesis_fallback_reason": report.fallback_reason,
+        # The model's own words, uncut and with Markdown markup removed, and
+        # what it was shown: null unless a model answered, so a heuristic
+        # answer never carries model-shaped data.
+        "model_prose_full": report.model_prose_full,
+        "model_input_truncated": (
+            report.model_input_chars_sent is not None
+            and report.model_input_chars_total is not None
+            and report.model_input_chars_sent < report.model_input_chars_total
+        ),
+        "model_input_chars_sent": report.model_input_chars_sent,
+        "model_input_chars_total": report.model_input_chars_total,
+        # Which model wrote model_prose_full, so the page and the docs read
+        # the name from the answer instead of from a constant that can drift.
+        "model_answered": report.model_answered,
+    }
+
+
 async def op_digest(req: DigestRequest, engine: str = "auto") -> dict[str, Any]:
     report = await digest_use_case.execute(req.raw_diff, engine=engine)
     # The cue carries the verdict, so it is read off the report rather than
@@ -52,25 +82,10 @@ async def op_digest(req: DigestRequest, engine: str = "auto") -> dict[str, Any]:
         # symbol cannot turn the finding into its opposite. The display text
         # above keeps the literal code, as does the Braille.
         "voice_summary_for_speech": speakable(report.to_voice_summary(level=req.level)),
-        "synthesis_mode": report.synthesis_mode,
-        # Null when a model answered. Otherwise a bounded product-owned category
-        # explains why the deterministic path answered. Provider payloads can
-        # contain cloud identity and request identifiers and never cross the API.
-        "synthesis_fallback_reason": report.fallback_reason,
-        # The model's own words, uncut and with Markdown markup removed, and
-        # what it was shown: null unless a model answered, so a heuristic
-        # digest never carries model-shaped data.
-        "model_prose_full": report.model_prose_full,
-        "model_input_truncated": (
-            report.model_input_chars_sent is not None
-            and report.model_input_chars_total is not None
-            and report.model_input_chars_sent < report.model_input_chars_total
-        ),
-        "model_input_chars_sent": report.model_input_chars_sent,
-        "model_input_chars_total": report.model_input_chars_total,
-        # Which model wrote model_prose_full, so the page and the docs read
-        # the name from the answer instead of from a constant that can drift.
-        "model_answered": report.model_answered,
+        # The model-evidence fields: synthesis mode, the bounded fallback
+        # reason, the model's full prose, what it was shown and which model
+        # answered. See _model_evidence.
+        **_model_evidence(report),
         "total_files": report.total_files_changed,
         "insertions": report.total_insertions,
         "deletions": report.total_deletions,
@@ -85,14 +100,20 @@ async def op_digest(req: DigestRequest, engine: str = "auto") -> dict[str, Any]:
     }
 
 
+def _answered_by(model_answered: str | None) -> str:
+    """Who answered on Bedrock, as words. A Bedrock answer that names no model
+    is still a model answer, so it is said as one, without inventing a name."""
+    if model_answered:
+        return f"{model_words(model_answered)} on Amazon Bedrock"
+    return "Amazon Bedrock, model not named,"
+
+
 async def op_drill_down(req: DrillDownRequest) -> dict[str, Any]:
-    report = await digest_use_case.execute(req.raw_diff)
-    if req.section_index < 0 or req.section_index >= len(report.sections):
-        raise IndexError(
-            f"Section index {req.section_index} is out of bounds; the patch has "
-            f"{len(report.sections)} sections."
-        )
-    sec = report.sections[req.section_index]
+    # The index is checked against the local parse first, so a press past the
+    # last file costs no model call. The model, when one is called, is asked
+    # about this file's part of the patch only; it used to be asked about the
+    # whole patch and its answer was dropped.
+    sec, report = await digest_use_case.drill_down(req.raw_diff, req.section_index)
     cue, wav_bytes = sonify_use_case.execute(earcon_for_section(sec))
     # Words a listener hears, not identifiers: "business logic, low
     # significance", and counts that agree with their noun. The raw enum
@@ -108,6 +129,16 @@ async def op_drill_down(req: DrillDownRequest) -> dict[str, Any]:
         )
     elif sec.security_flags:
         spoken += f" Security alert: Flagged for {', '.join(sec.security_flags)}."
+    # The local rules speak first, as in the level 0 digest, then the model in
+    # its own words, named from the answer. When no model answered, the
+    # listener hears that and the bounded reason, because this text is what a
+    # screen reader, a Braille display and an MCP client such as Alexa+ get.
+    if report.synthesis_mode == "bedrock":
+        spoken += f" {_answered_by(report.model_answered)} says: {report.executive_spoken_summary}"
+    elif report.fallback_reason:
+        spoken += f" No model answered: {report.fallback_reason.rstrip('.')}."
+    else:
+        spoken += " No model answered."
     return {
         "spoken_text": spoken,
         "spoken_text_for_speech": speakable(spoken),
@@ -116,6 +147,7 @@ async def op_drill_down(req: DrillDownRequest) -> dict[str, Any]:
         "significance": sec.significance.value,
         "security_flags": sec.security_flags,
         "security_findings": sec.security_findings,
+        **_model_evidence(report),
         "earcon": {
             "type": cue.earcon_type.value,
             "spoken_fallback": cue.spoken_fallback,

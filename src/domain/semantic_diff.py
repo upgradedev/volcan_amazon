@@ -351,6 +351,17 @@ class UnifiedDiffParser:
 
     @classmethod
     def parse_patch(cls, raw_diff: str) -> list[DiffSectionDigest]:
+        return [section for section, _ in cls.parse_patch_with_text(raw_diff)]
+
+    @classmethod
+    def parse_patch_with_text(cls, raw_diff: str) -> list[tuple[DiffSectionDigest, str]]:
+        """Each file's section together with that file's own part of the patch.
+
+        The drill-down asks the model about one file, so it needs the exact
+        text the section was parsed from. Both come out of the same loop, so a
+        section index and its text cannot drift apart, and each text parses
+        back to its section alone.
+        """
         if not raw_diff or not raw_diff.strip():
             return []
 
@@ -359,6 +370,7 @@ class UnifiedDiffParser:
         for lines in cls._split_file_chunks(raw_diff):
             if not any(line.strip() for line in lines):
                 continue
+            file_text = "\n".join(lines) + "\n"
 
             file_path = cls._file_path_from(lines)
             hunks = cls.parse_hunks(lines)
@@ -415,7 +427,7 @@ class UnifiedDiffParser:
                 f"{category.value.replace('_', ' ').lower()}."
             )
 
-            sections.append(
+            sections.append((
                 DiffSectionDigest(
                     file_path=file_path,
                     symbol_name="module_scope",
@@ -427,8 +439,9 @@ class UnifiedDiffParser:
                     security_flags=security_flags,
                     security_findings=security_findings,
                     hunks=hunks,
-                )
-            )
+                ),
+                file_text,
+            ))
 
         return sections
 

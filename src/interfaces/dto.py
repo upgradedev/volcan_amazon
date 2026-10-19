@@ -186,6 +186,13 @@ class DrillDownResult(BaseModel):
     significance: str
     security_flags: list[str] = Field(..., description="Machine labels of the rules that matched in this section")
     security_findings: list[str] = Field(..., description="One sentence per matched rule, in the same order")
+    synthesis_mode: str = Field(..., description="bedrock when a model answered about this file, heuristic-local otherwise")
+    synthesis_fallback_reason: str | None = Field(..., description="Why no model answered about this file; null when one did")
+    model_prose_full: str | None = Field(..., description="The model's full answer about this file; null unless a model answered")
+    model_input_truncated: bool = Field(..., description="True when the model was shown only a prefix of this file's part of the patch")
+    model_input_chars_sent: int | None = Field(..., description="Characters of this file's part of the patch the model was shown")
+    model_input_chars_total: int | None = Field(..., description="Characters in this file's part of the patch")
+    model_answered: str | None = Field(..., description="The Bedrock model id the answered request named; null unless a model answered")
 
 
 class ReviewFocus(BaseModel):

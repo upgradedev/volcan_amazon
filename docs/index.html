@@ -1168,7 +1168,7 @@
             <div class="chips" role="group" aria-label="Digest detail controls">
               <button type="button" id="speakAgain" title="Read the current digest aloud again with the browser speech engine">Speak it again</button>
               <button type="button" id="level1" title="Request the same patch at digest level 1, the file-by-file breakdown">File-by-file</button>
-              <button type="button" id="drillDown" title="Call the drill down endpoint for the first section of the patch">Drill into file 1</button>
+              <button type="button" id="drillDown" title="Ask about the first file of the patch: the local rules, then Claude on Amazon Bedrock when a model is available">Drill into file 1</button>
             </div>
           </div>
           <div class="tool-group">
@@ -1687,8 +1687,21 @@
       return text.charAt(0).toUpperCase() + text.slice(1) + " cue";
     }
 
+    /* A refusal or a timeout means a model was called and did not answer,
+       so the local path is never described as "no model called". */
     function engineWords(mode) {
-      return mode === "bedrock" ? "Amazon Bedrock, a model answered" : "the local heuristic, no model called";
+      return mode === "bedrock" ? "Amazon Bedrock, a model answered" : "the local rules, no model answered";
+    }
+
+    /* "anthropic.claude-sonnet-5" as "Claude Sonnet 5", read from the id the
+       answer carries in model_answered. Any id the rule does not fit is shown
+       as it is. The server says the same name in its spoken drill-down, by
+       the same rule (model_words in src/application/digest_diff_use_case.py). */
+    function modelWords(id) {
+      var match = /^(?:[a-z]{2,6}\.)?anthropic\.claude-([a-z]+)((?:-\d+)+)$/.exec(String(id || ""));
+      if (!match) { return String(id || ""); }
+      return "Claude " + match[1].charAt(0).toUpperCase() + match[1].slice(1) + " "
+        + match[2].replace(/^-/, "").split("-").join(".");
     }
 
     /* --- honest connection state ------------------------------------- */
@@ -2037,8 +2050,8 @@
           ? "Drill into file 1 of " + State.sectionCount
           : "Drill into file 1";
         drillBtn.title = State.sectionCount > 1
-          ? "Call the drill down endpoint for section 1 of " + State.sectionCount + " (press again to cycle files)"
-          : "Call the drill down endpoint for the first section of the patch";
+          ? "Ask about file 1 of " + State.sectionCount + ": the local rules, then Claude on Amazon Bedrock when a model is available (press again to cycle files)"
+          : "Ask about the first file of the patch: the local rules, then Claude on Amazon Bedrock when a model is available";
       }
 
       var indent = Infinity;
@@ -2368,6 +2381,8 @@
       clear(coverage);
       clear(prose);
       wrap.hidden = true;
+      // A drill-down opens its answer; the digest's answer starts folded.
+      wrap.open = false;
       if (data.model_prose_full === null || data.model_prose_full === undefined) { return; }
       var sent = data.model_input_chars_sent;
       var total = data.model_input_chars_total;
@@ -2386,13 +2401,59 @@
       wrap.hidden = false;
     }
 
+    /* Who answered a drill-down, as words: "Claude Sonnet 5 on Amazon
+       Bedrock", read from model_answered, and only when a model answered.
+       A Bedrock answer that names no model is still a model answer and is
+       labelled as one, without a name. Null otherwise, so no fallback can
+       wear the model's name. */
+    function drillModelWords(data) {
+      if (data.synthesis_mode !== "bedrock") { return null; }
+      if (typeof data.model_answered !== "string" || !data.model_answered) {
+        return "Amazon Bedrock, model not named";
+      }
+      return modelWords(data.model_answered) + " on Amazon Bedrock";
+    }
+
+    /* The drill-down's own coverage line and full answer. The model was shown
+       this one file's part of the patch, so the counts are counts of that
+       part. The answer is opened, not folded away: it is what the press asked
+       for. With no model answer both stay empty and hidden, and the meter
+       note above carries the reason. */
+    function renderDrillModel(data, answeredBy) {
+      var coverage = $("modelCoverage");
+      var wrap = $("modelProseWrap");
+      var prose = $("modelProse");
+      clear(coverage);
+      clear(prose);
+      wrap.hidden = true;
+      wrap.open = false;
+      if (!answeredBy || data.model_prose_full === null || data.model_prose_full === undefined) { return; }
+      var sent = data.model_input_chars_sent;
+      var total = data.model_input_chars_total;
+      var part = " characters of " + data.file_path + "'s part of the patch.";
+      var who = data.model_answered ? answeredBy : "The model on Amazon Bedrock";
+      if (typeof sent === "number" && typeof total === "number" && total > sent) {
+        coverage.textContent = who + " read the first " + sent + " of " + total + part;
+      } else if (typeof sent === "number" && typeof total === "number") {
+        coverage.textContent = who + " read " + sent + " of " + total + part;
+      } else {
+        coverage.textContent = who + " answered; what it was shown was not reported.";
+      }
+      coverage.textContent += " The local rules read all of this file's changes.";
+      prose.textContent = data.model_prose_full;
+      wrap.hidden = false;
+      wrap.open = true;
+    }
+
     function renderSpoken(data, elapsedMs, label) {
       State.lastDigest = data;
       var sentence = spokenSentence(data.voice_summary);
       State.lastWords = sentence.words;
       spokenTarget().appendChild(sentence.node);
+      var why = data.synthesis_mode !== "bedrock" && data.synthesis_fallback_reason
+        ? ", because: " + data.synthesis_fallback_reason + "." : ".";
       plainThenRaw($("spokenCaption"), label + " returned in " + elapsedMs.toFixed(1)
-        + " ms by " + engineWords(data.synthesis_mode), data.synthesis_mode, ".");
+        + " ms by " + engineWords(data.synthesis_mode), data.synthesis_mode, why);
       renderModelProvenance(data);
       return sentence.words;
     }
@@ -2925,18 +2986,26 @@
           { raw_diff: $("diffInput").value, section_index: targetIndex });
         if (seq !== State.pressSeq) { return; }
         $("meters").hidden = false;
-        $("meterEngine").firstChild.nodeValue = "local AST drill-down";
-        $("meterEngineNote").textContent =
-          "Reported by POST /api/drill_down_section for section " + (targetIndex + 1) + ".";
+        var where = " (section " + (targetIndex + 1) + " of " + State.sectionCount + ")";
+        var drillModel = drillModelWords(drill.data);
+        $("meterEngine").firstChild.nodeValue = drillModel || "local rules, no model answered";
+        var drillNote = "Reported by POST /api/drill_down_section for section " + (targetIndex + 1)
+          + " as synthesis_mode: " + drill.data.synthesis_mode;
+        if (drillModel) {
+          drillNote += ", model_answered: " + (drill.data.model_answered || "null") + ".";
+        } else {
+          drillNote += ". No model answered, because: "
+            + (drill.data.synthesis_fallback_reason || "the server gave no reason") + ".";
+        }
+        $("meterEngineNote").textContent = drillNote;
         $("meterLatency").firstChild.nodeValue = drill.elapsedMs.toFixed(1) + " ms";
-        $("meterChange").firstChild.nodeValue = drill.data.file_path
-          + "   (section " + (targetIndex + 1) + " of " + State.sectionCount + ")";
+        $("meterChange").firstChild.nodeValue = drill.data.file_path + "   " + where.trim();
         var sentence = spokenSentence(drill.data.spoken_text);
         spokenTarget().appendChild(sentence.node);
-        $("spokenCaption").textContent = "Drill down on " + drill.data.file_path
-          + " (section " + (targetIndex + 1) + " of " + State.sectionCount + "), returned in "
-          + drill.elapsedMs.toFixed(1) + " ms.";
-        renderModelProvenance({});
+        $("spokenCaption").textContent = "Drill down on " + drill.data.file_path + where
+          + ", returned in " + drill.elapsedMs.toFixed(1) + " ms by "
+          + (drillModel ? drillModel + " and the local rules." : "the local rules; no model answered.");
+        renderDrillModel(drill.data, drillModel);
         State.lastDigest = {
           voice_summary: drill.data.spoken_text,
           voice_summary_for_speech: drill.data.spoken_text_for_speech

@@ -199,8 +199,11 @@ def build_tool_registry() -> ToolRegistry:
         name="drill_down_section",
         title="Inspect one file section of a patch",
         description=(
-            "Return a symbol-level spoken explanation of one section of a patch, with the "
-            "falling SECURITY_FINDING earcon when that section is flagged."
+            "Return a spoken explanation of one file section of a patch: the local rules' "
+            "finding first, then Claude on Amazon Bedrock's answer about that file alone when "
+            "a model answers (model_answered names it, and the coverage fields say how much "
+            "of the file it read), or the reason none did. The falling SECURITY_FINDING "
+            "earcon plays when that section is flagged."
         ),
         input_model=DrillDownRequest, handler=tool_drill_down, output_model=DrillDownResult,
     ))
