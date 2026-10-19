@@ -120,6 +120,9 @@ def test_billed_presses_are_off_unless_the_owner_passes_the_flag():
         (f"{LIVE}/api/review/turn", "POST", '{"transcript":"confirm","pr_url":null}', None),
         (f"{LIVE}/mcp", "POST", '{"jsonrpc":"2.0","method":"tools/call","id":"1"}', "mcp_tools_call"),
         (f"{LIVE}/mcp", "POST", '{"jsonrpc":"2.0","method":"initialize","id":"1"}', None),
+        # Since 873845d a drill-down asks Amazon Bedrock about the file; its body has no
+        # engine field, so every press bills, and an unplanned one is refused.
+        (f"{LIVE}/api/drill_down_section", "POST", '{"raw_diff":"x","section_index":0}', "drill_down"),
         (f"{LIVE}/api/braille/diff_digest", "POST", '{"raw_diff":"x"}', None),
         (f"{LIVE}/health", "GET", None, None),
     ],
@@ -758,3 +761,81 @@ def test_the_health_refusals_name_the_beat_that_says_it():
     source = (VIDEO / "capture-local.py").read_text(encoding="utf-8")
     assert "beat 2 says the review state" not in source and "beat 5 says the build" not in source
     assert "beat 3 names Amazon DynamoDB" not in source
+
+
+def drill_answer(**change: object) -> dict[str, object]:
+    """A drill-down response as POST /api/drill_down_section returns it on the live build."""
+    return {
+        "file_path": "src/auth/permissions.py",
+        "synthesis_mode": "bedrock",
+        "synthesis_fallback_reason": None,
+        "model_answered": "anthropic.claude-sonnet-5",
+        "model_input_chars_sent": 328,
+        "model_input_chars_total": 328,
+        "model_prose_full": "The comparison is inverted.",
+        "spoken_text": "Inspecting src/auth/permissions.py: ... Claude Sonnet 5 on Amazon Bedrock says: inverted.",
+        **change,
+    }
+
+
+DRILL_COVERAGE = ("Claude Sonnet 5 on Amazon Bedrock read 328 of 328 characters of "
+                  "src/auth/permissions.py's part of the patch. The local rules read all of this file's changes.")
+
+
+def test_the_drill_down_label_and_coverage_follow_the_page():
+    assert capture.model_words("anthropic.claude-sonnet-5") == "Claude Sonnet 5"
+    assert capture.model_words("eu.anthropic.claude-opus-4-1") == "Claude Opus 4.1"
+    assert capture.model_words("amazon.nova-pro") == "amazon.nova-pro"
+    assert capture.drill_meter_words(drill_answer()) == capture.DRILL_TAKE_LABEL
+    assert capture.drill_meter_words(drill_answer(model_answered=None)) == "Amazon Bedrock, model not named"
+    assert capture.drill_meter_words(drill_answer(synthesis_mode="heuristic-local")) == \
+        "local rules, no model answered"
+    assert capture.expected_drill_coverage_line(drill_answer()) == DRILL_COVERAGE
+    assert capture.expected_drill_coverage_line(drill_answer(model_input_chars_sent=300, model_input_chars_total=900)) \
+        .startswith("Claude Sonnet 5 on Amazon Bedrock read the first 300 of 900 characters of ")
+    assert capture.expected_drill_coverage_line(drill_answer(model_answered=None)).startswith(
+        "The model on Amazon Bedrock read 328 of 328")
+    assert capture.expected_drill_coverage_line(drill_answer(synthesis_mode="heuristic-local")) is None
+    assert capture.expected_drill_coverage_line(drill_answer(model_prose_full=None)) is None
+
+
+def test_a_billed_take_needs_claude_sonnet_5_on_the_drill_down_meter():
+    model = "anthropic.claude-sonnet-5"
+    meter = capture.DRILL_TAKE_LABEL
+    assert capture.drill_label_problem(meter, DRILL_COVERAGE, "", drill_answer(), model, False) is None
+    # The page's own whitespace does not matter; the words do.
+    assert capture.drill_label_problem(f" {meter} ", DRILL_COVERAGE + "\n", "", drill_answer(), model, False) is None
+    for meter_on_page, coverage, data, health, message in (
+        (meter, DRILL_COVERAGE, drill_answer(synthesis_mode="heuristic-local",
+                                             synthesis_fallback_reason="model call timed out"),
+         model, "answered by 'heuristic-local'"),
+        ("Amazon Bedrock, model not named", DRILL_COVERAGE, drill_answer(model_answered=None), model,
+         "the take names the model"),
+        (meter, DRILL_COVERAGE, drill_answer(), "anthropic.claude-opus-5", "but /health reports"),
+        ("Claude Opus 5 on Amazon Bedrock", DRILL_COVERAGE, drill_answer(model_answered="anthropic.claude-opus-5"),
+         "anthropic.claude-opus-5", "not 'Claude Sonnet 5 on Amazon Bedrock'"),
+        ("local rules, no model answered", DRILL_COVERAGE, drill_answer(), model, "meter reads"),
+        (meter, "The model read the whole 328-character patch. Answered by anthropic.claude-sonnet-5.",
+         drill_answer(), model, "coverage line reads"),
+        (meter, "", drill_answer(model_prose_full=None), model, "carries no full text"),
+    ):
+        problem = capture.drill_label_problem(meter_on_page, coverage, "", data, health, False)
+        assert problem is not None and message in problem, (message, problem)
+
+
+def test_a_rehearsal_drill_down_must_say_no_model_answered():
+    reason = "no AWS credentials were resolved by the boto3 credential chain"
+    local = drill_answer(synthesis_mode="heuristic-local", synthesis_fallback_reason=reason, model_answered=None,
+                         model_input_chars_sent=None, model_input_chars_total=None, model_prose_full=None)
+    spoken = ("Inspecting src/auth/permissions.py: security sensitive, critical significance. "
+              f"1 line added, 1 removed. No model answered: {reason}.")
+    meter = capture.DRILL_REHEARSAL_METER
+    assert capture.drill_label_problem(meter, "", spoken, local, "anthropic.claude-sonnet-5", True) is None
+    # A rehearsal whose drill-down wears Claude's name, or prints a coverage line, fails.
+    assert "a free rehearsal must read" in capture.drill_label_problem(
+        capture.DRILL_TAKE_LABEL, "", spoken, local, None, True)
+    assert "a free rehearsal must read" in capture.drill_label_problem(
+        meter, "", spoken, drill_answer(), None, True)
+    assert "no model answered" in capture.drill_label_problem(meter, DRILL_COVERAGE, spoken, local, None, True)
+    assert "does not end" in capture.drill_label_problem(meter, "", spoken.replace("No model", "A model"),
+                                                          local, None, True)

@@ -18,6 +18,63 @@ answer the page can speak, at the slowest speech rate measured for beat 2's sent
 the allowance is an ESTIMATE resting on one measured press. The basis for each window is
 written beside it in `narration.json`.
 
+## Take 6 on `873845d`: the drill-down beat needs an owner choice
+
+The live build serves `873845d` (PR #40) since 2026-10-19. Its drill-down asks Amazon Bedrock
+about one file and shows the answer with its own label and coverage line. Take 6 is meant to
+add one beat for it. This section is the arithmetic, and it is why `narration.json` still
+holds the seven beats of take 5. Nothing below was rehearsed.
+
+**The drill-down's sentence.** On the stage patch, `Inverted admin check`, the page has one
+file, `src/auth/permissions.py`, so the button reads `Drill into file 1` from page load (the
+preset loads on start, and `renderPatchView` sets the section count). The page speaks
+`spoken_text_for_speech` as one utterance.
+
+* Measured on `873845d` with `op_drill_down` and no AWS credentials, 2026-10-19: the local
+  sentence is 313 characters, of which the ending `No model answered: no AWS credentials were
+  resolved by the boto3 credential chain.` is 83 with its space. That leaves 230.
+* On the live build that ending becomes ` Claude Sonnet 5 on Amazon Bedrock says: ` (41) and the
+  model's line, which `shorten_for_speech` keeps to at most 182. So 230 + 41 + 182 = 453
+  characters, more when the line has code operators in it.
+
+**The window (ESTIMATE).** By beat 2's rule: the 5.9 s latency allowance, the 0.66 s earcon
+lead, and 453 characters at the slowest measured rate, 0.0902 s a character, plus 1 s:
+5.9 + 0.66 + 40.86 + 1 = 48.42 s, rounded up to the half second, 48.5 s. With a one-line
+narration before the press (about 3.4 s, ESTIMATE, like beat 2's) and the 0.65 s tail, the beat
+holds about 52.55 s. A free rehearsal cannot measure this window: its sentence is the
+313-character local form, about 28.2 s at the same rate.
+
+**Where it can go.** The page writes the drill-down's coverage line and full answer into the
+same elements as the digest, and overwrites the engine meter, so the drill-down comes after
+beat 3's hold on the digest's coverage line. The narration before the press names only the
+button. Anything that names the model, the label or the coverage line is said after the
+answer is on screen.
+
+**The budget.** Take 5 measured 153.412 s, and 167.448 s with the 14.0 s replay clip. The
+publication gate is 175 s.
+
+| Shape | Billed calls | Video, ESTIMATE | Fits 175 s? | What it costs |
+|---|---|---|---|---|
+| Keep every take 5 turn and add the drill-down beat | 6: open, Hear, drill-down, 3 replay | 167.448 + 52.55 = 220.0 s | no, 45 s over | nothing |
+| A. The drill-down replaces Hear as beat 2's press | 5: open, drill-down, 3 replay | 167.448 + (52.55 - 45.04) = 174.96 s, about 172.5 s after cutting beat 3's second sentence | yes, with about 2.5 s of margin | Hear is not pressed on camera. The drill-down still shows a real Bedrock answer, its label, its coverage line and its full answer |
+| B. Keep Hear and the drill-down, drop beats 4, 5 and 6 and end on a short narration beat | 6 | 220.0 - 65.62 + about 4.4 = 158.8 s | yes | Request changes, Confirm and the recorded request leave the video, and with them the governed write |
+| Keep Hear and the drill-down, drop only Confirm and beat 6 | 6 | 220.0 - 33.65 + about 4.4 = 190.8 s | no | |
+
+No cut inside a product turn or a model wait is allowed, so the gap cannot be closed by
+trimming product speech. Beats 1, 6 and 7 were already cut on 2026-10-06.
+
+**What the capture already checks for take 6.** These hold for either shape:
+
+* `billed_kind` names `POST /api/drill_down_section` as a billed `drill_down`. Until a
+  shape is chosen it is not in `BILLED_PRESSES`, so a drill-down press in a take is refused.
+* `drill_label_problem` checks the drill-down on screen against its own response. In a take
+  the meter must read exactly `Claude Sonnet 5 on Amazon Bedrock`, built from the response's
+  `model_answered`, which must be the `model_id` that `/health` reports. `Amazon Bedrock, model
+  not named` is refused. The coverage line must be exactly the one `renderDrillModel` prints.
+  In a rehearsal the meter must read `local rules, no model answered`, no coverage line may be
+  printed, and the sentence must end `No model answered: <reason>.`. A rehearsal whose
+  drill-down names a model fails.
+
 ---
 
 ## What this take must show, and where

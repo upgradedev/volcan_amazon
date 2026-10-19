@@ -175,6 +175,14 @@ BILLED_TURN_TIMEOUT_SECONDS = 60.0
 ANSWER_LATENCY_ALLOWANCE_SECONDS = 5.9
 # The model the narration names: beat 3 says Claude on Amazon Bedrock answered.
 CLAUDE_MODEL_PREFIX = "anthropic.claude"
+# A Claude model id, as the page's modelWords and the server's model_words read it.
+CLAUDE_ID = re.compile(r"^(?:[a-z]{2,6}\.)?anthropic\.claude-([a-z]+)((?:-\d+)+)$")
+# The drill-down's engine meter (runDrillDown in docs/index.html). A billed take must
+# read the label the take 6 plan shows; a free rehearsal must read the fallback words,
+# and an answer from Amazon Bedrock that names no model reads the unnamed form.
+DRILL_TAKE_LABEL = "Claude Sonnet 5 on Amazon Bedrock"
+DRILL_REHEARSAL_METER = "local rules, no model answered"
+DRILL_UNNAMED_METER = "Amazon Bedrock, model not named"
 
 
 def press_timeline_seconds(beat_start: float, narration_seconds: float, tail_seconds: float) -> float:
@@ -236,6 +244,94 @@ def coverage_line_problem(coverage: str, data: dict[str, object], health_model: 
         return "the answer does not report how much of the patch the model read"
     if coverage != expected:
         return f"the coverage line reads {coverage[:200]!r}, not {expected!r}"
+    return None
+
+
+def model_words(model_answered: str) -> str:
+    """"anthropic.claude-sonnet-5" as "Claude Sonnet 5", by the rule the page's
+    modelWords and the server's model_words share; any other id as it is."""
+    found = CLAUDE_ID.match(model_answered or "")
+    if not found:
+        return model_answered
+    return f"Claude {found.group(1).capitalize()} " + ".".join(found.group(2).strip("-").split("-"))
+
+
+def drill_meter_words(data: dict[str, object]) -> str:
+    """The engine meter the page shows for a drill-down answer (drillModelWords and
+    runDrillDown in docs/index.html): who answered, or the fallback words."""
+    if data.get("synthesis_mode") != "bedrock":
+        return DRILL_REHEARSAL_METER
+    model = data.get("model_answered")
+    if not isinstance(model, str) or not model:
+        return DRILL_UNNAMED_METER
+    return f"{model_words(model)} on Amazon Bedrock"
+
+
+def expected_drill_coverage_line(data: dict[str, object]) -> str | None:
+    """The coverage line the page prints for a drill-down answer (renderDrillModel in
+    docs/index.html), or None when the page prints none: no model answered, or the
+    answer carries no full text."""
+    if data.get("synthesis_mode") != "bedrock" or data.get("model_prose_full") is None:
+        return None
+    who = drill_meter_words(data) if data.get("model_answered") else "The model on Amazon Bedrock"
+    sent = data.get("model_input_chars_sent")
+    total = data.get("model_input_chars_total")
+    part = f" characters of {data.get('file_path')}'s part of the patch."
+
+    def number(value: object) -> bool:
+        return isinstance(value, int) and not isinstance(value, bool)
+
+    if number(sent) and number(total) and total > sent:
+        line = f"{who} read the first {sent} of {total}{part}"
+    elif number(sent) and number(total):
+        line = f"{who} read {sent} of {total}{part}"
+    else:
+        line = f"{who} answered; what it was shown was not reported."
+    return line + " The local rules read all of this file's changes."
+
+
+def drill_label_problem(meter: str, coverage: str, spoken: str, data: dict[str, object],
+                        health_model: object, rehearsal: bool) -> str | None:
+    """Why the drill-down on screen is not the one the plan shows, or None.
+
+    In a take the meter must read exactly DRILL_TAKE_LABEL, built from this response's
+    own model_answered, which must be the model_id /health reports; an answer that names
+    no model is refused, and the coverage line must be exactly the page's line for this
+    response. In a rehearsal no model can answer, so the page must say so honestly: the
+    meter reads DRILL_REHEARSAL_METER, no coverage line is printed, and the spoken
+    sentence ends "No model answered: <reason>."; a rehearsal whose drill-down wears a
+    model's name fails."""
+    meter = " ".join(str(meter or "").split())
+    coverage = " ".join(str(coverage or "").split())
+    if rehearsal:
+        if data.get("synthesis_mode") == "bedrock" or meter != DRILL_REHEARSAL_METER:
+            return (f"the rehearsal's drill-down meter reads {meter[:120]!r} with synthesis_mode "
+                    f"{data.get('synthesis_mode')!r}; a free rehearsal must read {DRILL_REHEARSAL_METER!r}")
+        if coverage:
+            return f"the rehearsal's drill-down prints the coverage line {coverage[:120]!r}; no model answered"
+        reason = str(data.get("synthesis_fallback_reason") or "").rstrip(".")
+        ending = f"No model answered: {reason}." if reason else "No model answered."
+        if not str(spoken or "").rstrip().endswith(ending):
+            return f"the rehearsal's drill-down sentence does not end {ending!r}"
+        return None
+    if data.get("synthesis_mode") != "bedrock":
+        return (f"the drill-down was answered by {data.get('synthesis_mode')!r}, because: "
+                f"{data.get('synthesis_fallback_reason')!r}; the take shows Claude on Amazon Bedrock")
+    model = data.get("model_answered")
+    if not isinstance(model, str) or not model:
+        return f"the drill-down meter reads {DRILL_UNNAMED_METER!r}; the take names the model"
+    if model != health_model:
+        return f"the drill-down names {model!r}, but /health reports model_id {health_model!r}"
+    expected_meter = drill_meter_words(data)
+    if expected_meter != DRILL_TAKE_LABEL:
+        return f"the drill-down answer is labelled {expected_meter!r}, not {DRILL_TAKE_LABEL!r}"
+    if meter != expected_meter:
+        return f"the drill-down meter reads {meter[:120]!r}, not {expected_meter!r}"
+    expected = expected_drill_coverage_line(data)
+    if expected is None:
+        return "the drill-down answer carries no full text, so the page prints no coverage line"
+    if coverage != expected:
+        return f"the drill-down coverage line reads {coverage[:200]!r}, not {expected!r}"
     return None
 
 
@@ -461,14 +557,18 @@ def billed_kind(url: str, method: str, body: str | None) -> str | None:
 
     The digest asks the default engine unless the body names one (the silent preview
     asks for "local"). Opening a pull request in the dialogue digests it with the
-    default engine. A tools/call on POST /mcp may run digest_semantic_diff, which is
-    how the Alexa+ replay bills three calls."""
+    default engine. A drill-down always asks the default engine: since 873845d (PR #40)
+    it asks Amazon Bedrock about the drilled file, and its body has no engine field. A
+    tools/call on POST /mcp may run digest_semantic_diff, which is how the Alexa+ replay
+    bills three calls."""
     if method.upper() != "POST":
         return None
     path = urllib.parse.urlparse(url).path.rstrip("/")
     text = body or ""
     if path.endswith("/api/digest_semantic_diff"):
         return None if '"engine"' in text else "digest"
+    if path.endswith("/api/drill_down_section"):
+        return "drill_down"
     if path.endswith("/api/review/turn"):
         try:
             data = json.loads(text)
