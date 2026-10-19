@@ -317,13 +317,10 @@ client (Lambda 3071 ms, model 1266 ms) at 1769 MB, and in 17.88 s at 256 MB.
 **Deployed.** On 2026-09-23 the public endpoint served `GET /health`, the current companion,
 the REST digest and MCP initialize/tool calls. Health exposes the immutable source revision.
 A governed action remained a dry-run and its bounded EMF records were read back from
-CloudWatch. On 2026-10-19, `curl -s <endpoint>/health` reported `source_revision` `0a30bb8`
-(master) and `model_id` `anthropic.claude-sonnet-5`. That revision is the `SOURCE_REVISION`
-value set at deploy, not a hash of the code; the probe in `deploy_teardown_receipt.json` read
-`0864c76` on 2026-10-18, and `git diff --name-only 0864c76 0a30bb8 -- src docs/index.html`
-prints nothing, so both name the runtime of master `0a30bb8`. The drill-down answered by Claude
-changes `src/` and `docs/index.html` after `0a30bb8` and is not live until the owner approves a
-redeploy. On 2026-10-07, after the redeploy of PR #35, `GET /health` reported `source_revision`
+CloudWatch. On 2026-10-19 at 07:20 UTC, the read-only probe in `deploy_teardown_receipt.json`
+read `source_revision` `873845d` (master, PR #40) and `model_id` `anthropic.claude-sonnet-5`
+from `/health`. That revision is the `SOURCE_REVISION` value set at deploy, not a hash of the
+code. That build includes the drill-down answered by Claude. On 2026-10-07, after the redeploy of PR #35, `GET /health` reported `source_revision`
 `716b0f3`; on 2026-10-06 it served `22c32ab` (PR #34). Known issue, fixed: the
 transactional writes serialized their DynamoDB items twice and DynamoDB refused them, so every
 durable stage (Request changes, Confirm, the audit append and finalization) failed on live. The
