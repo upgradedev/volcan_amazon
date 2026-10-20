@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "volcan_amazon"
 version = "0.1.0"
-description = "Accessible Voice-First AI Agent Forge for Developers with Disabilities on Alexa+ and MCP"
+description = "Volcan lets blind and low-vision software developers review autonomous coding agents by ear and by touch instead of by reading a diff."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"

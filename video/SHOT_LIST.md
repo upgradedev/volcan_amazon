@@ -1,13 +1,13 @@
 # Volcan: shot list for the re-take on the live build
 
-**Status: a plan, not recorded.** This take is to be recorded on the live build at
-https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com, with Amazon Bedrock answering. The live
-build serves `716b0f3` (PR #35) since 2026-10-07: default model `anthropic.claude-sonnet-5`,
-Lambda memory 1769 MB (deploy receipt
-`reviews/deploy_20261006/volcan/volcan_deploy_receipt_716b0f3.json` in the owner's workspace,
-outside the repository). It replaces the 2026-09-29 render of a local run of `09d4862`, which [`README.md`](README.md) in
-this folder describes. That take's six-beat script is kept in history:
-`git show fc10e7d:video/narration.json`.
+**Status: recorded as take 6 on 2026-10-19, not yet published.** Take 6 was recorded on the
+live build at https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com, at commit `873845d`
+(PR #40), with Amazon Bedrock answering: default model `anthropic.claude-sonnet-5`, Lambda
+memory 1769 MB. [`README.md`](README.md) in this folder has what take 6 measured. This file is
+the plan it followed. Most of it was written while the live build served `716b0f3` (PR #35,
+since 2026-10-07), and the windows below were sized then; take 6 kept them unchanged. It
+replaced the 2026-09-29 render of a local run of `09d4862`, whose six-beat script is kept in
+history: `git show fc10e7d:video/narration.json`.
 
 The beat ids match [`narration.json`](narration.json) and [`cue_sheet.json`](cue_sheet.json)
 one for one. The narration is measured by `video/generate-narration.py`. The cold open and
@@ -18,30 +18,31 @@ answer the page can speak, at the slowest speech rate measured for beat 2's sent
 the allowance is an ESTIMATE resting on one measured press. The basis for each window is
 written beside it in `narration.json`.
 
-## Take 6 on `873845d`: the owner chose take 5's journey
+## Take 6 on `873845d`: take 5's journey
 
-**Owner decision, 2026-10-19:** take 6 records take 5's seven beats unchanged, on the live
+**Decision, 2026-10-19:** take 6 records take 5's seven beats unchanged, on the live
 `873845d` build. That means the cold open, Hear with the Amazon Bedrock answer and its coverage
 line, Request changes, Confirm, the recorded request and the MCP handshake. No drill-down is
 pressed on camera. `drill_down` stays out of `BILLED_PRESSES`, so a drill-down press in the
 take or the rehearsal is refused.
 
-The take makes 5 billed calls: open, Hear and 3 replay. Its length is about 167 s
-(ESTIMATE, from take 5's measured 167.448 s), inside the 175 s publication gate. Shapes A and B
+The take made 5 billed calls: open, Hear and 3 in the replay clip. It measured 167.448 s with
+the replay clip (ffprobe), inside the 175 s publication gate. Shapes A and B
 below were not chosen. B would drop Request changes and Confirm, which is the governed write
 and a must-show row, and A keeps only 0.04 s to 2.5 s of margin. The drill-down with Claude
-stays live for judges to try, and the Devpost text points at it. The replay clip must still be
-re-recorded, because take 5's clip shows `716b0f3`. The arithmetic below is kept as the record
-of why.
+stays live for judges to try, and the Devpost text points at it. The replay clip was
+re-recorded on `873845d`, because take 5's clip shows `716b0f3`; take 6's band tag names
+`873845d`. The arithmetic below is kept as the record of why.
 
 The live build serves `873845d` (PR #40) since 2026-10-19. Its drill-down asks Amazon Bedrock
-about one file and shows the answer with its own label and coverage line. Take 6 is meant to
-add one beat for it. This section is the arithmetic, and it is why `narration.json` still
-holds the seven beats of take 5.
+about one file and shows the answer with its own label and coverage line. Take 6 was meant to
+add one beat for it. This section is the arithmetic, and it is why `narration.json` holds
+the seven beats of take 5.
 
-**Nothing in this section was measured on a take.** No free rehearsal, capture, build, sync
-gate run or frame read has been done for take 6, so every duration below is ESTIMATE. The only
-sync gate pass on disk is take 5's, recorded on `716b0f3`, which has no drill-down.
+**Nothing in this section was measured on a take.** It was written before take 6 was
+recorded, and no take or free rehearsal has pressed the drill-down, so every duration below is
+ESTIMATE. Take 6, recorded without the drill-down, passed the sync gate
+([`README.md`](README.md)).
 
 **The drill-down's sentence.** On the stage patch, `Inverted admin check`, the page has one
 file, `src/auth/permissions.py`, so the button reads `Drill into file 1` from page load (the
@@ -95,7 +96,7 @@ publication gate is 175 s. All margins are ESTIMATE.
 No cut inside a product turn or a model wait is allowed, so the gap cannot be closed by
 trimming product speech. Beats 1, 6 and 7 were already cut on 2026-10-06.
 
-**Recommendation before the owner's choice: shape B (not chosen; see above).** Shape A cannot keep 5 s of margin, and as written it has four
+**Recommendation before the decision: shape B (not chosen; see above).** Shape A cannot keep 5 s of margin, and as written it has four
 defects, each of which would have to be fixed before it could be offered:
 
 1. Its margin is 0.04 s. The 2.5 s exists only after cutting beat 3's second sentence,
@@ -117,7 +118,7 @@ defects, each of which would have to be fixed before it could be offered:
 Shape B, re-derived against the must-show table below, keeps every row but one: "Every
 product turn on camera ... That includes Request changes". Request changes and Confirm leave
 the video, so the governed write is not shown. The row "The screencast ends on narration"
-moves from beat 6 to the new closing narration beat. The owner has to accept that loss.
+moves from beat 6 to the new closing narration beat. Choosing B meant accepting that loss.
 
 **What either shape needs before a free rehearsal, in one commit:** the beat in
 `narration.json`, `EXPECTED_BEATS` and the journey; `drill_down` in `BILLED_PRESSES`; the
@@ -127,9 +128,10 @@ two-call journey; `drill_label_problem` called at the drill-down press, reading
 `#modelCoverage`'s `textContent`, the response JSON and `/health`'s
 `bedrock_model_path.model_id`, and failing the take on any problem; the answer-latency check
 and the speech-ended-before-the-next-beat check extended to the drill-down beat; and a test
-that fails if the journey stops calling `drill_label_problem`. The replay clip must be
-re-recorded: take 5's clip shows `716b0f3`. A take 6 copy of the splice script that reads its
-band tag from `capture/capture-receipt.json` is kept outside the repository, beside take 5's.
+that fails if the journey stops calling `drill_label_problem`. The replay clip had to be
+re-recorded, because take 5's clip shows `716b0f3`, and take 6's was. A take 6 copy of the
+splice script that reads its band tag from `capture/capture-receipt.json` is kept outside the
+repository, beside take 5's.
 
 **What the capture checks today for take 6:**
 
@@ -283,19 +285,19 @@ whose first word comes after 5.0 s of video.
 
 ## What calls Amazon Bedrock on the live build
 
-The owner authorises these presses before rehearsal, because each one is billed. The page
+These presses are authorised in writing before rehearsal, because each one is billed. The page
 load does not call a model: the silent preview asks for the local engine.
 
 | Action | Model calls |
 |---|---|
 | **Hear this code review** | one, with the first 3000 characters of the stage patch |
 | Opening a pull request in the review dialogue | one, with the pull request's patch (the dialogue digests it with the default engine) |
-| **Replay the documented Alexa+ requests** | three, one `digest_semantic_diff` call per client. It is not used in this take |
+| **Replay the documented Alexa+ requests** | three, one `digest_semantic_diff` call per client. The capture never presses it; take 6's replay clip pressed it once, in a separate recording |
 | `line 26`, Findings, Summary, File by file, Request changes, Confirm, **Run a real MCP handshake** | none |
 
 **Bound to authorise:** at most 12 Bedrock calls. That covers three rehearsals and three takes
 at two calls each (opening the pull request, then the press). A take that needs more stops,
-and the owner is asked again.
+and the authorisation is asked for again.
 
 ---
 
@@ -340,13 +342,13 @@ port 8813 with no cloud credentials, from the action to the browser's speech end
 | Step | Who | Command or action | What must be true |
 |---|---|---|---|
 | 0 | Anyone | `video/capture-local.py --rehearsal` and `video/build-video.py --rehearsal` against a local server, as `video/README.md` section 1 says | Free: no Bedrock call. It runs the whole journey on the chosen pull request and lists every failure, and what the local engine cannot show. Its output is never shippable |
-| 1 | Owner | Authorise the billed calls above, in writing | The bound and the date are written down before any press |
-| 2 | Owner | `curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health` | `source_revision` names the commit that becomes `{sha7}`, `716b0f3` today. `bedrock_model_path` reads `ready_to_attempt` with `model_id` `anthropic.claude-sonnet-5`, `durable_state` reads `configured_reachable`, and `github_review_path` reads `dry_run_no_token`. If it reads `dry_run_with_token`, beat 6 must not say "No GitHub token here" |
-| 3 | Owner | Open the GitHub Actions run for that commit | Green. Note the run id in the take's receipt. If a test count is ever shown, it is this run's count, filmed from this page |
-| 4 | Owner | Rehearse on the live page, in the browser and window size used for the take | Each Bedrock press reads **Amazon Bedrock** on the engine meter with no fallback reason, its answer makes its first sound within 5.9 s of the press and ends inside 41.0 s of it, and the coverage line ends `Answered by anthropic.claude-sonnet-5.`. The press waits for beat 2's narrator, so no latency can start the answer under the narration |
-| 5 | Owner | Read the model's full answer in rehearsal | Note whether it shows Markdown marks; see the risks below |
-| 6 | Owner | `video/generate-narration.py --write-timestamps` | Measured beat windows written back; total narration 90 to 174 s. With the cached audio it sends nothing to ElevenLabs |
-| 7 | Owner | Within 60 s before the take, `GET /health` again, then reload the page and open the chosen pull request | The function is warm, and the opened overview is on screen before recording starts |
+| 1 | Maintainer | Authorise the billed calls above, in writing | The bound and the date are written down before any press |
+| 2 | Maintainer | `curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health` | `source_revision` names the commit that becomes `{sha7}`: `873845d` for take 6. `bedrock_model_path` reads `ready_to_attempt` with `model_id` `anthropic.claude-sonnet-5`, `durable_state` reads `configured_reachable`, and `github_review_path` reads `dry_run_no_token`. If it reads `dry_run_with_token`, beat 6 must not say "No GitHub token here" |
+| 3 | Maintainer | Open the GitHub Actions run for that commit | Green. Note the run id in the take's receipt. If a test count is ever shown, it is this run's count, filmed from this page |
+| 4 | Maintainer | Rehearse on the live page, in the browser and window size used for the take | Each Bedrock press reads **Amazon Bedrock** on the engine meter with no fallback reason, its answer makes its first sound within 5.9 s of the press and ends inside 41.0 s of it, and the coverage line ends `Answered by anthropic.claude-sonnet-5.`. The press waits for beat 2's narrator, so no latency can start the answer under the narration |
+| 5 | Maintainer | Read the model's full answer in rehearsal | Note whether it shows Markdown marks; see the risks below |
+| 6 | Maintainer | `video/generate-narration.py --write-timestamps` | Measured beat windows written back; total narration 90 to 174 s. With the cached audio it sends nothing to ElevenLabs |
+| 7 | Maintainer | Within 60 s before the take, `GET /health` again, then reload the page and open the chosen pull request | The function is warm, and the opened overview is on screen before recording starts |
 
 ---
 
@@ -449,9 +451,9 @@ was not recorded on the live build. It measured an edge mean of 1.98, a card to 
     for a longer patch. That would be a second billed press, so this take does not promise it.
   * The details **The model's full answer** are opened and held.
 
-## Optional slot, after beat 3: only if the owner records a consented session
+## Optional slot, after beat 3: only with a recorded, consented session
 
-**Only if the owner records a consented session.** Without one, this slot is left out and
+**Only if a consented session is recorded.** Without one, this slot is left out and
 nothing replaces it. It is deliberately not in `narration.json`, so a default render can never
 include it. At 153.4 s, a clip of up to 16.5 s keeps the video under 170 s.
 
@@ -511,9 +513,10 @@ include it. At 153.4 s, a clip of up to 16.5 s keeps the video under 170 s.
     index at 144.2 s and 144.8 s showed `not run yet` and then the connection strip.
   * Then the connection strip's Alexa+ box: package built and tested locally, not certified
     or deployed.
-* **Not pressed:** **Replay the documented Alexa+ requests**. On the live build it costs three
-  Bedrock calls and could run close to a minute. The README's replay command against a local
-  server remains the evidence for it.
+* **Not pressed in this beat:** **Replay the documented Alexa+ requests**. On the live build it
+  costs three Bedrock calls and could run close to a minute. Take 6 adds a separately recorded
+  14.0 s clip of that press on the live build after this beat's narration, so in the final file
+  the closing card runs from 162.9 to 167.4 s ([`README.md`](README.md), sections 1 and 2).
 
 ## Closing card, 148.9 to 153.4 seconds
 
@@ -529,9 +532,9 @@ the page's sentences in <voice>.`, which keeps the card at 5 rows; it measured a
 3.98 against the gate's 4.5. The earlier 9-row card measured 7.59 and read as content. The
 build refuses a closing card of more than 5 rows.
 
-The repository is private today. Before upload, the owner either makes it public or confirms
-that the judges are collaborators. Otherwise the source line points at a page judges cannot
-open.
+The repository is private on 2026-10-20 (`gh repo view` reports `PRIVATE`). Before the video
+is uploaded, the repository is made public or the judges are added as collaborators; otherwise
+the source line points at a page judges cannot open.
 
 ---
 
@@ -570,10 +573,11 @@ open.
   fails that take, and it is recorded again; warm the function with `GET /health` within 60 s
   of the take, as step 7 says. Since PR #35 the model client is built with `max_retries=0`, so
   the SDK does not retry a call on its own.
-* **Confirm on the live build is checked only offline.** No receipt shows Confirm answered on
-  the live `716b0f3`. Its deploy receipt
-  (`reviews/deploy_20261006/volcan/volcan_deploy_receipt_716b0f3.json`) checked `/health` and
-  two presses, and no review turn. The one before it, on `22c32ab`, checked opening the pull
+* **Confirm on the live build is checked only offline.** That was the risk before take 6, which
+  then ran Confirm on the live `873845d`: the page spoke its dry-run answer and the review pane
+  showed the recorded, unsent request ([`README.md`](README.md)). Before that, no receipt
+  showed Confirm answered on the live `716b0f3`. Its deploy receipt, kept outside the
+  repository, checked `/health` and two presses, and no review turn. The one before it, on `22c32ab`, checked opening the pull
   request, `line 26`, Request changes and cancel, not Confirm; Request changes had answered with
   a 503 on `aa3364a`, from a DynamoDB write the `22c32ab` fix (PR #34) corrected. On the live
   build Confirm writes to DynamoDB: it claims the staged action and burns its nonce. That write
