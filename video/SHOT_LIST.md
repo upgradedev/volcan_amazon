@@ -2,8 +2,8 @@
 
 **Status: recorded as take 6 on 2026-10-19, not yet published.** Take 6 was recorded on the
 live build at https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com, at commit `873845d`
-(PR #40), with Amazon Bedrock answering: default model `anthropic.claude-sonnet-5`, Lambda
-memory 1769 MB. [`README.md`](README.md) in this folder has what take 6 measured. This file is
+(PR #40), with Amazon Bedrock answering: default model `anthropic.claude-sonnet-5`.
+[`README.md`](README.md) in this folder has what take 6 measured. This file is
 the plan it followed. Most of it was written while the live build served `716b0f3` (PR #35,
 since 2026-10-07), and the windows below were sized then; take 6 kept them unchanged. It
 replaced the 2026-09-29 render of a local run of `09d4862`, whose six-beat script is kept in
