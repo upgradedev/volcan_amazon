@@ -1317,8 +1317,10 @@ git diff --name-only 873845d HEAD -- src docs/index.html                        
 ```
 
 **Checked on 2026-10-07, after the redeploy of PR #35: the endpoint served `716b0f3`.** This
-block is history; `873845d` replaced that build on 2026-10-19. The deploy receipt of that
-redeploy is kept outside the repository.
+block is history. `716b0f3` was later replaced by `0864c76` (PR #38), which was live by
+2026-10-18 (`git show 0a30bb8:deploy_teardown_receipt.json` read it at 13:16 UTC that day);
+`0a30bb8` was live early on 2026-10-19, and `873845d` replaced `0a30bb8` that day. The deploy
+receipts of those redeploys are kept outside the repository.
 
 ```bash
 curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health | python -m json.tool
@@ -1542,7 +1544,7 @@ sources fetched with `curl` on 2026-09-27; the date after each link is the page'
 
 | Piece | What it is | Check it |
 |---|---|---|
-| [`alexa_plus/addon-package/addon.json`](../alexa_plus/addon-package/addon.json) | The MCP Toolkit manifest: name, descriptions, four example phrases and the MCP endpoint, which is the public Lambda URL and serves `873845d`, `source_revision` read 2026-10-20, whose `src/` and `docs/index.html` are the current ones ([The public deployment](#the-public-deployment)). Nine values are placeholders on the reserved `.invalid` domain: the privacy page, the terms page, six icons and a carousel image, which must be the publisher's own hosted files | `python scripts/validate_alexa_addon.py` prints `schema: pass` and lists the nine; `--strict` fails on them |
+| [`alexa_plus/addon-package/addon.json`](../alexa_plus/addon-package/addon.json) | The MCP Toolkit manifest: name, descriptions, four example phrases and the MCP endpoint, which is the public API Gateway HTTP API URL in front of the Lambda (`execute-api` in the manifest's `uri`) and serves `873845d`, `source_revision` read 2026-10-20, whose `src/` and `docs/index.html` are the current ones ([The public deployment](#the-public-deployment)). Nine values are placeholders on the reserved `.invalid` domain: the privacy page, the terms page, six icons and a carousel image, which must be the publisher's own hosted files | `python scripts/validate_alexa_addon.py` prints `schema: pass` and lists the nine; `--strict` fails on them |
 | [`scripts/validate_alexa_addon.py`](../scripts/validate_alexa_addon.py) | Checks the constraints in Amazon's schema reference: name up to 30 characters, short description up to 123, 3 to 4 example phrases, HTTPS URIs, the six icon sizes, a 600x900 carousel image, an MCP integration over HTTPS. A local stand-in: Amazon's CLI, which really validates, was not run | `python -m pytest tests/integration/test_alexa_plus_client_replay.py -v` |
 | [`tests/fixtures/alexa_plus_envelopes.py`](../tests/fixtures/alexa_plus_envelopes.py) and [`scripts/replay_alexa_plus_envelopes.py`](../scripts/replay_alexa_plus_envelopes.py) | The initialize and `tools/call` bodies Amazon documents for its Alexa+ MCP client, copied from the [lifecycle page](https://developer.amazon.com/docs/alexaplus/add-ons/mcp-toolkit-client-lifecycle.html) (Jul 10, 2026), with Amazon's example hotel tool swapped for `digest_semantic_diff` and the inverted admin-check patch, sent to a running server | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp` |
 
@@ -1613,8 +1615,9 @@ Since `aa3364a` the first text block is the spoken form of that sentence, `... u
 'admin' became user.role not equals 'admin'`, because a voice client reads that block aloud; the literal
 code stays in the JSON detail block (`tests/unit/test_mcp_first_block_is_speech.py`).
 Those round trips are a warm local server built from this repository on 127.0.0.1. They are
-not the endpoint the add-on manifest registers, which is the public Lambda (it ran an older
-build on 2026-09-27, served `aa3364a` from the morning of 2026-10-06 and `22c32ab` from that afternoon, `716b0f3` from 2026-10-07, and serves `873845d` since 2026-10-19), and not Alexa+. With Amazon Bedrock
+not the endpoint the add-on manifest registers, which is the public API Gateway HTTP API in
+front of the Lambda (it ran an older
+build on 2026-09-27, served `aa3364a` from the morning of 2026-10-06 and `22c32ab` from that afternoon, `716b0f3` from 2026-10-07, `0864c76` by 2026-10-18, `0a30bb8` early on 2026-10-19, and serves `873845d` since 2026-10-19), and not Alexa+. With Amazon Bedrock
 answering, the digest call would add a model round trip that has never been measured here, so
 whether that path meets the 500 ms limit is unknown.
 
@@ -1661,7 +1664,7 @@ the untested part.
 **What this repository cannot do on its own.** Obtain MCP Toolkit access, which the hackathon FAQ says
 participants cannot get at present. Host the privacy page, terms page,
 icons and carousel image, and replace the nine placeholders. Redeploy the endpoint when `src/`
-or `docs/index.html` next changes; on 2026-10-06 it served the current runtime. Install the Alexa AI CLI and run `alexa-ai deploy` from `alexa_plus/`. Test in the web
+or `docs/index.html` next changes; on 2026-10-20 it served the current runtime, `873845d`. Install the Alexa AI CLI and run `alexa-ai deploy` from `alexa_plus/`. Test in the web
 simulator in isolation mode, and record which headers the real client sends.
 
 ---
@@ -1784,7 +1787,8 @@ simulator in isolation mode, and record which headers the real client sends.
   ran Request changes and Confirm live against the durable stages, and its replay clip sent a
   live `tools/call` of `digest_semantic_diff` from each of three clients
   ([`video/README.md`](../video/README.md)); no live check of the structured results is
-  recorded here. On 2026-10-07 the endpoint reported `716b0f3`, after the durable-stage fix
+  recorded here. Before `873845d` it reported `0a30bb8` early on 2026-10-19 and `0864c76`
+  (PR #38) on 2026-10-18 (`git show 0a30bb8:deploy_teardown_receipt.json`). On 2026-10-07 the endpoint reported `716b0f3`, after the durable-stage fix
   ([known issue](#known-issue-durable-stages-answered-http-503-on-live)). On 2026-10-06 it
   reported `22c32ab`, and earlier that day `aa3364a`, whose durable stages answered HTTP 503. Before that redeploy it reported `9b2bcb9` on 2026-10-01 and again on 2026-10-05, a build
   without the speech-first MCP text block, the Markdown-free full answer, the hedged clean

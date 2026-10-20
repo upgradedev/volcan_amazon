@@ -13,7 +13,7 @@ follows. There is no public link yet.
 | SHA-256 | `7b7de77be04b6024bdcf62c2e3cd89cdff2f38eff2456b7b578c493ae24de09e` |
 | Build on camera | `/health` read `source_revision` `873845d`, `bedrock_model_path` `ready_to_attempt`, `durable_state` `configured_reachable` and `github_review_path` `dry_run_no_token` before the take. The title card, the band tag and the closing card name `873845d` |
 | The press in beat 2 | Answered by Amazon Bedrock (`synthesis_mode` `bedrock`, no fallback reason), `model_answered` `anthropic.claude-sonnet-5`. The earcon sounded 3.26 s after the press. On screen (frame 825): engine `Amazon Bedrock`, round trip `2871.7 ms`, and `The model read the whole 328-character patch. Answered by anthropic.claude-sonnet-5.` |
-| Billed model calls | 2 in the capture: opening the pull request, off camera, and Hear this code review. 3 in the replay clip: one `tools/call` of `digest_semantic_diff` per client |
+| Billed model calls | 2 in the capture: opening the pull request, off camera, and Hear this code review. 3 in the replay clip: one `tools/call` of `digest_semantic_diff` per client. A first capture attempt that day, not used, billed 2 more, the same open and Hear (`capture-attempt1/capture-receipt.json`): 7 that day, against the bound of 12 in `SHOT_LIST.md` |
 | Replay clip | The page's **Replay the documented Alexa+ requests**, pressed on the live build: `3 of 3 clients served`, protocol version 2025-11-25 to each (frame 3950). 14.0 s kept from a 37.76 s recording; the 9.4 s of waiting cut is stated in its caption |
 | Sync gate | `scripts/verify_video_sync.py` on the 167.448 s file: all sync gates passed, 30 caption windows, `content-seam<=1s` 0.651 s, `web-beat-audible` -1.5 dB |
 | Product voice in the mix | Four turns: `line 26`, Hear this code review, Request changes and Confirm, with 3 earcons. No turn is talked over: the receipt's `unrecordedProductVoice` is empty |
@@ -163,8 +163,8 @@ python video/build-video.py --rehearsal       # writes output-rehearsal/
 The gate calls `ffmpeg` and `ffprobe` by name, so put their folder on `PATH` for it.
 `python tests/video/verify_gate_selftest.py` proves the gate still fails on a mis-ordered
 video, a caption that runs into the outro and an audio track longer than the picture. It is
-not collected by pytest. The gate is unchanged; section 4 says which checks the re-take
-passes and which it does not yet.
+not collected by pytest. The gate is unchanged; section 4 says what the pipeline checks, and
+take 6 passed the sync gate (see the status table above).
 
 ### Re-rendering one beat
 

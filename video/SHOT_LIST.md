@@ -26,7 +26,9 @@ line, Request changes, Confirm, the recorded request and the MCP handshake. No d
 pressed on camera. `drill_down` stays out of `BILLED_PRESSES`, so a drill-down press in the
 take or the rehearsal is refused.
 
-The take made 5 billed calls: open, Hear and 3 in the replay clip. It measured 167.448 s with
+The kept take made 5 billed calls: open, Hear and 3 in the replay clip. A first capture attempt
+that day, not used, billed 2 more, the same open and Hear, so the day made 7 against the bound
+of 12 below. The take measured 167.448 s with
 the replay clip (ffprobe), inside the 175 s publication gate. Shapes A and B
 below were not chosen. B would drop Request changes and Confirm, which is the governed write
 and a must-show row, and A keeps only 0.04 s to 2.5 s of margin. The drill-down with Claude
