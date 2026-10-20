@@ -1317,7 +1317,7 @@ git diff --name-only 873845d HEAD -- src docs/index.html                        
 ```
 
 **Checked on 2026-10-07, after the redeploy of PR #35: the endpoint served `716b0f3`.** This
-block is history. `716b0f3` was later replaced by `0864c76` (PR #38), which was live by
+block is history. Later builds replaced `716b0f3`: `0864c76` (PR #38) was live by
 2026-10-18 (`git show 0a30bb8:deploy_teardown_receipt.json` read it at 13:16 UTC that day);
 `0a30bb8` was live early on 2026-10-19, and `873845d` replaced `0a30bb8` that day. The deploy
 receipts of those redeploys are kept outside the repository.
@@ -1787,8 +1787,8 @@ simulator in isolation mode, and record which headers the real client sends.
   ran Request changes and Confirm live against the durable stages, and its replay clip sent a
   live `tools/call` of `digest_semantic_diff` from each of three clients
   ([`video/README.md`](../video/README.md)); no live check of the structured results is
-  recorded here. Before `873845d` it reported `0a30bb8` early on 2026-10-19 and `0864c76`
-  (PR #38) on 2026-10-18 (`git show 0a30bb8:deploy_teardown_receipt.json`). On 2026-10-07 the endpoint reported `716b0f3`, after the durable-stage fix
+  recorded here. Before `873845d` it ran `0a30bb8` early on 2026-10-19, and on 2026-10-18 it
+  reported `0864c76` (PR #38) (`git show 0a30bb8:deploy_teardown_receipt.json`). On 2026-10-07 the endpoint reported `716b0f3`, after the durable-stage fix
   ([known issue](#known-issue-durable-stages-answered-http-503-on-live)). On 2026-10-06 it
   reported `22c32ab`, and earlier that day `aa3364a`, whose durable stages answered HTTP 503. Before that redeploy it reported `9b2bcb9` on 2026-10-01 and again on 2026-10-05, a build
   without the speech-first MCP text block, the Markdown-free full answer, the hedged clean

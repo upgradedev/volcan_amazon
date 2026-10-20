@@ -13,15 +13,15 @@ follows. There is no public link yet.
 | SHA-256 | `7b7de77be04b6024bdcf62c2e3cd89cdff2f38eff2456b7b578c493ae24de09e` |
 | Build on camera | `/health` read `source_revision` `873845d`, `bedrock_model_path` `ready_to_attempt`, `durable_state` `configured_reachable` and `github_review_path` `dry_run_no_token` before the take. The title card, the band tag and the closing card name `873845d` |
 | The press in beat 2 | Answered by Amazon Bedrock (`synthesis_mode` `bedrock`, no fallback reason), `model_answered` `anthropic.claude-sonnet-5`. The earcon sounded 3.26 s after the press. On screen (frame 825): engine `Amazon Bedrock`, round trip `2871.7 ms`, and `The model read the whole 328-character patch. Answered by anthropic.claude-sonnet-5.` |
-| Billed model calls | 2 in the capture: opening the pull request, off camera, and Hear this code review. 3 in the replay clip: one `tools/call` of `digest_semantic_diff` per client. A first capture attempt that day, not used, billed 2 more, the same open and Hear (`capture-attempt1/capture-receipt.json`): 7 that day, against the bound of 12 in `SHOT_LIST.md` |
+| Billed model calls | 2 in the capture: opening the pull request, off camera, and Hear this code review. 3 in the replay clip: one `tools/call` of `digest_semantic_diff` per client. A first capture attempt that day, not used, billed 2 more, the same open and Hear (`capture-attempt1/capture-receipt.json`): 7 across take 6's recordings, against the bound of 12 in `SHOT_LIST.md` |
 | Replay clip | The page's **Replay the documented Alexa+ requests**, pressed on the live build: `3 of 3 clients served`, protocol version 2025-11-25 to each (frame 3950). 14.0 s kept from a 37.76 s recording; the 9.4 s of waiting cut is stated in its caption |
 | Sync gate | `scripts/verify_video_sync.py` on the 167.448 s file: all sync gates passed, 30 caption windows, `content-seam<=1s` 0.651 s, `web-beat-audible` -1.5 dB |
 | Product voice in the mix | Four turns: `line 26`, Hear this code review, Request changes and Confirm, with 3 earcons. No turn is talked over: the receipt's `unrecordedProductVoice` is empty |
 | Narration voice | ElevenLabs, voice id `21m00Tcm4TlvDq8ikWAM`, model `eleven_multilingual_v2`, 495 characters in the final beats. Take 6 reused the cached audio and sent 0 characters |
 | Capture | Headless Chromium at 1280x720, drifting 0.0019% from the page clock (`captureVideoPerPageSecond` 1.000019). No page error and no blank stretch |
 
-The video files, their receipts (`capture/capture-receipt.json`, `output/video-receipt.json`
-and `output/replay-splice-receipt.json`) and the gate's output (`output/sync-gate.replay.txt`)
+The video files, their receipts (`capture/capture-receipt.json`, `output/video-receipt.json`,
+`output/replay-splice-receipt.json` and the unused attempt's `capture-attempt1/capture-receipt.json`) and the gate's output (`output/sync-gate.replay.txt`)
 are kept in the take's media root, `VOLCAN_VIDEO_ROOT`, outside the repository. Every figure
 above comes from those receipts or from a frame read by index, except the duration and the
 SHA-256, which `ffprobe` and `sha256sum` printed for the file on 2026-10-20. Readiness gates
