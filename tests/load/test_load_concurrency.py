@@ -1,4 +1,4 @@
-"""Concurrent Load and Stress Testing Suite for Volcan FastMCP Server.
+"""Concurrent Load and Stress Testing Suite for Volcan's hand-written MCP server on FastAPI.
 
 Tests:
 - 1,000 concurrent AST diff semantic digests under thread pool

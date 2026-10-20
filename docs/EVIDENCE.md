@@ -174,7 +174,7 @@ you reviewed it. Section [The review journey](#the-review-journey) has the whole
 
 Requires Python 3.11 or newer. The repository is private, so `git clone` needs access. The
 [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) rule for a private repository: "Add the Amazon and
-Devpost reviewers as collaborators before the submission deadline". That is an owner step. The
+Devpost reviewers as collaborators before the submission deadline". The
 MIT licence stays in [LICENSE](../LICENSE).
 
 ---
@@ -203,7 +203,7 @@ these tools for your submission: build a self-hosted MCP server (or Agent Skill)
 Official Rules, and demo it via your own web-based simulator or front end." Volcan is that
 shape: this server and the companion page. Deploying the add-on waits on Amazon granting access.
 [Road to Alexa+](#road-to-alexa) has the sources, what was built, what the replay found and
-what only the owner can do. The page says so in a band below
+what this repository cannot do on its own. The page says so in a band below
 its first screen and draws the add-on as a dashed box in its Evidence tab. Until 2026-09-27
 this paragraph said the road was "stated, not built", which was true then.
 
@@ -227,7 +227,7 @@ effect and ships behind a dry-run default: the server re-reads the head commit, 
 `STALE_HEAD` if it moved, and without `VOLCAN_GITHUB_WRITE=1` records the exact request it
 would send, token redacted, and sends nothing. `/health` publishes the resolved
 `github_review_path` so the page prints the server's conclusion rather than guessing. **No
-live review has ever been sent from this repository**; the owner action that produces one is
+live review has ever been sent from this repository**; the step that produces one is
 under [Known limitations](#known-limitations). The live read has been exercised against a
 real pull request: on 2026-09-08 the companion page opened
 `https://github.com/python/cpython/pull/1`, printed
@@ -358,7 +358,7 @@ live function, which keeps the model it was deployed with until it is redeployed
 
 The client uses the account-scoped Bedrock Mantle project. The checked-in infrastructure
 defines that permission as a separate policy behind `enable_bedrock_mantle=false`; the
-durable-state plan does not add model authority by default. Enabling it is a separate owner
+durable-state plan does not add model authority by default. Enabling it is a separate deployment
 decision. A deployment without the grant falls back with the bounded permission category.
 On 2026-10-06 the live role `volcan-lambda-role-euw1-prod` had the managed policy
 `volcan-bedrock-mantle-euw1-prod` attached beside `AWSLambdaBasicExecutionRole` and one inline
@@ -368,8 +368,8 @@ get-function-configuration`, keys only). The policy's document was not read, and
 call one model may still need per-model access for another: `anthropic.claude-opus-4-8` answered
 403 to the same local credentials that `anthropic.claude-sonnet-5` answered. After `716b0f3` was
 deployed on 2026-10-07, two live presses of the take-4 patch answered `synthesis_mode` `bedrock`
-with `model_answered` `anthropic.claude-sonnet-5`, so the function role can call it (deploy
-receipt `reviews/deploy_20261006/volcan/volcan_deploy_receipt_716b0f3.json`, outside the repository). Before a
+with `model_answered` `anthropic.claude-sonnet-5`, so the function role can call it (the deploy
+receipt is kept outside the repository). Before a
 `terraform apply` against this account, pass `-var enable_bedrock_mantle=true`, or first confirm
 with `terraform state list` that the Mantle policy is not in state: if it is, the default plan
 destroys it, and every press then falls back with the permission category.
@@ -445,7 +445,7 @@ the other side: the review is not hard to understand, it is hard to navigate.
    and `resume` restores the exact file, hunk, source line and revision. If the pull request
    changed while interrupted, Volcan refreshes it and explicitly invalidates the old approval.
    Sessions are bound to one reviewer. The review is bound to the head commit and dry-run
-   unless the owner enables the write.
+   unless the write is enabled on the server.
    See [The review journey](#the-review-journey).
 
 ---
@@ -1228,7 +1228,7 @@ magnitude as the claim and rerun each command on your own hardware.
 | The tests pass, and how many | `python -m pytest tests/ -q` |
 | The benchmark numbers above | `python scripts/benchmark_suite.py` |
 | JavaScript and TypeScript detection, per half and language | `python scripts/benchmark_js_ts_detection.py` |
-| The Alexa+ add-on manifest meets Amazon's documented schema, and which values the owner must fill | `python scripts/validate_alexa_addon.py` |
+| The Alexa+ add-on manifest meets Amazon's documented schema, and which values are still placeholders | `python scripts/validate_alexa_addon.py` |
 | Amazon's documented Alexa+ client requests, replayed against a running server | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp` |
 | Every readiness gate, including the failing ones | `python ci/readiness.py` |
 | Forged and replayed grants are refused | `python -m pytest tests/unit/test_governance.py -v` |
@@ -1251,12 +1251,11 @@ magnitude as the claim and rerun each command on your own hardware.
 
 `ci/readiness.py` is written so that it can fail, and it does. It prints
 `47/53 passed, 0 blocking failures, 6 externally blocked` (on 2026-09-29, before the deployment receipt was refreshed, it printed `46/53 passed, 0 blocking failures, 7 externally blocked`). The remaining red gates require
-a disposable teardown receipt, video, or owner submission actions. Each
+a disposable teardown receipt, the published video, or the Devpost submission steps. Each
 failure is printed with its reason rather than hidden.
 
 Until 2026-09-29, four of those gates read the persona review
-out of `STATE.md`, a coordination file that lives one directory above this repository and is
-deliberately never committed. From a standalone clone or a CI runner there was no copy to read,
+out of a coordination file kept outside this repository and deliberately never committed. From a standalone clone or a CI runner there was no copy to read,
 so gates I1 to I4 reported themselves externally blocked. They now read
 `docs/PERSONA_REVIEW.md`, which records the review inside this repository, so a clone
 reads the same evidence; a missing document fails them as blocking.
@@ -1300,11 +1299,28 @@ named governed-action calls only.
 
 ## The public deployment
 
-**Checked on 2026-10-07, after the redeploy of PR #35: the endpoint serves `716b0f3`, and its
-runtime is the current one.** The endpoint is
-`https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com`. The deploy receipt,
-`reviews/deploy_20261006/volcan/volcan_deploy_receipt_716b0f3.json` in the owner's workspace, is kept outside the repository like every
-live observation.
+**Checked on 2026-10-19 and 2026-10-20: the endpoint serves `873845d` (PR #40), and its runtime
+is the current one.** The endpoint is
+`https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com`. The read-only probe in
+[`deploy_teardown_receipt.json`](../deploy_teardown_receipt.json) read `source_revision`
+`873845d97a4747dc4b85882d3d6593a15759d375` from `/health` at 07:20 UTC on 2026-10-19, with `/`
+and `POST /mcp` `initialize` answering HTTP 200.
+
+```bash
+curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health | python -m json.tool
+# 2026-10-20T06:53Z: status ok, source_revision 873845d97a4747dc4b85882d3d6593a15759d375,
+# bedrock_model_path ready_to_attempt (model anthropic.claude-sonnet-5),
+# durable_state configured_reachable, github_review_path dry_run_no_token
+curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/ | sha256sum   # f29eea7fe9fd4a99...
+git show 873845d:docs/index.html | sha256sum                                     # f29eea7fe9fd4a99...
+git diff --name-only 873845d HEAD -- src docs/index.html                         # prints nothing
+```
+
+**Checked on 2026-10-07, after the redeploy of PR #35: the endpoint served `716b0f3`.** This
+block is history. Later builds replaced `716b0f3`: `0864c76` (PR #38) was live by
+2026-10-18 (`git show 0a30bb8:deploy_teardown_receipt.json` read it at 13:16 UTC that day);
+`0a30bb8` was live early on 2026-10-19, and `873845d` replaced `0a30bb8` that day. The deploy
+receipts of those redeploys are kept outside the repository.
 
 ```bash
 curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health | python -m json.tool
@@ -1312,7 +1328,7 @@ curl -s https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health | python -
 # bedrock_model_path ready_to_attempt with model_id anthropic.claude-sonnet-5,
 # durable_state configured_reachable
 git diff --name-only 22c32ab 716b0f3 -- src docs/index.html   # PR #35: five files under src/, and docs/index.html
-git diff --name-only 716b0f3 HEAD -- src docs/index.html      # prints nothing
+git diff --name-only 716b0f3 HEAD -- src docs/index.html      # printed nothing on 2026-10-07
 ```
 
 * `716b0f3` is PR #35: the default model `anthropic.claude-sonnet-5`, `model_answered` in each
@@ -1320,7 +1336,7 @@ git diff --name-only 716b0f3 HEAD -- src docs/index.html      # prints nothing
   call's shape, a named cause when an answer carries no text, and an SDK client built with
   `max_retries=0`. The package reused the live dependencies (`anthropic` 1.8.0) with `src/` and
   `docs/` from `git archive` of `716b0f3`; its code hash matched the uploaded zip.
-* The function's memory was raised from 256 to 1769 MB the same day, on the owner's approval;
+* The function's memory was raised from 256 to 1769 MB the same day, an approved configuration change;
   the timeout stays 30 s. The same press of the take-4 `permissions.py` patch, one Bedrock call
   each, measured:
 
@@ -1487,8 +1503,8 @@ curl -s -X POST -H "Content-Type: application/json" --data @auth_bypass.json <en
 
 ## Road to Alexa+
 
-**Status: built and tested locally, not certified or deployed; needs the owner's Amazon
-developer account.** Alexa+ has never called Volcan. Nothing here ran on an Echo device or in
+**Status: built and tested locally, not certified or deployed; needs access to Amazon's
+add-on tools.** Alexa+ has never called Volcan. Nothing here ran on an Echo device or in
 Amazon's web simulator. Until 2026-09-27 this road was "stated, not built"; this section records
 what changed that day.
 
@@ -1516,8 +1532,8 @@ sources fetched with `curl` on 2026-09-27; the date after each link is the page'
   The QuickStart also requires a round trip under 500 ms.
 * Access. The [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) says the
   Alexa+ add-on tools (CLI, MCP Toolkit, web simulator) are in preview for select partners
-  only and that participants currently have no way to apply for or gain access. The owner's
-  developer account is therefore not the gating item. Until an audit on 2026-09-27 this
+  only and that participants currently have no way to apply for or gain access. A developer
+  account is therefore not the gating item. Until an audit on 2026-09-27 this
   bullet also attributed the restriction to Amazon's add-on docs home; the audit did not find
   it on the overview, quickstart or integration-approach pages, so the FAQ is the source. Setting up also needs an AWS account
   that assumes an Amazon-owned role, and a private npm registry for the CLI
@@ -1528,7 +1544,7 @@ sources fetched with `curl` on 2026-09-27; the date after each link is the page'
 
 | Piece | What it is | Check it |
 |---|---|---|
-| [`alexa_plus/addon-package/addon.json`](../alexa_plus/addon-package/addon.json) | The MCP Toolkit manifest: name, descriptions, four example phrases and the MCP endpoint, which is the public Lambda URL and serves `716b0f3`, `source_revision` read 2026-10-07, whose `src/` and `docs/index.html` are the current ones ([The public deployment](#the-public-deployment)). Nine values are placeholders on the reserved `.invalid` domain: the privacy page, the terms page, six icons and a carousel image, which must be the owner's own hosted files | `python scripts/validate_alexa_addon.py` prints `schema: pass` and lists the nine; `--strict` fails on them |
+| [`alexa_plus/addon-package/addon.json`](../alexa_plus/addon-package/addon.json) | The MCP Toolkit manifest: name, descriptions, four example phrases and the MCP endpoint, which is the public API Gateway HTTP API URL in front of the Lambda (`execute-api` in the manifest's `uri`) and serves `873845d`, `source_revision` read 2026-10-20, whose `src/` and `docs/index.html` are the current ones ([The public deployment](#the-public-deployment)). Nine values are placeholders on the reserved `.invalid` domain: the privacy page, the terms page, six icons and a carousel image, which must be the publisher's own hosted files | `python scripts/validate_alexa_addon.py` prints `schema: pass` and lists the nine; `--strict` fails on them |
 | [`scripts/validate_alexa_addon.py`](../scripts/validate_alexa_addon.py) | Checks the constraints in Amazon's schema reference: name up to 30 characters, short description up to 123, 3 to 4 example phrases, HTTPS URIs, the six icon sizes, a 600x900 carousel image, an MCP integration over HTTPS. A local stand-in: Amazon's CLI, which really validates, was not run | `python -m pytest tests/integration/test_alexa_plus_client_replay.py -v` |
 | [`tests/fixtures/alexa_plus_envelopes.py`](../tests/fixtures/alexa_plus_envelopes.py) and [`scripts/replay_alexa_plus_envelopes.py`](../scripts/replay_alexa_plus_envelopes.py) | The initialize and `tools/call` bodies Amazon documents for its Alexa+ MCP client, copied from the [lifecycle page](https://developer.amazon.com/docs/alexaplus/add-ons/mcp-toolkit-client-lifecycle.html) (Jul 10, 2026), with Amazon's example hotel tool swapped for `digest_semantic_diff` and the inverted admin-check patch, sent to a running server | `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp` |
 
@@ -1564,9 +1580,11 @@ that refused a client.
   it asked for, as a stated deviation from the specification. The specification's own rule is
   to use the revision negotiated for the session and otherwise assume 2025-03-26, and Volcan
   now follows it ([The MCP surface](#the-mcp-surface)). Because the fallback does not depend on
-  a session, it also reaches the stateless public Lambda: the build it serves, `716b0f3`, carries
-  the fallback (`git grep -n ASSUMED_VERSION_WITHOUT_HEADER 716b0f3 -- src/interfaces`), though
-  the replay was not run against that endpoint. The replay against a stateless local server
+  a session, it also reaches the stateless public Lambda: the build it serves, `873845d`, carries
+  the fallback (`git grep -n ASSUMED_VERSION_WITHOUT_HEADER 873845d -- src/interfaces`). Take
+  6's replay clip, recorded on 2026-10-19, ran the page's three-client replay against that
+  endpoint: `3 of 3 clients served`, including the client that never sends
+  `MCP-Protocol-Version` ([`video/README.md`](../video/README.md)). The replay against a stateless local server
   (`VOLCAN_MCP_SESSION_MODE=stateless`, port 8842, `--runs 5`) served all six shapes in 5 of 5
   sessions.
 
@@ -1597,8 +1615,9 @@ Since `aa3364a` the first text block is the spoken form of that sentence, `... u
 'admin' became user.role not equals 'admin'`, because a voice client reads that block aloud; the literal
 code stays in the JSON detail block (`tests/unit/test_mcp_first_block_is_speech.py`).
 Those round trips are a warm local server built from this repository on 127.0.0.1. They are
-not the endpoint the add-on manifest registers, which is the public Lambda (it ran an older
-build on 2026-09-27, served `aa3364a` from the morning of 2026-10-06 and `22c32ab` from that afternoon, and serves `716b0f3` since 2026-10-07), and not Alexa+. With Amazon Bedrock
+not the endpoint the add-on manifest registers, which is the public API Gateway HTTP API in
+front of the Lambda (it ran an older
+build on 2026-09-27, served `aa3364a` from the morning of 2026-10-06 and `22c32ab` from that afternoon, `716b0f3` from 2026-10-07, `0864c76` by 2026-10-18, `0a30bb8` early on 2026-10-19, and serves `873845d` since 2026-10-19), and not Alexa+. With Amazon Bedrock
 answering, the digest call would add a model round trip that has never been measured here, so
 whether that path meets the 500 ms limit is unknown.
 
@@ -1642,10 +1661,10 @@ the untested part.
 * Amazon's certification criteria include VoiceView, captions and screen magnifier support on
   Alexa devices. Nothing here was tried on a device.
 
-**What only the owner can do.** Obtain MCP Toolkit access, which the hackathon FAQ says
+**What this repository cannot do on its own.** Obtain MCP Toolkit access, which the hackathon FAQ says
 participants cannot get at present. Host the privacy page, terms page,
 icons and carousel image, and replace the nine placeholders. Redeploy the endpoint when `src/`
-or `docs/index.html` next changes; on 2026-10-06 it served the current runtime. Install the Alexa AI CLI and run `alexa-ai deploy` from `alexa_plus/`. Test in the web
+or `docs/index.html` next changes; on 2026-10-20 it served the current runtime, `873845d`. Install the Alexa AI CLI and run `alexa-ai deploy` from `alexa_plus/`. Test in the web
 simulator in isolation mode, and record which headers the real client sends.
 
 ---
@@ -1665,8 +1684,8 @@ simulator in isolation mode, and record which headers the real client sends.
   is real code, shape-tested against `httpx.MockTransport` for the accepted review, the stale
   head, the missing token, the unauthorized token and the unreachable host, and it has never
   been run with the flag set against real GitHub. Authenticated live-mode tests use a mock
-  transport only. Every real GitHub interaction so far was read-only. The owner
-  can produce a live receipt against a repository they own, in one terminal, and nothing else
+  transport only. Every real GitHub interaction so far was read-only. A live receipt can be
+  produced against a repository the operator owns, in one terminal, and nothing else
   in this repository needs to change for it:
 
   ```bash
@@ -1687,7 +1706,7 @@ simulator in isolation mode, and record which headers the real client sends.
   Edge expose `SpeechRecognition`; Firefox does not, and the page says so when the microphone
   button is pressed there. No test here drives a microphone: the dialogue is proven with
   injected transcripts, the page's typed path is what the recorded browser run used, and a
-  real spoken run is the owner's to make. The recogniser's accuracy is the browser vendor's,
+  real spoken run needs a person at a microphone. The recogniser's accuracy is the browser vendor's,
   which is exactly why every answer reads back what was understood before acting.
 * **Browser automation does not replace assistive-technology testing.** Playwright drives the
   primary digest, MCP handshake, earcon and Braille journey against a fresh server in CI. It
@@ -1760,11 +1779,16 @@ simulator in isolation mode, and record which headers the real client sends.
   4 of 4 detected with 2 of 4 over-flagged before the CORS test-file exemption and 1 of 4 after
   it; commit `f1c35a1` added the exemption and those probes together. The one left is the
   control-flow limit in a new shape. Until 2026-09-27 this entry said Python only.
-* **The public endpoint serves `716b0f3`, and Alexa hardware remains untested.**
-  `/health` reported `source_revision` `716b0f3` on 2026-10-07;
-  `git diff --name-only 716b0f3 HEAD -- src docs/index.html` prints nothing, so the live
-  runtime is the current one, though a live `tools/call` of the structured results was not made,
-  and of the durable stages only Request changes was exercised live after the fix
+* **The public endpoint serves `873845d`, and Alexa hardware remains untested.**
+  `/health` reported `source_revision` `873845d` on 2026-10-19 and 2026-10-20
+  ([The public deployment](#the-public-deployment));
+  `git diff --name-only 873845d HEAD -- src docs/index.html` prints nothing, so the live
+  runtime is the current one. Take 6 of the demo video, recorded on that build on 2026-10-19,
+  ran Request changes and Confirm live against the durable stages, and its replay clip sent a
+  live `tools/call` of `digest_semantic_diff` from each of three clients
+  ([`video/README.md`](../video/README.md)); no live check of the structured results is
+  recorded here. Before `873845d` it ran `0a30bb8` early on 2026-10-19, and on 2026-10-18 it
+  reported `0864c76` (PR #38) (`git show 0a30bb8:deploy_teardown_receipt.json`). On 2026-10-07 the endpoint reported `716b0f3`, after the durable-stage fix
   ([known issue](#known-issue-durable-stages-answered-http-503-on-live)). On 2026-10-06 it
   reported `22c32ab`, and earlier that day `aa3364a`, whose durable stages answered HTTP 503. Before that redeploy it reported `9b2bcb9` on 2026-10-01 and again on 2026-10-05, a build
   without the speech-first MCP text block, the Markdown-free full answer, the hedged clean
@@ -1775,21 +1799,20 @@ simulator in isolation mode, and record which headers the real client sends.
   ancestor of this branch 43 commits behind `6d2e227`; see
   [The public deployment](#the-public-deployment). No Alexa skill or Echo-device execution is
   inferred from that server proof.
-* **No video has been published.** A 163.68 second render at 1920x1080 (ffprobe) of a local run of
-  `09d4862` exists outside the repository, pending upload by the owner; it supersedes the
-  164.52 second render of `7a3de49`, the 174.32 second render of `1dc939f` and the earlier one of `de30b11`. The review-dialogue fixes
-  after `09d4862` are not on camera, including extensionless file names, next from the
-  overview, help examples from the open change, next steps outlined only where they work,
-  plain words for a pull request that cannot be opened, and README as documentation. [`video/README.md`](../video/README.md) says how it was made.
-  `video/` holds no footage, so gates E2 and E4 stay red. The re-take on the live build is
-  planned, not recorded: it records against `716b0f3`, where `anthropic.claude-sonnet-5`
-  answers on a 1769 MB function (one press of the take-4 patch: 3.44 s at the client, Lambda
-  3071 ms, model 1266 ms; 17.88 s at 256 MB). Beat 2's window is 41.0 s from the press: a 5.9 s
-  latency allowance (ESTIMATE), which the capture enforces, the earcon's 0.66 s lead, and the
-  longest answer the page can speak, 370 characters at the slowest measured 0.0902 s a
-  character plus 1 s. The plan measures 153.412 s. Confirm on the live build is checked only
-  offline, and a failure there fails the take. [`video/SHOT_LIST.md`](../video/SHOT_LIST.md)
-  has the arithmetic.
+* **No video has been published.** Take 6, 167.448 seconds at 1920x1080 (ffprobe), was
+  recorded on 2026-10-19 on the live build at `873845d`, with Claude Sonnet 5 on Amazon Bedrock
+  answering, and passed `scripts/verify_video_sync.py`. It is kept outside the repository and
+  has no public link yet. It supersedes take 5, recorded on 2026-10-15 on `716b0f3`, and the
+  163.68 second render of a local run of `09d4862`, which superseded the 164.52 second render
+  of `7a3de49`, the 174.32 second render of `1dc939f` and the earlier one of `de30b11`. Take 6
+  does not show the per-file drill-down, a spoken command (every command is typed or pressed
+  with the microphone off), a screen reader or a live GitHub review.
+  [`video/README.md`](../video/README.md) says how it was made and what it measured.
+  `video/` holds no footage, so gates E2 and E4 stay red. Beat 2's window is 41.0 s from the
+  press: a 5.9 s latency allowance (ESTIMATE), which the capture enforces, the earcon's 0.66 s
+  lead, and the longest answer the page can speak, 370 characters at the slowest measured
+  0.0902 s a character plus 1 s. [`video/SHOT_LIST.md`](../video/SHOT_LIST.md) has the
+  arithmetic.
 * **Durability is deployment-dependent and bounded.** A local run without
   `VOLCAN_STATE_TABLE` keeps dialogue, actions, spent nonces and audit records in process
   memory, and a restart loses them. The Terraform deployment passes only an existing
@@ -2001,7 +2024,7 @@ Each threshold is written down before the test, so a result cannot be argued int
    reader and then with Volcan. Record the minutes to find the flaw and ask whether they would
    use Volcan on their next review. **Pass:** at least three of five find it faster with Volcan
    and say yes. **Fail:** stop adding features and find out what they do instead. Cost: about
-   five hours of the owner's time.
+   five hours of one person's time.
 2. **The employer pays, from the accommodation line, at about $24 a seat.** Test: one short
    email to each of the ten organisations below, asking which budget line pays for a blind
    engineer's development tools, who signs it, and whether $24 a seat a month from that line

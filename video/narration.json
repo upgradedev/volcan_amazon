@@ -1,15 +1,15 @@
 {
   "project": "volcan_amazon",
   "title": "Volcan: hear your code review instead of scrubbing a diff",
-  "status": "Plan for the re-take on the live build, not recorded. The live build serves 716b0f3 (PR #35), default model anthropic.claude-sonnet-5, Lambda at 1769 MB. The narration is measured by video/generate-narration.py. The cold open and the product windows of beats 4 and 5 are measured against a local server on 2026-10-06, and beat 4's also in the free rehearsal of 2026-10-07. Beat 2's window is a 5.9 s latency allowance (ESTIMATE) plus the earcon's lead and the longest answer the page can speak, at the slowest speech rate measured for beat 2's sentence plus 1 s. video/SHOT_LIST.md is the plan in full.",
+  "status": "Recorded as take 6 on 2026-10-19, on the live build at commit 873845d (PR #40), default model anthropic.claude-sonnet-5. Take 6 keeps take 5's seven beats unchanged. The capture read source_revision 873845d, bedrock_model_path ready_to_attempt, durable_state configured_reachable and github_review_path dry_run_no_token from /health, and the press in beat 2 was answered by Amazon Bedrock with model_answered anthropic.claude-sonnet-5. The composed video is 153.44 s. With a 14.0 s clip of the page replaying Amazon's documented Alexa+ requests against the live POST /mcp spliced in after beat 7's narration, it is 167.448 s (ffprobe), and scripts/verify_video_sync.py passed every check on it. Not published yet. The narration is measured by video/generate-narration.py. The cold open and the product windows of beats 4 and 5 are measured against a local server on 2026-10-06, and beat 4's also in the free rehearsal of 2026-10-07. Beat 2's window is a 5.9 s latency allowance (ESTIMATE) plus the earcon's lead and the longest answer the page can speak, at the slowest speech rate measured for beat 2's sentence plus 1 s. video/SHOT_LIST.md is the plan in full and video/README.md says how take 6 was made.",
   "live_build": "https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com",
   "previous_take_script": "The 2026-09-29 render of 09d4862 used the six-beat script at commit fc10e7d: git show fc10e7d:video/narration.json",
   "timing_basis": "Measured: each beat's narration by video/generate-narration.py (ElevenLabs audio, measured with ffprobe) plus the generator's 0.65 s tail and the beat's product window. The video opens on a 2.0 s title card, then the cold open of cold_open.seconds, then beat 1, so every beat timestamp below is offset by cards.title_seconds plus cold_open.seconds. Each product window names its own basis.",
   "target_duration_seconds": 153.412,
   "max_allowed_seconds": 180.0,
   "narration_audio": {
-    "generated": false,
-    "note": "Not generated for this plan. video/generate-narration.py --write-timestamps replaces every timestamp here with measured values."
+    "generated": true,
+    "note": "Generated with ElevenLabs before take 6 and reused unchanged for it: the take 6 run of video/generate-narration.py sent 0 characters, because every beat's cache key, keyed on speech_text and the voice, matched its cached audio. The timestamps here are the generator's measured values, 133.412 s of beats. The audio is kept in the media root, outside the repository."
   },
   "tts": {
     "provider": "elevenlabs",

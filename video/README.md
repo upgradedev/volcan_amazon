@@ -1,43 +1,43 @@
 # Volcan: how the demo video is made
 
-**Next take: planned, not recorded.** [`SHOT_LIST.md`](SHOT_LIST.md) and `narration.json` in
-this folder now hold the plan for a re-take on the live build, with Amazon Bedrock answering.
-The take records against `716b0f3` (PR #35), the build the live endpoint serves since
-2026-10-07: default model `anthropic.claude-sonnet-5`, a `volcan.bedrock` shape log line, named
-causes when a model answer carries no text, and `max_retries=0`, on a Lambda function raised
-from 256 to 1769 MB the same day. On that build one press of the take-4 patch answered in
-3.44 s at the client (Lambda 3071 ms, model 1266 ms) at 1769 MB, against 17.88 s (Lambda
-17562 ms, model 2959 ms) at 256 MB. Each figure is one press, recorded in the deploy receipt
-`reviews/deploy_20261006/volcan/volcan_deploy_receipt_716b0f3.json` in the owner's workspace,
-outside the repository.
-Section 1 gives the commands for that take and for a free rehearsal. Section 4 says what the
-pipeline does for the take, what the rehearsals of 2026-10-06 and 2026-10-07 found and what is still open.
-Sections 2 and 3 describe the render that exists. Its script and its capture are in history:
-`git show fc10e7d:video/narration.json` and
-`git show fc10e7d:video/capture-local.py`. The `cue_sheet.json`, `subtitles.srt` and
-`subtitles.vtt` in this folder are generated from the plan by
-`scripts/synthesize_video_assets.py`, not from a render.
-
-**Status: rendered locally, not published.** The current render is `volcan-demo.mp4`, 163.68
-seconds, 1920x1080 at 25 fps, recorded on 2026-09-29 (local time) from a local run of commit
-`09d48620afde0cbb7d14ed0913efe882bea21a3d`. It lives outside the repository, at
-`reviews/videos_muse_20260929/volcan_amazon/output/volcan-demo.mp4` in the owner's workspace, next to
-`video-receipt.json` and the sync gate's output in `sync-gate.txt`, and waits for the owner to
-upload it. There is no public link yet. The earlier renders stay where they were and are
-superseded: `reviews/videos_20260928/` (164.52 s, from `7a3de49`) stated 646 tests in beat 6,
-and the earlier `287c9db` rehearsal this folder held was overwritten by this render once the narration was corrected.
-Readiness gates E2 and E4 look for footage inside `video/`, so they stay red.
+**Take 6: recorded, not yet published.** Take 6 was recorded on 2026-10-19 on the live build,
+https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com, at commit `873845d` (PR #40), with
+Claude Sonnet 5 on Amazon Bedrock answering the press. It keeps take 5's seven beats in
+[`narration.json`](narration.json) unchanged, and [`SHOT_LIST.md`](SHOT_LIST.md) is the plan it
+follows. There is no public link yet.
 
 | | |
 |---|---|
-| SHA-256 of the mp4 | `55fdc2a5c6d1919ec2c63eb42d66b90bafa251f592d2f3d512ebee748fbd0b1c` |
-| Duration, from ffprobe | 163.680 s: 3.0 s title card, 156.164 s of beats, 4.5 s outro card |
-| Sync gate | `scripts/verify_video_sync.py`: all gates passed, 32 caption windows |
-| First press | 15.7 s into the video; the product's own earcon starts at 16.5 s |
-| Product voice in the mix | Three turns: the press, Findings on the pull request, and Confirm. 9 caption cues marked `Volcan (product voice):` and 2 earcon cues |
-| Narration voice | ElevenLabs, voice id `21m00Tcm4TlvDq8ikWAM`, model `eleven_multilingual_v2` |
-| Characters sent to ElevenLabs for this render | 303 for beat 6 only, re-synthesized with the corrected count. Beats 1 to 5 reuse the 2026-09-28 audio unchanged (1,070 characters). 1,373 characters are in the beats that shipped |
-| Product code on camera | `src/` and `docs/` identical to `09d4862`, which is also the commit `/health` reports on camera |
+| File | `volcan-demo-replay.mp4`: the composed take, `volcan-demo.mp4` (153.44 s), with a 14.0 s replay clip spliced in at 148.92 s, after beat 7's narration |
+| Duration and format, from ffprobe | 167.448 s, 1920x1080, 25 fps |
+| SHA-256 | `7b7de77be04b6024bdcf62c2e3cd89cdff2f38eff2456b7b578c493ae24de09e` |
+| Build on camera | `/health` read `source_revision` `873845d`, `bedrock_model_path` `ready_to_attempt`, `durable_state` `configured_reachable` and `github_review_path` `dry_run_no_token` before the take. The title card, the band tag and the closing card name `873845d` |
+| The press in beat 2 | Answered by Amazon Bedrock (`synthesis_mode` `bedrock`, no fallback reason), `model_answered` `anthropic.claude-sonnet-5`. The earcon sounded 3.26 s after the press. On screen (frame 825): engine `Amazon Bedrock`, round trip `2871.7 ms`, and `The model read the whole 328-character patch. Answered by anthropic.claude-sonnet-5.` |
+| Billed model calls | 2 in the capture: opening the pull request, off camera, and Hear this code review. 3 in the replay clip: one `tools/call` of `digest_semantic_diff` per client. A first capture attempt that day, not used, billed 2 more, the same open and Hear (`capture-attempt1/capture-receipt.json`): 7 across take 6's recordings, against the bound of 12 in `SHOT_LIST.md` |
+| Replay clip | The page's **Replay the documented Alexa+ requests**, pressed on the live build: `3 of 3 clients served`, protocol version 2025-11-25 to each (frame 3950). 14.0 s kept from a 37.76 s recording; the 9.4 s of waiting cut is stated in its caption |
+| Sync gate | `scripts/verify_video_sync.py` on the 167.448 s file: all sync gates passed, 30 caption windows, `content-seam<=1s` 0.651 s, `web-beat-audible` -1.5 dB |
+| Product voice in the mix | Four turns: `line 26`, Hear this code review, Request changes and Confirm, with 3 earcons. No turn is talked over: the receipt's `unrecordedProductVoice` is empty |
+| Narration voice | ElevenLabs, voice id `21m00Tcm4TlvDq8ikWAM`, model `eleven_multilingual_v2`, 495 characters in the final beats. Take 6 reused the cached audio and sent 0 characters |
+| Capture | Headless Chromium at 1280x720, drifting 0.0019% from the page clock (`captureVideoPerPageSecond` 1.000019). No page error and no blank stretch |
+
+The video files, their receipts (`capture/capture-receipt.json`, `output/video-receipt.json`,
+`output/replay-splice-receipt.json` and the unused attempt's `capture-attempt1/capture-receipt.json`) and the gate's output (`output/sync-gate.replay.txt`)
+are kept in the take's media root, `VOLCAN_VIDEO_ROOT`, outside the repository. Every figure
+above comes from those receipts or from a frame read by index, except the duration and the
+SHA-256, which `ffprobe` and `sha256sum` printed for the file on 2026-10-20. Readiness gates
+E2 and E4 look for footage inside `video/`, so they stay red.
+
+Section 1 gives the commands that recorded take 6 and the commands for a free rehearsal.
+Sections 2 and 3 say what is real in take 6's picture and sound and what it does not show.
+Section 4 says what the pipeline does for the take, and what the rehearsals of 2026-10-06 and
+2026-10-07 found. The `cue_sheet.json`, `subtitles.srt` and `subtitles.vtt` in this folder are
+generated from the plan by `scripts/synthesize_video_assets.py`, not from a render.
+
+**Earlier takes are superseded.** Take 5 was recorded on 2026-10-15 on `716b0f3`, and the
+2026-09-29 render, 163.68 s, was a local run of `09d4862`. Until take 6, sections 2 and 3
+described that 2026-09-29 render: `git show c20f366:video/README.md` has that text. Its script
+and capture are in history too: `git show fc10e7d:video/narration.json` and
+`git show fc10e7d:video/capture-local.py`.
 
 ---
 
@@ -53,14 +53,14 @@ so any one beat can be re-rendered later.
 | Compose | `video/build-video.py` | `output/volcan-demo.mp4`, `video-receipt.json`, `video_manifest.json`, `caption_windows.json`, `captions.en.srt` |
 | Gate | `scripts/verify_video_sync.py` | pass or fail, from the mp4 itself |
 
-For the re-take on the live build, which serves `716b0f3` since 2026-10-07
+Take 6 ran these against the live build, which serves `873845d` since 2026-10-19
 (`curl -s $VOLCAN_APP_URL/health` reports it as `source_revision`; the capture refuses any other):
 
 ```bash
 export VOLCAN_VIDEO_ROOT=/a/folder/outside/the/repo
 export VOLCAN_APP_URL=https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/
-export VOLCAN_RELEASE_SHA=716b0f3a00aa0577925d6fbd00d74b7dc29f0151   # the source_revision /health reports
-export VOLCAN_PR_URL=https://github.com/<owner>/<repo>/pull/<number>   # chosen in rehearsal
+export VOLCAN_RELEASE_SHA=873845d97a4747dc4b85882d3d6593a15759d375   # the source_revision /health reports
+export VOLCAN_PR_URL=https://github.com/upgradedev/volcan-demo-service/pull/1   # the demo pull request, chosen in rehearsal
 # Leave VOLCAN_COLD_OPEN unset: the cold open is cold_open.command in narration.json, `line 26`.
 # When set, VOLCAN_COLD_OPEN overrides it (findings, files, summary or "line N"); when neither
 # is set, the capture falls back to Findings, which does not fit this pull request's cold open.
@@ -75,6 +75,14 @@ cd "$VOLCAN_VIDEO_ROOT/output" && VIDEO_MANIFEST=video_manifest.json \
   CAPTION_WINDOWS=caption_windows.json python /path/to/repo/scripts/verify_video_sync.py volcan-demo.mp4
 python scripts/synthesize_video_assets.py         # cue sheet and subtitles from the measured beats
 ```
+
+The replay clip in take 6 is not made by these scripts. It is a separate browser recording of
+the live page pressing **Replay the documented Alexa+ requests**, cut to 14.0 s and spliced
+into the composed take by a script kept outside the repository, with captions that say what
+the clip is and how much waiting was cut. `output/replay-splice-receipt.json` in the media
+root records the raw recording, the two segments kept, the cut and the SHA-256 of each file.
+The gate then read the spliced file against its own manifest and caption windows,
+`video_manifest.replay.json` and `caption_windows.replay.json`.
 
 The 2026-09-29 take ran the scripts at `fc10e7d` against a fresh local server with no cloud
 credentials; `git show fc10e7d:video/README.md` has those commands.
@@ -93,10 +101,10 @@ review** in beat 2, when the narrator stops. Each is one billed model call.
   other request that would reach a model is aborted, and the take fails. That includes a
   digest without `"engine"` in its body, a second open, and a `tools/call` on `POST /mcp`.
 * The receipt lists the calls that went through, under `billedCalls`.
-* **Replay the documented Alexa+ requests** is never pressed. On the live build it is three
-  calls.
+* **Replay the documented Alexa+ requests** is never pressed by the capture. On the live build
+  it is three calls. Take 6's replay clip pressed it once, in the separate recording above.
 
-Pass the flag only after the owner has authorised the calls in writing, as step 1 of
+Pass the flag only once the billed calls are authorised in writing, as step 1 of
 [`SHOT_LIST.md`](SHOT_LIST.md) says. Each run with the flag is one take, and two calls
 against the bound of 12.
 
@@ -155,8 +163,8 @@ python video/build-video.py --rehearsal       # writes output-rehearsal/
 The gate calls `ffmpeg` and `ffprobe` by name, so put their folder on `PATH` for it.
 `python tests/video/verify_gate_selftest.py` proves the gate still fails on a mis-ordered
 video, a caption that runs into the outro and an audio track longer than the picture. It is
-not collected by pytest. The gate is unchanged; section 4 says which checks the re-take
-passes and which it does not yet.
+not collected by pytest. The gate is unchanged; section 4 says what the pipeline checks, and
+take 6 passed the sync gate (see the status table above).
 
 ### Re-rendering one beat
 
@@ -224,64 +232,81 @@ The build refuses:
 
 ---
 
-## 2. What is real in the picture and the sound
+## 2. What is real in take 6's picture and sound
 
-* **The picture** is a headless Chromium recording of the page at 1280x720, scaled to 1632x918
-  at the top of the 1080p frame. The script presses keys and buttons, types into the page's own
-  inputs and scrolls; it never writes into the page's DOM and never answers a request. Every
-  panel filled from the running server during the take.
-* **The band under the page** holds everything the build adds: the captions, a grey tag naming
-  the local commit, and an amber label while the page's own voice is not in the mix. Nothing is
-  drawn over the page, so the sentence the page shows while it speaks stays readable.
-* **The pull request** in beats 3 and 4 is octocat/Hello-World #1, read from GitHub by the
-  server without a token. The review comment says it is a dry-run demo and claims nothing about
-  the pull request. The server ran without `VOLCAN_GITHUB_WRITE` and without a token, recorded
-  the request and sent nothing.
+* **The picture** is a headless Chromium recording of the live page at 1280x720, scaled to
+  1632x918 at the top of the 1080p frame. The script presses keys and buttons, types into the
+  page's own inputs and scrolls; it never writes into the page's DOM and never answers a
+  request. Every panel filled from the live server during the take.
+* **Commands are typed or pressed, not spoken.** The dialogue log shows `Typed: open`, the
+  open made before the shot, and `Typed: line 26`, and the page reads `Microphone: microphone
+  off` (frame 75). Hear this code
+  review is pressed with Enter, and Request changes and Confirm are pressed as buttons. The
+  page's own speech recognition, **Start listening**, is not used on camera.
+* **The band under the page** holds the captions and a tag naming the live build and its
+  commit, `Live build at qylv1gxor9.execute-api.eu-west-1.amazonaws.com, commit 873845d.`
+  During the cold open it reads `Live build at commit 873845d. A demo pull request in
+  upgradedev/volcan-demo-service, written for this walkthrough, opened before this shot.`
+  Nothing is drawn over the page, so the sentence the page shows while it speaks
+  stays readable.
+* **The pull request** is https://github.com/upgradedev/volcan-demo-service/pull/1, `Add
+  workspace deletion endpoint`, head `74dd0b1`: a demo written for this walkthrough, and
+  labelled as one on camera. It was opened on the live page before the cold open, off camera,
+  because opening one is a billed model call. The review comment is `is_admin is inverted.`.
+  The server has no GitHub token, so Confirm recorded the request and sent nothing.
 * **The narration** is a synthetic ElevenLabs voice. It never speaks for the product.
-* **The earcons** are the WAVs the server returned for the press, for Findings and for Confirm,
-  byte for byte, each mixed in where the page's own playback clock started it. They share the
-  gain measured on the longest, because a cue under 400 ms cannot be measured on its own.
-* **The product voice** is the exact text the page passed to `speechSynthesis` for those three
-  turns, readback and answer as separate sentences. Headless capture records no audio, so each
-  sentence was rendered again with Windows System.Speech, voice `Microsoft David Desktop`, and
-  placed at that sentence's own speech start event. It is captioned `Volcan (product voice):`
-  from the same text, and the outro names the voice.
-* **The turns the narrator talks over** are opening the pull request and Request changes. The
-  page played a cue and spoke for each until the next command interrupted it; the capture logged
-  when, and the band label `Not in this recording: the page's own cue and voice for this turn`
-  covers exactly those stretches (62.6 to 70.5 s and 80.9 to 92.6 s of the timeline, 3.0 s later
-  in the video).
+* **The earcons** are the WAVs the server returned for Hear this code review, Request changes
+  and Confirm, byte for byte, each mixed in where the page's own playback clock started it.
+* **The product voice** is the exact text the page passed to `speechSynthesis` for four turns,
+  `line 26`, Hear this code review, Request changes and Confirm, with the readback and the
+  answer as separate sentences. Headless capture records no audio, so each sentence was
+  rendered again with Windows System.Speech, voice `Microsoft David Desktop`, and placed at
+  that sentence's own speech start event. It is captioned `Volcan (product voice):` from the
+  same text, and the closing card names the voice. The model's headline inside beat 2's
+  answer is Claude Sonnet 5's own wording, spoken and captioned as the page received it.
+* **The replay clip**, from 148.92 to 162.92 s, is a separate browser recording of the live
+  page at 1280x720. **Replay the documented Alexa+ requests** sends Amazon's documented Alexa+
+  client request bodies to the live `POST /mcp` as three clients; Alexa+ did not send them,
+  and the clip's caption says so. Each client ran `initialize`, `tools/list` and a
+  `tools/call` of `digest_semantic_diff`, one billed model call each, and the page printed
+  `3 of 3 clients served`. Of the 37.76 s recording, 3.0 s and 11.0 s are kept, and the 9.4 s
+  of waiting between them is cut and captioned. The clip carries no narration.
 * **Two marker pages**, before and after the journey, turn from white to black at a logged
-  time. In this take the recording ran 0.15% longer than the page clock, so the build retimes
-  the picture by that measured factor and every logged action lands on its timeline second.
+  time. The build retimes the picture by the measured factor, 1.000019, so every logged action
+  lands on its timeline second.
 
-## 3. Known gaps in this render
+## 3. What take 6 does not show
 
-* No terminal is filmed. Beat 6 states 725 tests and 23 of 23 conformance checks. On
-  2026-09-29 `python -m pytest tests/ -q` printed `725 passed` on `09d4862`, and
-  `python scripts/mcp_conformance.py http://127.0.0.1:8743/mcp` printed `23/23 checks passed`
-  against a server of `09d4862`, which was then restarted fresh for the take on port 8801.
+* No terminal is filmed, and no test count is spoken or shown.
 * No screen reader is filmed. Headless capture has none; the narration states the problem.
-* The system voice renders each sentence a little faster than the browser spoke it: 15.20 s
-  against 16.90 s for the press, 15.79 s against 18.21 s for the Confirm answer. Each sentence
-  starts where the browser's did, so it ends early, and each product window closes on 2 to 4 s
-  of the page without sound. The windows are sized from the browser's own end events, with 0.55 to
-  1.5 s of margin over the slowest measured run, because the capture fails a take whose speech
-  overruns.
+* No spoken command: every command is typed or pressed with the microphone off (above).
+* No per-file drill-down. It is on the live build, but take 6 keeps take 5's journey
+  ([`SHOT_LIST.md`](SHOT_LIST.md), the take 6 section).
+* No live GitHub review: the build has no token, and the closing card says `GitHub review: dry
+  run.`
+* **Silent stretches.** `ffmpeg -af silencedetect=n=-45dB:d=4` on the file finds five
+  stretches of 4 s or more:
+  * 26.3 to 30.6 s: the narrator's tail, the press, and the 3.26 s wait for the model's
+    answer, shown uncut;
+  * 57.1 to 68.4 s: the page holding after the answer until beat 3, because beat 2's window is
+    sized for the longest answer the page can speak;
+  * 103.7 to 109.2 s and 133.3 to 138.5 s: the end of the Request changes and Confirm windows,
+    which keep a margin over the slowest measured run;
+  * 147.9 to 167.4 s: the end of beat 7, the replay clip, which has captions and no sound, and
+    the closing card.
+* **The system voice is faster than the browser's.** Each sentence starts where the browser's
+  did, so it ends early: the press's answer took 32.18 s in the browser and 26.68 s rendered,
+  the Request changes answer 18.97 s and 15.91 s, and the Confirm answer 18.22 s and 16.21 s
+  (`output/video-receipt.json`). That accounts for part of the silent stretches after the
+  answer, Request changes and Confirm.
 * The words on the page light from the browser's own boundary events, so late in a sentence the
   lit word may run ahead of the voice you hear.
 * The patch box renders `==` and `!=` as JetBrains Mono ligatures. This is the page's font
   setting, not something the video adds.
-* After the review turns, the stage at the top of the page shows the last cue the page played,
-  the dry-run cue with a level contour, while its sentence is still the first patch's. The
-  closing shot shows that state as the page left it.
-* The schema of the first MCP tool is wider than its box; the page scrolls it sideways, and the
-  frame shows the first part of each line.
-* The public endpoint runs an older commit, so the video shows a local run. The title card and
-  the outro say so.
-* Upload `output/captions.en.srt` from the media root as the caption track: it is sentence
-  level, includes the product voice and the earcon descriptions, and carries the title card
-  offset. `video/subtitles.srt` in this folder is one cue per beat.
+* Upload `output/captions.en.replay.srt` from the media root as the caption track: it is
+  sentence level, includes the product voice, the earcon descriptions and the replay clip's two
+  captions, and carries the title card offset. `video/subtitles.srt` in this folder is one cue
+  per beat.
 
 ## 4. Rendering the re-take
 
@@ -437,8 +462,8 @@ the media root has the call).
   `dry_run_no_token`. `VOLCAN_PR_URL` was
   https://github.com/upgradedev/volcan-demo-service/pull/1, and the cold open was `line 26`.
   The capture, the composed video, the gate's output in `output-rehearsal/sync-gate.txt` and
-  frames in `output-rehearsal/frames7/` are in `reviews/videos_20261006/volcan_amazon/` in the
-  owner's workspace, with the logs in `rehearsal7-capture.log` and `rehearsal7-build.log`.
+  frames in `output-rehearsal/frames7/` are kept in that rehearsal's media root, outside the
+  repository, with the logs in `rehearsal7-capture.log` and `rehearsal7-build.log`.
 * **The capture** exited 0 with an empty `failures` list: no page error, no blank stretch, the
   recording drifting 0.2767% from the page clock (`videoPerPageSecond` 1.002767).
   * Cold open, `line 26`: first word 2.837 s into the video. Its speech ended 0.794 s before
@@ -489,8 +514,8 @@ reused its cached audio, and widening beat 2's window from 58.0 to 58.5 s sent n
   `github_review_path` `dry_run_no_token`. `VOLCAN_PR_URL` was
   https://github.com/upgradedev/volcan-demo-service/pull/1 and `VOLCAN_COLD_OPEN` was unset,
   so the cold open was `line 26`. The capture, the composed video and the gate's output in
-  `output-rehearsal/sync-gate.txt` are in `reviews/videos_20261006/volcan_amazon/` in the
-  owner's workspace, with the capture's log in `rehearsal5-capture.log`.
+  `output-rehearsal/sync-gate.txt` are kept in that rehearsal's media root, outside the
+  repository, with the capture's log in `rehearsal5-capture.log`.
 * **The capture** exited 0 with an empty `failures` list: no page error, no blank stretch, the
   recording drifting 0.0119% from the page clock (`videoPerPageSecond` 0.999881).
   * Cold open, `line 26`: first sound and first word 0.52 s into the cold open, 2.52 s into the
@@ -534,8 +559,8 @@ ElevenLabs was called for the four beats that plan rewrote to give beat 2 its 57
   `unavailable_no_sdk_and_no_credentials` and `github_review_path` `dry_run_no_token`.
   `VOLCAN_PR_URL` was https://github.com/upgradedev/volcan-demo-service/pull/1, head `74dd0b1`,
   and `VOLCAN_COLD_OPEN` was unset, so the cold open was `line 26`. The capture, the composed
-  video and the gate's output in `sync-gate.txt` are outside the repository, in
-  `reviews/videos_20261006/volcan_amazon/` in the owner's workspace.
+  video and the gate's output in `sync-gate.txt` are kept in that rehearsal's media root,
+  outside the repository.
 * **The capture** exited 0 with an empty `failures` list: no page error, no blank stretch, the
   recording drifting 0.0007% from the page clock (`videoPerPageSecond` 0.999993).
   * Cold open, `line 26`: first sound and first word 0.55 s into the cold open, 2.55 s into the
@@ -577,8 +602,8 @@ One rehearsal, with no billed call and no ElevenLabs call:
   * It ran on the silent timing stub, then `video/build-video.py --rehearsal`, then the
     unchanged gate.
 * **Where the outputs are.** The capture, the composed video, the gate's output in
-  `sync-gate.txt` and six frames are outside the repository, in
-  `reviews/volcan_rehearsal_20261006/` in the owner's workspace. The composed video and
+  `sync-gate.txt` and six frames are kept in that rehearsal's media root, outside the
+  repository. The composed video and
   the gate's output were rebuilt at `c981187`, ffmpeg only, from the same capture, after
   `a_main` stopped counting the render's trailing silence.
 * **The pull request** was https://github.com/alex-pimentel/agenteresolve-services/pull/8,
@@ -635,7 +660,7 @@ and the 90 to 174 s narration range. `--write-timestamps` offsets the beats by
 the card, 15.5 s in this plan.
 
 `tests/unit/test_video_retake_pipeline.py` covers the scripts without a browser, ffmpeg or a
-request. Its 100 cases (`python -m pytest tests/unit/test_video_retake_pipeline.py -q`) check:
+request. Its 104 cases (`python -m pytest tests/unit/test_video_retake_pipeline.py -q`) check:
 
 * the plan's title card, cold open and timestamps, and its total of 170 s or less;
 * the beat ids;

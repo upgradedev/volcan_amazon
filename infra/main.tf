@@ -180,7 +180,7 @@ resource "aws_iam_role_policy_attachment" "volcan_bedrock_mantle_attach" {
   policy_arn = aws_iam_policy.volcan_bedrock_mantle[0].arn
 }
 
-# 3. AWS Lambda Function for Streamable HTTP FastMCP Server ($0.00 Idle Cost)
+# 3. AWS Lambda Function for the hand-written MCP server on FastAPI, Streamable HTTP ($0.00 Idle Cost)
 resource "aws_lambda_function" "volcan_mcp_function" {
   function_name    = "volcan-mcp-euw1-${var.environment}"
   role             = aws_iam_role.volcan_lambda_role.arn
@@ -248,7 +248,7 @@ resource "aws_cloudwatch_log_group" "volcan_lambda_logs" {
 # Outputs
 output "volcan_function_url" {
   value       = aws_lambda_function_url.volcan_mcp_url.function_url
-  description = "Public HTTPS Streamable HTTP FastMCP endpoint on AWS Lambda"
+  description = "Public HTTPS Function URL of the hand-written MCP server on FastAPI (Streamable HTTP) on AWS Lambda"
 }
 
 output "lambda_function_arn" {

@@ -474,7 +474,7 @@ def test_the_shot_list_and_readme_state_the_beat_2_window_and_the_cold_open():
     assert "| Cold open band only." in shot_list
     readme = (VIDEO / "README.md").read_text(encoding="utf-8")
     assert "export VOLCAN_COLD_OPEN=" not in readme
-    assert "VOLCAN_RELEASE_SHA=716b0f3a00aa0577925d6fbd00d74b7dc29f0151" in readme
+    assert "VOLCAN_RELEASE_SHA=873845d97a4747dc4b85882d3d6593a15759d375" in readme
     assert PLAN["cold_open"]["command"] == "line 26"
 
 
