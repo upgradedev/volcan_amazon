@@ -18,12 +18,15 @@ The companion page stands in for Alexa+ with the browser's own speech, and its E
 (Server and MCP) sends Amazon's documented Alexa+ client requests to `/mcp` on a press.
 
 **Live.** [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/)
-runs the `src/` and `docs/index.html` of master `873845d`, with Claude Sonnet 5 answering: the
-read-only probe in [`deploy_teardown_receipt.json`](deploy_teardown_receipt.json) read
-`source_revision` `873845d` and `model_id` `anthropic.claude-sonnet-5` from `/health` at 07:20
-UTC on 2026-10-19. That revision is the `SOURCE_REVISION` value set at deploy, not a hash of the
-code. That build includes the drill-down that shows Claude's answer for one file. Later commits
-that change `src/` or `docs/index.html` are not live until the owner approves a redeploy.
+runs the runtime of master `286cadc8` ([PR #46](https://github.com/upgradedev/volcan_amazon/pull/46)).
+On 2026-10-23, AWS reported the Lambda Active, its update Successful, and
+`SOURCE_REVISION` `286cadc8b045d2fb7d831dcdb0f8a3416ad89a00`; its code hash matched
+the package built from that Git revision. The deploy preserved the runtime settings
+and environment values except the revision label. No model was called.
+[`deploy_teardown_receipt.json`](deploy_teardown_receipt.json) records those checks.
+A fresh public HTTP/browser probe remains blocked by the browser tool's origin policy.
+The historical public probe of 2026-10-19, with Claude Sonnet 5 answering on `873845d`,
+is retained in that receipt with its original revision and date.
 
 **Try it in one step.** Open the live page and press **Hear this code review**. Nothing plays
 or speaks until you press. To run it on your own machine, see [Run it locally](#run-it-locally).
@@ -200,7 +203,7 @@ for a redeploy. The table below gives the commands.
 
 | | |
 |---|---|
-| **Live endpoint** | [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health) runs the runtime of master `873845d` (PR #40), with Claude Sonnet 5 as the default model: the read-only probe in [`deploy_teardown_receipt.json`](deploy_teardown_receipt.json) read `source_revision` `873845d97a4747dc4b85882d3d6593a15759d375`, `model_id` `anthropic.claude-sonnet-5`, `bedrock_model_path` `ready_to_attempt` and `durable_state` `configured_reachable` from `/health` on 2026-10-19 at 07:20 UTC. `source_revision` is the value set at deploy. That build includes the drill-down that shows Claude's answer for one file. Before it, `0a30bb8` was live on 2026-10-19 at 04:34 UTC, and the probe of 2026-10-18 read `0864c76` (PR #38). `716b0f3` (PR #35) was redeployed on 2026-10-07; its memory was raised from 256 to 1769 MB the same day, and one press of the take-4 patch then answered in 3.44 s at the client (Lambda 3071 ms, model 1266 ms), against 17.88 s at 256 MB. Before it, `22c32ab` (PR #34, the DynamoDB serialization fix) was redeployed on 2026-10-06: `curl -s <endpoint>/health` reported `source_revision` `22c32ab56cc45155c4544ce658ef399aeb5d55c1` at 15:34 UTC that day, with `durable_state` `configured_reachable` and `bedrock_model_path` `ready_to_attempt`. After that redeploy, open the pull request, line 26, Request changes and cancel each answered HTTP 200 on live, Request changes with `CONFIRM_REVIEW`; on `aa3364a` it had answered HTTP 503 ([known issue](docs/EVIDENCE.md#known-issue-durable-stages-answered-http-503-on-live)). `git cat-file -s 22c32ab:docs/index.html` prints 299,248, the size `GET /` answered with on `aa3364a`, whose page is the same. The `aa3364a` deploy probe of 2026-10-06, kept outside the repository like every live observation, found 12 tools in `tools/list`, an `outputSchema` on `digest_semantic_diff`, `drill_down_section` and `review_dialogue_turn`, and the `ui://` card link on `review_dialogue_turn`; `22c32ab` changes only the two DynamoDB stores under `src/`, `716b0f3` adds `model_answered` to the digest result, and no probe made a `tools/call` or `resources/read`, so `structuredContent` and the card body are proven by the local tests named below. [Details](docs/EVIDENCE.md#the-public-deployment). Earlier builds, kept in EVIDENCE as history: `22c32ab` (PR #34) and `aa3364a` (PR #30) on 2026-10-06, `9b2bcb9` (PR #23) on 2026-10-01 and 2026-10-05, `6e9ae4d` (PR #22) on 2026-09-30, before that `0e96e45`, and `2d0b8f8` on 2026-09-27, 43 commits behind. |
+| **Live endpoint** | Runtime of master `286cadc8` (PR #46), deployed on 2026-10-23. AWS Lambda Active / Successful; `SOURCE_REVISION` and package CodeSha256 verified. No new public HTTP/browser probe or model call during this release; the 2026-10-19 public probe is retained as dated history. | [`deploy_teardown_receipt.json`](deploy_teardown_receipt.json) |
 | **Evidence** | [docs/EVIDENCE.md](docs/EVIDENCE.md): every claim with the command that prints it |
 | **Friction log** | [docs/FRICTION_LOG.md](docs/FRICTION_LOG.md): eight entries from building Volcan on MCP, Amazon Bedrock, AWS Lambda and the Alexa+ documentation, each with the task attempted, the steps taken, the expected and actual result, a severity rating, the workaround used and an actionable suggestion |
 | **Source** | A private repository. The [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) rule for one: "Add the Amazon and Devpost reviewers as collaborators before the submission deadline". That is an owner step. The MIT licence is in [LICENSE](LICENSE) |
