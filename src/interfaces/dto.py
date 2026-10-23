@@ -286,7 +286,7 @@ class ReviewCard(BaseModel):
     changed_lines_shown: int
     changed_lines_total: int = Field(..., description="Added and removed lines in the hunk the card shows")
     braille_fidelity: Literal["code"]
-    braille_lossless: bool = Field(..., description="False when a shown line holds a character the code table has no cell for")
+    braille_lossless: bool = Field(..., description="False when a shown line substitutes tabs or characters the code table has no cell for")
     can_submit: bool = Field(..., description="False for a pasted patch, which has no pull request to review")
     awaiting_confirmation: bool
 

@@ -1,6 +1,5 @@
 """A real Chromium checks the first screen: no outside request, a silent preview,
 one announcement channel, a working MCP handshake and a skip link that lands."""
-import os
 import socket
 import subprocess
 import sys
@@ -9,6 +8,8 @@ from contextlib import closing
 
 import httpx
 import pytest
+
+from tests.fixtures.isolated_environment import isolated_test_environment
 
 RUNNER = "tests/e2e/first_screen_runner.py"
 
@@ -23,7 +24,7 @@ def _free_port() -> int:
 def base_url():
     port = _free_port()
     url = f"http://127.0.0.1:{port}"
-    env = os.environ.copy()
+    env = isolated_test_environment()
     env["VOLCAN_ALLOWED_ORIGINS"] = url
     server = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "src.interfaces.mcp_server:app",
@@ -54,7 +55,8 @@ def base_url():
 def _run(mode: str, url: str) -> None:
     result = subprocess.run([sys.executable, RUNNER, mode, url],
                             capture_output=True, text=True, encoding="utf-8",
-                            errors="replace", timeout=120)
+                            errors="replace", timeout=120,
+                            env=isolated_test_environment())
     assert result.returncode == 0, result.stdout + result.stderr
 
 

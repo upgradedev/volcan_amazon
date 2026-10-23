@@ -82,7 +82,9 @@ def build_review_card(dialogue: ReviewDialogue, awaiting_confirmation: bool) -> 
         "changed_lines_shown": len(lines),
         "changed_lines_total": len(changed),
         "braille_fidelity": FIDELITY_CODE,
-        "braille_lossless": not any(unsupported_characters(line.text) for line in shown),
+        "braille_lossless": not any(
+            unsupported_characters(line.text) or "\t" in line.text for line in shown
+        ),
         "can_submit": dialogue.pull_request is not None,
         "awaiting_confirmation": awaiting_confirmation,
     }

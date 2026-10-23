@@ -1,5 +1,4 @@
 """The drill-down press shows Claude's answer only when a model answered, and says why otherwise."""
-import os
 import socket
 import subprocess
 import sys
@@ -7,6 +6,8 @@ import time
 from contextlib import closing
 
 import httpx
+
+from tests.fixtures.isolated_environment import isolated_test_environment
 
 
 def _free_port() -> int:
@@ -18,16 +19,8 @@ def _free_port() -> int:
 def test_the_drill_down_press_labels_the_model_answer_and_every_fallback():
     port = _free_port()
     base_url = f"http://127.0.0.1:{port}"
-    server_env = os.environ.copy()
+    server_env = isolated_test_environment()
     server_env["VOLCAN_ALLOWED_ORIGINS"] = base_url
-    # The drill-down press asks for the model. This server must never reach
-    # one, on a laptop that holds deploy credentials or anywhere else.
-    for name in [key for key in server_env if key.startswith("AWS_")]:
-        del server_env[name]
-    missing = os.path.join(os.path.dirname(os.path.abspath(__file__)), "no-such-aws-file")
-    server_env["AWS_SHARED_CREDENTIALS_FILE"] = missing
-    server_env["AWS_CONFIG_FILE"] = missing
-    server_env["AWS_EC2_METADATA_DISABLED"] = "true"
     server = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "src.interfaces.mcp_server:app",
          "--host", "127.0.0.1", "--port", str(port)],
@@ -49,6 +42,7 @@ def test_the_drill_down_press_labels_the_model_answer_and_every_fallback():
         journey = subprocess.run(
             [sys.executable, "tests/e2e/drill_down_runner.py", base_url],
             capture_output=True, text=True, timeout=120,
+            env=server_env,
         )
         assert journey.returncode == 0, journey.stdout + journey.stderr
     finally:

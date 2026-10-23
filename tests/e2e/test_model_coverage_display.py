@@ -1,5 +1,4 @@
 """The page states what the model read, from the response that says so."""
-import os
 import socket
 import subprocess
 import sys
@@ -7,6 +6,8 @@ import time
 from contextlib import closing
 
 import httpx
+
+from tests.fixtures.isolated_environment import isolated_test_environment
 
 
 def _free_port() -> int:
@@ -18,7 +19,7 @@ def _free_port() -> int:
 def test_the_page_shows_model_coverage_and_full_prose_from_the_response():
     port = _free_port()
     base_url = f"http://127.0.0.1:{port}"
-    server_env = os.environ.copy()
+    server_env = isolated_test_environment()
     server_env["VOLCAN_ALLOWED_ORIGINS"] = base_url
     server = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "src.interfaces.mcp_server:app",
@@ -41,6 +42,7 @@ def test_the_page_shows_model_coverage_and_full_prose_from_the_response():
         journey = subprocess.run(
             [sys.executable, "tests/e2e/model_coverage_runner.py", base_url],
             capture_output=True, text=True, timeout=60,
+            env=server_env,
         )
         assert journey.returncode == 0, journey.stdout + journey.stderr
     finally:

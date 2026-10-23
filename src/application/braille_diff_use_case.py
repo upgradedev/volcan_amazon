@@ -55,12 +55,13 @@ class BrailleDiffUseCase:
                 "unsupported": unsupported,
             }
         collisions = literary_collisions(text)
+        unsupported = unsupported_characters(text, fidelity)
         return {
             "original_text": text,
             "braille_unicode": rendered,
             "fidelity": fidelity,
-            "lossless": not collisions,
+            "lossless": not collisions and not unsupported and "\t" not in text,
             "decoded_text": None,
             "collisions": collisions,
-            "unsupported": [],
+            "unsupported": unsupported,
         }
