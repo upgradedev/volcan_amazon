@@ -73,6 +73,11 @@ have not validated the output.
 
 The deterministic finding remains distinct from optional model wording.
 
+![Client to Lambda, deterministic review and text/WAV/Braille, with optional Bedrock wording and DynamoDB state.](docs/assets/readme-architecture.svg)
+
+<details>
+<summary>Mermaid source</summary>
+
 ```mermaid
 flowchart LR
     Client["Web companion / MCP client"] --> API["Lambda · MCP + REST"]
@@ -85,8 +90,15 @@ flowchart LR
     style Output fill:#F6EFE6,color:#231B17,stroke:#C54B1C
 ```
 
+</details>
+
 The review card is hosted by the companion page. Its smart-display frame is a
 drawing; no Echo Show or third-party MCP Apps host is implied.
+
+![Staged review, signed grant, principal check, self-approval refusal or checked dry-run audit record.](docs/assets/readme-governance.svg)
+
+<details>
+<summary>Mermaid source</summary>
 
 ```mermaid
 flowchart LR
@@ -98,6 +110,8 @@ flowchart LR
     style Refuse fill:#FFE4DB,color:#7B2712,stroke:#C54B1C
     style Result fill:#EAF4EB,color:#17452B,stroke:#2E7D54
 ```
+
+</details>
 
 ## Proof and limits
 
@@ -175,7 +189,7 @@ configuration, model history and the complete capability table.
 | [Friction log](docs/FRICTION_LOG.md) | Recorded issues, workarounds and suggestions |
 | [Persona review](docs/PERSONA_REVIEW.md) | Internal review procedure and findings |
 | [Infrastructure](infra/README.md) | Terraform and operations |
-| [Video](video/README.md) | Recorded-cut provenance and unfilled publication status |
+| [Video](video/README.md) | Historical capture provenance; current publication links above |
 
 ## License
 
