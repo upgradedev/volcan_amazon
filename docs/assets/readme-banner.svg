@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="280" viewBox="0 0 1120 280" role="img" aria-labelledby="title desc">
+  <title id="title">Volcan: code review through voice, sound and Braille</title>
+  <desc id="desc">An ivory and ember banner with a decorative code and eight-dot pattern. Human approval; dry-run by default. Alexa+ track, self-hosted MCP.</desc>
+  <rect width="1120" height="280" rx="16" fill="#F6EFE6"/>
+  <path d="M0 16Q0 0 16 0H26V280H16Q0 280 0 264Z" fill="#C54B1C"/>
+  <path d="M72 49H830" stroke="#D8C8BA" stroke-width="1"/>
+  <text x="72" y="80" font-family="Segoe UI,Arial,sans-serif" font-size="13" font-weight="700" letter-spacing="2.2" fill="#8B4328">ALEXA+ TRACK · SELF-HOSTED MCP</text>
+  <text x="67" y="155" font-family="Segoe UI,Arial,sans-serif" font-size="72" font-weight="750" letter-spacing="-2.5" fill="#231B17">Volcan</text>
+  <text x="73" y="196" font-family="Segoe UI,Arial,sans-serif" font-size="24" fill="#44372E">Code review through voice, sound and Braille.</text>
+  <text x="73" y="239" font-family="Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" letter-spacing="1.8" fill="#8B4328">HUMAN APPROVAL  /  DRY-RUN DEFAULT</text>
+  <g aria-hidden="true">
+    <rect x="875" y="49" width="184" height="184" rx="16" fill="#231B17"/>
+    <path d="M925 99L904 120L925 141" fill="none" stroke="#FF9D3D" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M1021 99L1042 120L1021 141" fill="none" stroke="#FF9D3D" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <g fill="#F6EFE6">
+      <circle cx="959" cy="88" r="7"/><circle cx="985" cy="88" r="7"/>
+      <circle cx="959" cy="113" r="7"/><circle cx="985" cy="138" r="7"/>
+      <circle cx="959" cy="163" r="7"/>
+    </g>
+    <g fill="none" stroke="#AF8B73" stroke-width="2">
+      <circle cx="985" cy="113" r="6"/><circle cx="959" cy="138" r="6"/><circle cx="985" cy="163" r="6"/>
+    </g>
+    <path d="M903 198H1031" stroke="#6B4D3B" stroke-width="1"/>
+  </g>
+</svg>
