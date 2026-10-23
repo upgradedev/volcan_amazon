@@ -82,11 +82,11 @@ def test_literary_mode_is_still_lossy_and_says_so_per_patch():
     assert "'(' and ')' and '='" in digest.disclosure
 
 
-def test_literary_mode_with_no_collision_in_the_text_says_nothing_was_lost_here():
+def test_literary_mode_without_character_collisions_does_not_promise_reversibility():
     digest = BrailleDiffDigest.from_diff("+hello world\n", FIDELITY_LITERARY)
-    assert digest.lossless is True
-    assert "nothing was lost here" in digest.disclosure
-    assert "code symbols outside this patch would be" in digest.disclosure
+    assert digest.lossless is False
+    assert "non-reversible" in digest.disclosure
+    assert "nothing was lost here" not in digest.disclosure
 
 
 def test_code_mode_defaults_for_a_patch_and_declares_itself_lossless():

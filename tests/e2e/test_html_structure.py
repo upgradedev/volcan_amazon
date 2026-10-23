@@ -1032,9 +1032,12 @@ def test_the_patch_help_names_the_model_data_flow():
     # V1: runLevelOne and runDrillDown set busy state and populate meters on standalone press
     l1 = function_body("runLevelOne")
     drill = function_body("runDrillDown")
-    assert 'setBusy(button, true, "Loading file-by-file")' in l1
+    assert 'beginStageRequest(button, "Loading file-by-file")' in l1
     assert 'renderFindings(digest.data.critical_findings, digest.data.voice_summary)' in l1
-    assert 'setBusy(button, true, "Drilling into file "' in drill
+    assert 'beginStageRequest(button, "Drilling into file "' in drill
+    start = function_body("beginStageRequest")
+    assert "endPreview();" in start and "stopAudio();" in start
+    assert '["runReview", "level1", "drillDown"]' in start
     # V2: multi-file patches cycle through sections via State.sectionIndex / State.sectionCount
     assert "State.sectionCount" in drill and "State.sectionIndex" in drill
     # V3: renderReviewPane displays refusal details when a command is refused

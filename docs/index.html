@@ -230,7 +230,7 @@
       min-height: 220px; resize: vertical;
       font-family: var(--mono); font-size: var(--t-xs); line-height: 1.7;
     }
-    ::placeholder { color: var(--ink-faint); opacity: 1; }
+    ::placeholder { color: var(--ink-soft); opacity: 1; }
 
     /* --- masthead ------------------------------------------------------- */
 
@@ -456,6 +456,9 @@
     .caption { font-size: var(--t-xs); color: var(--ink-soft); margin: 4px 0 0; line-height: 1.5; max-width: var(--measure); }
     .caption code, .boundary code, .hint code { font-size: 0.93em; }
     .caption:empty { display: none; }
+    .caption, .spoken-text, .meters dd, .model-prose, .tools summary {
+      min-width: 0; overflow-wrap: anywhere;
+    }
 
     #spokenPreview:not(:empty), #spokenPane:not(:empty) { min-height: 3.4rem; }
     /* Not yet spoken, so no word is lit or dimmed by speech: the preview
@@ -867,7 +870,7 @@
 
     .promises {
       list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 8px;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
     }
     .promises li { font-size: var(--t-xs); color: var(--ink-soft); padding-left: 22px; position: relative; }
     .promises li::before { content: "\2713" / ""; position: absolute; left: 0; color: var(--ok); font-weight: 700; }
@@ -1177,7 +1180,7 @@
               <button type="button" id="fidelityCode" aria-pressed="true"
                       title="Eight-dot computer Braille: one cell per printable ASCII character, so ( ) and = keep their own cells and the cells decode back to the exact source">Code, 8-dot</button>
               <button type="button" id="fidelityLiterary" aria-pressed="false"
-                      title="Six-dot literary Braille with capital and number prefixes: right for prose, lossy for code because ( ) and = share one cell; the response names every collision in this patch">Literary, 6-dot</button>
+                      title="Six-dot literary Braille is non-reversible: shared cells and ambiguous prefixes can merge different source sequences. Use Code for exact printable ASCII.">Literary, 6-dot</button>
               <button type="button" id="copyBraille" title="Copy the Braille cell stream to the clipboard">Copy the cells</button>
             </div>
           </div>
@@ -1630,6 +1633,7 @@
       mcpStateless: false,
       earconUrl: null,
       brailleFidelity: "code",
+      brailleSeq: 0,
       reviewPath: null,
       lastWords: null,
       lastSamples: null,
@@ -1903,8 +1907,10 @@
     }
 
     var activeAudio = null;
+    var audioGeneration = 0;
 
     function stopAudio() {
+      audioGeneration += 1;
       if (activeAudio) { activeAudio.pause(); activeAudio.currentTime = 0; }
       if ("speechSynthesis" in window) { window.speechSynthesis.cancel(); }
     }
@@ -2142,7 +2148,13 @@
        end, with the same bounded fallback the dialogue uses. */
     function whenCueEnds(action) {
       var done = false;
-      function once() { if (!done) { done = true; action(); } }
+      var generation = audioGeneration;
+      function once() {
+        if (!done) {
+          done = true;
+          if (generation === audioGeneration) { action(); }
+        }
+      }
       if (!activeAudio) { once(); return; }
       activeAudio.addEventListener("ended", once, { once: true });
       activeAudio.addEventListener("error", once, { once: true });
@@ -2583,30 +2595,33 @@
       State.brailleFidelity = fidelity;
       $("fidelityCode").setAttribute("aria-pressed", String(fidelity === "code"));
       $("fidelityLiterary").setAttribute("aria-pressed", String(fidelity === "literary"));
-      if (!State.lastDigest && $("stage").getAttribute("data-preview") === "ready") {
-        rerunBraille();
-        return;
-      }
-      if (!State.lastDigest) {
-        $("brailleCaption").textContent = "Fidelity set to " + fidelity
-          + ". Select Hear this code review and the cells arrive in that table.";
-        return;
-      }
       rerunBraille();
     }
 
     async function rerunBraille() {
+      var seq = State.brailleSeq += 1;
+      var raw = $("diffInput").value;
+      var fidelity = State.brailleFidelity;
       var ready = await requireServer([["brailleOutput", "The Braille cells come from POST /api/braille/diff_digest."]]);
-      if (!ready) { return; }
+      if (seq !== State.brailleSeq) { return; }
+      if (!ready) {
+        announce("runStatus", "No Volcan server answered. The Braille panel explains how to start one.");
+        return;
+      }
       try {
         var braille = await postJson("/api/braille/diff_digest", {
-          raw_diff: $("diffInput").value, fidelity: State.brailleFidelity
+          raw_diff: raw, fidelity: fidelity
         });
+        if (seq !== State.brailleSeq) { return; }
         renderBraille(braille.data, braille.elapsedMs);
         announce("runStatus", "Braille re-rendered in " + braille.data.fidelity + " fidelity. "
           + (braille.data.disclosure || ""));
       } catch (error) {
+        if (seq !== State.brailleSeq) { return; }
         clear($("brailleOutput")).appendChild(failureCard("The Braille call failed: " + error.message + "."));
+        $("brailleCaption").textContent = "No " + fidelity + " cells returned for this patch. Try selecting the table again.";
+        drawGhostCells();
+        announce("runStatus", "The Braille call failed. " + error.message + ". Try selecting the table again.");
       }
     }
 
@@ -2666,6 +2681,16 @@
       } else if (button.dataset.idleLabel) {
         text.nodeValue = " " + button.dataset.idleLabel;
       }
+    }
+
+    function beginStageRequest(button, label) {
+      var seq = State.pressSeq += 1;
+      endPreview();
+      stopAudio();
+      ["runReview", "level1", "drillDown"].forEach(function (id) { setBusy($(id), false); });
+      setBusy(button, true, label);
+      $("runProgress").hidden = false;
+      return seq;
     }
 
     async function requireServer(paneIds) {
@@ -2728,6 +2753,7 @@
     async function previewAnswer() {
       var stage = $("stage");
       var seq = State.previewSeq += 1;
+      var brailleSeq = State.brailleSeq += 1;
       if (!State.live) { stage.setAttribute("data-preview", "offline"); return; }
       stage.setAttribute("data-preview", "pending");
       try {
@@ -2740,7 +2766,7 @@
         var digest = results[0].data;
         clear($("spokenPreview")).appendChild(previewSentence(digest.voice_summary));
         drawSilentEarcon(digest.earcon);
-        renderBraille(results[1].data, results[1].elapsedMs);
+        if (brailleSeq === State.brailleSeq) { renderBraille(results[1].data, results[1].elapsedMs); }
         $("previewEngineFacts").textContent = "Engine: "
           + (digest.synthesis_mode === "bedrock" ? "Amazon Bedrock" : "local heuristic")
           + ". Reported by the server as synthesis_mode: " + digest.synthesis_mode + "."
@@ -2807,6 +2833,7 @@
     }
 
     function schedulePreview(delay) {
+      State.brailleSeq += 1;
       if (!State.live) { return; }
       if (State.lastDigest || State.pressSeq) { resetStage(); }
       else { endPreview(); }
@@ -2835,15 +2862,17 @@
 
     async function runReview() {
       var button = $("runReview");
-      var seq = State.pressSeq += 1;
-      setBusy(button, true, "Running the review");
-      $("runProgress").hidden = false;
+      var seq = beginStageRequest(button, "Running the review");
+      var brailleSeq = State.brailleSeq += 1;
+      var raw = $("diffInput").value;
+      var fidelity = State.brailleFidelity;
       announce("runStatus", "Sending the patch to the Volcan API.");
 
       var ready = await requireServer([
         ["spokenPane", "The digest needs POST /api/digest_semantic_diff, and nothing answered on this origin."],
         ["brailleOutput", "The Braille cells come from POST /api/braille/diff_digest."]
       ]);
+      if (seq !== State.pressSeq) { return; }
       if (!ready) {
         $("runProgress").hidden = true;
         setBusy(button, false);
@@ -2859,9 +2888,9 @@
 
       try {
         var results = await Promise.all([
-          postJson("/api/digest_semantic_diff", { raw_diff: $("diffInput").value, level: 0 }),
+          postJson("/api/digest_semantic_diff", { raw_diff: raw, level: 0 }),
           postJson("/api/braille/diff_digest", {
-            raw_diff: $("diffInput").value, fidelity: State.brailleFidelity
+            raw_diff: raw, fidelity: fidelity
           })
         ]);
         // The patch changed while this request was in flight: its answer
@@ -2889,7 +2918,7 @@
 
         var words = renderSpoken(digest.data, digest.elapsedMs, "Level 0 executive digest");
         renderEarcon(digest.data.earcon);
-        renderBraille(braille.data, braille.elapsedMs);
+        if (brailleSeq === State.brailleSeq) { renderBraille(braille.data, braille.elapsedMs); }
         renderFindings(digest.data.critical_findings, digest.data.voice_summary);
         revealAnswer();
         var prefix = "Round trip " + digest.elapsedMs.toFixed(1) + " milliseconds.";
@@ -2919,15 +2948,15 @@
 
     async function runLevelOne() {
       var button = $("level1");
-      var seq = State.pressSeq += 1;
-      setBusy(button, true, "Loading file-by-file");
-      $("runProgress").hidden = false;
+      var seq = beginStageRequest(button, "Loading file-by-file");
       var ready = await requireServer([
         ["spokenPane", "The file-by-file digest needs POST /api/digest_semantic_diff."]
       ]);
+      if (seq !== State.pressSeq) { return; }
       if (!ready) {
         $("runProgress").hidden = true;
         setBusy(button, false);
+        announce("runStatus", "No Volcan server answered. The file-by-file panel explains how to start one.");
         return;
       }
       try {
@@ -2959,6 +2988,7 @@
       } catch (error) {
         if (seq !== State.pressSeq) { return; }
         spokenTarget().appendChild(failureCard("The level 1 digest call failed: " + error.message + "."));
+        announce("runStatus", "The file-by-file digest failed. " + error.message + ". Try again.");
       } finally {
         if (seq === State.pressSeq) {
           $("runProgress").hidden = true;
@@ -2970,15 +3000,15 @@
     async function runDrillDown() {
       var button = $("drillDown");
       var targetIndex = State.sectionIndex || 0;
-      var seq = State.pressSeq += 1;
-      setBusy(button, true, "Drilling into file " + (targetIndex + 1));
-      $("runProgress").hidden = false;
+      var seq = beginStageRequest(button, "Drilling into file " + (targetIndex + 1));
       var ready = await requireServer([
         ["spokenPane", "The drill down needs POST /api/drill_down_section."]
       ]);
+      if (seq !== State.pressSeq) { return; }
       if (!ready) {
         $("runProgress").hidden = true;
         setBusy(button, false);
+        announce("runStatus", "No Volcan server answered. The drill-down panel explains how to start one.");
         return;
       }
       try {
@@ -3026,6 +3056,7 @@
         if (seq !== State.pressSeq) { return; }
         spokenTarget().appendChild(failureCard("The drill down call failed: " + error.message + ".",
           "This patch may have no section at index " + targetIndex + ". Run the review first to see how many sections the parser found."));
+        announce("runStatus", "The drill down failed. " + error.message + ". Run the review, then try again.");
       } finally {
         if (seq === State.pressSeq) {
           $("runProgress").hidden = true;
@@ -3447,6 +3478,7 @@
       if (!ready) {
         clear($("govPane")).appendChild(offlineCard(
           "Staging needs POST /api/stage_governed_action. The grant is minted and signed by the server, so there is nothing to show without one."));
+        announce("govStatus", "No Volcan server answered. The action was not staged.");
         return;
       }
       var actionId = "act_" + Math.floor(Math.random() * 90000 + 10000);
@@ -3475,6 +3507,7 @@
         refreshAudit();
       } catch (error) {
         clear($("govPane")).appendChild(failureCard("Staging failed: " + error.message + "."));
+        announce("govStatus", "Staging failed. " + error.message + ". Try staging again.");
       }
     }
 
@@ -3482,6 +3515,7 @@
       if (!State.staged) {
         clear($("govPane")).appendChild(el("p", "empty-state-card",
           "Nothing is staged, so there is no grant to present. Select Stage an action first."));
+        announce("govStatus", "Nothing is staged. Select Stage an action first.");
         return;
       }
       clearInterval(State.leaseTimer);
@@ -3507,6 +3541,7 @@
         refreshAudit();
       } catch (error) {
         clear($("govPane")).appendChild(failureCard("The approval call failed: " + error.message + "."));
+        announce("govStatus", "The approval call failed. " + error.message + ". Check the action before retrying.");
       }
     }
 
@@ -3514,6 +3549,7 @@
       if (!State.staged) {
         clear($("govPane")).appendChild(el("p", "empty-state-card",
           "Nothing is staged, so there is nothing to reject."));
+        announce("govStatus", "Nothing is staged, so there is nothing to reject.");
         return;
       }
       clearInterval(State.leaseTimer);
@@ -3692,11 +3728,7 @@
 
     function speakAfterCue(data) {
       if (!data.earcon || !activeAudio) { voiceTurn(data); return; }
-      var spoken = false;
-      function once() { if (!spoken) { spoken = true; voiceTurn(data); } }
-      activeAudio.addEventListener("ended", once, { once: true });
-      activeAudio.addEventListener("error", once, { once: true });
-      setTimeout(once, CUE_TIMEOUT_MS);
+      whenCueEnds(function () { voiceTurn(data); });
     }
 
     function renderReviewPath() {

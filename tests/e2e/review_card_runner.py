@@ -63,6 +63,20 @@ def main(base_url: str) -> None:
         assert focused_in_card(frame) == "cardCancel", "Cancel follows Confirm in the tab order"
         page.keyboard.press("Shift+Tab")
         assert focused_in_card(frame) == "cardConfirm"
+        # A failed host call must expose the error and retain the staged
+        # context/keyboard controls. The next press retries through the host.
+        def reject_confirmation(route):
+            route.fulfill(status=500, json={"detail": "Scripted temporary host failure"})
+
+        page.route("**/api/review/turn", reject_confirmation)
+        page.keyboard.press("Enter")
+        expect(card.locator("#cardError")).to_contain_text("The host did not run confirm")
+        expect(page.locator("#reviewStatus")).to_contain_text("Scripted temporary host failure")
+        assert focused_in_card(frame) == "cardError"
+        expect(confirm).to_be_visible()
+        expect(cancel).to_be_visible()
+        page.unroute("**/api/review/turn", reject_confirmation)
+        confirm.focus()
         page.keyboard.press("Enter")
 
         expect(page.locator("#dialogueLog")).to_contain_text("Pressed in the review card: confirm", timeout=15_000)
