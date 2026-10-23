@@ -1,34 +1,64 @@
 {
-  "_note": "Live HTTP probe of the public API Gateway and Lambda endpoint in eu-west-1. Teardown is intentionally false so the public judge endpoint remains online.",
   "project": "volcan_amazon",
   "aws_region": "eu-west-1",
-  "probed_at_utc": "2026-10-19T07:20:49.627196+00:00",
-  "probes": [
-    {
-      "url": "https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health",
-      "method": "GET",
-      "http_status": 200,
-      "response_body": "{\"status\":\"ok\",\"service\":\"volcan-accessible-forge\",\"version\":\"0.1.0\",\"source_revision\":\"873845d97a4747dc4b85882d3d6593a15759d375\",\"source_revision_origin\":\"SOURCE_REVISION at deploy\",\"mcp\":{\"endpoint\":\"/mcp\",\"protocol_version\":\"2025-11-25\",\"transport\":\"Streamable HTTP\",\"capabilities\":[\"tools\"],\"session_mode\":\"stateless\",\"active_sessions\":0},\"rest_prefix\":\"/api\",\"durable_state\":{\"backend\":\"dynamodb\",\"durable_across_restart\":true,\"shared_across_workers\":true,\"writes\":\"conditional\",\"configured\":true,\"reachable\":true,\"resolved_capability\":\"configured_reachable\",\"approval_secret_persistent\":true,\"approval_secret_source\":\"secrets_manager\",\"audit_chain\":\"transactional_scoped_hash_chains\"},\"bedrock_model_path\":{\"resolved_capability\":\"ready_to_attempt\",\"detail\":\"Credentials resolved and the SDK is importable, so a Bedrock call will be attempted with model anthropic.claude-sonnet-5. Whether one answers is reported per digest as synthesis_mode, with the reason beside it when none did.\",\"credentials_present\":true,\"sdk_installed\":true,\"model_id\":\"anthropic.claude-sonnet-5\",\"region\":\"eu-west-1\"},\"github_review_path\":{\"resolved_capability\":\"dry_run_no_token\",\"detail\":\"Neither VOLCAN_GITHUB_WRITE nor GITHUB_TOKEN is set, so a confirmed review is recorded and not sent, and public pull requests are read unauthenticated.\",\"write_enabled\":false,\"token_present\":false,\"api\":\"https://api.github.com\"},\"supported_earcons\":[\"AGENT_THINKING\",\"DIFF_READY\",\"SECURITY_FINDING\",\"TEST_PASSED\",\"TEST_FAILED\",\"LINT_WARNING\",\"GOVERNANCE_CHALLENGE\",\"ACTION_COMMITTED\",\"DRILL_DOWN_OPENED\",\"DRY_RUN_RECORDED\"]}"
-    },
-    {
-      "url": "https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/",
-      "method": "GET",
-      "http_status": 200,
-      "response_body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Volcan: hear your code review</title>\n  <meta name=\"description\" content=\"Volcan turns a code"
-    },
-    {
-      "url": "https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/mcp",
-      "method": "POST",
-      "http_status": 200,
-      "response_body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{\"tools\":{\"listChanged\":false},\"resources\":{\"listChanged\":false}},\"serverInfo\":{\"name\":\"volcan-accessible-forge\",\"version\":\"0.1.0\"},\"instructions\":\"Volcan turns"
-    }
-  ],
-  "deployed_commit_sha": "873845d97a4747dc4b85882d3d6593a15759d375",
-  "head_at_probe": "873845d97a4747dc4b85882d3d6593a15759d375",
-  "sha_matches_head": true,
-  "mcp_endpoint_status": 200,
+  "deployed_commit_sha": "286cadc8b045d2fb7d831dcdb0f8a3416ad89a00",
+  "head_at_deploy": "286cadc8b045d2fb7d831dcdb0f8a3416ad89a00",
+  "deployment_verified_at_utc": "2026-10-23T11:18:47.291309+00:00",
+  "verification_method": "AWS Lambda control-plane status and CodeSha256 matched to an exact Git archive package",
+  "lambda_state": "Active",
+  "last_update_status": "Successful",
+  "source_revision": "286cadc8b045d2fb7d831dcdb0f8a3416ad89a00",
+  "code_sha256_b64": "Zts9WXZM17JrJZ34A+UFPeX5DIcyMBjs+0JHh7xmneg=",
+  "package_hash_matches": true,
+  "application_files_match_git": true,
+  "application_file_count": 68,
+  "dependency_entries_unchanged": 4729,
+  "environment_values_preserved_except_source_revision": true,
+  "runtime_settings_preserved": true,
+  "github_write": "0",
+  "mcp_mode": "stateless",
+  "temporary_artifact_cleaned_up": true,
+  "model_calls": 0,
+  "probes": [],
   "teardown_performed": false,
   "limitations": [
-    "No teardown was performed during this probe because the public judge endpoint remains online. Idle cost is documented in infra/README.md."
-  ]
+    "No new public HTTP, browser or MCP probe: the browser tool continues to deny this origin. This receipt verifies deployment through AWS control-plane status and the package hash.",
+    "No model was called or real GitHub review submitted during this release.",
+    "No teardown: the judge deployment stays online. Rollback package retained outside the repository.",
+    "The historical public probe below retains its original revision and timestamp; it is not evidence of a new HTTP probe."
+  ],
+  "historical_public_probe": {
+    "_note": "Live HTTP probe of the public API Gateway and Lambda endpoint in eu-west-1. Teardown is intentionally false so the public judge endpoint remains online.",
+    "project": "volcan_amazon",
+    "aws_region": "eu-west-1",
+    "probed_at_utc": "2026-10-19T07:20:49.627196+00:00",
+    "probes": [
+      {
+        "url": "https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/health",
+        "method": "GET",
+        "http_status": 200,
+        "response_body": "{\"status\":\"ok\",\"service\":\"volcan-accessible-forge\",\"version\":\"0.1.0\",\"source_revision\":\"873845d97a4747dc4b85882d3d6593a15759d375\",\"source_revision_origin\":\"SOURCE_REVISION at deploy\",\"mcp\":{\"endpoint\":\"/mcp\",\"protocol_version\":\"2025-11-25\",\"transport\":\"Streamable HTTP\",\"capabilities\":[\"tools\"],\"session_mode\":\"stateless\",\"active_sessions\":0},\"rest_prefix\":\"/api\",\"durable_state\":{\"backend\":\"dynamodb\",\"durable_across_restart\":true,\"shared_across_workers\":true,\"writes\":\"conditional\",\"configured\":true,\"reachable\":true,\"resolved_capability\":\"configured_reachable\",\"approval_secret_persistent\":true,\"approval_secret_source\":\"secrets_manager\",\"audit_chain\":\"transactional_scoped_hash_chains\"},\"bedrock_model_path\":{\"resolved_capability\":\"ready_to_attempt\",\"detail\":\"Credentials resolved and the SDK is importable, so a Bedrock call will be attempted with model anthropic.claude-sonnet-5. Whether one answers is reported per digest as synthesis_mode, with the reason beside it when none did.\",\"credentials_present\":true,\"sdk_installed\":true,\"model_id\":\"anthropic.claude-sonnet-5\",\"region\":\"eu-west-1\"},\"github_review_path\":{\"resolved_capability\":\"dry_run_no_token\",\"detail\":\"Neither VOLCAN_GITHUB_WRITE nor GITHUB_TOKEN is set, so a confirmed review is recorded and not sent, and public pull requests are read unauthenticated.\",\"write_enabled\":false,\"token_present\":false,\"api\":\"https://api.github.com\"},\"supported_earcons\":[\"AGENT_THINKING\",\"DIFF_READY\",\"SECURITY_FINDING\",\"TEST_PASSED\",\"TEST_FAILED\",\"LINT_WARNING\",\"GOVERNANCE_CHALLENGE\",\"ACTION_COMMITTED\",\"DRILL_DOWN_OPENED\",\"DRY_RUN_RECORDED\"]}"
+      },
+      {
+        "url": "https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/",
+        "method": "GET",
+        "http_status": 200,
+        "response_body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Volcan: hear your code review</title>\n  <meta name=\"description\" content=\"Volcan turns a code"
+      },
+      {
+        "url": "https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/mcp",
+        "method": "POST",
+        "http_status": 200,
+        "response_body": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{\"tools\":{\"listChanged\":false},\"resources\":{\"listChanged\":false}},\"serverInfo\":{\"name\":\"volcan-accessible-forge\",\"version\":\"0.1.0\"},\"instructions\":\"Volcan turns"
+      }
+    ],
+    "deployed_commit_sha": "873845d97a4747dc4b85882d3d6593a15759d375",
+    "head_at_probe": "873845d97a4747dc4b85882d3d6593a15759d375",
+    "sha_matches_head": true,
+    "mcp_endpoint_status": 200,
+    "teardown_performed": false,
+    "limitations": [
+      "No teardown was performed during this probe because the public judge endpoint remains online. Idle cost is documented in infra/README.md."
+    ]
+  }
 }
