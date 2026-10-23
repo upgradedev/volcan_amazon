@@ -21,6 +21,24 @@ from src.interfaces.dto import ReviewCard
 from src.interfaces.review_card_view import REVIEW_CARD_HTML
 
 
+@pytest.mark.parametrize(("left", "right"), [("1a", "11"), ("_a", "A"), ("#a", "1")])
+def test_literary_prefix_ambiguity_is_disclosed_in_text_and_digest(left, right):
+    use_case = BrailleDiffUseCase()
+    a = use_case.translate_text(left, FIDELITY_LITERARY)
+    b = use_case.translate_text(right, FIDELITY_LITERARY)
+    assert a["braille_unicode"] == b["braille_unicode"]
+    for text, translated in ((left, a), (right, b)):
+        assert translated["lossless"] is False
+        assert "non-reversible" in translated["disclosure"]
+        digest = use_case.digest_to_braille("+" + text, FIDELITY_LITERARY)
+        assert digest["lossless"] is False
+        assert "ambiguous prefix sequences" in digest["disclosure"]
+        exact = use_case.translate_text(text, FIDELITY_CODE)
+        assert exact["lossless"] is True
+        assert exact["decoded_text"] == text
+    assert text_to_braille(left, FIDELITY_CODE) != text_to_braille(right, FIDELITY_CODE)
+
+
 @pytest.mark.parametrize("text", ["α", "É", "K", "²", "$", "%", "|", "\x00"])
 def test_literary_unsupported_characters_are_marked_and_disclosed(text):
     use_case = BrailleDiffUseCase()

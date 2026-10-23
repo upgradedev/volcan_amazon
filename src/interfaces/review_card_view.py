@@ -251,13 +251,24 @@ REVIEW_CARD_HTML = """<!doctype html>
     // element with the same id, so a redraw never drops it to the top.
     var kept = document.activeElement && document.activeElement !== document.body
       ? document.activeElement.id : "";
-    var body = clear($("cardBody"));
     var data = result && result.structuredContent;
     if (!data || !data.review_card) {
-      $("cardFile").textContent = textOf(result) || "This result carries no card data.";
+      var focusError = refocus || !!kept;
       refocus = false;
+      // Keep the last valid context and controls, including the server's
+      // original single-use grant. Retrying still goes through the host.
+      if (latest) { render({ structuredContent: latest }); }
+      var previousError = $("cardError");
+      if (previousError) { previousError.remove(); }
+      var error = el("p", "outcome", textOf(result) || "This result carries no card data. Try the action again.");
+      error.id = "cardError";
+      error.setAttribute("role", "alert");
+      error.setAttribute("tabindex", "-1");
+      $("cardBody").appendChild(error);
+      if (focusError) { error.focus(); }
       return;
     }
+    var body = clear($("cardBody"));
     latest = data;
     var card = data.review_card;
     $("cardTitle").textContent = data.pull_request

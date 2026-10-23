@@ -341,13 +341,12 @@ class BrailleDiffDigest:
             if self.tab_substituted:
                 parts.append(f"Tabs were rendered as {TAB_WIDTH_CELLS} blank cells.")
             return " ".join(parts)
-        if self.lossless:
-            return (
-                "Six-dot literary Braille with capital and number prefixes. No two "
-                "characters in this patch share a cell, so nothing was lost here; "
-                "code symbols outside this patch would be."
-            )
-        parts = ["Six-dot literary Braille with capital and number prefixes."]
+        parts = [
+            "Six-dot literary Braille with capital and number prefixes. "
+            "This mode is lossy for code: shared cells and ambiguous prefix sequences "
+            "make it non-reversible, even when no character collisions are listed. "
+            "Use eight-dot code fidelity for exact printable ASCII."
+        ]
         if self.collisions:
             named = "; ".join(
                 " and ".join(repr(c) for c in entry["characters"])
@@ -424,7 +423,7 @@ class BrailleDiffDigest:
             lines=lines,
             braille_summary=braille_summary,
             fidelity=fidelity,
-            lossless=not collisions and not unsupported and not tab,
+            lossless=False,
             collisions=collisions,
             unsupported=unsupported,
             tab_substituted=tab,

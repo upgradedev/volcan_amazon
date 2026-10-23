@@ -340,8 +340,127 @@ def stale(base_url: str) -> None:
         browser.close()
 
 
+def resilience(base_url: str) -> None:
+    """Exercise stale responses and recovery against the isolated local app."""
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page.add_init_script("""
+          window.__said = [];
+          speechSynthesis.speak = (u) => window.__said.push(u.text);
+          HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
+        """)
+        page.goto(base_url, wait_until="networkidle")
+        expect(page.locator("#stage")).to_have_attribute("data-preview", "ready")
+
+        # An unfinished cue's fallback must not start speech after Escape.
+        page.locator("#runReview").click()
+        expect(page.locator("#runReview")).to_have_attribute("aria-busy", "false")
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(1700)
+        assert page.evaluate("window.__said") == []
+        page.locator("#openReview").click()
+        expect(page.locator("#dialogueState")).to_have_text("OVERVIEW")
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(1700)
+        assert page.evaluate("window.__said") == [], "dialogue spoke after interruption"
+
+        # Delay a literary response, select Code, then release the older
+        # response. Neither stale cells nor stale errors may replace Code.
+        held = []
+
+        def hold_literary(route):
+            if route.request.post_data_json["fidelity"] == "literary":
+                held.append((route, route.fetch()))
+            else:
+                route.continue_()
+
+        page.route("**/api/braille/diff_digest", hold_literary)
+        page.locator("#fidelityLiterary").click()
+        page.locator("#fidelityCode").click()
+        expect(page.locator("#brailleCaption")).to_contain_text("Fidelity code")
+        assert len(held) == 1
+        route, response = held.pop()
+        route.fulfill(response=response)
+        page.wait_for_timeout(200)
+        expect(page.locator("#brailleCaption")).to_contain_text("Fidelity code")
+        page.locator("#fidelityLiterary").click()
+        with page.expect_request("**/api/braille/diff_digest"):
+            page.locator("#preset4").click()
+        page.wait_for_timeout(100)
+        assert len(held) == 2  # old request and the new patch's preview
+        old_route, _ = held.pop(0)
+        new_route, new_response = held.pop()
+        new_route.fulfill(response=new_response)
+        expect(page.locator("#stage")).to_have_attribute("data-preview", "ready")
+        old_route.fulfill(status=500, json={"detail": "obsolete patch"})
+        page.wait_for_timeout(200)
+        expect(page.locator("#brailleOutput")).not_to_contain_text("obsolete patch")
+        page.unroute("**/api/braille/diff_digest", hold_literary)
+        page.locator("#fidelityCode").click()
+
+        # Superseding a hero request with file-by-file leaves all buttons idle
+        # and preserves the latest answer when the old response arrives.
+        held_digest = []
+
+        def delay_hero(route):
+            if route.request.post_data_json.get("level") == 0:
+                held_digest.append((route, route.fetch()))
+            else:
+                route.continue_()
+
+        page.route("**/api/digest_semantic_diff", delay_hero)
+        page.locator("#runReview").click()
+        expect(page.locator("#runReview")).to_have_attribute("aria-busy", "true")
+        page.locator("#level1").click()
+        expect(page.locator("#level1")).to_have_attribute("aria-busy", "false")
+        for button in ("runReview", "level1", "drillDown"):
+            expect(page.locator("#" + button)).not_to_have_attribute("aria-busy", "true")
+        assert len(held_digest) == 1
+        route, response = held_digest.pop()
+        route.fulfill(response=response)
+        expect(page.locator("#spokenCaption")).to_contain_text("Level 1")
+        page.unroute("**/api/digest_semantic_diff", delay_hero)
+
+        def fail(route):
+            route.fulfill(status=500, json={"detail": "Scripted failure"})
+
+        for endpoint, button, status in (
+            ("digest_semantic_diff", "level1", "runStatus"),
+            ("drill_down_section", "drillDown", "runStatus"),
+            ("braille/diff_digest", "fidelityLiterary", "runStatus"),
+            ("stage_governed_action", "stageBtn", "govStatus"),
+        ):
+            if button == "stageBtn":
+                page.locator("#tabGov").click()
+            pattern = "**/api/" + endpoint
+            page.route(pattern, fail)
+            page.locator("#" + button).click()
+            expect(page.locator("#" + status)).to_contain_text("Scripted failure")
+            page.unroute(pattern, fail)
+        page.locator("#stageBtn").click()
+        expect(page.locator("#govStatus")).to_contain_text(re.compile("confirm", re.I))
+        page.route("**/api/confirm_action", fail)
+        page.locator("#approveBtn").click()
+        expect(page.locator("#govStatus")).to_contain_text("Scripted failure")
+        page.unroute("**/api/confirm_action", fail)
+
+        page.set_viewport_size({"width": 320, "height": 900})
+        page.locator("#tabServer").click()
+        page.evaluate("""
+          for (const selector of ['.spoken-text', '.caption', '.meters dd']) {
+            const node = document.querySelector(selector);
+            if (node) node.textContent = 'a'.repeat(400);
+          }
+        """)
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        page.locator("#keymapOpen").click()
+        assert page.locator("#keymapDialog").evaluate("(d) => d.scrollWidth <= d.clientWidth")
+        browser.close()
+
+
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     modes = {"offline": offline, "silent": silent, "handshake": handshake, "skip": skip,
-             "stale": stale, "voice": voice}
+             "stale": stale, "voice": voice, "resilience": resilience}
     modes[sys.argv[1]](sys.argv[2].rstrip("/"))

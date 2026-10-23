@@ -60,7 +60,10 @@ class BrailleDiffUseCase:
             "original_text": text,
             "braille_unicode": rendered,
             "fidelity": fidelity,
-            "lossless": not collisions and not unsupported and "\t" not in text,
+            # Literary prefixes have sequence ambiguities (1a/11, _a/A).
+            # A per-character collision list cannot prove reversibility.
+            "lossless": False,
+            "disclosure": BrailleDiffDigest.from_diff(text, fidelity).disclosure,
             "decoded_text": None,
             "collisions": collisions,
             "unsupported": unsupported,

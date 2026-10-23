@@ -82,3 +82,7 @@ def test_a_patch_changed_after_a_press_never_sits_beside_the_old_answer(base_url
 
 def test_one_voice_per_answer_and_the_listener_chooses_which(base_url):
     _run("voice", base_url)
+
+
+def test_interrupts_concurrent_actions_and_failures_remain_accessible(base_url):
+    _run("resilience", base_url)
