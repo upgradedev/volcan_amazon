@@ -202,7 +202,7 @@ for a redeploy. The table below gives the commands.
 | **Live endpoint** | Runtime of master `48bdfda0` (PR #48), deployed on 2026-10-23. AWS Lambda Active / Successful; `SOURCE_REVISION` and package CodeSha256 verified. No new public HTTP/browser probe or model call during this release; the 2026-10-19 public probe is retained as dated history. | [`deploy_teardown_receipt.json`](deploy_teardown_receipt.json) |
 | **Evidence** | [docs/EVIDENCE.md](docs/EVIDENCE.md): every claim with the command that prints it |
 | **Friction log** | [docs/FRICTION_LOG.md](docs/FRICTION_LOG.md): eight entries from building Volcan on MCP, Amazon Bedrock, AWS Lambda and the Alexa+ documentation, each with the task attempted, the steps taken, the expected and actual result, a severity rating, the workaround used and an actionable suggestion |
-| **Source** | A private repository. The [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) rule for one: "Add the Amazon and Devpost reviewers as collaborators before the submission deadline". That is an owner step. The MIT licence is in [LICENSE](LICENSE) |
+| **Source** | [Public source repository](https://github.com/upgradedev/volcan_amazon), published on 2026-10-23. Reading and cloning require no collaborator invitation. The MIT licence is in [LICENSE](LICENSE) |
 
 | Part | Status | Check it |
 |---|---|---|
