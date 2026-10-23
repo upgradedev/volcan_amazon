@@ -435,11 +435,12 @@ def resilience(base_url: str) -> None:
                 page.locator("#tabGov").click()
             pattern = "**/api/" + endpoint
             page.route(pattern, fail)
+            page.locator("#" + status).evaluate("(node) => node.textContent = ''")
             page.locator("#" + button).click()
             expect(page.locator("#" + status)).to_contain_text("Scripted failure")
             page.unroute(pattern, fail)
         page.locator("#stageBtn").click()
-        expect(page.locator("#govStatus")).to_contain_text(re.compile("confirm", re.I))
+        expect(page.locator("#govPane")).to_contain_text("A human must approve")
         page.route("**/api/confirm_action", fail)
         page.locator("#approveBtn").click()
         expect(page.locator("#govStatus")).to_contain_text("Scripted failure")

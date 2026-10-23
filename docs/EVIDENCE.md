@@ -937,9 +937,11 @@ the cells and whether it was lossless:
   cells and decode back to themselves.
 * **`literary`.** Six-dot cells with a capital prefix (dot 6) and a number prefix (dots
   3-4-5-6), the shape of uncontracted English Braille, right for prose and lossy for code.
-  When it is used, `lossless` is `false` and `collisions` names, for that patch only, the
-  characters that became indistinguishable, so the reader learns the loss in the text they are
-  about to read rather than a loss in general. Contracted Grade 2 is not implemented.
+  `lossless` is always `false`. The `collisions` list names shared individual cells,
+  but does not exhaust sequence ambiguities: `1a`/`11` and `_a`/`A` also render
+  identically because prefixes are ambiguous. An empty list does not establish
+  reversibility. The disclosure says to use eight-dot code fidelity for exact
+  printable ASCII. Contracted Grade 2 is not implemented.
 
 The page requests `code` by default and offers both as buttons; the caption beside the cells
 prints the server's `fidelity`, `lossless` and `disclosure` fields verbatim. Which symbol lands

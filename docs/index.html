@@ -2619,6 +2619,8 @@
       } catch (error) {
         if (seq !== State.brailleSeq) { return; }
         clear($("brailleOutput")).appendChild(failureCard("The Braille call failed: " + error.message + "."));
+        $("brailleCaption").textContent = "No " + fidelity + " cells returned for this patch. Try selecting the table again.";
+        drawGhostCells();
         announce("runStatus", "The Braille call failed. " + error.message + ". Try selecting the table again.");
       }
     }
