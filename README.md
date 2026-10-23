@@ -18,9 +18,9 @@ The companion page stands in for Alexa+ with the browser's own speech, and its E
 (Server and MCP) sends Amazon's documented Alexa+ client requests to `/mcp` on a press.
 
 **Live.** [qylv1gxor9.execute-api.eu-west-1.amazonaws.com](https://qylv1gxor9.execute-api.eu-west-1.amazonaws.com/)
-runs the runtime of master `286cadc8` ([PR #46](https://github.com/upgradedev/volcan_amazon/pull/46)).
+runs the runtime of master `48bdfda0` ([PR #48](https://github.com/upgradedev/volcan_amazon/pull/48)).
 On 2026-10-23, AWS reported the Lambda Active, its update Successful, and
-`SOURCE_REVISION` `286cadc8b045d2fb7d831dcdb0f8a3416ad89a00`; its code hash matched
+`SOURCE_REVISION` `48bdfda0dac18bf09ff9119375cfe0e6af3214b2`; its code hash matched
 the package built from that Git revision. The deploy preserved the runtime settings
 and environment values except the revision label. No model was called.
 [`deploy_teardown_receipt.json`](deploy_teardown_receipt.json) records those checks.
@@ -137,11 +137,13 @@ python -m pytest tests/ -q
 On Linux, use `python -m playwright install --with-deps chromium` if system
 libraries are missing. Chromium is required by the browser tests.
 
-Master CI [39945711582](https://github.com/upgradedev/volcan_amazon/actions/runs/39945711582)
-at `daf1e641` on 2026-10-23 passed 986 tests with 93.83% statement coverage.
-This branch adds literary-prefix and concurrent-UI regression coverage; its CI
-result must be checked before release. The deploy-parity check skips off master
-when runtime files differ from the current deployment.
+Release CI [39952797077](https://github.com/upgradedev/volcan_amazon/actions/runs/39952797077)
+at `9e1324ee` on 2026-10-23 passed 989 tests with one deploy-parity skip and
+93.83% statement coverage. All 990 tests were collected. The suite includes
+literary-prefix, delayed speech, stale-response, error-announcement, keyboard-focus
+and narrow-layout regressions. The exact merged runtime `48bdfda0` was then deployed;
+its verified deployment receipt is recorded in this follow-up documentation change.
+The deploy-parity check is mandatory on master.
 The `bedrock` extra installs
 `anthropic[bedrock]==1.8.0`. With AWS credentials as well, a Bedrock call is ready to attempt.
 Credentials and an importable SDK do not prove a model answered: the receipt is the digest
@@ -197,7 +199,7 @@ for a redeploy. The table below gives the commands.
 
 | | |
 |---|---|
-| **Live endpoint** | Runtime of master `286cadc8` (PR #46), deployed on 2026-10-23. AWS Lambda Active / Successful; `SOURCE_REVISION` and package CodeSha256 verified. No new public HTTP/browser probe or model call during this release; the 2026-10-19 public probe is retained as dated history. | [`deploy_teardown_receipt.json`](deploy_teardown_receipt.json) |
+| **Live endpoint** | Runtime of master `48bdfda0` (PR #48), deployed on 2026-10-23. AWS Lambda Active / Successful; `SOURCE_REVISION` and package CodeSha256 verified. No new public HTTP/browser probe or model call during this release; the 2026-10-19 public probe is retained as dated history. | [`deploy_teardown_receipt.json`](deploy_teardown_receipt.json) |
 | **Evidence** | [docs/EVIDENCE.md](docs/EVIDENCE.md): every claim with the command that prints it |
 | **Friction log** | [docs/FRICTION_LOG.md](docs/FRICTION_LOG.md): eight entries from building Volcan on MCP, Amazon Bedrock, AWS Lambda and the Alexa+ documentation, each with the task attempted, the steps taken, the expected and actual result, a severity rating, the workaround used and an actionable suggestion |
 | **Source** | A private repository. The [hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) rule for one: "Add the Amazon and Devpost reviewers as collaborators before the submission deadline". That is an owner step. The MIT licence is in [LICENSE](LICENSE) |
@@ -215,7 +217,7 @@ for a redeploy. The table below gives the commands.
 | Shared durable state | Deployed: DynamoDB `volcan-state-euw1-prod` plus a Secrets Manager approval secret; a local run keeps state in memory | The `durable_state` field of `GET /health` says which, and reports reachability only: live durable writes failed until `22c32ab`, and after it Request changes was verified live ([known issue](docs/EVIDENCE.md#known-issue-durable-stages-answered-http-503-on-live)) |
 | Alexa+ MCP add-on package | Built and tested locally, not certified or deployed: the hackathon FAQ says the add-on tools are "available to select partners only", so participants cannot deploy it. A replay of Amazon's documented Alexa+ client requests, against a local build (the registered endpoint runs the `src/` of master `0a30bb8`, `source_revision` read 2026-10-19; the replay was not re-run against that endpoint), gets the finding back from all three client shapes: one that follows the protocol's version rules, one that declares the revision it asked for, and one that never sends the version header. The page's Evidence tab, Server and MCP, runs the same three clients from the browser on a press. Alexa+ has never called it; no Echo test | `python scripts/validate_alexa_addon.py`, then `python scripts/replay_alexa_plus_envelopes.py http://127.0.0.1:8000/mcp`; [Road to Alexa+](docs/EVIDENCE.md#road-to-alexa) |
 | Demo video | Take 6, recorded on 2026-10-19 against live `873845d` with Claude Sonnet 5 answering. The original replay cut is 167.448 s; the trimmed cut is 153.688 s. Saved sync receipts pass for both. No public URL yet. These recordings predate the latest Braille/UI fixes; they show the earlier runtime. | [video/README.md](video/README.md) |
-| Test suite | Last verified master CI [39945711582](https://github.com/upgradedev/volcan_amazon/actions/runs/39945711582), `daf1e641`, 2026-10-23: 986 passed, 93.83% statement coverage, readiness 47/53 with zero blocking failures and six external blockers. This branch adds regression tests; see its CI before release. | `python -m pytest tests/ -q --cov=src` |
+| Test suite | Release CI [39952797077](https://github.com/upgradedev/volcan_amazon/actions/runs/39952797077), `9e1324ee`, 2026-10-23: 989 passed, one deploy-parity skip, 93.83% statement coverage. All 990 tests collected. Exact merged runtime `48bdfda0` deployed and receipt verified afterwards; final master CI must enforce parity without the skip. | `python -m pytest tests/ -q --cov=src` |
 
 ## Who it is for and who pays
 
