@@ -172,10 +172,8 @@ shown), `submitted` (only when the server runs with `VOLCAN_GITHUB_WRITE=1` and 
 `GITHUB_TOKEN`), or `refused` with the reason, `STALE_HEAD` when the pull request moved after
 you reviewed it. Section [The review journey](#the-review-journey) has the whole grammar.
 
-Requires Python 3.11 or newer. The repository is private, so `git clone` needs access. The
-[hackathon FAQ](https://amazonappdev2026.devpost.com/details/faqs) rule for a private repository: "Add the Amazon and
-Devpost reviewers as collaborators before the submission deadline". The
-MIT licence stays in [LICENSE](../LICENSE).
+Requires Python 3.11 or newer. The repository has been public since 2026-10-23;
+`git clone` needs no collaborator invitation. The MIT licence is in [LICENSE](../LICENSE).
 
 ---
 
