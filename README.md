@@ -36,7 +36,7 @@ It is not an Alexa skill, the Alexa+ front end is simulated, and GitHub reviews 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25-blue.svg)](https://modelcontextprotocol.io)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
-[![tests](https://img.shields.io/badge/tests-960%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-986%20passing-brightgreen.svg)](tests/)
 
 ## Table of Contents
 
@@ -129,6 +129,13 @@ Python 3.11 or newer. No AWS account, GitHub token or device is needed.
 python -m pip install -e ".[dev,bedrock]"
 python -m pytest tests/ -q
 ```
+
+CI run [39942874953](https://github.com/upgradedev/volcan_amazon/actions/runs/39942874953)
+at `43bded2` on 2026-10-23 collected 986 tests, including the new Braille
+loss-disclosure and browser-credential isolation regressions. Its full-suite,
+browser, lint and build steps passed; readiness rejected the stale 960-test
+badge, now updated to the collected count. Statement coverage was 93.83%.
+The earlier measurements below retain their original revisions and dates.
 
 CI run 39131949075 on master at `0a30bb8` printed `934 passed` on 2026-10-18.
 `python -m pytest tests/ --collect-only -q` collects 960 on 2026-10-19: 934 at `0a30bb8`, 22

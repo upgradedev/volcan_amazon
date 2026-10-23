@@ -3,7 +3,7 @@
 
 Simulates:
 - 40-cell physical electro-mechanical pin lifting
-- 6-dot Unicode dot matrix rendering
+- 8-dot Unicode dot matrix rendering
 - Tactile AST Diff preview and Perkins keyboard chord inputs
 """
 import sys
@@ -25,13 +25,14 @@ def render_tactile_pin_cells(braille_str: str, max_cells: int = 40) -> str:
     while len(cells) < max_cells:
         cells.append("\u2800")
 
-    # Build 3-row pin matrix for 6-dot cells
+    # Eight-dot cells need four rows: dots 7 and 8 sit below dots 3 and 6.
     top_row = []
     mid_row = []
     bot_row = []
+    last_row = []
 
     for c in cells:
-        cp = ord(c) - 0x2800
+        cp = ord(c) - 0x2800 if "\u2800" <= c <= "\u28ff" else 0
         # Dot 1 (0x01) / Dot 4 (0x08)
         d1 = "o" if cp & 0x01 else "."
         d4 = "o" if cp & 0x08 else "."
@@ -47,13 +48,18 @@ def render_tactile_pin_cells(braille_str: str, max_cells: int = 40) -> str:
         d6 = "o" if cp & 0x20 else "."
         bot_row.append(f"{d3}{d6}")
 
+        d7 = "o" if cp & 0x40 else "."
+        d8 = "o" if cp & 0x80 else "."
+        last_row.append(f"{d7}{d8}")
+
     header = "+" + "--+" * (max_cells - 1) + "--+"
     r1 = "|" + "|".join(top_row) + "|"
     r2 = "|" + "|".join(mid_row) + "|"
     r3 = "|" + "|".join(bot_row) + "|"
+    r4 = "|" + "|".join(last_row) + "|"
     footer = "+" + "--+" * (max_cells - 1) + "--+"
 
-    return f"{header}\n{r1}\n{r2}\n{r3}\n{footer}"
+    return f"{header}\n{r1}\n{r2}\n{r3}\n{r4}\n{footer}"
 
 
 def main() -> None:

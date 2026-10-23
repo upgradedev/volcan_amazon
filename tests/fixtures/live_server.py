@@ -6,7 +6,6 @@ without touching the process the rest of the suite imported.
 """
 from __future__ import annotations
 
-import os
 import socket
 import subprocess
 import sys
@@ -16,6 +15,8 @@ from collections.abc import Iterator
 from contextlib import closing, contextmanager
 
 import httpx
+
+from tests.fixtures.isolated_environment import isolated_test_environment
 
 
 def free_port() -> int:
@@ -36,9 +37,8 @@ def running_server(
     """
     port = free_port()
     url = f"http://127.0.0.1:{port}"
-    env = os.environ.copy()
+    env = isolated_test_environment(env_overrides)
     env["VOLCAN_ALLOWED_ORIGINS"] = url
-    env.update(env_overrides or {})
     command = (
         [*launcher, str(port)] if launcher else
         [sys.executable, "-m", "uvicorn", "src.interfaces.mcp_server:app",
@@ -79,4 +79,5 @@ def run_script(*args: str, timeout: int = 120) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, *args], capture_output=True, text=True,
         encoding="utf-8", errors="replace", timeout=timeout,
+        env=isolated_test_environment(),
     )

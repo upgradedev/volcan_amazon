@@ -39,6 +39,8 @@ BLANK_CELL = "⠀"
 #: table in code fidelity, so the finger meets a deliberate marker rather than a
 #: blank that reads as a space.
 UNSUPPORTED_CELL = "⣿"
+#: Literary mode keeps its six-dot layout, including its unsupported marker.
+LITERARY_UNSUPPORTED_CELL = "⠿"
 
 
 def cell(dots: str) -> str:
@@ -129,22 +131,24 @@ def _literary(text: str) -> str:
     in_number = False
 
     for char in text:
-        if char.isdigit():
+        if char in "0123456789":
             if not in_number:
                 result.append(NUMBER_PREFIX)
                 in_number = True
             result.append(BRAILLE_MAP.get(char, BLANK_CELL))
         else:
             in_number = False
-            if char.isupper():
+            if "A" <= char <= "Z":
                 result.append(CAPITAL_PREFIX)
                 result.append(BRAILLE_MAP.get(char.lower(), BLANK_CELL))
             elif char in BRAILLE_MAP:
                 result.append(BRAILLE_MAP[char])
             elif char == "\n":
                 result.append("\n")
+            elif char == "\t":
+                result.append(BLANK_CELL * TAB_WIDTH_CELLS)
             else:
-                result.append(BLANK_CELL)
+                result.append(LITERARY_UNSUPPORTED_CELL)
 
     return "".join(result)
 
@@ -161,10 +165,10 @@ def literary_collisions(text: str) -> List[dict]:
     """
     by_cell: Dict[str, set] = {}
     for char in set(text):
-        if char.isupper():
+        if "A" <= char <= "Z":
             rendered = BRAILLE_MAP.get(char.lower())
             by_cell.setdefault(CAPITAL_PREFIX, set()).add("capital prefix")
-        elif char.isdigit():
+        elif char in "0123456789":
             rendered = BRAILLE_MAP.get(char)
             by_cell.setdefault(NUMBER_PREFIX, set()).add("number prefix")
         else:
@@ -267,9 +271,15 @@ def braille_to_text(cells: str) -> str:
     return "".join(out)
 
 
-def unsupported_characters(text: str) -> List[str]:
-    """Characters in ``text`` that the code table cannot represent, sorted."""
-    return sorted({c for c in text if c not in CODE_BRAILLE_MAP and c not in ("\n", "\t")})
+def unsupported_characters(text: str, fidelity: str = FIDELITY_CODE) -> List[str]:
+    """Characters the requested table cannot represent, sorted."""
+    if fidelity == FIDELITY_CODE:
+        supported = CODE_BRAILLE_MAP
+    elif fidelity == FIDELITY_LITERARY:
+        supported = {**BRAILLE_MAP, **{c.upper(): b for c, b in BRAILLE_MAP.items()}}
+    else:
+        raise ValueError(f"Unknown Braille fidelity '{fidelity}'; expected one of {FIDELITIES}.")
+    return sorted({c for c in text if c not in supported and c not in ("\n", "\t")})
 
 
 def code_fidelity_table() -> List[tuple]:
@@ -310,7 +320,7 @@ class BrailleDiffDigest:
     lossless: bool = True
     #: Characters that share a cell in this patch, literary fidelity only.
     collisions: List[dict] = field(default_factory=list)
-    #: Characters with no cell in the code table, rendered as the full cell.
+    #: Characters with no cell in the selected table, rendered as the full cell.
     unsupported: List[str] = field(default_factory=list)
     #: True when the patch contained a tab that became blank cells.
     tab_substituted: bool = False
@@ -319,34 +329,44 @@ class BrailleDiffDigest:
     def disclosure(self) -> str:
         """One sentence a display or a page can print beside the cells."""
         if self.fidelity == FIDELITY_CODE:
-            parts = [
-                "Eight-dot computer Braille: one cell per printable character, "
-                "so every code symbol keeps its own cell and the cells decode back "
-                "to the exact source."
-            ]
+            parts = ["Eight-dot computer Braille: one cell per printable ASCII character."]
+            if self.lossless:
+                parts.append("The cells decode back to the exact source.")
             if self.unsupported:
                 parts.append(
-                    f"{len(self.unsupported)} non-ASCII characters have no cell in this "
+                    f"{len(self.unsupported)} unsupported characters (non-ASCII or control characters) have no cell in this "
                     "table and are rendered as the full eight-dot cell: "
                     + ", ".join(repr(c) for c in self.unsupported[:6]) + "."
                 )
             if self.tab_substituted:
                 parts.append(f"Tabs were rendered as {TAB_WIDTH_CELLS} blank cells.")
             return " ".join(parts)
-        if not self.collisions:
+        if self.lossless:
             return (
                 "Six-dot literary Braille with capital and number prefixes. No two "
                 "characters in this patch share a cell, so nothing was lost here; "
                 "code symbols outside this patch would be."
             )
-        named = "; ".join(
-            " and ".join(repr(c) for c in entry["characters"]) + f" all read as dots {entry['dots'] or 'blank'}"
-            for entry in self.collisions[:5]
-        )
-        return (
-            "Six-dot literary Braille with capital and number prefixes. This mode is "
-            f"lossy for code: in this patch {named}. Switch to code fidelity to keep them apart."
-        )
+        parts = ["Six-dot literary Braille with capital and number prefixes."]
+        if self.collisions:
+            named = "; ".join(
+                " and ".join(repr(c) for c in entry["characters"])
+                + f" all read as dots {entry['dots'] or 'blank'}"
+                for entry in self.collisions[:5]
+            )
+            parts.append(
+                f"This mode is lossy for code: in this patch {named}. "
+                "Switch to code fidelity to keep them apart."
+            )
+        if self.unsupported:
+            parts.append(
+                f"{len(self.unsupported)} unsupported characters have no cell in this table "
+                "and are rendered as the full six-dot cell: "
+                + ", ".join(repr(c) for c in self.unsupported[:6]) + "."
+            )
+        if self.tab_substituted:
+            parts.append(f"Tabs were rendered as {TAB_WIDTH_CELLS} blank cells.")
+        return " ".join(parts)
 
     @classmethod
     def from_diff(cls, diff_text: str, fidelity: str = FIDELITY_CODE) -> "BrailleDiffDigest":
@@ -395,6 +415,8 @@ class BrailleDiffDigest:
             )
 
         collisions = literary_collisions(diff_text)
+        unsupported = unsupported_characters(diff_text, fidelity)
+        tab = "\t" in diff_text
         return cls(
             total_lines=len(lines),
             additions_count=adds,
@@ -402,8 +424,8 @@ class BrailleDiffDigest:
             lines=lines,
             braille_summary=braille_summary,
             fidelity=fidelity,
-            lossless=not collisions,
+            lossless=not collisions and not unsupported and not tab,
             collisions=collisions,
-            unsupported=[],
-            tab_substituted=False,
+            unsupported=unsupported,
+            tab_substituted=tab,
         )

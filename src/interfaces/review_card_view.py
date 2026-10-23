@@ -292,7 +292,7 @@ REVIEW_CARD_HTML = """<!doctype html>
     body.appendChild(list);
     var count = "Showing " + card.changed_lines_shown + " of " + card.changed_lines_total + " changed lines in this hunk.";
     if (card.changed_lines_shown < card.changed_lines_total) { count += " Say read the lines for the rest."; }
-    if (!card.braille_lossless) { count += " A full cell marks a character the code table has no cell for."; }
+    if (!card.braille_lossless) { count += " Braille is not lossless here. Tabs become blank cells; unsupported characters become full cells."; }
     body.appendChild(el("p", "count", count));
     renderAction(body, data);
     // A press replaces the buttons with the answer, so focus follows the
