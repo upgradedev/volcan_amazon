@@ -455,7 +455,9 @@ def resilience(base_url: str) -> None:
           }
         """)
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-        page.locator("#keymapOpen").click()
+        page.locator("#main").focus()
+        page.keyboard.press("?")
+        expect(page.locator("#keymapDialog")).to_be_visible()
         assert page.locator("#keymapDialog").evaluate("(d) => d.scrollWidth <= d.clientWidth")
         browser.close()
 
